@@ -189,12 +189,18 @@ EXPECTED_FRAMENEST_BASENAME_PATHS: frozenset[str] = frozenset(
 )
 
 PER_TREE_FRAMENEST_FILE_COUNT = {
-    "src": 255,
+    # KSI-IMPL-C2B moved `src` by -1 and `extension` by -2, and nothing else.
+    # No path was renamed, so `src` losing a file is content-only:
+    # `adapters/api/web/index.html` carried five user-visible `FrameNest` prose
+    # strings and now carries none, so it leaves this content set entirely.
+    # In `extension`, `manifest.json` (three display fields) and `ui/sidebar.html`
+    # (five human-readable strings) each lost their last occurrence and left.
+    "src": 254,
     "tests": 321,
     "deploy": 19,
     "scripts": 7,
     "docs": 88,
-    "extension": 12,
+    "extension": 10,
 }
 
 # Occurrence counts, not file counts. A content-only rename inside an already
@@ -228,12 +234,30 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # emit-spelling test and the two new protocol constants it pins) and
     # companion_review_extension +3 (the synthetic end-to-end delivery of the
     # retired spelling in that test).
-    "src": 2985,
-    "tests": 4517,
+    # KSI-IMPL-C2B moved `src` by -7, `extension` by -14, and `tests` by +1.
+    #
+    # `src` -7: `media_content_api.py` -1 and `application/media_content.py` -1
+    # for the download-filename fallback, and `adapters/api/web/index.html` -5
+    # for the five user-visible prose strings.
+    #
+    # `extension` -14: `manifest.json` -3 (display name, description, action
+    # title), `ui/sidebar.html` -5 (title, wordmark, origin label, origin note,
+    # frame title), `shared/messages.js` -1 (the context-recovery copy only),
+    # and -5 for the mirrored download filename across
+    # `background/service_worker.js` -2, `content/x_adapter.js` -1,
+    # `ui/picker.js` -1 and `ui/sidebar.js` -1. No CSS, DOM hook, port name,
+    # storage key, alarm name, protocol string or API version moved.
+    #
+    # `tests` +1: `x_companion_extension.test.js` +2 and
+    # `companion_review_extension.test.js` -1, and
+    # `contract/test_media_content_api.py` is unmoved because its pin lost one
+    # retired spelling and the new fallback test adds one back.
+    "src": 2978,
+    "tests": 4518,
     "deploy": 212,
     "scripts": 104,
     "docs": 1216,
-    "extension": 190,
+    "extension": 176,
 }
 
 # The exact tracked text paths, this ledger excluded, whose decoded content
@@ -246,6 +270,15 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # when a file that should not have been renamed no longer does. It is
 # deliberately not recomputed from the working tree, which would make the
 # assertion tautological.
+#
+# KSI-IMPL-C2B removed exactly three paths from this set, and no path was added.
+# Each removal is a whole-file consequence of retiring user-visible text, not a
+# path rename: `extension/manifest.json` lost its three display fields,
+# `extension/ui/sidebar.html` lost its five human-readable strings, and
+# `src/framenest/adapters/api/web/index.html` lost its five prose strings. Each
+# of those files now carries no `framenest` spelling in any case, so it is
+# correctly absent rather than merely renamed. No file that still carries the
+# token was dropped, and no file that no longer carries it was retained.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -372,14 +405,12 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "extension/background/service_worker.js",
         "extension/content/x_adapter.js",
         "extension/content/x_adapter_contract_v1.js",
-        "extension/manifest.json",
         "extension/shared/messages.js",
         "extension/ui/picker.html",
         "extension/ui/picker.js",
         "extension/ui/review.js",
         "extension/ui/save.html",
         "extension/ui/save.js",
-        "extension/ui/sidebar.html",
         "extension/ui/sidebar.js",
         "framenest",
         "pyproject.toml",
@@ -421,7 +452,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/framenest/adapters/api/web/__init__.py",
         "src/framenest/adapters/api/web/app.js",
         "src/framenest/adapters/api/web/companion_host.js",
-        "src/framenest/adapters/api/web/index.html",
         "src/framenest/adapters/api/workspace_media_api.py",
         "src/framenest/adapters/api/x_admin_api.py",
         "src/framenest/adapters/api/x_companion_api.py",
@@ -1007,8 +1037,17 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # KSI-CORR-05 moved this by +1: the one capitalized product name its new
 # `loadSidebarBridgeContext` helper returns alongside the bridge. The file count
 # is unmoved, because that file already carried the name.
-CAPITALIZED_OCCURRENCE_COUNT = 3397
-CAPITALIZED_FILE_COUNT = 482
+#
+# KSI-IMPL-C2B moved this by -13 occurrences and -3 files. The occurrences are
+# the fourteen user-visible `FrameNest` strings it retired
+# (`manifest.json` 3, `ui/sidebar.html` 5, `shared/messages.js` 1,
+# `adapters/api/web/index.html` 5) less the one retired spelling its repointed
+# tests reintroduce as a negative assertion. The three files are
+# `extension/manifest.json`, `extension/ui/sidebar.html` and
+# `src/framenest/adapters/api/web/index.html`, each of which now carries no
+# capitalized name at all and so leaves this count as well as the content set.
+CAPITALIZED_OCCURRENCE_COUNT = 3384
+CAPITALIZED_FILE_COUNT = 479
 
 CONSOLE_SCRIPT_ENTRY_COUNT = 14
 

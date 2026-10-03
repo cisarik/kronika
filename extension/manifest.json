@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "FrameNest X Companion",
+  "name": "Kronika X Companion",
   "version": "0.2.0",
-  "description": "Save eligible X posts to FrameNest and attach catalog memes to the X composer. Never posts on your behalf.",
+  "description": "Save eligible X posts to Kronika and attach catalog memes to the X composer. Never posts on your behalf.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAk+DT1ZBjww8xYZdAu8w/aP2z6FN687ZpA+ajrgpaKGTl9pxWsARGso/e/4SVFiIA/L7wdegolasemaJK4HPunLhfpgZu7aH1LkPGn5mO52Fp5euAxO6dGIe+PqfLaO8P2WiMCBbis6RvmpHBJvrHZm0g62o3B4Dd58MGfKUleEXLc0YUjObN8rx5m2Ixu+Ji3qGEJKWXCW9/pWSp7xCuqqbZne/XzyPFB5UlPbzwxRipYESyY36SvgbG/T0MhNkYUkO+wJpdqsWsOnJ5SVcmM0RiPvptkKJiCbG/RuAGzSltN9Veoo7KbYCZGsxRlMaphluomm7UPeOVBF+eETCioQIDAQAB",
   "permissions": ["alarms", "sidePanel", "storage"],
   "optional_permissions": ["downloads"],
@@ -11,7 +11,7 @@
     "service_worker": "background/service_worker.js"
   },
   "action": {
-    "default_title": "FrameNest companion",
+    "default_title": "Kronika companion",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

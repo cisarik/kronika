@@ -972,7 +972,7 @@ async function transferAttach(port, payload) {
       payload: {
         phase: "meta",
         mediaType: response.headers.get("content-type") || payload.mediaType,
-        filename: payload.filename || "framenest-media.bin",
+        filename: payload.filename || "kronika-media.bin",
       },
     });
     const reader = response.body.getReader();
@@ -1037,5 +1037,5 @@ async function fallbackDownload(url, filename) {
       return;
     }
   }
-  await chrome.downloads.download({ url, filename: filename || "framenest-media.bin", saveAs: true });
+  await chrome.downloads.download({ url, filename: filename || "kronika-media.bin", saveAs: true });
 }

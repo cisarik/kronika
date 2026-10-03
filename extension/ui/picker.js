@@ -251,7 +251,7 @@
       mediaId: item.media_id,
       locationId: item.location.location_id,
       mediaType: item.location.media_type,
-      filename: "framenest-media.bin",
+      filename: "kronika-media.bin",
     });
     if (runtimeStale || (result && result.stale === true)) {
       return;

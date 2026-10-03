@@ -2094,7 +2094,7 @@
     const chunks = [];
     let total = 0;
     let mediaType = "application/octet-stream";
-    let filename = "framenest-media.bin";
+    let filename = "kronika-media.bin";
     port.onMessage.addListener((message) => {
       const parsed = companion.dropUnknown(message);
       if (!parsed) {

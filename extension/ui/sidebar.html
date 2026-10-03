@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>FrameNest</title>
+    <title>Kronika</title>
     <link rel="stylesheet" href="sidebar.css" />
   </head>
   <body>
@@ -17,7 +17,7 @@
           aria-controls="review-history"
           disabled
         ></button>
-        <span class="title-bar__wordmark">FrameNest</span>
+        <span class="title-bar__wordmark">Kronika</span>
         <button id="settings-open" class="title-bar__settings" type="button" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="settings-dialog">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path
@@ -50,13 +50,13 @@
             <button id="settings-close" class="settings-dialog__close" type="button" aria-label="Close settings">✕</button>
           </div>
           <div class="settings-dialog__body">
-            <label for="origin">FrameNest origin</label>
+            <label for="origin">Kronika origin</label>
             <input id="origin" type="text" spellcheck="false" autocomplete="off" />
             <button id="settings-save" class="settings-dialog__save" type="button" aria-label="Save settings" disabled>
               Save
             </button>
             <p class="settings-dialog__note">
-              Origin is the FrameNest tailnet URL (https://&lt;node&gt;.&lt;tailnet&gt;.ts.net).
+              Origin is the Kronika tailnet URL (https://&lt;node&gt;.&lt;tailnet&gt;.ts.net).
               Save accepts a pasted tailnet HTTPS origin and canonicalizes a trailing slash or host case.
               Save writes settings. Connect and Disconnect in the title bar attach or clear the session.
             </p>
@@ -83,7 +83,7 @@
       <p id="shell-status" class="shell-status" role="status"></p>
     </header>
     <main class="sidebar-main">
-      <iframe id="frame" title="FrameNest" hidden></iframe>
+      <iframe id="frame" title="Kronika" hidden></iframe>
       <dialog id="review-dialog" class="review-dialog" aria-label="Review suggestion">
         <iframe id="review-frame" class="review-dialog__frame" title="Review suggestion"></iframe>
       </dialog>

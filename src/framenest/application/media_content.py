@@ -49,7 +49,7 @@ class ResolvedMediaContent:
     stream: Callable[[int, int | None], Iterator[bytes]]
     close: Callable[[], None]
     mtime_ns: int | None = None
-    download_filename: str = "framenest-media.bin"
+    download_filename: str = "kronika-media.bin"
 
 
 def supported_media_type(kind: MediaKind, extension: str) -> str | None:

@@ -17,7 +17,7 @@
   const CHUNK_BYTES = 24 * 1024;
   const EXTENSION_CONTEXT_INVALIDATED_SIGNATURE = "Extension context invalidated";
   const EXTENSION_CONTEXT_RECOVERY_COPY =
-    "FrameNest was reloaded. Refresh X and reopen the side panel.";
+    "Kronika was reloaded. Refresh X and reopen the side panel.";
   const UUID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const POST_ID_PATTERN = /^[0-9]{1,19}$/;

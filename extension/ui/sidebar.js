@@ -895,7 +895,7 @@
     const result = await request(companion.TYPES.ATTACH_BEGIN, {
       mediaId: ids.mediaId,
       locationId: ids.locationId,
-      filename: "framenest-media.bin",
+      filename: "kronika-media.bin",
     });
     if (runtimeStale || (result && result.stale === true)) {
       return;

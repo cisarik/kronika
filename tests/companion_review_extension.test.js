@@ -533,6 +533,55 @@ function fakeReviewChromeNodes() {
   };
 }
 
+test("manifest display name and side-panel wordmark carry one identical brand", () => {
+  const wordmark = sidebarHtml.match(
+    /class="title-bar__wordmark"[^>]*>([^<]*)</
+  );
+  assert.ok(wordmark, "the side panel must keep its wordmark element");
+  const wordmarkText = wordmark[1].trim();
+  assert.ok(wordmarkText.length > 0, "the wordmark must not be emptied");
+
+  const brand = manifest.name.split(/\s+/)[0];
+  assert.equal(
+    wordmarkText,
+    brand,
+    "one-sided rename guard: the manifest display name and the side-panel " +
+      "wordmark must carry the same brand word"
+  );
+
+  for (const [surface, text] of [
+    ["manifest.name", manifest.name],
+    ["manifest.description", manifest.description],
+    ["manifest.action.default_title", manifest.action.default_title],
+    ["sidebar wordmark", wordmarkText],
+    ["sidebar <title>", (sidebarHtml.match(/<title>([^<]*)<\/title>/) || [])[1]],
+    ["sidebar origin label", (sidebarHtml.match(/<label for="origin">([^<]*)</) || [])[1]],
+    [
+      "sidebar frame title",
+      (sidebarHtml.match(/<iframe id="frame" title="([^"]*)"/) || [])[1],
+    ],
+    ["EXTENSION_CONTEXT_RECOVERY_COPY", companion.EXTENSION_CONTEXT_RECOVERY_COPY],
+  ]) {
+    assert.doesNotMatch(
+      text || "",
+      /FrameNest/i,
+      `${surface} must not name the retired brand`
+    );
+  }
+
+  for (const [surface, text] of [
+    ["manifest.action.default_title", manifest.action.default_title],
+    ["sidebar origin label", (sidebarHtml.match(/<label for="origin">([^<]*)</) || [])[1]],
+    ["sidebar frame title", (sidebarHtml.match(/<iframe id="frame" title="([^"]*)"/) || [])[1]],
+    ["EXTENSION_CONTEXT_RECOVERY_COPY", companion.EXTENSION_CONTEXT_RECOVERY_COPY],
+  ]) {
+    assert.ok(
+      (text || "").includes(brand),
+      `${surface} must name the same brand as the manifest display name`
+    );
+  }
+});
+
 test("manifest adds alarms, keeps action, and does not add notifications or overlay WAR", () => {
   assert.deepEqual(manifest.permissions.sort(), ["alarms", "sidePanel", "storage"]);
   assert.equal((manifest.permissions || []).includes("alarms"), true);
@@ -542,7 +591,7 @@ test("manifest adds alarms, keeps action, and does not add notifications or over
   assert.equal("externally_connectable" in manifest, false);
   assert.equal(typeof manifest.action, "object");
   assert.equal("default_popup" in manifest.action, false);
-  assert.equal(manifest.action.default_title, "FrameNest companion");
+  assert.equal(manifest.action.default_title, "Kronika companion");
   const war = manifest.web_accessible_resources[0].resources.slice().sort();
   assert.deepEqual(war, [
     "ui/picker.css",
@@ -640,7 +689,7 @@ test("shared extension-context classifier is exact and exposes one recovery copy
   const signature = companion.EXTENSION_CONTEXT_INVALIDATED_SIGNATURE;
   const copy = companion.EXTENSION_CONTEXT_RECOVERY_COPY;
   assert.equal(signature, "Extension context invalidated");
-  assert.equal(copy, "FrameNest was reloaded. Refresh X and reopen the side panel.");
+  assert.equal(copy, "Kronika was reloaded. Refresh X and reopen the side panel.");
   assert.equal(companion.isExtensionContextInvalidated(null), true);
   assert.equal(companion.isExtensionContextInvalidated({ id: "" }), true);
   assert.equal(

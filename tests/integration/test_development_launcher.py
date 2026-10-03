@@ -59,7 +59,9 @@ def test_development_launcher_real_process_lifecycle(tmp_path: Path) -> None:
 
         with urlopen(f"http://127.0.0.1:{port}/", timeout=3) as response:
             assert response.status == 200
-            assert b"FrameNest" in response.read()
+            served_root = response.read()
+        assert b"Kronika" in served_root
+        assert b"FrameNest" not in served_root
 
         restarted = _run(["restart", "--no-open"], env=env)
         assert restarted.returncode == 0, restarted.stderr

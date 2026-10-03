@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from framenest.adapters.api.application import create_app
-from framenest.adapters.api.media_content_api import MediaContentApiDependencies
+from framenest.adapters.api.media_content_api import (
+    MediaContentApiDependencies,
+    _FALLBACK_DOWNLOAD_FILENAME,
+)
 from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
 from tests.support.record_access import scoped_policy, synthetic_identity
 from framenest.application.media_content import (
@@ -156,7 +159,16 @@ def test_download_content_disposition_defends_against_unsanitized_dependency_fil
     resolved = _resolved("video/mp4", MP4_BYTES, download_filename='bad\r\nname".mp4')
     response = _client(resolve=_FakeResolveContent(result=resolved)).get(DOWNLOAD_PATH)
     assert response.status_code == 200
-    assert response.headers["content-disposition"] == 'attachment; filename="framenest-media.bin"'
+    assert response.headers["content-disposition"] == 'attachment; filename="kronika-media.bin"'
+
+
+def test_fallback_download_filename_is_kronika_only():
+    """The unusable-filename fallback is the sole writer of the served filename."""
+    default = {f.name: f for f in fields(ResolvedMediaContent)}["download_filename"].default
+    assert _FALLBACK_DOWNLOAD_FILENAME == "kronika-media.bin"
+    assert "framenest" not in _FALLBACK_DOWNLOAD_FILENAME.lower()
+    assert default == "kronika-media.bin"
+    assert default == _FALLBACK_DOWNLOAD_FILENAME
 
 
 def test_closed_range_206():

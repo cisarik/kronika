@@ -139,7 +139,8 @@ def test_root_serves_framenest_application_document(client: TestClient) -> None:
 
     html = response.text
     parsed = _parse_document(html)
-    assert "FrameNest" in html
+    assert "Kronika" in html
+    assert "FrameNest" not in html
     assert parsed.main_count == 1
     assert parsed.stylesheet_hrefs == ["/assets/styles.css"]
     assert parsed.script_srcs == ["/assets/companion_host.js", "/assets/app.js"]
@@ -963,7 +964,8 @@ def test_application_header_is_sticky_and_contains_brand(client: TestClient) -> 
     html = client.get("/").text
     assert 'class="app-header' in html
     assert "position: sticky" in client.get("/assets/styles.css").text.lower()
-    assert "FrameNest" in html
+    assert "Kronika" in html
+    assert "FrameNest" not in html
     assert "brand" in html
 
 

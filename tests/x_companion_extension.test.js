@@ -1352,7 +1352,8 @@ test("toolbar action opens the side-panel shell instead of a picker popup", () =
   assert.ok(sidebarHtml.indexOf('id="review-history"') < sidebarHtml.indexOf('id="frame"'));
   assert.equal(sidebarHtml.indexOf('id="review-inbox"'), -1);
   assert.equal(sidebarHtml.indexOf('id="review-inbox-list"'), -1);
-  assert.match(sidebarHtml, /class="title-bar__wordmark">FrameNest</);
+  assert.match(sidebarHtml, /class="title-bar__wordmark">Kronika</);
+  assert.doesNotMatch(sidebarHtml, /FrameNest/);
   assert.match(sidebarHtml, /id="chrome-action"/);
   assert.match(sidebarHtml, />Connect</);
   assert.doesNotMatch(sidebarHtml, />Reset</);
@@ -2622,5 +2623,8 @@ test("Extension version is at least the dual-send revision so a reload is observ
     major > 0 || minor >= 2,
     "the dual-send revision must be distinguishable from the pre-cut 0.1.0 in the browser extension page"
   );
-  assert.equal(manifest.name, "FrameNest X Companion", "the display name is a deferred Cooperator decision");
+  assert.equal(manifest.name, "Kronika X Companion", "the display name is the single product identity");
+  assert.doesNotMatch(manifest.name, /FrameNest/i);
+  assert.doesNotMatch(manifest.description, /FrameNest/i);
+  assert.doesNotMatch(manifest.action.default_title, /FrameNest/i);
 });

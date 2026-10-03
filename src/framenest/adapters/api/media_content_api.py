@@ -42,7 +42,7 @@ RANGE_NOT_SATISFIABLE_CODE = "RANGE_NOT_SATISFIABLE"
 RANGE_NOT_SATISFIABLE_MESSAGE = "Requested range is not satisfiable."
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store"}
-_FALLBACK_DOWNLOAD_FILENAME = "framenest-media.bin"
+_FALLBACK_DOWNLOAD_FILENAME = "kronika-media.bin"
 
 
 class ErrorBody(BaseModel):
