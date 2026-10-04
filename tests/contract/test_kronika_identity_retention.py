@@ -442,6 +442,7 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # `scripts/**` members are untouched and stay. No file that still carries the
 # token was dropped, and no file that no longer carries it was retained.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
+    {
         ".gitignore",
         "AGENTS.md",
         "AI_WORKSPACE.md",
@@ -949,6 +950,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/x_companion_extension.test.js",
         "tests/youtube_acquisition_cockpit.test.js",
         "tests/youtube_request_cockpit.test.js",
+    }
 )
 
 # KSI-IMPL-C3B moved the token count by -2 and the distinct-name count by -1,
