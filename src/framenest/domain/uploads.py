@@ -11,7 +11,7 @@ import uuid
 from framenest.domain.identities import MediaByteIdentityId
 from framenest.domain.identity_access import MAX_LOGIN_LENGTH
 
-INVALID_UPLOAD_SESSION_MESSAGE = "Invalid FrameNest upload session."
+INVALID_UPLOAD_SESSION_MESSAGE = "Invalid Kronika upload session."
 INVALID_UPLOAD_TRANSITION_MESSAGE = "Invalid upload session transition."
 INCOMPLETE_UPLOAD_SESSION_MESSAGE = "Incomplete upload session."
 INVALID_UPLOAD_OFFSET_MESSAGE = "Invalid upload offset."

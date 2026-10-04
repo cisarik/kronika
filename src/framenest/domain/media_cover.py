@@ -8,8 +8,8 @@ from enum import StrEnum
 
 from framenest.domain.identities import FrameNestIdentityError, MediaId, MediaLocationId
 
-INVALID_COVER_MESSAGE = "Invalid FrameNest accepted cover."
-INVALID_SOURCE_OBSERVATION_MESSAGE = "Invalid FrameNest cover source observation."
+INVALID_COVER_MESSAGE = "Invalid Kronika accepted cover."
+INVALID_SOURCE_OBSERVATION_MESSAGE = "Invalid Kronika cover source observation."
 
 SOURCE_OBSERVATION_ALGORITHM = "cover-source-observation-v1"
 COVER_ARTIFACT_PROFILE = "durable-cover-jpeg-v1"

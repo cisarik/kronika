@@ -48,7 +48,7 @@ def test_development_launcher_real_process_lifecycle(tmp_path: Path) -> None:
     try:
         started = _run(["start", "--no-open"], env=env)
         assert started.returncode == 0, started.stderr
-        assert "FrameNest is running" in started.stdout
+        assert "Kronika is running" in started.stdout
         assert env["FRAMENEST_DATABASE_PATH"] not in started.stdout
         assert _health(port) == {"status": "ok"}
 

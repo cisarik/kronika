@@ -37,7 +37,7 @@ MEDIA_NOT_FOUND_MESSAGE = "Media not found."
 ALIAS_TAG_NOT_FOUND_CODE = "ALIAS_TAG_NOT_FOUND"
 ALIAS_TAG_NOT_FOUND_MESSAGE = "Canonical tag not found."
 ALIAS_INVALID_CODE = "ALIAS_INVALID"
-ALIAS_INVALID_MESSAGE = "Invalid FrameNest media user alias."
+ALIAS_INVALID_MESSAGE = "Invalid Kronika media user alias."
 ALIAS_OPERATION_FAILED_CODE = "ALIAS_OPERATION_FAILED"
 ALIAS_OPERATION_FAILED_MESSAGE = "Media user alias operation failed."
 

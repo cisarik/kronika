@@ -19,7 +19,7 @@ from framenest.domain.media_metadata import (
 )
 from framenest.domain.x_acquisition import XPostClaimId
 
-INVALID_MEDIA_USER_ALIAS_MESSAGE = "Invalid FrameNest media user alias."
+INVALID_MEDIA_USER_ALIAS_MESSAGE = "Invalid Kronika media user alias."
 
 
 class FrameNestMediaUserAliasError(ValueError):

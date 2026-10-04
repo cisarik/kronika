@@ -367,16 +367,16 @@ class XAcquisitionRequestService:
             live = self._live_catalog_categories(claim)
             if live is None:
                 raise XAcquisitionCategoryConflictError(
-                    "Requested category conflicts with the existing FrameNest save."
+                    "Requested category conflicts with the existing Kronika save."
                 )
             if len(live) != 1 or next(iter(live)) != requested:
                 raise XAcquisitionCategoryConflictError(
-                    "Requested category conflicts with the existing FrameNest save."
+                    "Requested category conflicts with the existing Kronika save."
                 )
             return
         if claim.requested_content_category != requested:
             raise XAcquisitionCategoryConflictError(
-                "Requested category conflicts with the existing FrameNest save."
+                "Requested category conflicts with the existing Kronika save."
             )
 
     def _live_catalog_categories(self, claim: XPostClaim) -> set[ContentCategory] | None:

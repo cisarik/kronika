@@ -8,7 +8,7 @@ from alembic import context
 def run_migrations_online() -> None:
     connection = context.config.attributes.get("connection")
     if connection is None:
-        raise RuntimeError("FrameNest migration connection is unavailable.")
+        raise RuntimeError("Kronika migration connection is unavailable.")
     context.configure(
         connection=connection,
         target_metadata=None,

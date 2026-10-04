@@ -289,8 +289,41 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `youtube_acquisition_cockpit.test.js` net -1, 0, 0 and -1. The two
     # download-stem pins each lost the retired stem and added a retired-spelling
     # prohibition in its place, so each is provably unchanged.
-    "src": 2968,
-    "tests": 4492,
+    #
+    # KSI-IMPL-C2D moved `src` by -49 and `tests` by -14, and nothing else.
+    #
+    # `src` -49 is exactly the forty-nine user-visible and operator-facing
+    # `FrameNest` strings this cut retired, one per changed line, across
+    # twenty-three files: `domain/media.py` -3, `domain/media_cover.py` -2,
+    # `domain/libraries.py` -2, `adapters/api/x_request_api.py` -2,
+    # `application/x_acquisition.py` -3, `adapters/cli/youtube.py` -3,
+    # `adapters/cli/development.py` -3, `infrastructure/runtime/development.py`
+    # -12, `infrastructure/runtime/production.py` -3,
+    # `infrastructure/persistence/cli.py` -3, and -1 each in
+    # `domain/media_metadata.py`, `domain/media_user_alias.py`,
+    # `domain/identities.py`, `domain/devices.py`, `domain/uploads.py`,
+    # `adapters/api/media_alias_api.py`, `application/library_workflow.py`,
+    # `application/movie_identification.py`, `infrastructure/ai/prompts.py`,
+    # `infrastructure/persistence/alembic_environment/env.py`,
+    # `adapters/cli/ai.py`, `configuration.py` and `server.py`. No docstring, no
+    # comment, no class or module name, no path expression, no Alembic revision
+    # and no cross-boundary protocol string moved. `extension`, `deploy`,
+    # `scripts` and `docs` are unmoved because this cut touches no JavaScript
+    # and no document.
+    #
+    # `tests` -14 is exactly the fourteen repointed literals, one per changed
+    # line, across nine files: `unit/domain/test_media.py` -3,
+    # `unit/domain/test_libraries.py` -2,
+    # `unit/application/test_library_workflow.py` -2,
+    # `contract/test_operator_cli_hygiene.py` -2, and -1 each in
+    # `unit/domain/test_identities.py`, `unit/domain/test_devices.py`,
+    # `unit/infrastructure/runtime/test_development_runtime.py`,
+    # `contract/test_x_request_api.py` and
+    # `integration/test_development_launcher.py`. No test was added or removed,
+    # no negative assertion was repointed, and no test fixture literal was
+    # touched.
+    "src": 2919,
+    "tests": 4478,
     "deploy": 212,
     "scripts": 104,
     "docs": 1216,
@@ -1095,8 +1128,24 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # `extension/ui/save.html` and `extension/ui/picker.html`, each of which now
 # carries no capitalized name at all and so leaves this count as well as the
 # content set.
-CAPITALIZED_OCCURRENCE_COUNT = 3315
-CAPITALIZED_FILE_COUNT = 477
+#
+# KSI-IMPL-C2D moved this by -63 occurrences and -3 files. The occurrences are
+# the forty-nine product strings it retired plus the fourteen repointed test
+# literals, and nothing was reintroduced: this cut added no guard, no negative
+# assertion and no provenance comment inside a counted path, so the movement is
+# the exact sum of its two per-tree movements above with no offset.
+#
+# The three files are `src/framenest/infrastructure/ai/prompts.py` (its only
+# capitalized name was the externally sent media-suggestion system prompt),
+# `tests/contract/test_operator_cli_hygiene.py` (its two were the two
+# configuration-error message literals) and
+# `tests/unit/application/test_library_workflow.py` (its two were the two
+# device display-name literals). Each still carries a lowercase `framenest`
+# spelling in an import path, so all three correctly REMAIN in
+# `EXPECTED_FRAMENEST_CONTENT_PATHS` below and this is a capitalized-count
+# movement only, not a content-set movement.
+CAPITALIZED_OCCURRENCE_COUNT = 3252
+CAPITALIZED_FILE_COUNT = 474
 
 CONSOLE_SCRIPT_ENTRY_COUNT = 14
 

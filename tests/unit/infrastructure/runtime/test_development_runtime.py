@@ -232,7 +232,7 @@ def test_child_spawn_failure_is_sanitized(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert result.ok is False
     assert result.status.kind == "unhealthy"
-    assert result.message == "FrameNest startup failed. Check logs for details."
+    assert result.message == "Kronika startup failed. Check logs for details."
 
 
 def test_health_timeout_terminates_only_new_child_and_cleans_state(

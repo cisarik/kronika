@@ -8,8 +8,8 @@ from pathlib import PurePosixPath, PureWindowsPath
 
 from framenest.domain.identities import DeviceId, LibraryId
 
-INVALID_LIBRARY_MESSAGE = "Invalid FrameNest library."
-INVALID_ROOT_MESSAGE = "Invalid FrameNest library root."
+INVALID_LIBRARY_MESSAGE = "Invalid Kronika library."
+INVALID_ROOT_MESSAGE = "Invalid Kronika library root."
 MAX_ROOT_PATH_CODE_POINTS = 4096
 
 

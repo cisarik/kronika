@@ -182,7 +182,7 @@ def create_x_request_api_router(
                 content_category=requested_category,
             )
         except FrameNestMediaUserAliasError:
-            return _error(ALIAS_INVALID, "Invalid FrameNest media user alias.", 422)
+            return _error(ALIAS_INVALID, "Invalid Kronika media user alias.", 422)
         except AliasTagNotFoundError:
             return _error(ALIAS_TAG_NOT_FOUND, "Canonical tag not found.", 422)
         except (XAcquisitionInvalidRequestError, FrameNestXUrlError):
@@ -204,7 +204,7 @@ def create_x_request_api_router(
         except XAcquisitionCategoryConflictError:
             return _error(
                 X_REQUEST_CATEGORY_CONFLICT,
-                "Requested category conflicts with the existing FrameNest save.",
+                "Requested category conflicts with the existing Kronika save.",
                 409,
             )
         except XAcquisitionInfrastructureError:

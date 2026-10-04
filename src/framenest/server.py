@@ -144,7 +144,7 @@ def main() -> None:
     except KeyboardInterrupt:
         return
     except FrameNestConfigurationError as exc:
-        print(f"FrameNest configuration error: {exc}", file=sys.stderr)
+        print(f"Kronika configuration error: {exc}", file=sys.stderr)
         status = (
             exc.exit_status
             if isinstance(exc, IdentityEnvironmentConfigurationError)

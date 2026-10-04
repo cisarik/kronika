@@ -458,7 +458,7 @@ class FrameNestSettings(BaseSettings):
         for first, second in _disjoint_pairs(storage_paths):
             if _paths_overlap(first, second):
                 raise ValueError(
-                    "FrameNest private storage paths must not overlap"
+                    "Kronika private storage paths must not overlap"
                 )
         return self
 

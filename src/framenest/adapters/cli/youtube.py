@@ -184,7 +184,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except FrameNestConfigurationError:
         _write_error(
             "YOUTUBE_CONFIGURATION_FAILED",
-            "FrameNest configuration could not be loaded.",
+            "Kronika configuration could not be loaded.",
         )
         return 6
     except _TerminalFailureError as exc:
@@ -210,13 +210,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     except _ProtocolError:
         _write_error(
             "YOUTUBE_LOOPBACK_UNAVAILABLE",
-            "The loopback FrameNest operator API is unavailable.",
+            "The loopback Kronika operator API is unavailable.",
         )
         return 5
     except Exception:
         _write_error(
             "YOUTUBE_LOOPBACK_UNAVAILABLE",
-            "The loopback FrameNest operator API is unavailable.",
+            "The loopback Kronika operator API is unavailable.",
         )
         return 5
 

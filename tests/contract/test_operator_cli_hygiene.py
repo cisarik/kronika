@@ -152,7 +152,7 @@ def test_db_status_explicit_missing_env_file_fails_closed_sanitized(
     assert result.stdout == ""
     payload = json.loads(result.stderr)
     assert payload["error_code"] == "FRAMENEST_DB_CONFIGURATION_FAILED"
-    assert payload["message"] == "FrameNest configuration could not be loaded."
+    assert payload["message"] == "Kronika configuration could not be loaded."
     assert str(missing) not in result.stderr
     assert "Traceback" not in result.stderr
     assert "Permission denied" not in result.stderr
@@ -173,7 +173,7 @@ def test_youtube_explicit_missing_env_file_fails_closed_sanitized(
     assert result.stdout == ""
     payload = json.loads(result.stderr)
     assert payload["error_code"] == "YOUTUBE_CONFIGURATION_FAILED"
-    assert payload["message"] == "FrameNest configuration could not be loaded."
+    assert payload["message"] == "Kronika configuration could not be loaded."
     assert str(missing) not in result.stderr
     assert "Traceback" not in result.stderr
 

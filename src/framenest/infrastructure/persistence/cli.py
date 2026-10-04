@@ -67,7 +67,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_error(
             operation=operation,
             error_code=CONFIGURATION_ERROR_CODE,
-            message="FrameNest configuration could not be loaded.",
+            message="Kronika configuration could not be loaded.",
         )
         return 1
     except (FrameNestPersistenceError, Exception):
@@ -82,8 +82,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = _ArgumentParser(prog="framenest-db", add_help=True)
     subcommands = parser.add_subparsers(dest="operation", required=True)
-    subcommands.add_parser("migrate", help="Upgrade the FrameNest database to head.")
-    subcommands.add_parser("status", help="Inspect the FrameNest database revision.")
+    subcommands.add_parser("migrate", help="Upgrade the Kronika database to head.")
+    subcommands.add_parser("status", help="Inspect the Kronika database revision.")
     return parser
 
 

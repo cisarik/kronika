@@ -717,7 +717,7 @@ def _resolve(context: _CliContext) -> ResolvedAiProvider:
         raise AiConfigurationError(str(exc)) from exc
     except FrameNestConfigurationError as exc:
         raise AiConfigurationError(
-            "FrameNest configuration could not be loaded."
+            "Kronika configuration could not be loaded."
         ) from exc
     return resolve_ai_provider(settings, config_path=context.config_path)
 

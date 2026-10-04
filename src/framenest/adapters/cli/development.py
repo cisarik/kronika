@@ -32,7 +32,7 @@ class _ArgumentParser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = _ArgumentParser(
         prog="framenest-dev",
-        description="Control the local FrameNest browser-development server.",
+        description="Control the local Kronika browser-development server.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
@@ -79,7 +79,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return EXIT_USAGE
             return _print_logs(runtime, follow=args.follow, lines=args.lines)
     except DevelopmentRuntimeError as exc:
-        print(f"FrameNest launcher error: {exc}", file=sys.stderr)
+        print(f"Kronika launcher error: {exc}", file=sys.stderr)
         if isinstance(exc, IdentityEnvironmentDevelopmentError):
             return exc.exit_status
         return EXIT_ERROR
@@ -112,7 +112,7 @@ def _print_status_lines(status: RuntimeStatus, *, stream: object) -> None:
 def _print_logs(runtime: DevelopmentRuntime, *, follow: bool, lines: int) -> int:
     tail = runtime.read_log_tail(lines=lines)
     if not tail:
-        print("FrameNest development log is not yet available.")
+        print("Kronika development log is not yet available.")
     else:
         for line in tail:
             print(line, end="" if line.endswith("\n") else "\n")

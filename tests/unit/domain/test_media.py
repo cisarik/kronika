@@ -21,9 +21,9 @@ from framenest.domain.media import (
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DOMAIN_MEDIA_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "media.py"
-INVALID_MEDIA_MESSAGE = "Invalid FrameNest media."
-INVALID_LOCATION_MESSAGE = "Invalid FrameNest media location."
-INVALID_PATH_MESSAGE = "Invalid FrameNest media relative path."
+INVALID_MEDIA_MESSAGE = "Invalid Kronika media."
+INVALID_LOCATION_MESSAGE = "Invalid Kronika media location."
+INVALID_PATH_MESSAGE = "Invalid Kronika media relative path."
 
 
 def test_valid_logical_media_construction() -> None:

@@ -18,7 +18,7 @@ from framenest.domain import Device, DeviceId, FrameNestDeviceError, FrameNestLi
 from framenest.domain.media import MediaLocationAvailability, MediaRelativePath
 from framenest.application.root_paths import roots_overlap
 
-SERVER_DEVICE_DISPLAY_NAME = "FrameNest Server"
+SERVER_DEVICE_DISPLAY_NAME = "Kronika Server"
 
 
 class LibraryWorkflowError(RuntimeError):

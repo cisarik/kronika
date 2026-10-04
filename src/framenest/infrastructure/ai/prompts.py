@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from framenest.application.media_suggestion import PROMPT_VERSION
 
-MEDIA_SUGGESTION_PROMPT = f"""You are FrameNest's media metadata assistant.
+MEDIA_SUGGESTION_PROMPT = f"""You are Kronika's media metadata assistant.
 
 Prompt version: {PROMPT_VERSION}
 

@@ -83,7 +83,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_error(
             operation=operation,
             error_code=HEALTH_CHECK_FAILED_CODE,
-            message="FrameNest health check failed.",
+            message="Kronika health check failed.",
         )
         return 5
     except IdentityEnvironmentConfigurationError as exc:
@@ -111,11 +111,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subcommands.add_parser(
         "check-health",
-        help="Verify the FrameNest listener answers a local /health request.",
+        help="Verify the Kronika listener answers a local /health request.",
     )
     subcommands.add_parser(
         "serve",
-        help="Run the production FrameNest server in the foreground.",
+        help="Run the production Kronika server in the foreground.",
     )
     return parser
 

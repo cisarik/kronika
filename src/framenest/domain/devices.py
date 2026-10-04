@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from framenest.domain.identities import DeviceId
 
-INVALID_DEVICE_MESSAGE = "Invalid FrameNest device."
+INVALID_DEVICE_MESSAGE = "Invalid Kronika device."
 
 
 class FrameNestDeviceError(ValueError):

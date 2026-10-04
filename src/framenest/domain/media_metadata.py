@@ -17,7 +17,7 @@ from framenest.domain.media_classification import (
     MovieGenre,
 )
 
-INVALID_MEDIA_METADATA_MESSAGE = "Invalid FrameNest media metadata."
+INVALID_MEDIA_METADATA_MESSAGE = "Invalid Kronika media metadata."
 PROCESSED_COLLECTION_KEY = "processed"
 MAX_DISPLAY_TITLE_CODE_POINTS = 240
 MAX_TAG_KEY_CODE_POINTS = 64

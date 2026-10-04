@@ -8,9 +8,9 @@ from pathlib import PurePosixPath, PureWindowsPath
 
 from framenest.domain.identities import LibraryId, MediaId, MediaLocationId
 
-INVALID_MEDIA_MESSAGE = "Invalid FrameNest media."
-INVALID_LOCATION_MESSAGE = "Invalid FrameNest media location."
-INVALID_PATH_MESSAGE = "Invalid FrameNest media relative path."
+INVALID_MEDIA_MESSAGE = "Invalid Kronika media."
+INVALID_LOCATION_MESSAGE = "Invalid Kronika media location."
+INVALID_PATH_MESSAGE = "Invalid Kronika media relative path."
 MAX_RELATIVE_PATH_CODE_POINTS = 4096
 
 

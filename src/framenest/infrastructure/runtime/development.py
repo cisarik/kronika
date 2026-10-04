@@ -219,7 +219,7 @@ class DevelopmentRuntime:
             if status.kind == "running":
                 if open_after_start:
                     self._open_healthy_url(status.url or self.url)
-                return RuntimeResult(True, status, f"FrameNest is already running at {self.url}")
+                return RuntimeResult(True, status, f"Kronika is already running at {self.url}")
             if status.kind == "conflict":
                 return RuntimeResult(False, status, status.message)
             if status.kind == "unhealthy":
@@ -270,7 +270,7 @@ class DevelopmentRuntime:
                 self._write_state(state)
                 state_written = True
                 if not self._wait_for_health():
-                    raise DevelopmentRuntimeError("FrameNest did not become healthy in time.")
+                    raise DevelopmentRuntimeError("Kronika did not become healthy in time.")
             except Exception:
                 if process is not None and self._is_pid_live(process.pid):
                     self._terminate_pid(process.pid)
@@ -283,7 +283,7 @@ class DevelopmentRuntime:
                     pid=process.pid if process is not None else None,
                     database_state=migration_result.state,
                     log_available=self._paths.log_path.exists(),
-                    message="FrameNest startup failed. Check logs for details.",
+                    message="Kronika startup failed. Check logs for details.",
                 )
                 return RuntimeResult(False, status, status.message)
 
@@ -293,7 +293,7 @@ class DevelopmentRuntime:
                 pid=process.pid,
                 database_state=migration_result.state,
                 log_available=self._paths.log_path.exists(),
-                message=f"FrameNest is running at {self.url}",
+                message=f"Kronika is running at {self.url}",
             )
             if open_after_start:
                 self._open_healthy_url(self.url)
@@ -311,9 +311,9 @@ class DevelopmentRuntime:
                     pid=None,
                     database_state=self._database_state(),
                     log_available=self._paths.log_path.exists(),
-                    message="FrameNest is stopped.",
+                    message="Kronika is stopped.",
                 )
-                return RuntimeResult(True, stopped, "FrameNest is stopped.")
+                return RuntimeResult(True, stopped, "Kronika is stopped.")
             if status.kind == "conflict" or state is None:
                 return RuntimeResult(False, status, status.message)
 
@@ -335,7 +335,7 @@ class DevelopmentRuntime:
                 pid=None,
                 database_state=self._database_state(),
                 log_available=self._paths.log_path.exists(),
-                message="FrameNest stopped.",
+                message="Kronika stopped.",
             )
             return RuntimeResult(True, stopped, stopped.message)
 
@@ -352,7 +352,7 @@ class DevelopmentRuntime:
     def open(self) -> RuntimeResult:
         status = self.status()
         if status.kind != "running" or status.url is None:
-            return RuntimeResult(False, status, "FrameNest is not running.")
+            return RuntimeResult(False, status, "Kronika is not running.")
         try:
             self._open_healthy_url(status.url)
         except DevelopmentRuntimeError as exc:
@@ -415,7 +415,7 @@ class DevelopmentRuntime:
                     pid=None,
                     database_state=self._database_state(),
                     log_available=self._paths.log_path.exists(),
-                    message="FrameNest is stopped.",
+                    message="Kronika is stopped.",
                 ),
                 None,
             )
@@ -465,7 +465,7 @@ class DevelopmentRuntime:
                     pid=state.pid,
                     database_state=self._database_state(),
                     log_available=self._paths.log_path.exists(),
-                    message=f"FrameNest is running at {_url(state.port)}",
+                    message=f"Kronika is running at {_url(state.port)}",
                 ),
                 state,
             )
@@ -476,7 +476,7 @@ class DevelopmentRuntime:
                 pid=state.pid,
                 database_state=self._database_state(),
                 log_available=self._paths.log_path.exists(),
-                message="Managed FrameNest process is running but health is not ready.",
+                message="Managed Kronika process is running but health is not ready.",
             ),
             state,
         )
@@ -616,7 +616,7 @@ class DevelopmentRuntime:
                 except BlockingIOError as exc:
                     if self._now() >= deadline:
                         raise RuntimeLockError(
-                            "Another FrameNest runtime operation is in progress."
+                            "Another Kronika runtime operation is in progress."
                         ) from exc
                     self._sleep(0.1)
             try:

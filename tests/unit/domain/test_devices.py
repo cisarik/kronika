@@ -12,7 +12,7 @@ from framenest.domain import Device, DeviceId, FrameNestDeviceError, LibraryId, 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DOMAIN_DEVICES_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "devices.py"
-EXPECTED_ERROR_MESSAGE = "Invalid FrameNest device."
+EXPECTED_ERROR_MESSAGE = "Invalid Kronika device."
 CANONICAL_UUID4_TEXT = "12345678-1234-4234-9234-123456789abc"
 SECOND_CANONICAL_UUID4_TEXT = "abcdefab-cdef-4abc-8def-abcdefabcdef"
 

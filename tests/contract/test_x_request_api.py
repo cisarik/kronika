@@ -279,7 +279,7 @@ def test_category_conflict_maps_to_sanitized_409() -> None:
     class _ConflictService:
         def submit(self, url: str, login_key: str, alias=None, content_category=None):
             raise XAcquisitionCategoryConflictError(
-                "Requested category conflicts with the existing FrameNest save."
+                "Requested category conflicts with the existing Kronika save."
             )
 
     client = TestClient(_app(_ConflictService()))

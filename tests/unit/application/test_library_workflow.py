@@ -209,7 +209,7 @@ def test_declined_add_plan_leaves_all_state_unchanged_before_confirmation() -> N
     plan = workflow.plan_add(root=_root(), display_name="Imported", limits=default_scan_limits())
 
     assert plan.device_to_create is not None
-    assert plan.device_to_create.display_name == "FrameNest Server"
+    assert plan.device_to_create.display_name == "Kronika Server"
     assert scanner.calls == 1
     assert devices.list_all() == ()
     assert libraries.list_all() == ()
@@ -224,7 +224,7 @@ def test_confirmed_zero_device_add_creates_server_device_library_and_catalog() -
     summary = workflow.confirm_add(plan)
 
     assert len(devices.list_all()) == 1
-    assert devices.list_all()[0].display_name == "FrameNest Server"
+    assert devices.list_all()[0].display_name == "Kronika Server"
     assert len(libraries.list_all()) == 1
     assert len(media.list_media()) == 1
     assert len(media.list_all_locations()) == 1

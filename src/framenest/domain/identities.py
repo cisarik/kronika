@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import uuid
 from typing import Self
 
-INVALID_IDENTITY_MESSAGE = "Invalid FrameNest identity."
+INVALID_IDENTITY_MESSAGE = "Invalid Kronika identity."
 
 
 class FrameNestIdentityError(ValueError):

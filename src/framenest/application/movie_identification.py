@@ -233,7 +233,7 @@ def movie_identification_prompt(*, hints: LocalMovieHints) -> str:
         f"{hints.height if hints.height is not None else '?'}",
     ]
     genre_names = ", ".join(MOVIE_GENRE_DISPLAY_NAMES[genre] for genre in MovieGenre)
-    return f"""You are FrameNest's movie identification assistant.
+    return f"""You are Kronika's movie identification assistant.
 
 Prompt version: {MOVIE_IDENTIFICATION_PROMPT_VERSION}
 

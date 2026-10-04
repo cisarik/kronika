@@ -22,8 +22,8 @@ from framenest.domain import (
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 LIBRARIES_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "libraries.py"
-INVALID_LIBRARY_MESSAGE = "Invalid FrameNest library."
-INVALID_ROOT_MESSAGE = "Invalid FrameNest library root."
+INVALID_LIBRARY_MESSAGE = "Invalid Kronika library."
+INVALID_ROOT_MESSAGE = "Invalid Kronika library root."
 SECRET_REJECTED_PATH = "/secret/rejected/path"
 SECRET_REJECTED_NAME = "secret-rejected-name"
 

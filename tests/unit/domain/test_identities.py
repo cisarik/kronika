@@ -36,7 +36,7 @@ UUIDV1 = uuid.UUID(UUIDV1_TEXT)
 UUIDV3 = uuid.uuid3(uuid.NAMESPACE_DNS, "framenest.example")
 UUIDV5 = uuid.uuid5(uuid.NAMESPACE_DNS, "framenest.example")
 NON_RFC_VARIANT_UUID = uuid.UUID(UNSUPPORTED_VARIANT_UUID_TEXT)
-EXPECTED_ERROR_MESSAGE = "Invalid FrameNest identity."
+EXPECTED_ERROR_MESSAGE = "Invalid Kronika identity."
 
 
 @pytest.mark.parametrize("identity_type", IDENTITY_TYPES)
