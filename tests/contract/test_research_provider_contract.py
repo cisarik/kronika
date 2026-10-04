@@ -9,15 +9,15 @@ from pathlib import Path
 
 import pytest
 
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
 
-from framenest.application.ports.research import (
+from kronika.application.ports.research import (
     ResearchBudgetLedger,
     ResearchProvider,
     ResearchRequestRepository,
     ResearchResultCompletion,
 )
-from framenest.domain.research import (
+from kronika.domain.research import (
     MICRO_USD_SCALE,
     NONTERMINAL_RESEARCH_LIFECYCLE_STATES,
     RESEARCH_ERROR_CODES,
@@ -50,8 +50,8 @@ from framenest.domain.research import (
     UsagePriceSchedule,
     usage_cost_micro_usd,
 )
-from framenest.infrastructure.ai.research_configuration import default_research_configuration
-from framenest.infrastructure.ai.research_registry import select_research_provider
+from kronika.infrastructure.ai.research_configuration import default_research_configuration
+from kronika.infrastructure.ai.research_registry import select_research_provider
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN_IMPORT_ROOTS = frozenset(
@@ -376,7 +376,7 @@ def test_ports_do_not_accept_client_endpoint_model_or_tool_fields() -> None:
     select = inspect.signature(select_research_provider)
     assert set(select.parameters) == {"config", "kind"}
     registry_source = (
-        REPOSITORY_ROOT / "src" / "framenest" / "infrastructure" / "ai" / "research_registry.py"
+        REPOSITORY_ROOT / "src" / "kronika" / "infrastructure" / "ai" / "research_registry.py"
     ).read_text(encoding="utf-8")
     assert "importlib" not in registry_source
     assert "entry_points" not in registry_source
@@ -384,8 +384,8 @@ def test_ports_do_not_accept_client_endpoint_model_or_tool_fields() -> None:
 
 def test_domain_and_port_modules_keep_import_boundaries() -> None:
     paths = (
-        REPOSITORY_ROOT / "src" / "framenest" / "domain" / "research.py",
-        REPOSITORY_ROOT / "src" / "framenest" / "application" / "ports" / "research.py",
+        REPOSITORY_ROOT / "src" / "kronika" / "domain" / "research.py",
+        REPOSITORY_ROOT / "src" / "kronika" / "application" / "ports" / "research.py",
     )
     violations: list[str] = []
     for path in paths:
@@ -399,17 +399,17 @@ def test_domain_and_port_modules_keep_import_boundaries() -> None:
                 continue
             for module in modules:
                 root = module.split(".")[0]
-                if root in FORBIDDEN_IMPORT_ROOTS or module.startswith("framenest.infrastructure"):
+                if root in FORBIDDEN_IMPORT_ROOTS or module.startswith("kronika.infrastructure"):
                     violations.append(f"{path.name}: {module}")
                 if path.name == "research.py" and path.parent.name == "ports":
-                    if module.startswith("framenest.") and module != "framenest.domain.research":
+                    if module.startswith("framenest.") and module != "kronika.domain.research":
                         violations.append(f"{path.name}: {module}")
     assert violations == []
 
 
 def test_research_runtime_wiring_is_inert_when_disabled() -> None:
-    from framenest.adapters.api.application import build_research_runtime
-    from framenest.infrastructure.ai.research_configuration import (
+    from kronika.adapters.api.application import build_research_runtime
+    from kronika.infrastructure.ai.research_configuration import (
         default_research_configuration,
     )
 
@@ -424,8 +424,8 @@ def test_research_runtime_wiring_is_inert_when_disabled() -> None:
 
 
 def test_research_runtime_wiring_builds_offline_objects_when_enabled() -> None:
-    from framenest.adapters.api.application import build_research_runtime
-    from framenest.infrastructure.ai.research_configuration import (
+    from kronika.adapters.api.application import build_research_runtime
+    from kronika.infrastructure.ai.research_configuration import (
         default_research_configuration,
     )
 
@@ -453,8 +453,8 @@ def test_research_runtime_wiring_builds_offline_objects_when_enabled() -> None:
 def _migrate_synthetic_catalog(database_path: Path) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.migrations import _alembic_config
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
@@ -464,7 +464,7 @@ def _migrate_synthetic_catalog(database_path: Path) -> None:
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "head")
@@ -483,12 +483,12 @@ def test_production_runtime_reconciles_completed_usage(
     import json
     from datetime import UTC, datetime
 
-    from framenest.infrastructure.ai.transport import HttpsJsonResponse
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.ai.transport import HttpsJsonResponse
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.research_budget_repository import (
+    from kronika.infrastructure.persistence.research_budget_repository import (
         SqliteResearchBudgetLedger,
     )
 
@@ -567,7 +567,7 @@ def test_production_runtime_reconciles_completed_usage(
     # Synthetic supplier only. The production adapter refuses to call the
     # transport when no key is present; this does not read a credential.
     monkeypatch.setattr(
-        "framenest.adapters.api.application._research_credential_key",
+        "kronika.adapters.api.application._research_credential_key",
         lambda identifier: "synthetic-test-key",
     )
     database = tmp_path / "research-price.sqlite3"
@@ -575,8 +575,8 @@ def test_production_runtime_reconciles_completed_usage(
     engine = create_sqlite_engine(database)
     transport = RecordingTransport()
     try:
-        from framenest.adapters.api.application import build_research_runtime
-        from framenest.infrastructure.ai.research_configuration import (
+        from kronika.adapters.api.application import build_research_runtime
+        from kronika.infrastructure.ai.research_configuration import (
             default_research_configuration,
         )
 
@@ -605,7 +605,7 @@ def test_production_runtime_reconciles_completed_usage(
         assert transport.gets == ["https://api.openai.com/v1/responses/resp-price-1"]
         assert transport.deletes == []
 
-        from framenest.infrastructure.ai.research_models import (
+        from kronika.infrastructure.ai.research_models import (
             RESEARCH_ADMISSION_PROFILE_VERSION,
             resolve_usage_price_schedule,
         )
@@ -700,20 +700,20 @@ def test_disabled_start_enables_without_restart_and_keeps_admitted_pricing(
     from dataclasses import replace
     from datetime import UTC, datetime
 
-    from framenest.adapters.api.application import build_research_runtime
-    from framenest.application.ports.research import ResearchStoreError
-    from framenest.infrastructure.ai.research_models import (
+    from kronika.adapters.api.application import build_research_runtime
+    from kronika.application.ports.research import ResearchStoreError
+    from kronika.infrastructure.ai.research_models import (
         RESEARCH_ADMISSION_PROFILE_VERSION,
         resolve_usage_price_schedule,
     )
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.research_budget_repository import (
+    from kronika.infrastructure.persistence.research_budget_repository import (
         SqliteResearchBudgetLedger,
     )
-    from framenest.infrastructure.persistence.research_request_repository import (
+    from kronika.infrastructure.persistence.research_request_repository import (
         SqliteResearchRequestRepository,
     )
 
@@ -725,7 +725,7 @@ def test_disabled_start_enables_without_restart_and_keeps_admitted_pricing(
     }
     # Synthetic supplier only; no credential is read.
     monkeypatch.setattr(
-        "framenest.adapters.api.application._research_credential_key",
+        "kronika.adapters.api.application._research_credential_key",
         lambda identifier: "synthetic-test-key",
     )
 

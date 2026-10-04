@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_analysis import MediaRelativePath, PrepareLocalMediaAnalysis
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.media_analysis import LocalMediaAnalysisAdapter
+from kronika.application.media_analysis import MediaRelativePath, PrepareLocalMediaAnalysis
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.media_analysis import LocalMediaAnalysisAdapter
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("FRAMENEST_RUN_REAL_MEDIA_TOOLS") != "1",

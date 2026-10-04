@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.uploads import UploadSessionId
-from framenest.domain.youtube_acquisition import (
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.uploads import UploadSessionId
+from kronika.domain.youtube_acquisition import (
     FrameNestYouTubeClaimError,
     FrameNestYouTubeTransitionError,
     FrameNestYouTubeUrlError,
@@ -262,7 +262,7 @@ def test_legacy_null_ownership_and_retry_preserves_owner() -> None:
 
 
 def test_derive_requester_phase_mapping() -> None:
-    from framenest.domain.youtube_acquisition import derive_requester_phase
+    from kronika.domain.youtube_acquisition import derive_requester_phase
 
     claim = YouTubeAcquisitionClaim.new(
         submitted_url=f"https://youtu.be/{VIDEO_ID}",

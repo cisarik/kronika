@@ -1,5 +1,5 @@
 [project]
-name = "framenest"
+name = "kronika"
 version = "0.1.0"
 description = "A local-first library for organizing video and animated media."
 readme = "README.md"
@@ -7,19 +7,34 @@ requires-python = ">=3.13,<3.14"
 dependencies = ["pydantic-settings (>=2.14.2,<3.0.0)", "fastapi (>=0.138.0,<0.139.0)", "uvicorn (>=0.49.0,<0.50.0)", "sqlalchemy (>=2.0.51,<2.1.0)", "alembic (>=1.18.4,<1.19.0)", "pillow (>=12.2,<13)", "yt-dlp (==2026.7.4)"]
 
 [project.scripts]
-framenest-server = "framenest.server:main"
-framenest-db = "framenest.infrastructure.persistence.cli:main"
-framenest-catalog = "framenest.adapters.cli.catalog:main"
-framenest-library = "framenest.adapters.cli.library:main"
-framenest-dev = "framenest.adapters.cli.development:main"
-framenest-ai = "framenest.adapters.cli.ai:main"
-framenest-production = "framenest.infrastructure.runtime.production:main"
-framenest-backup = "framenest.adapters.cli.backup:main"
-framenest-youtube = "framenest.adapters.cli.youtube:main"
-framenest-previews = "framenest.adapters.cli.previews:main"
-framenest-covers = "framenest.adapters.cli.covers:main"
-framenest-recovery = "framenest.adapters.cli.recovery:main"
-framenest-sidecar = "framenest.adapters.cli.sidecar:main"
+kronika-server = "kronika.server:main"
+kronika-db = "kronika.infrastructure.persistence.cli:main"
+kronika-catalog = "kronika.adapters.cli.catalog:main"
+kronika-library = "kronika.adapters.cli.library:main"
+kronika-dev = "kronika.adapters.cli.development:main"
+kronika-ai = "kronika.adapters.cli.ai:main"
+kronika-production = "kronika.infrastructure.runtime.production:main"
+kronika-backup = "kronika.adapters.cli.backup:main"
+kronika-youtube = "kronika.adapters.cli.youtube:main"
+kronika-previews = "kronika.adapters.cli.previews:main"
+kronika-covers = "kronika.adapters.cli.covers:main"
+kronika-recovery = "kronika.adapters.cli.recovery:main"
+kronika-sidecar = "kronika.adapters.cli.sidecar:main"
+# Compatibility aliases: the thirteen `framenest-*` names below resolve to the
+# same callables as their `kronika-*` counterparts and are removed at C7-B.
+framenest-server = "kronika.server:main"
+framenest-db = "kronika.infrastructure.persistence.cli:main"
+framenest-catalog = "kronika.adapters.cli.catalog:main"
+framenest-library = "kronika.adapters.cli.library:main"
+framenest-dev = "kronika.adapters.cli.development:main"
+framenest-ai = "kronika.adapters.cli.ai:main"
+framenest-production = "kronika.infrastructure.runtime.production:main"
+framenest-backup = "kronika.adapters.cli.backup:main"
+framenest-youtube = "kronika.adapters.cli.youtube:main"
+framenest-previews = "kronika.adapters.cli.previews:main"
+framenest-covers = "kronika.adapters.cli.covers:main"
+framenest-recovery = "kronika.adapters.cli.recovery:main"
+framenest-sidecar = "kronika.adapters.cli.sidecar:main"
 kronika-capture = "kronika_capture.cli:main"
 # Compatibility alias: both commands use the same capture implementation.
 framenest-chatgpt-page = "kronika_capture.cli:main"
@@ -27,15 +42,15 @@ framenest-chatgpt-page = "kronika_capture.cli:main"
 [tool.poetry]
 package-mode = true
 packages = [
-    { include = "framenest", from = "src" },
+    { include = "kronika", from = "src" },
     { include = "kronika_capture", from = "src" },
 ]
 include = [
-    { path = "src/framenest/infrastructure/persistence/alembic_environment/script.py.mako", format = ["sdist", "wheel"] },
-    { path = "src/framenest/adapters/api/web/index.html", format = ["sdist", "wheel"] },
-    { path = "src/framenest/adapters/api/web/styles.css", format = ["sdist", "wheel"] },
-    { path = "src/framenest/adapters/api/web/app.js", format = ["sdist", "wheel"] },
-    { path = "src/framenest/infrastructure/ai/fixtures/vision-probe-red-8x8.png", format = ["sdist", "wheel"] },
+    { path = "src/kronika/infrastructure/persistence/alembic_environment/script.py.mako", format = ["sdist", "wheel"] },
+    { path = "src/kronika/adapters/api/web/index.html", format = ["sdist", "wheel"] },
+    { path = "src/kronika/adapters/api/web/styles.css", format = ["sdist", "wheel"] },
+    { path = "src/kronika/adapters/api/web/app.js", format = ["sdist", "wheel"] },
+    { path = "src/kronika/infrastructure/ai/fixtures/vision-probe-red-8x8.png", format = ["sdist", "wheel"] },
     { path = "src/kronika_capture/_assets/**/*", format = ["sdist", "wheel"] },
 ]
 

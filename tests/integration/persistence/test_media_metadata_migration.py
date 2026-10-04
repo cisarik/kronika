@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
+from kronika.configuration import KronikaSettings
 
 PRODUCTION_VERSIONS_PACKAGE = (
-    "framenest.infrastructure.persistence.alembic_environment.versions"
+    "kronika.infrastructure.persistence.alembic_environment.versions"
 )
 CURRENT_HEAD_REVISION = "0035"
 TARGET_COLLECTION_REVISION = "0007"
@@ -22,14 +22,14 @@ MEDIA_ID = "33333333-4444-4555-8666-777777777777"
 LOCATION_ID = "44444444-5555-4666-8777-888888888888"
 
 
-def _settings_for(database_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(database_path=database_path, _env_file=None)
+def _settings_for(database_path: Path) -> KronikaSettings:
+    return KronikaSettings(database_path=database_path, _env_file=None)
 
 
 def _upgrade_to_revision(database_path: Path, revision: str) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     settings = _settings_for(database_path)
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -37,7 +37,7 @@ def _upgrade_to_revision(database_path: Path, revision: str) -> None:
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, revision)
@@ -47,14 +47,14 @@ def _upgrade_to_revision(database_path: Path, revision: str) -> None:
 
 def _downgrade_to_revision(database_path: Path, revision: str) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.downgrade(config, revision)
@@ -150,7 +150,7 @@ def test_packaged_migration_resources_include_0007() -> None:
     assert versions.joinpath("0006_persistent_media_description.py").is_file()
     assert versions.joinpath("0005_media_metadata_and_canonical_tags.py").is_file()
 
-    from framenest.infrastructure.persistence.migrations import load_script_directory
+    from kronika.infrastructure.persistence.migrations import load_script_directory
 
     revision = load_script_directory().get_revision(TARGET_COLLECTION_REVISION)
     assert revision is not None
@@ -158,7 +158,7 @@ def test_packaged_migration_resources_include_0007() -> None:
 
 
 def test_empty_database_upgrades_to_current_head_revision_0009(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )
@@ -177,7 +177,7 @@ def test_empty_database_upgrades_to_current_head_revision_0009(tmp_path: Path) -
 def test_media_metadata_tables_have_required_schema_constraints_and_indexes(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings_for(tmp_path / "schema.sqlite3")
     upgrade_database_to_head(settings)
@@ -249,7 +249,7 @@ def test_media_metadata_tables_have_required_schema_constraints_and_indexes(
 def test_upgrade_from_populated_0004_preserves_rows_and_does_not_backfill_metadata(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings_for(tmp_path / "preserve.sqlite3")
     _upgrade_to_revision(settings.database_path, TARGET_PREVIOUS_REVISION)
@@ -272,7 +272,7 @@ def test_upgrade_from_populated_0004_preserves_rows_and_does_not_backfill_metada
 
 
 def test_canonical_tag_metadata_and_ordered_assignments_round_trip(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings_for(tmp_path / "roundtrip.sqlite3")
     upgrade_database_to_head(settings)
@@ -320,7 +320,7 @@ def test_canonical_tag_metadata_and_ordered_assignments_round_trip(tmp_path: Pat
 def test_downgrade_from_0007_to_0006_removes_collection_columns_metadata_tables_remain(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )

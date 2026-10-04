@@ -21,10 +21,10 @@ CONTRACT_PATH = PROJECT_ROOT / "ap.project.conf"
 
 EXPECTED_PROJECT_ID = "cisarik/kronika"
 EXPECTED_RUNTIME_INFO_CODE = (
-    "import sys, framenest; "
+    "import sys, kronika; "
     "print(sys.executable); "
     "print(sys.version); "
-    "print(framenest.__file__)"
+    "print(kronika.__file__)"
 )
 EXPECTED_OPERATIONS = ("runtime-info", "test", "test-focus")
 EXPECTED_TRAILING_ARGV = {
@@ -147,7 +147,7 @@ def test_runtime_contract_is_exact() -> None:
     assert _git_config_value("runtime.cpython.executable") == ".venv/bin/python"
     assert _git_config_value("runtime.cpython.requiredversion") == "3.13"
     assert _git_config_value("runtime.cpython.sourceroot") == "src"
-    assert _git_config_value("runtime.cpython.provenancemodule") == "framenest"
+    assert _git_config_value("runtime.cpython.provenancemodule") == "kronika"
 
 
 def test_project_id_agrees_with_origin_derived_identity() -> None:

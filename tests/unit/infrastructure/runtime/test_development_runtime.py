@@ -14,9 +14,9 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.runtime import development
-from framenest.infrastructure.runtime.development import (
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.runtime import development
+from kronika.infrastructure.runtime.development import (
     DevelopmentRuntime,
     DevelopmentRuntimeError,
     ManagedState,
@@ -138,7 +138,7 @@ def test_live_verified_managed_pid_is_running(tmp_path: Path, monkeypatch: pytes
     monkeypatch.setattr(
         runtime,
         "_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
 
@@ -154,7 +154,7 @@ def test_pid_identity_mismatch_is_conflict(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(
         runtime,
         "_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="other", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="other", command="python -m kronika.server"),
     )
 
     assert runtime.status().kind == "conflict"
@@ -185,7 +185,7 @@ def test_start_is_idempotent_for_healthy_managed_process(
     monkeypatch.setattr(
         runtime,
         "_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
 
@@ -249,7 +249,7 @@ def test_health_timeout_terminates_only_new_child_and_cleans_state(
     monkeypatch.setattr(
         runtime,
         "_wait_for_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_wait_for_health", lambda: False)
     monkeypatch.setattr(runtime, "_is_pid_live", lambda pid: True)
@@ -307,7 +307,7 @@ def test_graceful_stop_removes_state_after_verified_process_exits(
     monkeypatch.setattr(
         runtime,
         "_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
     monkeypatch.setattr(runtime, "_terminate_pid", terminated.append)
@@ -327,7 +327,7 @@ def test_stop_timeout_does_not_force_kill(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(
         runtime,
         "_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
     monkeypatch.setattr(runtime, "_terminate_pid", lambda pid: signals.append(signal.SIGTERM))
@@ -346,7 +346,7 @@ def test_browser_open_failure_is_sanitized(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(
         runtime,
         "_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
 
@@ -375,14 +375,14 @@ def test_spawn_environment_enforces_loopback_and_disposable_database(
     monkeypatch.setattr(
         runtime,
         "_wait_for_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_wait_for_health", lambda: True)
 
     result = runtime.start(open_after_start=False)
 
     assert result.ok is True
-    assert captured["args"][0][1:] == ["-m", "framenest.server"]
+    assert captured["args"][0][1:] == ["-m", "kronika.server"]
     env = captured["kwargs"]["env"]
     assert env["FRAMENEST_HOST"] == "127.0.0.1"
     assert env["FRAMENEST_DATABASE_PATH"] == str(tmp_path / "data" / "catalog.sqlite3")
@@ -443,7 +443,7 @@ def test_spawned_environment_carries_no_alternate_spelling_of_a_written_setting(
     monkeypatch.setattr(
         runtime,
         "_wait_for_process_snapshot",
-        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m framenest.server"),
+        lambda pid: ProcessSnapshot(pid=pid, start_identity="same", command="python -m kronika.server"),
     )
     monkeypatch.setattr(runtime, "_wait_for_health", lambda: True)
 
@@ -454,7 +454,7 @@ def test_spawned_environment_carries_no_alternate_spelling_of_a_written_setting(
     assert [name for name in env if name.upper() == canonical] == [canonical]
     assert inherited not in env or inherited == canonical
     with mock.patch.dict(os.environ, env, clear=True):
-        settings = FrameNestSettings(_env_file=None)
+        settings = KronikaSettings(_env_file=None)
 
     assert settings.host == "127.0.0.1"
     assert settings.port == runtime._port
@@ -518,7 +518,7 @@ def test_start_reports_the_derived_brand_when_already_running(
         runtime,
         "_process_snapshot",
         lambda pid: ProcessSnapshot(
-            pid=pid, start_identity="same", command="python -m framenest.server"
+            pid=pid, start_identity="same", command="python -m kronika.server"
         ),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
@@ -562,7 +562,7 @@ def test_stop_after_a_verified_terminate_reports_the_derived_brand(
         runtime,
         "_process_snapshot",
         lambda pid: ProcessSnapshot(
-            pid=pid, start_identity="same", command="python -m framenest.server"
+            pid=pid, start_identity="same", command="python -m kronika.server"
         ),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
@@ -617,7 +617,7 @@ def test_status_of_a_healthy_managed_process_reports_the_derived_brand_and_the_r
         runtime,
         "_process_snapshot",
         lambda pid: ProcessSnapshot(
-            pid=pid, start_identity="same", command="python -m framenest.server"
+            pid=pid, start_identity="same", command="python -m kronika.server"
         ),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
@@ -640,7 +640,7 @@ def test_status_of_an_unhealthy_managed_process_reports_the_derived_brand(
         runtime,
         "_process_snapshot",
         lambda pid: ProcessSnapshot(
-            pid=pid, start_identity="same", command="python -m framenest.server"
+            pid=pid, start_identity="same", command="python -m kronika.server"
         ),
     )
     monkeypatch.setattr(runtime, "_health_is_ok", lambda port: False)

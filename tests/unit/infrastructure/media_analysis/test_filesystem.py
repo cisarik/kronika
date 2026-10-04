@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     INVALID_MEDIA_PATH_MESSAGE,
     FrameNestMediaAnalysisError,
     MediaAnalysisUnavailableError,
     MediaRelativePath,
     PREPARATION_UNAVAILABLE_MESSAGE,
 )
-from framenest.domain import LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.media_analysis.filesystem import resolve_safe_candidate_path
+from kronika.domain import LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.media_analysis.filesystem import resolve_safe_candidate_path
 
 PRIVATE_ROOT = "/Users/agile/Video"
 

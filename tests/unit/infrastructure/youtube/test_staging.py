@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.youtube_staging import (
+from kronika.application.ports.youtube_staging import (
     YouTubeStagingInconsistentError,
     YouTubeStagingUnavailableError,
 )
-from framenest.infrastructure.youtube.staging import (
+from kronika.infrastructure.youtube.staging import (
     ARTIFACT_FILENAME,
     FilesystemYouTubeStaging,
 )

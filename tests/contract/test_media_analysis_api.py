@@ -9,16 +9,16 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.library_api import LibraryApiDependencies
-from framenest.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
-from framenest.application.library_scan import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.library_api import LibraryApiDependencies
+from kronika.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
+from kronika.application.library_scan import (
     LibraryFilesystemScanResult,
     LibraryScanCandidateKind,
     LibraryScanLimits,
     LibraryScanSummary,
 )
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     FrameNestMediaAnalysisError,
     MediaAnalysisFailedError,
     MediaAnalysisNotFoundError,
@@ -30,9 +30,9 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     PNG_SIGNATURE,
 )
-from framenest.application.ports.library_repository import FrameNestLibraryRepositoryError
-from framenest.configuration import FrameNestSettings
-from framenest.domain import LibraryId
+from kronika.application.ports.library_repository import FrameNestLibraryRepositoryError
+from kronika.configuration import KronikaSettings
+from kronika.domain import LibraryId
 
 CANONICAL_LIBRARY_ID = "12345678-1234-4234-9234-123456789abc"
 PRIVATE_ROOT_PATH = "/Users/example/private/videos"
@@ -147,7 +147,7 @@ def _client(
     catalog_available: bool = True,
     database_path: Path | None = None,
 ) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=database_path or Path("/tmp/framenest-contract.sqlite3"),
         _env_file=None,

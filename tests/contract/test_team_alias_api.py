@@ -10,14 +10,14 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
     find_route_policy,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_MEDIA_WORKFLOW_READ,
     CAPABILITY_METADATA_ALIAS_TEAM_READ,
@@ -25,8 +25,8 @@ from framenest.domain.identity_access import (
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 ALICE = "alice@example.com"
 BOB = "bob@example.com"
@@ -51,7 +51,7 @@ def _identity(login: str, role: str, *, capabilities: frozenset[str] | None = No
 
 
 def _client(
-    settings: FrameNestSettings,
+    settings: KronikaSettings,
     login: str,
     role: str,
     **identity_kwargs: object,
@@ -67,14 +67,14 @@ def _client(
     return TestClient(app)
 
 
-def _plain_client(settings: FrameNestSettings) -> TestClient:
+def _plain_client(settings: KronikaSettings) -> TestClient:
     return TestClient(create_app(settings=settings))
 
 
-def _prepare(tmp_path: Path) -> FrameNestSettings:
+def _prepare(tmp_path: Path) -> KronikaSettings:
     database_path = tmp_path / "database" / "catalog.sqlite3"
     database_path.parent.mkdir(parents=True)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -317,8 +317,8 @@ def test_route_policy_requires_both_capabilities_and_distinct_audit_action() -> 
 
 def test_admin_alias_read_path_performs_no_alias_table_writes() -> None:
     relative_paths = (
-        "src/framenest/adapters/api/team_alias_api.py",
-        "src/framenest/application/media_user_alias.py",
+        "src/kronika/adapters/api/team_alias_api.py",
+        "src/kronika/application/media_user_alias.py",
     )
     forbidden = ("insert(", "update(", "delete(")
     for relative in relative_paths:
@@ -327,7 +327,7 @@ def test_admin_alias_read_path_performs_no_alias_table_writes() -> None:
         if relative.endswith("media_user_alias.py"):
             listed = inspect.getsource(
                 __import__(
-                    "framenest.application.media_user_alias",
+                    "kronika.application.media_user_alias",
                     fromlist=["ListTeamMediaAliases"],
                 ).ListTeamMediaAliases
             ).lower()
@@ -338,13 +338,13 @@ def test_admin_alias_read_path_performs_no_alias_table_writes() -> None:
             assert token not in lowered
     listed_repo = inspect.getsource(
         __import__(
-            "framenest.infrastructure.persistence.media_user_alias_repository",
+            "kronika.infrastructure.persistence.media_user_alias_repository",
             fromlist=["SqliteMediaUserAliasRepository"],
         ).SqliteMediaUserAliasRepository.list_aliases_for_media
     ).lower()
     helper = inspect.getsource(
         __import__(
-            "framenest.infrastructure.persistence.media_user_alias_repository",
+            "kronika.infrastructure.persistence.media_user_alias_repository",
             fromlist=["_list_aliases_for_media"],
         )._list_aliases_for_media
     ).lower()
@@ -355,7 +355,7 @@ def test_admin_alias_read_path_performs_no_alias_table_writes() -> None:
 
 
 def test_trusted_ingress_records_team_alias_list_audit_event(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",

@@ -8,18 +8,18 @@ from pathlib import Path
 import sqlalchemy as sa
 from sqlalchemy import text
 
-from framenest.application.catalog_removal import (
+from kronika.application.catalog_removal import (
     CatalogMediaRemovalService,
     CatalogRemovalNotFoundError,
     CatalogRemovalStateConflictError,
     CleanupState,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.catalog_removal_repository import (
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.catalog_removal_repository import (
     SqliteCatalogRemovalRepository,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.engine import create_sqlite_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 MEDIA_ID = "11111111-1111-4111-8111-111111111111"
 OTHER_MEDIA_ID = "22222222-2222-4222-8222-222222222222"
@@ -64,7 +64,7 @@ class _RecordingCleanup:
 def _engine(tmp_path: Path) -> sa.Engine:
     database_path = tmp_path / "catalog-removal.sqlite3"
     upgrade_database_to_head(
-        FrameNestSettings(database_path=database_path, _env_file=None)
+        KronikaSettings(database_path=database_path, _env_file=None)
     )
     return create_sqlite_engine(database_path)
 
@@ -602,16 +602,16 @@ def test_migration_0024_preserves_claims_and_adds_receipt_table(
 ) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path = tmp_path / "from-0023.sqlite3"
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(settings.database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "0023")
@@ -684,7 +684,7 @@ def test_migration_0024_preserves_claims_and_adds_receipt_table(
             )
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "0024")

@@ -9,34 +9,34 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from framenest.application.media_analysis import build_representative_frame
-from framenest.application.media_suggestion import (
+from kronika.application.media_analysis import build_representative_frame
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderEmptyResponseError,
     MediaSuggestionProviderInvalidResponseError,
     MediaSuggestionProviderPendingTimeoutError,
     MediaSuggestionProviderRefusalError,
     MediaSuggestionProviderTruncatedResponseError,
 )
-from framenest.application.movie_identification import (
+from kronika.application.movie_identification import (
     LocalMovieHints,
     MovieIdentificationRequest,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     MOVIE_IDENTIFICATION_MAX_TOKENS,
     MOVIE_IDENTIFICATION_REASONING_BUDGET,
     MOVIE_IDENTIFICATION_TEMPERATURE,
     MOVIE_IDENTIFICATION_TOP_P,
 )
-from framenest.infrastructure.ai import nvidia_nim
-from framenest.infrastructure.ai.credentials import NvidiaApiCredential
-from framenest.infrastructure.ai.nvidia_nim import (
+from kronika.infrastructure.ai import nvidia_nim
+from kronika.infrastructure.ai.credentials import NvidiaApiCredential
+from kronika.infrastructure.ai.nvidia_nim import (
     MOVIE_STRUCTURED_OUTPUT_COMPATIBILITY_MODE,
     NvidiaNimMediaSuggestionProvider,
     build_nvidia_movie_identification_body,
     classify_chat_completion_choice,
 )
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
-from framenest.infrastructure.media_analysis.contact_sheet import compose_contact_sheet
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.media_analysis.contact_sheet import compose_contact_sheet
 
 
 VALID_UNKNOWN = {

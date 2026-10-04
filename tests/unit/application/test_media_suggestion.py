@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     FrameNestMediaAnalysisError,
     MediaRelativePath,
     PNG_SIGNATURE,
@@ -18,7 +18,7 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     REQUESTED_FRAME_COUNT,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     FrameNestMediaSuggestionError,
     ImportedMediaSuggestionPreviewResult,
     MediaSuggestion,
@@ -33,13 +33,13 @@ from framenest.application.media_suggestion import (
     build_suggestion_request,
     validate_suggested_filename,
 )
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot, MediaId, MediaLocationId
-from framenest.domain.media import LogicalMedia, MediaKind, MediaLocation, MediaLocationAvailability
-from framenest.domain.media import MediaRelativePath as DomainMediaRelativePath
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot, MediaId, MediaLocationId
+from kronika.domain.media import LogicalMedia, MediaKind, MediaLocation, MediaLocationAvailability
+from kronika.domain.media import MediaRelativePath as DomainMediaRelativePath
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-APPLICATION_SUGGESTION = REPOSITORY_ROOT / "src" / "framenest" / "application" / "media_suggestion.py"
-MEDIA_ANALYSIS_API = REPOSITORY_ROOT / "src" / "framenest" / "adapters" / "api" / "media_analysis_api.py"
+APPLICATION_SUGGESTION = REPOSITORY_ROOT / "src" / "kronika" / "application" / "media_suggestion.py"
+MEDIA_ANALYSIS_API = REPOSITORY_ROOT / "src" / "kronika" / "adapters" / "api" / "media_analysis_api.py"
 _VALID_PNG = PNG_SIGNATURE + b"png"
 MEDIA_ID = MediaId.from_string("99999999-8888-4777-9666-555555555555")
 LOCATION_ID = MediaLocationId.from_string("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")
@@ -487,15 +487,15 @@ def test_application_suggestion_module_imports_no_infrastructure() -> None:
             module = node.module or ""
         else:
             continue
-        if module.startswith("framenest.infrastructure"):
+        if module.startswith("kronika.infrastructure"):
             violations.append(module)
     assert violations == []
 
 
 def test_pillow_imports_are_confined_outside_application_and_domain() -> None:
     source_roots = [
-        REPOSITORY_ROOT / "src" / "framenest" / "application",
-        REPOSITORY_ROOT / "src" / "framenest" / "domain",
+        REPOSITORY_ROOT / "src" / "kronika" / "application",
+        REPOSITORY_ROOT / "src" / "kronika" / "domain",
     ]
     violations: list[str] = []
     for path in source_roots:

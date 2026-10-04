@@ -49,7 +49,7 @@ def _require_console_script() -> Path:
 
 
 def _server_command() -> list[str]:
-    return [str(_require_console_script()), "-m", "framenest.server"]
+    return [str(_require_console_script()), "-m", "kronika.server"]
 
 
 def _server_env(base: dict[str, str] | None = None) -> dict[str, str]:

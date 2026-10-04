@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from framenest.adapters.cli.library_root import (
+from kronika.adapters.cli.library_root import (
     LibraryRootNotUsableError,
     native_library_path_flavor,
     prepare_library_root,
 )
-from framenest.domain import LibraryPathFlavor
+from kronika.domain import LibraryPathFlavor
 
 SECRET_PATH = "/secret/rejected/library/path"
 

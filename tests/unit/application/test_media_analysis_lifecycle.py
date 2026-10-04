@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from framenest.application.media_analysis_lifecycle import (
+from kronika.application.media_analysis_lifecycle import (
     AutomaticAnalysisPublicView,
     AutomaticImportedMediaSuggestionExecutor,
     CatalogedAnalysisTarget,
@@ -19,10 +19,10 @@ from framenest.application.media_analysis_lifecycle import (
     public_view_from_run,
     serialize_suggestion_result,
 )
-from framenest.application.ports.media_metadata_repository import (
+from kronika.application.ports.media_metadata_repository import (
     MediaMetadataSnapshot,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestion,
     MediaSuggestionPreparationUnavailableError,
     MediaSuggestionProviderAuthError,
@@ -30,15 +30,15 @@ from framenest.application.media_suggestion import (
     MediaSuggestionProviderUnavailableError,
     PROMPT_VERSION,
 )
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media_analysis_runs import (
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media_analysis_runs import (
     AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
     MediaAnalysisRun,
     MediaAnalysisRunId,
     MediaAnalysisRunState,
     RESULT_SCHEMA_VERSION,
 )
-from framenest.domain.media_classification import AnalysisProfile, ContentCategory
+from kronika.domain.media_classification import AnalysisProfile, ContentCategory
 
 
 MEDIA_ID = MediaId.from_string("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")

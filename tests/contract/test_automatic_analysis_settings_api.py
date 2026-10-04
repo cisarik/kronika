@@ -7,9 +7,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -18,7 +18,7 @@ USER_LOGIN = "user@example.com"
 COMPANION_ORIGIN = "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 
-def _settings(tmp_path: Path, *, companion: bool = False) -> FrameNestSettings:
+def _settings(tmp_path: Path, *, companion: bool = False) -> KronikaSettings:
     kwargs: dict[str, object] = {
         "database_path": tmp_path / "catalog.sqlite3",
         "gallery_preview_cache_path": tmp_path / "previews",
@@ -33,10 +33,10 @@ def _settings(tmp_path: Path, *, companion: bool = False) -> FrameNestSettings:
     }
     if companion:
         kwargs["companion_extension_origins"] = [COMPANION_ORIGIN]
-    return FrameNestSettings(**kwargs)  # type: ignore[arg-type]
+    return KronikaSettings(**kwargs)  # type: ignore[arg-type]
 
 
-def _client(tmp_path: Path, *, companion: bool = False) -> tuple[TestClient, FrameNestSettings]:
+def _client(tmp_path: Path, *, companion: bool = False) -> tuple[TestClient, KronikaSettings]:
     settings = _settings(tmp_path, companion=companion)
     upgrade_database_to_head(settings)
     app = create_app(settings=settings)

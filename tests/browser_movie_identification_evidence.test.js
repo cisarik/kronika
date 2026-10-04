@@ -52,15 +52,15 @@ import sqlite3
 import sys
 import uuid
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import CAPABILITIES_BY_ROLE, IdentityContext, ROLE_ADMIN
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import CAPABILITIES_BY_ROLE, IdentityContext, ROLE_ADMIN
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DB, MEDIA, PREVIEWS, COVER_ROOT, THUMBS, PORT = sys.argv[1:7]
 PORT = int(PORT)
-settings_pre = FrameNestSettings(database_path=DB, _env_file=None)
+settings_pre = KronikaSettings(database_path=DB, _env_file=None)
 upgrade_database_to_head(settings_pre)
 
 MEDIA_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -124,7 +124,7 @@ try:
 finally:
     conn.close()
 
-settings = FrameNestSettings(
+settings = KronikaSettings(
     database_path=DB,
     gallery_preview_cache_path=PREVIEWS,
     cover_storage_root=COVER_ROOT,

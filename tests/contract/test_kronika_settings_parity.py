@@ -16,7 +16,7 @@ project dual-prefix class takes part in the reference.
 Why today's library is a valid reference for that older commit: ``poetry.lock``
 is byte-identical at ``18c357cf6f8c5ff9cc3b2c28e638510fc73a3672`` and at this
 commit, the installed ``pydantic-settings`` is the locked version, and the
-``FrameNestSettings`` field set, validators and ``model_config`` are
+``KronikaSettings`` field set, validators and ``model_config`` are
 byte-identical at both commits. Settings-source assembly is therefore the only
 difference, and this module replaces it with the library's own.
 ``test_the_settings_library_is_unchanged_since_the_restoration_reference`` keeps
@@ -37,12 +37,12 @@ import pytest
 from pydantic import SecretStr, ValidationError
 from pydantic_settings import BaseSettings
 
-from framenest.configuration import (
+from kronika.configuration import (
     FrameNestConfigurationError,
-    FrameNestSettings,
+    KronikaSettings,
     load_settings,
 )
-from framenest.identity_env import (
+from kronika.identity_env import (
     COMPATIBLE_ENVIRONMENT_PREFIX,
     PRIMARY_ENVIRONMENT_PREFIX,
     lookup_env,
@@ -92,7 +92,7 @@ def _spelled(field_name: str, spelling: str) -> str:
     )
 
 
-def _comparable(settings: FrameNestSettings) -> dict[str, Any]:
+def _comparable(settings: KronikaSettings) -> dict[str, Any]:
     dumped: dict[str, Any] = dict(settings.model_dump())
     api_key = dumped.get("api_key")
     if isinstance(api_key, SecretStr):
@@ -119,20 +119,20 @@ def _observed(process_env: dict[str, str], env_file: Path | None, *, stock: bool
         if stock:
             stack.enter_context(
                 mock.patch.object(
-                    FrameNestSettings,
+                    KronikaSettings,
                     "settings_customise_sources",
                     STOCK_SOURCE_HOOK,
                 )
             )
         stack.enter_context(mock.patch.dict(os.environ, process_env, clear=True))
         try:
-            return ("ok", _comparable(FrameNestSettings(_env_file=env_file)))
+            return ("ok", _comparable(KronikaSettings(_env_file=env_file)))
         except Exception as error:  # noqa: BLE001 - a parity probe reports every outcome
             return ("error", type(error).__name__, _error_locations(error))
 
 
 def _matrix() -> Iterator[tuple[str, str, str]]:
-    for field_name in FrameNestSettings.model_fields:
+    for field_name in KronikaSettings.model_fields:
         for spelling in MATRIX_SPELLINGS:
             for value in MATRIX_VALUES:
                 yield field_name, spelling, value
@@ -168,7 +168,7 @@ def _git_blob(revision: str, path: str) -> bytes:
 
 @pytest.fixture(autouse=True)
 def _isolate_accepted_identity_variables(monkeypatch: pytest.MonkeyPatch) -> None:
-    for field_name in FrameNestSettings.model_fields:
+    for field_name in KronikaSettings.model_fields:
         for prefix in (PRIMARY_ENVIRONMENT_PREFIX, COMPATIBLE_ENVIRONMENT_PREFIX):
             monkeypatch.delenv(f"{prefix}{field_name.upper()}", raising=False)
 
@@ -200,16 +200,16 @@ def test_the_matrix_subject_is_pinned_to_the_compatible_prefix_value() -> None:
     become vacuous with nothing failing.
     """
     assert COMPATIBLE_ENVIRONMENT_PREFIX == "FRAMENEST_"
-    assert FrameNestSettings.model_config["env_prefix"] == "FRAMENEST_"
+    assert KronikaSettings.model_config["env_prefix"] == "FRAMENEST_"
 
 
 def test_the_matrix_reaches_every_field_and_every_value() -> None:
     cases = list(_matrix())
 
     assert len(cases) == (
-        len(FrameNestSettings.model_fields) * len(MATRIX_SPELLINGS) * len(MATRIX_VALUES)
+        len(KronikaSettings.model_fields) * len(MATRIX_SPELLINGS) * len(MATRIX_VALUES)
     )
-    assert {field for field, _, _ in cases} == set(FrameNestSettings.model_fields)
+    assert {field for field, _, _ in cases} == set(KronikaSettings.model_fields)
     assert {spelling for _, spelling, _ in cases} == set(MATRIX_SPELLINGS)
     assert {value for _, _, value in cases} == set(MATRIX_VALUES)
 
@@ -225,12 +225,12 @@ def test_the_stock_reference_runs_only_library_sources() -> None:
         return STOCK_SOURCE_HOOK.__func__(settings_cls, *args, **kwargs)
 
     with mock.patch.object(
-        FrameNestSettings,
+        KronikaSettings,
         "settings_customise_sources",
         classmethod(_record),
     ):
         with mock.patch.dict(os.environ, {}, clear=True):
-            FrameNestSettings(_env_file=None)
+            KronikaSettings(_env_file=None)
 
     assert EnvSettingsSource in seen
     assert DotEnvSettingsSource in seen

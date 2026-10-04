@@ -8,15 +8,15 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.application.records import RecordService
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_ADMIN, ROLE_USER
-from framenest.domain.records import CompletedDocument, DocumentId, RecordId, RecordKind
-from framenest.domain.research import CompletionEvidence
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine, run_in_transaction
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import (
+from kronika.adapters.api.application import create_app
+from kronika.application.records import RecordService
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
+from kronika.domain.records import CompletedDocument, DocumentId, RecordId, RecordKind
+from kronika.domain.research import CompletionEvidence
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine, run_in_transaction
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import (
     SqliteRecordRepository,
     note_successful_analysis,
 )
@@ -32,7 +32,7 @@ _LIBRARY_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
 def test_withdrawal_keeps_timeline_position_and_snapshot(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )
@@ -86,7 +86,7 @@ def test_withdrawal_keeps_timeline_position_and_snapshot(tmp_path: Path) -> None
 
 
 def test_household_keeps_approved_answer_until_reapproval(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )
@@ -169,7 +169,7 @@ def _suggestion_json(*, title: str, description: str) -> str:
 
 def test_household_http_reads_keep_the_approved_media_projection(tmp_path: Path) -> None:
     """Approve TitleA, then change working state; Bob still reads the snapshot."""
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         identity_map={"alice": "user", "bob": "user", "ada": "admin"},
         _env_file=None,

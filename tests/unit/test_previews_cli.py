@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from framenest.adapters.cli import previews
-from framenest.application.gallery_preview import (
+from kronika.adapters.cli import previews
+from kronika.application.gallery_preview import (
     GalleryPreviewGenerationPlan,
     GalleryPreviewGenerationSummary,
     GalleryPreviewStatus,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import LibraryId
+from kronika.configuration import KronikaSettings
+from kronika.domain import LibraryId
 
 
 @dataclass
@@ -57,7 +57,7 @@ class _FakeService:
 
 
 def _patch_service(monkeypatch, service: _FakeService) -> None:
-    monkeypatch.setattr(previews, "load_settings", lambda: FrameNestSettings(
+    monkeypatch.setattr(previews, "load_settings", lambda: KronikaSettings(
         database_path=Path("/tmp/framenest-cli.sqlite3"),
         gallery_preview_cache_path=Path("/tmp/framenest-cli-previews"),
         _env_file=None,

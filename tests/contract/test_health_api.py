@@ -14,10 +14,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.upload_api import UploadApiDependencies
-from framenest.configuration import FrameNestSettings, load_settings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.upload_api import UploadApiDependencies
+from kronika.configuration import KronikaSettings, load_settings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 FRAMENEST_ENV_VARS = ("FRAMENEST_HOST", "FRAMENEST_PORT", "FRAMENEST_API_KEY")
 REPRESENTATIVE_SECRET = "contract-test-api-key-secret"
@@ -46,8 +46,8 @@ def isolate_framenest_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def settings_with_secret() -> FrameNestSettings:
-    return FrameNestSettings(
+def settings_with_secret() -> KronikaSettings:
+    return KronikaSettings(
         host="127.0.0.1",
         api_key=SecretStr(REPRESENTATIVE_SECRET),
         _env_file=None,
@@ -55,21 +55,21 @@ def settings_with_secret() -> FrameNestSettings:
 
 
 def test_create_app_returns_fastapi_application(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
     app = create_app(settings=settings_with_secret)
     assert isinstance(app, FastAPI)
 
 
 def test_supplied_settings_are_used_without_loading_env(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fail_load_settings(*args: Any, **kwargs: Any) -> FrameNestSettings:
+    def fail_load_settings(*args: Any, **kwargs: Any) -> KronikaSettings:
         raise AssertionError("load_settings must not be called when settings are supplied")
 
     monkeypatch.setattr(
-        "framenest.adapters.api.application.load_settings",
+        "kronika.adapters.api.application.load_settings",
         fail_load_settings,
     )
     app = create_app(settings=settings_with_secret)
@@ -79,10 +79,10 @@ def test_supplied_settings_are_used_without_loading_env(
 def test_omitted_settings_use_centralized_load_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    expected_settings = FrameNestSettings(host="127.0.0.1", _env_file=None)
+    expected_settings = KronikaSettings(host="127.0.0.1", _env_file=None)
     load_settings_mock = MagicMock(return_value=expected_settings)
     monkeypatch.setattr(
-        "framenest.adapters.api.application.load_settings",
+        "kronika.adapters.api.application.load_settings",
         load_settings_mock,
     )
     app = create_app()
@@ -91,7 +91,7 @@ def test_omitted_settings_use_centralized_load_settings(
 
 
 def test_health_endpoint_returns_ok_status(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
     app = create_app(settings=settings_with_secret)
     response = TestClient(app).get("/health")
@@ -102,7 +102,7 @@ def test_health_endpoint_returns_ok_status(
 def test_application_lifespan_owns_upload_validation_coordinator(tmp_path: Path) -> None:
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         upload_quarantine_root=quarantine_root,
         _env_file=None,
@@ -124,12 +124,12 @@ def test_application_lifespan_shuts_down_owned_coordinator_before_database_dispo
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.adapters.api import application
+    from kronika.adapters.api import application
 
     events: list[str] = []
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         upload_quarantine_root=quarantine_root,
         _env_file=None,
@@ -168,7 +168,7 @@ def test_application_lifespan_propagates_application_cancellation(tmp_path: Path
     async def scenario() -> None:
         quarantine_root = tmp_path / "quarantine"
         quarantine_root.mkdir()
-        settings = FrameNestSettings(
+        settings = KronikaSettings(
             database_path=tmp_path / "catalog.sqlite3",
             upload_quarantine_root=quarantine_root,
             _env_file=None,
@@ -194,11 +194,11 @@ def test_application_lifespan_does_not_own_injected_upload_validation_coordinato
         validation_coordinator=coordinator,
     )
     first = create_app(
-        settings=FrameNestSettings(_env_file=None),
+        settings=KronikaSettings(_env_file=None),
         upload_api_dependencies=dependencies,
     )
     second = create_app(
-        settings=FrameNestSettings(_env_file=None),
+        settings=KronikaSettings(_env_file=None),
         upload_api_dependencies=dependencies,
     )
 
@@ -214,7 +214,7 @@ def test_application_lifespan_does_not_own_injected_upload_validation_coordinato
 
 
 def test_cloud_status_endpoint_reports_sanitized_loopback_status(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
     app = create_app(settings=settings_with_secret)
     response = TestClient(app).get("/api/status/cloud")
@@ -230,7 +230,7 @@ def test_cloud_status_endpoint_reports_sanitized_loopback_status(
 
 
 def test_health_contract_is_present_in_openapi(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
     app = create_app(settings=settings_with_secret)
     schema = app.openapi()
@@ -246,7 +246,7 @@ def test_health_contract_is_present_in_openapi(
 
 
 def test_api_key_not_disclosed_in_health_response_openapi_or_app_repr(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
     app = create_app(settings=settings_with_secret)
     health_body = TestClient(app).get("/health").text
@@ -257,7 +257,7 @@ def test_api_key_not_disclosed_in_health_response_openapi_or_app_repr(
 
 
 def test_import_and_factory_creation_do_not_bind_network_listener(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bind_attempts: list[tuple[Any, ...]] = []

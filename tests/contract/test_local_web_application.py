@@ -13,8 +13,8 @@ from tests.support.tooling import resolve_tool
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
 
 REPRESENTATIVE_SECRET = "local-web-contract-secret"
 REPRESENTATIVE_DATABASE_PATH = "/Users/example/framenest/catalog.sqlite3"
@@ -52,7 +52,7 @@ class _AssetReferenceParser(HTMLParser):
 
 @pytest.fixture
 def client() -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         api_key=SecretStr(REPRESENTATIVE_SECRET),
         _env_file=None,

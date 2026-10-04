@@ -45,16 +45,16 @@ function pythonBootstrapScript() {
   return String.raw`
 from __future__ import annotations
 import json, os, sqlite3, sys, uuid
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import CAPABILITIES_BY_ROLE, IdentityContext, ROLE_ADMIN, ROLE_USER
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import CAPABILITIES_BY_ROLE, IdentityContext, ROLE_ADMIN, ROLE_USER
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DB, MEDIA, PREVIEWS, COVER_ROOT, THUMBS, PORT = sys.argv[1:7]
 PORT = int(PORT)
 ROLE = os.environ.get("FRAMENEST_BROWSER_ROLE", "admin")
-upgrade_database_to_head(FrameNestSettings(database_path=DB, _env_file=None))
+upgrade_database_to_head(KronikaSettings(database_path=DB, _env_file=None))
 MEDIA_ID = "11111111-1111-4111-8111-111111111111"
 LOCATION_ID = "33333333-3333-4333-8333-333333333333"
 LIB = "55555555-5555-4555-8555-555555555555"
@@ -83,7 +83,7 @@ try:
 finally:
     conn.close()
 
-settings = FrameNestSettings(
+settings = KronikaSettings(
     database_path=DB,
     gallery_preview_cache_path=PREVIEWS,
     cover_storage_root=COVER_ROOT,

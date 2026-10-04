@@ -12,8 +12,8 @@ from collections.abc import Sequence
 
 import pytest
 
-import framenest.infrastructure.media_analysis.process as process_module
-from framenest.infrastructure.media_analysis.process import (
+import kronika.infrastructure.media_analysis.process as process_module
+from kronika.infrastructure.media_analysis.process import (
     EXECUTABLE_NOT_FOUND_MESSAGE,
     PROCESS_FAILED_MESSAGE,
     PROCESS_INTERRUPTED_MESSAGE,

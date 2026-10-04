@@ -90,13 +90,18 @@ def test_wheel_contains_kernel_assets_and_entry_point(tmp_path: Path) -> None:
         timeout=120.0,
     )
     assert build.returncode == 0, build.stderr
-    wheels = sorted(wheelhouse.glob("framenest-*.whl"))
+    wheels = sorted(wheelhouse.glob("kronika-*.whl"))
     assert len(wheels) == 1
     unpacked = tmp_path / "unpacked"
     with zipfile.ZipFile(wheels[0]) as wheel:
         names = wheel.namelist()
         assert len(names) == len(set(names))
-        assert not any(name.startswith(("kronika/", "vendor/")) for name in names)
+        # ADR-0085 moved the application package to `kronika`. The canonical
+        # package must be present in the wheel and the retired one must be
+        # absent: this assertion is inverted, not deleted, so a regression that
+        # reinstalls an importable `framenest` package fails loudly here.
+        assert any(name.startswith("kronika/") for name in names)
+        assert not any(name.startswith(("framenest/", "vendor/")) for name in names)
         expected = {
             path.relative_to(REPOSITORY_ROOT / "src").as_posix(): path
             for path in CAPTURE_ROOT.rglob("*")
@@ -106,7 +111,7 @@ def test_wheel_contains_kernel_assets_and_entry_point(tmp_path: Path) -> None:
         assert {name for name in names if name.startswith("kronika_capture/")} == set(expected)
         for name, source in expected.items():
             assert wheel.read(name) == source.read_bytes(), name
-        entry_points = wheel.read("framenest-0.1.0.dist-info/entry_points.txt").decode("utf-8")
+        entry_points = wheel.read("kronika-0.1.0.dist-info/entry_points.txt").decode("utf-8")
         wheel.extractall(unpacked)
     for relative in ASSET_PATHS:
         assert f"kronika_capture/{relative}" in names
@@ -129,7 +134,7 @@ from kronika_capture.cli import main
 from kronika_capture.paths import packaged_extension_path
 assert Path(kronika_capture.__file__).parent == root / "kronika_capture"
 entries = {
-    ep.name: ep for ep in metadata.distribution("framenest").entry_points
+    ep.name: ep for ep in metadata.distribution("kronika").entry_points
     if ep.group == "console_scripts"
 }
 assert entries["kronika-capture"].load() is main

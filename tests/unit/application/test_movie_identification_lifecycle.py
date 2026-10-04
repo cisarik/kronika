@@ -7,40 +7,40 @@ from typing import Any
 
 import pytest
 
-from framenest.application.media_content import supported_media_type
-from framenest.application.media_suggestion import (
+from kronika.application.media_content import supported_media_type
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderUnavailableError,
 )
-from framenest.application.movie_identification import (
+from kronika.application.movie_identification import (
     LocalMovieHints,
     MovieIdentificationRequest,
     MovieIdentificationSuggestion,
 )
-from framenest.application import movie_identification_lifecycle
-from framenest.application.movie_identification_lifecycle import (
+from kronika.application import movie_identification_lifecycle
+from kronika.application.movie_identification_lifecycle import (
     ExecuteMovieIdentificationRun,
 )
-from framenest.application.ports.movie_identification import PreparedMovieIdentification
-from framenest.domain.identities import (
+from kronika.application.ports.movie_identification import PreparedMovieIdentification
+from kronika.domain.identities import (
     DeviceId,
     LibraryId,
     MediaId,
     MediaLocationId,
 )
-from framenest.domain.libraries import Library, LibraryPathFlavor, LibraryRoot
-from framenest.domain.media import (
+from kronika.domain.libraries import Library, LibraryPathFlavor, LibraryRoot
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
     MediaLocationAvailability,
     MediaRelativePath as DomainMediaRelativePath,
 )
-from framenest.domain.media_analysis_runs import (
+from kronika.domain.media_analysis_runs import (
     MediaAnalysisRun,
     MediaAnalysisRunId,
     MediaAnalysisRunState,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     CONTACT_SHEET_DERIVATIVE_STRATEGY,
     IdentificationConfidence,
     MOVIE_IDENTIFICATION_ANALYSIS_DEFINITION,
@@ -48,9 +48,9 @@ from framenest.domain.media_classification import (
     MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
     MovieIdentificationStatus,
 )
-from framenest.infrastructure.ai.nvidia_nim import build_nvidia_movie_identification_body
-from framenest.infrastructure.media_analysis.contact_sheet import compose_contact_sheet
-from framenest.application.media_analysis import build_representative_frame
+from kronika.infrastructure.ai.nvidia_nim import build_nvidia_movie_identification_body
+from kronika.infrastructure.media_analysis.contact_sheet import compose_contact_sheet
+from kronika.application.media_analysis import build_representative_frame
 import io
 from PIL import Image
 
@@ -390,7 +390,7 @@ def test_provider_unavailable_marks_submission_attempted() -> None:
 
 
 def test_submitted_failure_persists_safe_provider_provenance() -> None:
-    from framenest.domain.media_classification import MOVIE_IDENTIFICATION_PROMPT_VERSION
+    from kronika.domain.media_classification import MOVIE_IDENTIFICATION_PROMPT_VERSION
 
     executor, repository, provider, preparer = _executor(
         provider_error=MediaSuggestionProviderUnavailableError("unavailable")
@@ -412,7 +412,7 @@ def test_submitted_failure_persists_safe_provider_provenance() -> None:
 
 
 def test_empty_provider_response_classified_distinctly() -> None:
-    from framenest.application.media_suggestion import (
+    from kronika.application.media_suggestion import (
         MediaSuggestionProviderEmptyResponseError,
     )
 
@@ -428,7 +428,7 @@ def test_empty_provider_response_classified_distinctly() -> None:
 
 
 def test_truncated_provider_response_classified_distinctly() -> None:
-    from framenest.application.media_suggestion import (
+    from kronika.application.media_suggestion import (
         MediaSuggestionProviderTruncatedResponseError,
     )
 
@@ -451,7 +451,7 @@ def test_truncated_provider_response_classified_distinctly() -> None:
 def test_invalid_provider_response_remains_distinct_from_truncation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.application.media_suggestion import (
+    from kronika.application.media_suggestion import (
         MediaSuggestionProviderInvalidResponseError,
     )
 

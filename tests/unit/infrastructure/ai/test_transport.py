@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from email.message import Message
 
-from framenest.infrastructure.ai.transport import _response_content_type
+from kronika.infrastructure.ai.transport import _response_content_type
 
 
 class _Response:

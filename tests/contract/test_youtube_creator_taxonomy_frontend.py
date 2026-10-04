@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WEB_ROOT = Path(__file__).resolve().parents[2] / "src/framenest/adapters/api/web"
+WEB_ROOT = Path(__file__).resolve().parents[2] / "src/kronika/adapters/api/web"
 
 
 def test_youtube_gallery_control_uses_content_category() -> None:

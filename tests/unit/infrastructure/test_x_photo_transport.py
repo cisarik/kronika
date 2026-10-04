@@ -9,8 +9,8 @@ from io import BytesIO
 
 from PIL import Image
 
-from framenest.domain.x_acquisition import X_VARIANT_PHOTO_JPEG, X_VARIANT_PHOTO_PNG
-from framenest.infrastructure.x.status_bridge import (
+from kronika.domain.x_acquisition import X_VARIANT_PHOTO_JPEG, X_VARIANT_PHOTO_PNG
+from kronika.infrastructure.x.status_bridge import (
     PHOTO_MAX_BYTES,
     PhotoHttpResult,
     StatusBridgeError,

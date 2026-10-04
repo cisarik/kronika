@@ -8,14 +8,14 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from framenest.infrastructure.ai.still_frame_smoke import (
+from kronika.infrastructure.ai.still_frame_smoke import (
     FrameNestStillFrameSmokeError,
     MAX_STILL_FRAMES,
     build_still_frame_smoke_request,
     prepare_still_frame_smoke_images,
 )
-from framenest.infrastructure.ai.constants import DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID
-from framenest.infrastructure.ai.nvidia_nim import build_nvidia_request_body
+from kronika.infrastructure.ai.constants import DEFAULT_MODEL_ID, DEFAULT_PROVIDER_ID
+from kronika.infrastructure.ai.nvidia_nim import build_nvidia_request_body
 
 
 def _write_jpeg(path: Path, *, color: tuple[int, int, int], size: tuple[int, int] = (64, 48)) -> Path:
@@ -79,7 +79,7 @@ def test_prepare_rejects_unsupported_format(tmp_path: Path) -> None:
 def test_prepare_rejects_oversized_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = _write_jpeg(tmp_path / "big.jpg", color=(4, 5, 6))
     monkeypatch.setattr(
-        "framenest.infrastructure.ai.still_frame_smoke.MAX_BYTES_PER_IMAGE",
+        "kronika.infrastructure.ai.still_frame_smoke.MAX_BYTES_PER_IMAGE",
         10,
     )
     with pytest.raises(FrameNestStillFrameSmokeError):

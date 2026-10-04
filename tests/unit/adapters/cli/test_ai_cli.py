@@ -9,8 +9,8 @@ import stat
 
 import pytest
 
-from framenest.adapters.cli import ai
-from framenest.application.media_suggestion import (
+from kronika.adapters.cli import ai
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderAuthError,
     MediaSuggestionProviderFailedError,
     MediaSuggestionProviderInvalidResponseError,
@@ -18,8 +18,8 @@ from framenest.application.media_suggestion import (
     MediaSuggestionProviderRateLimitedError,
     MediaSuggestionProviderUnavailableError,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.ai.configuration import (
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.ai.configuration import (
     AiConfigurationError,
     AiServerConfig,
     load_ai_server_config,
@@ -28,18 +28,18 @@ from framenest.infrastructure.ai.configuration import (
     load_ai_test_state,
     write_ai_server_config,
 )
-from framenest.infrastructure.ai.constants import (
+from kronika.infrastructure.ai.constants import (
     DEFAULT_PROVIDER_ID,
     VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID,
 )
-from framenest.infrastructure.ai.provider_records import (
+from kronika.infrastructure.ai.provider_records import (
     AiProviderModel,
     AiProviderRecord,
 )
-from framenest.infrastructure.ai.registry import resolve_ai_provider
-from framenest.infrastructure.ai.research_configuration import default_research_configuration
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
-from framenest.infrastructure.ai.vision_probe import (
+from kronika.infrastructure.ai.registry import resolve_ai_provider
+from kronika.infrastructure.ai.research_configuration import default_research_configuration
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.ai.vision_probe import (
     VISION_PROBE_PROMPT,
     default_vision_probe_state_path,
     load_vision_probe_state,
@@ -531,7 +531,7 @@ def test_still_frame_smoke_performs_one_suggest_without_persistence(
 ) -> None:
     from PIL import Image
 
-    from framenest.application.media_suggestion import MediaSuggestion, PROMPT_VERSION
+    from kronika.application.media_suggestion import MediaSuggestion, PROMPT_VERSION
 
     image_path = tmp_path / "frame.jpg"
     Image.new("RGB", (48, 32), (12, 34, 56)).save(image_path, format="JPEG")
@@ -1011,7 +1011,7 @@ def test_test_command_against_declared_provider_with_synthetic_credential(
             )
 
     transport = _Transport()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )

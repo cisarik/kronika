@@ -9,16 +9,16 @@ from sqlalchemy import create_engine, text
 
 from tests.support.kronika_identity import expected
 
-from framenest.application.x_acquisition import (
+from kronika.application.x_acquisition import (
     XAcquisitionCategoryConflictError,
     XAcquisitionRequestService,
     XRequestLimits,
 )
-from framenest.domain.identities import MediaId
-from framenest.domain.media_classification import ContentCategory
-from framenest.domain.x_acquisition import XAssetState, XPostClaim
-from framenest.infrastructure.persistence.catalog_schema import metadata
-from framenest.infrastructure.persistence.x_acquisition_claim_repository import (
+from kronika.domain.identities import MediaId
+from kronika.domain.media_classification import ContentCategory
+from kronika.domain.x_acquisition import XAssetState, XPostClaim
+from kronika.infrastructure.persistence.catalog_schema import metadata
+from kronika.infrastructure.persistence.x_acquisition_claim_repository import (
     SqliteXAcquisitionClaimRepository,
 )
 

@@ -7,14 +7,14 @@ from collections.abc import Sequence
 
 import pytest
 
-import framenest.infrastructure.media_validation.ffprobe as ffprobe_module
-from framenest.application.ports.quarantine_storage import QuarantineStateInconsistentError
-from framenest.application.ports.upload_media_validation import (
+import kronika.infrastructure.media_validation.ffprobe as ffprobe_module
+from kronika.application.ports.quarantine_storage import QuarantineStateInconsistentError
+from kronika.application.ports.upload_media_validation import (
     UploadMediaValidationInfrastructureError,
     UploadMediaValidationInterruptedError,
     UploadMediaValidationRejectedError,
 )
-from framenest.application.upload_validation import (
+from kronika.application.upload_validation import (
     UPLOAD_VALIDATION_AMBIGUOUS_MEDIA_TYPE,
     UPLOAD_VALIDATION_INVALID_MEDIA,
     UPLOAD_VALIDATION_MEDIA_POLICY_LIMIT,
@@ -23,8 +23,8 @@ from framenest.application.upload_validation import (
     UPLOAD_VALIDATION_TOOL_UNAVAILABLE,
     UPLOAD_VALIDATION_UNSUPPORTED_MEDIA_TYPE,
 )
-from framenest.domain.uploads import UploadValidatedFormat, UploadValidatedMediaKind
-from framenest.infrastructure.media_analysis.process import (
+from kronika.domain.uploads import UploadValidatedFormat, UploadValidatedMediaKind
+from kronika.infrastructure.media_analysis.process import (
     EXECUTABLE_NOT_FOUND_MESSAGE,
     PROCESS_OUTPUT_LIMIT_MESSAGE,
     PROCESS_TIMEOUT_MESSAGE,
@@ -32,7 +32,7 @@ from framenest.infrastructure.media_analysis.process import (
     ProcessInterruptedError,
     ProcessRunResult,
 )
-from framenest.infrastructure.media_validation.ffprobe import BoundedUploadMediaValidator
+from kronika.infrastructure.media_validation.ffprobe import BoundedUploadMediaValidator
 
 
 class _Reader:

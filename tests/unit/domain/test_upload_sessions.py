@@ -10,8 +10,8 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.domain import MediaByteIdentityId
-from framenest.domain.uploads import (
+from kronika.domain import MediaByteIdentityId
+from kronika.domain.uploads import (
     ALLOWED_UPLOAD_SESSION_TRANSITIONS,
     COMPLETE_UPLOAD_SESSION_STATES,
     FrameNestIncompleteUploadSessionError,
@@ -39,7 +39,7 @@ from framenest.domain.uploads import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DOMAIN_UPLOADS_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "uploads.py"
+DOMAIN_UPLOADS_MODULE = REPOSITORY_ROOT / "src" / "kronika" / "domain" / "uploads.py"
 
 
 def _session(**overrides: object) -> UploadSession:
@@ -463,10 +463,10 @@ def test_upload_domain_module_imports_no_infrastructure_or_framework() -> None:
         "sqlalchemy",
         "starlette",
         "uvicorn",
-        "framenest.infrastructure",
-        "framenest.application",
-        "framenest.adapters",
-        "framenest.configuration",
+        "kronika.infrastructure",
+        "kronika.application",
+        "kronika.adapters",
+        "kronika.configuration",
     }
     violations: list[str] = []
     for node in ast.walk(tree):

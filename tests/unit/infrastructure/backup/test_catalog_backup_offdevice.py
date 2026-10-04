@@ -12,8 +12,8 @@ import threading
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 DESTINATION_ID = "0123456789abcdef0123456789abcdef"
@@ -22,12 +22,12 @@ OTHER_DESTINATION_ID = "fedcba9876543210fedcba9876543210"
 
 def _migrated_database(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 
 def _ops_config(tmp_path: Path, *, keep_auto: int = 30):
-    from framenest.infrastructure.persistence.catalog_backup_ops import CatalogBackupOpsConfig
+    from kronika.infrastructure.persistence.catalog_backup_ops import CatalogBackupOpsConfig
 
     database = _migrated_database(tmp_path / "catalog.sqlite3")
     return CatalogBackupOpsConfig(
@@ -52,7 +52,7 @@ def _write_marker(
     mode: int = 0o644,
     payload: dict | None = None,
 ) -> Path:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import MARKER_NAME
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import MARKER_NAME
 
     marker = root / MARKER_NAME
     body = payload or {
@@ -72,7 +72,7 @@ def _prepare_destination(
     marker_mode: int = 0o644,
     bundles_mode: int = 0o700,
 ) -> Path:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import BUNDLES_DIRNAME
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import BUNDLES_DIRNAME
 
     root = tmp_path / "offdevice-root"
     root.mkdir()
@@ -93,7 +93,7 @@ def _hooks(
     marker_uid_allowed=None,
     bundles_uid_allowed=None,
 ):
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import OffdeviceOsHooks
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import OffdeviceOsHooks
 
     dest_resolved = destination_root.resolve()
 
@@ -119,7 +119,7 @@ def _environ(destination_id: str = DESTINATION_ID) -> dict[str, str]:
 
 
 def _seed_scheduled(tmp_path: Path, *, day: int = 4):
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
 
     config = _ops_config(tmp_path)
     result = run_scheduled_catalog_backup(
@@ -133,7 +133,7 @@ def _seed_scheduled(tmp_path: Path, *, day: int = 4):
 
 
 def test_parse_configured_destination_id_disabled_and_invalid() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         parse_configured_destination_id,
     )
@@ -152,8 +152,8 @@ def test_parse_configured_destination_id_disabled_and_invalid() -> None:
 
 
 def test_run_offdevice_disabled_without_destination_id(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import OffdeviceError
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_offdevice_catalog_copy
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import OffdeviceError
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_offdevice_catalog_copy
 
     config, _ = _seed_scheduled(tmp_path)
     with pytest.raises(OffdeviceError) as exc:
@@ -162,7 +162,7 @@ def test_run_offdevice_disabled_without_destination_id(tmp_path: Path) -> None:
 
 
 def test_destination_unavailable_when_missing(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -179,7 +179,7 @@ def test_destination_unavailable_when_missing(tmp_path: Path) -> None:
 
 
 def test_destination_not_mount(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -198,7 +198,7 @@ def test_destination_not_mount(tmp_path: Path) -> None:
 
 
 def test_destination_same_device(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -217,7 +217,7 @@ def test_destination_same_device(tmp_path: Path) -> None:
 
 
 def test_marker_missing(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         MARKER_NAME,
         OffdeviceError,
@@ -241,7 +241,7 @@ def test_marker_missing(tmp_path: Path) -> None:
 
 
 def test_marker_symlink_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         MARKER_NAME,
         OffdeviceError,
@@ -267,7 +267,7 @@ def test_marker_symlink_rejected(tmp_path: Path) -> None:
 
 
 def test_marker_malformed_json(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         MARKER_NAME,
         OffdeviceError,
         validate_offdevice_destination,
@@ -288,7 +288,7 @@ def test_marker_malformed_json(tmp_path: Path) -> None:
 
 
 def test_marker_malformed_extra_keys(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -316,7 +316,7 @@ def test_marker_malformed_extra_keys(tmp_path: Path) -> None:
 
 
 def test_marker_purpose_mismatch(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -343,7 +343,7 @@ def test_marker_purpose_mismatch(tmp_path: Path) -> None:
 
 
 def test_marker_id_invalid(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -370,7 +370,7 @@ def test_marker_id_invalid(tmp_path: Path) -> None:
 
 
 def test_destination_id_mismatch(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -389,7 +389,7 @@ def test_destination_id_mismatch(tmp_path: Path) -> None:
 
 
 def test_marker_unsafe_mode(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -408,7 +408,7 @@ def test_marker_unsafe_mode(tmp_path: Path) -> None:
 
 
 def test_marker_unsafe_uid(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -427,7 +427,7 @@ def test_marker_unsafe_uid(tmp_path: Path) -> None:
 
 
 def test_bundles_missing(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         OffdeviceError,
         validate_offdevice_destination,
@@ -450,7 +450,7 @@ def test_bundles_missing(tmp_path: Path) -> None:
 
 
 def test_bundles_symlink_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         OffdeviceError,
         validate_offdevice_destination,
@@ -475,7 +475,7 @@ def test_bundles_symlink_rejected(tmp_path: Path) -> None:
 
 
 def test_bundles_world_writable_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -494,7 +494,7 @@ def test_bundles_world_writable_rejected(tmp_path: Path) -> None:
 
 
 def test_bundles_uid_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -513,7 +513,7 @@ def test_bundles_uid_rejected(tmp_path: Path) -> None:
 
 
 def test_validate_destination_success(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         validate_offdevice_destination,
     )
@@ -536,11 +536,11 @@ def test_validate_destination_success(tmp_path: Path) -> None:
 
 
 def test_successful_copy_idempotent_reuse_and_conflict(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         OffdeviceError,
     )
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         run_offdevice_catalog_copy,
         run_scheduled_catalog_backup,
     )
@@ -599,13 +599,13 @@ def test_successful_copy_idempotent_reuse_and_conflict(tmp_path: Path) -> None:
 
 
 def test_publish_rename_enosys_maps_to_unsupported(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         capture_bundle_identity,
         publish_or_reuse_offdevice_bundle,
         validate_offdevice_destination,
     )
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
 
     config = _ops_config(tmp_path)
     scheduled = run_scheduled_catalog_backup(
@@ -636,13 +636,13 @@ def test_publish_rename_enosys_maps_to_unsupported(tmp_path: Path) -> None:
 
 
 def test_publish_rename_enospc_maps_to_destination_full(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         capture_bundle_identity,
         publish_or_reuse_offdevice_bundle,
         validate_offdevice_destination,
     )
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
 
     config = _ops_config(tmp_path)
     scheduled = run_scheduled_catalog_backup(
@@ -673,13 +673,13 @@ def test_publish_rename_enospc_maps_to_destination_full(tmp_path: Path) -> None:
 
 
 def test_fsync_failure_during_copy(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         capture_bundle_identity,
         publish_or_reuse_offdevice_bundle,
         validate_offdevice_destination,
     )
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
 
     config = _ops_config(tmp_path)
     scheduled = run_scheduled_catalog_backup(
@@ -710,7 +710,7 @@ def test_fsync_failure_during_copy(tmp_path: Path) -> None:
 
 
 def test_staging_cleanup_only_owned_stages(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         STAGE_PREFIX,
         OffdeviceError,
@@ -718,7 +718,7 @@ def test_staging_cleanup_only_owned_stages(tmp_path: Path) -> None:
         publish_or_reuse_offdevice_bundle,
         validate_offdevice_destination,
     )
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
 
     config = _ops_config(tmp_path)
     scheduled = run_scheduled_catalog_backup(
@@ -771,7 +771,7 @@ def test_staging_cleanup_only_owned_stages(tmp_path: Path) -> None:
 
 
 def test_derive_offdevice_readiness_states() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         derive_offdevice_readiness,
     )
 
@@ -893,7 +893,7 @@ def test_derive_offdevice_readiness_states() -> None:
 
 
 def test_sanitized_offdevice_status_omits_sensitive_fields(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         DEFAULT_OFFDEVICE_ROOT,
         build_sanitized_offdevice_status,
         derive_offdevice_readiness,
@@ -956,8 +956,8 @@ def test_sanitized_offdevice_status_omits_sensitive_fields(tmp_path: Path) -> No
 
 
 def test_operator_status_off_device_block(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import DEFAULT_OFFDEVICE_ROOT
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import DEFAULT_OFFDEVICE_ROOT
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         read_operator_status,
         run_offdevice_catalog_copy,
         run_scheduled_catalog_backup,
@@ -995,8 +995,8 @@ def test_operator_status_off_device_block(tmp_path: Path) -> None:
 
 
 def test_retention_plan_ignores_offdevice_bundles(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import BUNDLES_DIRNAME
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import BUNDLES_DIRNAME
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         build_retention_plan,
         run_offdevice_catalog_copy,
         run_scheduled_catalog_backup,
@@ -1035,7 +1035,7 @@ def test_retention_plan_ignores_offdevice_bundles(tmp_path: Path) -> None:
 
 
 def test_shared_lock_busy_for_offdevice(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         operation_lock,
         run_offdevice_catalog_copy,
@@ -1073,7 +1073,7 @@ def test_shared_lock_busy_for_offdevice(tmp_path: Path) -> None:
 
 
 def test_inspect_destination_health_mapping(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         inspect_destination_health,
     )
 
@@ -1122,7 +1122,7 @@ def test_inspect_destination_health_mapping(tmp_path: Path) -> None:
 
 
 def test_default_offdevice_root_constant() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         BUNDLES_DIRNAME,
         DEFAULT_OFFDEVICE_ROOT,
         MARKER_NAME,

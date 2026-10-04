@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from framenest.configuration import (
+from kronika.configuration import (
     ENV_FILE_ENVIRONMENT_VARIABLE,
     EXPLICIT_ENV_FILE_MESSAGE,
     FrameNestConfigurationError,

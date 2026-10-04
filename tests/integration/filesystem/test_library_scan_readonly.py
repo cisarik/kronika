@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanLimits
-from framenest.domain import LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.filesystem.library_scanner import LocalLibraryScanner
+from kronika.application.library_scan import LibraryScanLimits
+from kronika.domain import LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.filesystem.library_scanner import LocalLibraryScanner
 
 
 def _native_root(path: Path) -> LibraryRoot:

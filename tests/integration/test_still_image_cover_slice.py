@@ -24,22 +24,22 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import insert
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import LibraryId
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import LibraryId
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.infrastructure.persistence.catalog_schema import devices, libraries
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.catalog_schema import devices, libraries
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DESTINATION_ID = LibraryId(uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"))
 
@@ -55,7 +55,7 @@ def _identity(role: str) -> IdentityContext:
     )
 
 
-def _app(settings: FrameNestSettings, role: str):
+def _app(settings: KronikaSettings, role: str):
     app = create_app(settings=settings)
 
     @app.middleware("http")
@@ -141,7 +141,7 @@ def test_still_image_cover_roundtrip_admin_and_ordinary_user(tmp_path: Path) -> 
     thumbnail_root = tmp_path / "thumbnails"
     quarantine_root.mkdir()
     published_root.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=cache_root,
         upload_quarantine_root=quarantine_root,

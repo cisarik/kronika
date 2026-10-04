@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_content import (
+from kronika.application.media_content import (
     MediaContentFailedError,
     MediaContentNotFoundError,
     MediaContentUnavailableError,
@@ -16,9 +16,9 @@ from framenest.application.media_content import (
     safe_download_filename,
     supported_media_type,
 )
-from framenest.application.ports.media_content import OpenedMediaContent
-from framenest.application.ports.media_repository import FrameNestMediaRepositoryError
-from framenest.domain import (
+from kronika.application.ports.media_content import OpenedMediaContent
+from kronika.application.ports.media_repository import FrameNestMediaRepositoryError
+from kronika.domain import (
     DeviceId,
     Library,
     LibraryId,
@@ -27,7 +27,7 @@ from framenest.domain import (
     MediaId,
     MediaLocationId,
 )
-from framenest.domain.media import (
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
@@ -37,7 +37,7 @@ from framenest.domain.media import (
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 APPLICATION_MEDIA_CONTENT = (
-    REPOSITORY_ROOT / "src" / "framenest" / "application" / "media_content.py"
+    REPOSITORY_ROOT / "src" / "kronika" / "application" / "media_content.py"
 )
 
 MEDIA_ID = MediaId.from_string("12345678-1234-4234-9234-123456789abc")
@@ -306,7 +306,7 @@ def test_application_media_content_module_imports_no_infrastructure():
             module = node.module or ""
         else:
             continue
-        if module.startswith("framenest.infrastructure"):
+        if module.startswith("kronika.infrastructure"):
             violations.append(module)
     assert violations == []
 

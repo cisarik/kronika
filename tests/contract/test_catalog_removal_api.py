@@ -7,16 +7,16 @@ from dataclasses import dataclass
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.catalog_removal_api import (
+from kronika.adapters.api.catalog_removal_api import (
     CatalogRemovalApiDependencies,
     create_catalog_removal_api_router,
 )
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
     SCOPE_REQUEST_ID,
 )
-from framenest.application.catalog_removal import (
+from kronika.application.catalog_removal import (
     CatalogMediaRemovalService,
     CatalogRemovalNotFoundError,
     CatalogRemovalPreview,
@@ -25,7 +25,7 @@ from framenest.application.catalog_removal import (
     CatalogRemovalStateConflictError,
     CatalogRemovalValidationError,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_MEDIA_CATALOG_REMOVE,
     IdentityContext,

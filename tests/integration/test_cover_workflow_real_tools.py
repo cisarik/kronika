@@ -12,40 +12,40 @@ import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.application.media_cover import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.application.media_cover import (
     CoverSourceChangedError,
     CoverService,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import (
     DeviceId,
     LibraryId,
     MediaId,
     MediaLocationId,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
 )
-from framenest.infrastructure.filesystem.cover_storage import (
+from kronika.infrastructure.filesystem.cover_storage import (
     FilesystemCoverThumbnailCache,
     FilesystemDurableCoverStorage,
     PillowCoverEncoder,
 )
-from framenest.infrastructure.media_analysis.cover_frame import LocalCoverSourceAdapter
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.media_analysis.cover_frame import LocalCoverSourceAdapter
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.media_cover_repository import (
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.media_cover_repository import (
     SqliteMediaCoverRepository,
 )
-from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("FRAMENEST_RUN_REAL_MEDIA_TOOLS") != "1",
@@ -89,7 +89,7 @@ def _generate_media(root: Path) -> None:
     )
 
 
-def _seed_catalog(settings: FrameNestSettings, root: Path) -> None:
+def _seed_catalog(settings: KronikaSettings, root: Path) -> None:
     connection = sqlite3.connect(settings.database_path)
     connection.execute("PRAGMA foreign_keys=ON")
     try:
@@ -128,7 +128,7 @@ def _seed_catalog(settings: FrameNestSettings, root: Path) -> None:
         connection.close()
 
 
-def _service(settings: FrameNestSettings) -> CoverService:
+def _service(settings: KronikaSettings) -> CoverService:
     engine = create_sqlite_engine(settings.database_path)
     service = CoverService(
         SqliteMediaRepository(engine),
@@ -148,7 +148,7 @@ def workflow(tmp_path: Path):
     root = tmp_path / "media"
     root.mkdir()
     _generate_media(root)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -212,7 +212,7 @@ def test_source_change_is_detected_and_rejects_stale_accept(workflow) -> None:
     service, settings = workflow
     timeline = service.timeline(MEDIA_MP4, LOC_MP4)
     # Change the source bytes and mtime to invalidate the source observation.
-    from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
+    from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
 
     engine = service.__dict__["_engine"]
     library_repo = SqliteLibraryRepository(engine)
@@ -276,7 +276,7 @@ def test_http_accept_sets_cover_ready_and_thumbnail_etag_workflow(workflow) -> N
             capabilities=CAPABILITIES_BY_ROLE[ROLE_ADMIN],
             provenance="tailscale-serve",
         )
-        from framenest.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID
+        from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID
         import uuid
 
         request.scope[SCOPE_AUDIT_EVENT_ID] = str(uuid.uuid4())
@@ -327,7 +327,7 @@ def test_thumbnail_etag_is_bound_to_algorithm_identity(workflow) -> None:
     import hashlib
 
     for hypothetical_algorithm in ("cover-thumbnail-jpeg-v2", "cover-thumbnail-jpeg-v1"):
-        from framenest.domain.media_cover import MediaCover
+        from kronika.domain.media_cover import MediaCover
 
         cover = service.__dict__["_cover_repository"].get(MEDIA_MP4)
         expected = '"' + hashlib.sha256(

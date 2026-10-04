@@ -14,29 +14,29 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.adapters.api.youtube_request_api import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.adapters.api.youtube_request_api import (
     YouTubeRequestApiDependencies,
     create_youtube_request_api_router,
 )
-from framenest.application.youtube_acquisition import (
+from kronika.application.youtube_acquisition import (
     YouTubeRequestLimits,
     YouTubeRequestService,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.youtube_acquisition_claim_repository import (
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.youtube_acquisition_claim_repository import (
     SqliteYouTubeAcquisitionClaimRepository,
 )
 
@@ -223,7 +223,7 @@ def _request_client(database_path: Path, login: str) -> TestClient:
     return client
 
 
-def _media_client(settings: FrameNestSettings, login: str, role: str) -> TestClient:
+def _media_client(settings: KronikaSettings, login: str, role: str) -> TestClient:
     app = create_app(settings=settings)
 
     @app.middleware("http")
@@ -242,7 +242,7 @@ def test_owner_private_details_hydrate_while_gallery_stays_published_only(
     library_root = tmp_path / "library"
     library_root.mkdir()
     (library_root / "owner-private.mp4").write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
@@ -395,7 +395,7 @@ def test_removed_requester_claim_clears_media_access(tmp_path: Path) -> None:
     library_root = tmp_path / "library"
     library_root.mkdir()
     (library_root / "owner-private.mp4").write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
@@ -457,7 +457,7 @@ def test_imported_upstream_title_is_canonical_until_admin_save(
     library_root.mkdir()
     hash_filename = "a1b2c3d4e5f6789012345678abcdef01.mp4"
     (library_root / hash_filename).write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
@@ -542,7 +542,7 @@ def test_missing_upstream_and_display_title_do_not_invent_product_title(
     library_root.mkdir()
     hash_filename = "deadbeefcafebabe0123456789abcdef.mp4"
     (library_root / hash_filename).write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
@@ -577,12 +577,12 @@ def test_missing_upstream_and_display_title_do_not_invent_product_title(
 def test_forbidden_bound_media_link_is_unavailable_without_media_id(
     tmp_path: Path,
 ) -> None:
-    from framenest.domain.records import RecordId
-    from framenest.infrastructure.persistence.content_publication_repository import (
+    from kronika.domain.records import RecordId
+    from kronika.infrastructure.persistence.content_publication_repository import (
         SqliteContentPublicationRepository,
     )
-    from framenest.infrastructure.persistence.engine import run_in_immediate_transaction
-    from framenest.infrastructure.persistence.record_repository import (
+    from kronika.infrastructure.persistence.engine import run_in_immediate_transaction
+    from kronika.infrastructure.persistence.record_repository import (
         SqliteRecordRepository,
     )
 
@@ -590,7 +590,7 @@ def test_forbidden_bound_media_link_is_unavailable_without_media_id(
     database_path.parent.mkdir(parents=True)
     library_root = tmp_path / "library"
     library_root.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,

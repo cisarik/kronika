@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from framenest.domain import (
+from kronika.domain import (
     DeviceId,
     FrameNestIdentityError,
     LibraryId,

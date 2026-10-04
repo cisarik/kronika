@@ -9,15 +9,15 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_ADMIN
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_ADMIN
 from tests.support.record_access import install_synthetic_caller
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 MP4_BYTES = b"\x00\x00\x00\x18ftypmp42" + b"\x01" * 100
@@ -73,7 +73,7 @@ def test_local_web_playback_endpoint_returns_gif_and_mp4_content_identity_only(
     library_root.mkdir()
     (library_root / "entropy.mp4").write_bytes(MP4_BYTES)
     (library_root / "reaction.gif").write_bytes(GIF_BYTES)
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     library_id = _register_library(database_path, library_root)
 
@@ -154,7 +154,7 @@ def test_local_web_playback_rejects_offline_location(
     library_root = tmp_path / "registered-library"
     library_root.mkdir()
     (library_root / "offline.mp4").write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     library_id = _register_library(database_path, library_root)
 
@@ -203,7 +203,7 @@ def test_local_web_download_uses_sanitized_fallback_for_unsafe_filename(
     library_root.mkdir()
     unsafe_name = "💾\r\n.mp4"
     (library_root / unsafe_name).write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     library_id = _register_library(database_path, library_root)
 
@@ -250,7 +250,7 @@ def test_local_web_download_rejects_missing_file_without_path_disclosure(
     library_root.mkdir()
     target = library_root / "missing-later.mp4"
     target.write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     library_id = _register_library(database_path, library_root)
 

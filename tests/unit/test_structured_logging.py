@@ -16,11 +16,11 @@ from unittest.mock import patch
 import pytest
 from pydantic import SecretStr
 
-from framenest.configuration import FrameNestSettings
+from kronika.configuration import KronikaSettings
 
 REPRESENTATIVE_SECRET = "structured-logging-unit-secret"
 FORBIDDEN_LOGGING_PACKAGES = frozenset({"structlog", "pythonjsonlogger"})
-ALLOWED_LOGGING_MODULE = Path("src/framenest/structured_logging.py")
+ALLOWED_LOGGING_MODULE = Path("src/kronika/structured_logging.py")
 SOURCE_ROOT = Path("src/framenest")
 
 
@@ -33,7 +33,7 @@ class _ReprRaises:
 
 
 def _configure_capture() -> StringIO:
-    from framenest.structured_logging import build_uvicorn_log_config
+    from kronika.structured_logging import build_uvicorn_log_config
 
     logging.config.dictConfig(build_uvicorn_log_config())
     stream = StringIO()
@@ -64,7 +64,7 @@ def _parse_lines(stream: StringIO) -> list[dict[str, Any]]:
 
 
 def test_required_fields_are_emitted() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -87,7 +87,7 @@ def test_required_fields_are_emitted() -> None:
 
 
 def test_key_ordering_is_deterministic() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -110,7 +110,7 @@ def test_key_ordering_is_deterministic() -> None:
 
 
 def test_timestamp_is_utc_with_millisecond_precision_and_z_suffix() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(level="INFO", event="time_event", operation="verify")
@@ -119,7 +119,7 @@ def test_timestamp_is_utc_with_millisecond_precision_and_z_suffix() -> None:
 
 
 def test_all_supported_levels_normalize_correctly() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     for level in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
         stream = _configure_capture()
@@ -128,7 +128,7 @@ def test_all_supported_levels_normalize_correctly() -> None:
 
 
 def test_error_code_and_retryable_preserve_values_and_null() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -144,7 +144,7 @@ def test_error_code_and_retryable_preserve_values_and_null() -> None:
 
 
 def test_exception_metadata_is_sanitized_without_raw_message_or_traceback() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     secret_message = "raw-exception-secret-message"
@@ -162,7 +162,7 @@ def test_exception_metadata_is_sanitized_without_raw_message_or_traceback() -> N
 
 
 def test_secret_str_redacted_at_top_level_and_nested_levels() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -189,7 +189,7 @@ def test_secret_str_redacted_at_top_level_and_nested_levels() -> None:
     ],
 )
 def test_sensitive_keys_redacted_case_insensitively(key: str) -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -204,7 +204,7 @@ def test_sensitive_keys_redacted_case_insensitively(key: str) -> None:
 
 
 def test_nested_mappings_and_sequences_are_sanitized() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -218,7 +218,7 @@ def test_nested_mappings_and_sequences_are_sanitized() -> None:
 
 
 def test_set_output_is_deterministic() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -232,7 +232,7 @@ def test_set_output_is_deterministic() -> None:
 
 
 def test_cycles_and_excessive_depth_terminate_safely() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     cyclic: dict[str, Any] = {"name": "root"}
     cyclic["self"] = cyclic
@@ -249,7 +249,7 @@ def test_cycles_and_excessive_depth_terminate_safely() -> None:
 
 
 def test_non_finite_floats_do_not_produce_invalid_json() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -263,7 +263,7 @@ def test_non_finite_floats_do_not_produce_invalid_json() -> None:
 
 
 def test_arbitrary_object_repr_and_str_are_never_invoked() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -277,9 +277,9 @@ def test_arbitrary_object_repr_and_str_are_never_invoked() -> None:
 
 
 def test_complete_framenest_settings_objects_are_not_traversed_or_exposed() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         api_key=SecretStr(REPRESENTATIVE_SECRET),
         _env_file=None,
@@ -298,7 +298,7 @@ def test_complete_framenest_settings_objects_are_not_traversed_or_exposed() -> N
 
 
 def test_bearer_tokens_and_secret_assignments_in_strings_are_redacted() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -316,7 +316,7 @@ def test_bearer_tokens_and_secret_assignments_in_strings_are_redacted() -> None:
 
 
 def test_urls_absolute_paths_and_media_filenames_are_redacted() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     stream = _configure_capture()
     get_logger("test").emit(
@@ -337,7 +337,7 @@ def test_urls_absolute_paths_and_media_filenames_are_redacted() -> None:
 
 
 def test_malformed_context_does_not_crash_formatting() -> None:
-    from framenest.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
+    from kronika.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
 
     record = logging.LogRecord(
         name="framenest.test",
@@ -362,7 +362,7 @@ def test_malformed_context_does_not_crash_formatting() -> None:
 
 
 def test_foreign_stdlib_records_receive_external_log_schema() -> None:
-    from framenest.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
+    from kronika.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
 
     stream = _configure_capture()
     logging.getLogger("foreign.module").info("foreign message")
@@ -374,7 +374,7 @@ def test_foreign_stdlib_records_receive_external_log_schema() -> None:
 
 
 def test_raw_foreign_record_args_do_not_appear_in_output() -> None:
-    from framenest.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
+    from kronika.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
 
     stream = _configure_capture()
     logging.getLogger("foreign.module").info("hello %s", REPRESENTATIVE_SECRET)
@@ -384,7 +384,7 @@ def test_raw_foreign_record_args_do_not_appear_in_output() -> None:
 
 
 def test_formatter_failure_emits_safe_fallback_without_rejected_data() -> None:
-    from framenest.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
+    from kronika.structured_logging import FrameNestJsonFormatter, FrameNestRedactionFilter
 
     record = logging.LogRecord(
         name="framenest.test",
@@ -406,7 +406,7 @@ def test_formatter_failure_emits_safe_fallback_without_rejected_data() -> None:
 
 
 def test_invalid_facade_fields_raise_sanitized_errors() -> None:
-    from framenest.structured_logging import get_logger
+    from kronika.structured_logging import get_logger
 
     logger = get_logger("test")
     with pytest.raises(ValueError) as exc_info:

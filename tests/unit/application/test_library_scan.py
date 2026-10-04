@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from framenest.application.library_scan import (
+from kronika.application.library_scan import (
     DEFAULT_MAX_CANDIDATES,
     DEFAULT_MAX_ENTRIES,
     FrameNestLibraryScanError,
@@ -24,10 +24,10 @@ from framenest.application.library_scan import (
     classify_candidate_extension,
     default_scan_limits,
 )
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-APPLICATION_SCAN = REPOSITORY_ROOT / "src" / "framenest" / "application" / "library_scan.py"
+APPLICATION_SCAN = REPOSITORY_ROOT / "src" / "kronika" / "application" / "library_scan.py"
 
 
 class _FakeLibraryRepository:
@@ -223,6 +223,6 @@ def test_application_scan_module_imports_no_infrastructure() -> None:
             module = node.module or ""
         else:
             continue
-        if module.startswith("framenest.infrastructure"):
+        if module.startswith("kronika.infrastructure"):
             violations.append(module)
     assert violations == []

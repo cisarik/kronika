@@ -9,13 +9,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.errors import FrameNestMigrationError
-from framenest.infrastructure.persistence.migrations import (
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.errors import FrameNestMigrationError
+from kronika.infrastructure.persistence.migrations import (
     MigrationStatus,
     upgrade_database_to_head,
 )
-from framenest.infrastructure.runtime import production
+from kronika.infrastructure.runtime import production
 
 
 def _payload(output: str) -> dict[str, object]:
@@ -44,7 +44,7 @@ def test_check_database_ready_succeeds_only_at_head(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database_path = tmp_path / "catalog.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path))
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 0
@@ -151,7 +151,7 @@ def test_check_database_ready_sanitizes_inspection_failure(
     private_path = "/private/catalog.sqlite3"
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", private_path)
 
-    def fail_inspection(settings: FrameNestSettings) -> MigrationStatus:
+    def fail_inspection(settings: KronikaSettings) -> MigrationStatus:
         raise FrameNestMigrationError(
             f"cannot open {settings.database_path}",
             error_code="OPEN_FAILED",
@@ -216,7 +216,7 @@ def test_check_database_ready_explicitly_disables_dotenv_loading(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    load_settings = Mock(return_value=FrameNestSettings(database_path=Path("/tmp/catalog.sqlite3")))
+    load_settings = Mock(return_value=KronikaSettings(database_path=Path("/tmp/catalog.sqlite3")))
     monkeypatch.setattr(production, "load_settings", load_settings)
     monkeypatch.setattr(
         production,
@@ -242,7 +242,7 @@ def test_check_database_ready_never_calls_migration_operation(
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "missing.sqlite3"))
     sentinel = Mock(side_effect=AssertionError("migration must not run"))
     monkeypatch.setattr(
-        "framenest.infrastructure.persistence.migrations.upgrade_database_to_head",
+        "kronika.infrastructure.persistence.migrations.upgrade_database_to_head",
         sentinel,
     )
 
@@ -255,7 +255,7 @@ def test_check_database_ready_never_calls_migration_operation(
 def test_explicit_migrate_operation_remains_available(tmp_path: Path) -> None:
     database_path = tmp_path / "catalog.sqlite3"
 
-    status = upgrade_database_to_head(FrameNestSettings(database_path=database_path))
+    status = upgrade_database_to_head(KronikaSettings(database_path=database_path))
 
     assert status.state == "at_head"
     assert status.current_revision == "0035"
@@ -264,7 +264,7 @@ def test_explicit_migrate_operation_remains_available(tmp_path: Path) -> None:
 def test_serve_exists_and_runs_existing_server_runtime_with_no_dotenv(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = FrameNestSettings(database_path=Path("/tmp/catalog.sqlite3"))
+    settings = KronikaSettings(database_path=Path("/tmp/catalog.sqlite3"))
     load_settings = Mock(return_value=settings)
     run_server = Mock(return_value=None)
     monkeypatch.setattr(production, "load_settings", load_settings)
@@ -284,7 +284,7 @@ def test_serve_exists_and_runs_existing_server_runtime_with_no_dotenv(
 def test_serve_does_not_open_browser_run_migrations_or_development_launcher(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(production, "load_settings", lambda env_file=None: FrameNestSettings())
+    monkeypatch.setattr(production, "load_settings", lambda env_file=None: KronikaSettings())
     run_server = Mock(return_value=None)
     monkeypatch.setattr(production, "run_server", run_server)
     monkeypatch.setattr(
@@ -313,7 +313,7 @@ def test_serve_unexpected_failure_is_sanitized(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setattr(production, "load_settings", lambda env_file=None: FrameNestSettings())
+    monkeypatch.setattr(production, "load_settings", lambda env_file=None: KronikaSettings())
     monkeypatch.setattr(production, "run_server", Mock(side_effect=RuntimeError("private failure")))
 
     assert production.main(["serve"]) == 1

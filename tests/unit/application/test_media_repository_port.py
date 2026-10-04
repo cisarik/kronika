@@ -7,7 +7,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 APPLICATION_PORT = (
-    REPOSITORY_ROOT / "src" / "framenest" / "application" / "ports" / "media_repository.py"
+    REPOSITORY_ROOT / "src" / "kronika" / "application" / "ports" / "media_repository.py"
 )
 FORBIDDEN_IMPORT_ROOTS = frozenset(
     {
@@ -18,7 +18,7 @@ FORBIDDEN_IMPORT_ROOTS = frozenset(
         "sqlalchemy",
         "starlette",
         "uvicorn",
-        "framenest.infrastructure",
+        "kronika.infrastructure",
     }
 )
 
@@ -34,6 +34,6 @@ def test_media_repository_port_imports_no_infrastructure_or_sqlalchemy() -> None
         else:
             continue
         root = module.split(".")[0]
-        if root in FORBIDDEN_IMPORT_ROOTS or module.startswith("framenest.infrastructure"):
+        if root in FORBIDDEN_IMPORT_ROOTS or module.startswith("kronika.infrastructure"):
             violations.append(module)
     assert violations == []

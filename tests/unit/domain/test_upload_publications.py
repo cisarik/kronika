@@ -7,8 +7,8 @@ import uuid
 
 import pytest
 
-from framenest.domain.identities import LibraryId, MediaByteIdentityId
-from framenest.domain.upload_publications import (
+from kronika.domain.identities import LibraryId, MediaByteIdentityId
+from kronika.domain.upload_publications import (
     FrameNestUploadPublicationError,
     UploadPublicationCleanupState,
     UploadPublicationId,
@@ -17,7 +17,7 @@ from framenest.domain.upload_publications import (
     ensure_publication_matches_upload,
     new_upload_publication_reservation,
 )
-from framenest.domain.uploads import (
+from kronika.domain.uploads import (
     FrameNestUploadSessionTransitionError,
     UploadDisplayFilename,
     UploadDuplicateDisposition,

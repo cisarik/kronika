@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.library_api import LibraryApiDependencies
-from framenest.adapters.api.media_import_api import MediaImportApiDependencies
-from framenest.application.library_scan import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.library_api import LibraryApiDependencies
+from kronika.adapters.api.media_import_api import MediaImportApiDependencies
+from kronika.application.library_scan import (
     LibraryFilesystemScanResult,
     LibraryScanFailedError,
     LibraryScanLimits,
@@ -21,14 +21,14 @@ from framenest.application.library_scan import (
     SCAN_FAILED_MESSAGE,
     SCAN_UNAVAILABLE_MESSAGE,
 )
-from framenest.application.media_import import (
+from kronika.application.media_import import (
     MediaImportCandidateUnavailableError,
     MediaImportFailedError,
 )
-from framenest.application.ports.library_repository import FrameNestLibraryRepositoryError
-from framenest.configuration import FrameNestSettings
-from framenest.domain import LibraryId, MediaId, MediaLocationId
-from framenest.domain.media import (
+from kronika.application.ports.library_repository import FrameNestLibraryRepositoryError
+from kronika.configuration import KronikaSettings
+from kronika.domain import LibraryId, MediaId, MediaLocationId
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
@@ -150,7 +150,7 @@ def _client(
     catalog_available: bool = True,
     database_path: Path | None = None,
 ) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=database_path or Path("/tmp/framenest-media-import-api.sqlite3"),
         _env_file=None,

@@ -7,21 +7,21 @@ from pathlib import Path
 import pytest
 from alembic import command
 
-from framenest.application.ports.media_analysis_runs import MediaAnalysisRunConflictError
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media_analysis_runs import (
+from kronika.application.ports.media_analysis_runs import MediaAnalysisRunConflictError
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media_analysis_runs import (
     AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
     MediaAnalysisRunState,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.media_analysis_run_repository import (
+from kronika.infrastructure.persistence.media_analysis_run_repository import (
     SqliteMediaAnalysisRunRepository,
 )
-from framenest.infrastructure.persistence.migrations import _alembic_config
+from kronika.infrastructure.persistence.migrations import _alembic_config
 
 
 MEDIA_ID = MediaId.from_string("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee")
@@ -33,7 +33,7 @@ def _migrate(database_path: Path) -> None:
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "head")
@@ -232,10 +232,10 @@ def test_crash_window_provider_success_then_interrupt_does_not_replay_provider(
     repository: SqliteMediaAnalysisRunRepository,
 ) -> None:
     """Reproduce ambiguous crash: provider OK, analyzed row never written."""
-    from framenest.application.media_analysis_lifecycle import (
+    from kronika.application.media_analysis_lifecycle import (
         ExecuteAutomaticMediaAnalysisRun,
     )
-    from framenest.application.media_suggestion import MediaSuggestion, PROMPT_VERSION
+    from kronika.application.media_suggestion import MediaSuggestion, PROMPT_VERSION
 
     pending = repository.create_pending(
         media_id=MEDIA_ID,
@@ -374,8 +374,8 @@ def test_manual_pending_preserves_provider_failed_historical_run(
     assert preserved.id.to_string() == manual.id.to_string()
     # Historical row remains queryable by identity through supersession target.
     from sqlalchemy import select
-    from framenest.infrastructure.persistence.catalog_schema import media_analysis_runs
-    from framenest.infrastructure.persistence.engine import run_in_transaction
+    from kronika.infrastructure.persistence.catalog_schema import media_analysis_runs
+    from kronika.infrastructure.persistence.engine import run_in_transaction
 
     def load_failed(connection):
         row = connection.execute(
@@ -450,8 +450,8 @@ def test_manual_pending_preserves_local_failed_and_analyzed_history(
     assert second_manual.supersedes_run_id is not None
     assert second_manual.supersedes_run_id.to_string() == analyzed.id.to_string()
     from sqlalchemy import select
-    from framenest.infrastructure.persistence.catalog_schema import media_analysis_runs
-    from framenest.infrastructure.persistence.engine import run_in_transaction
+    from kronika.infrastructure.persistence.catalog_schema import media_analysis_runs
+    from kronika.infrastructure.persistence.engine import run_in_transaction
 
     def load_analyzed(connection):
         return connection.execute(

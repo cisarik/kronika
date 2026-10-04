@@ -9,15 +9,15 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     MediaAnalysisFailedError,
     MediaAnalysisUnavailableError,
     MediaRelativePath,
 )
-from framenest.domain.libraries import LibraryPathFlavor, LibraryRoot
-from framenest.domain.media import MediaKind
-from framenest.infrastructure.media_analysis.cover_frame import LocalCoverSourceAdapter
-from framenest.infrastructure.media_analysis.process import (
+from kronika.domain.libraries import LibraryPathFlavor, LibraryRoot
+from kronika.domain.media import MediaKind
+from kronika.infrastructure.media_analysis.cover_frame import LocalCoverSourceAdapter
+from kronika.infrastructure.media_analysis.process import (
     EXECUTABLE_NOT_FOUND_MESSAGE,
     PROCESS_TIMEOUT_MESSAGE,
     ProcessExecutionError,
@@ -176,7 +176,7 @@ def test_extract_frame_rejects_unresolvable_tool(tmp_path: Path) -> None:
 
 
 def test_probe_rejects_escaping_and_missing_paths(tmp_path: Path) -> None:
-    from framenest.application.media_analysis import FrameNestMediaAnalysisError
+    from kronika.application.media_analysis import FrameNestMediaAnalysisError
 
     root = tmp_path / "root"
     root.mkdir()

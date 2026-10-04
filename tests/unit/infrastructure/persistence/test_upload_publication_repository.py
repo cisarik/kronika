@@ -10,20 +10,20 @@ import uuid
 import pytest
 from sqlalchemy import func, insert, select, text, update
 
-from framenest.application.ports.upload_publications import (
+from kronika.application.ports.upload_publications import (
     FrameNestUploadPublicationRepositoryError,
     UploadPublicationEvidenceConflictError,
 )
-from framenest.application.ports.upload_sessions import (
+from kronika.application.ports.upload_sessions import (
     InvalidUploadSessionTransitionError,
 )
-from framenest.domain.identities import LibraryId, MediaByteIdentityId
-from framenest.domain.upload_publications import (
+from kronika.domain.identities import LibraryId, MediaByteIdentityId
+from kronika.domain.upload_publications import (
     UploadPublicationCleanupState,
     UploadPublicationState,
     new_upload_publication_reservation,
 )
-from framenest.domain.uploads import (
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadDuplicateDisposition,
     UploadSession,
@@ -33,7 +33,7 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.persistence.catalog_schema import (
+from kronika.infrastructure.persistence.catalog_schema import (
     devices,
     libraries,
     logical_media,
@@ -42,11 +42,11 @@ from framenest.infrastructure.persistence.catalog_schema import (
     upload_publications,
     upload_sessions,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.upload_publication_repository import (
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.upload_publication_repository import (
     SqliteUploadPublicationRepository,
 )
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 

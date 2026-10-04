@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_suggestion import PreviewMediaSuggestion, PROMPT_VERSION
-from framenest.application.media_analysis import MediaRelativePath
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.ai import NvidiaNimMediaSuggestionProvider
-from framenest.infrastructure.ai.credentials import NvidiaApiCredential
-from framenest.infrastructure.media_analysis import LocalMediaAnalysisAdapter
+from kronika.application.media_suggestion import PreviewMediaSuggestion, PROMPT_VERSION
+from kronika.application.media_analysis import MediaRelativePath
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.ai import NvidiaNimMediaSuggestionProvider
+from kronika.infrastructure.ai.credentials import NvidiaApiCredential
+from kronika.infrastructure.media_analysis import LocalMediaAnalysisAdapter
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("FRAMENEST_RUN_NVIDIA_NIM_SMOKE") != "1"

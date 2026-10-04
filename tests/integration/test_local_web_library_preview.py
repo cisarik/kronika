@@ -8,13 +8,13 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _native_flavor() -> LibraryPathFlavor:
@@ -46,7 +46,7 @@ def test_local_web_lists_and_explicitly_previews_registered_library(tmp_path: Pa
     (series / "Episode 01.mkv").write_bytes(b"mkv-data")
     before = _snapshot_files(library_root)
 
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     library_id = LibraryId.new()

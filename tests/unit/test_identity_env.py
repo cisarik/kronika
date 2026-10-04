@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.identity_env import (
+from kronika.identity_env import (
     COMPATIBLE_ENVIRONMENT_PREFIX,
     EXIT_IDENTITY_ENVIRONMENT_CONFLICT,
     PRIMARY_ENVIRONMENT_PREFIX,

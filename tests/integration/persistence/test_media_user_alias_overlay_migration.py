@@ -7,18 +7,18 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
-from framenest.domain import MediaId
-from framenest.domain.media_user_alias import parse_alias_content
-from framenest.infrastructure.persistence.catalog_removal_repository import (
+from kronika.domain import MediaId
+from kronika.domain.media_user_alias import parse_alias_content
+from kronika.infrastructure.persistence.catalog_removal_repository import (
     _delete_metadata_graph,
 )
-from framenest.infrastructure.persistence.catalog_schema import metadata
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.catalog_schema import metadata
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
     run_in_transaction,
 )
-from framenest.infrastructure.persistence.media_user_alias_repository import (
+from kronika.infrastructure.persistence.media_user_alias_repository import (
     SqliteMediaUserAliasRepository,
 )
 
@@ -29,14 +29,14 @@ BOB = "bob@example.com"
 
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -54,10 +54,10 @@ def _connect(database_path: Path) -> sqlite3.Connection:
 
 
 def test_head_is_0030() -> None:
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     with _alembic_config(
-        "framenest.infrastructure.persistence.alembic_environment"
+        "kronika.infrastructure.persistence.alembic_environment"
     ) as config:
         from alembic.script import ScriptDirectory
 

@@ -13,11 +13,11 @@ import pytest
 from tests.support.kronika_identity import expected
 from tests.support.tooling import resolve_tool
 
-from framenest.adapters.cli import development as cli
-from framenest.infrastructure.runtime.development import RuntimeStatus
+from kronika.adapters.cli import development as cli
+from kronika.infrastructure.runtime.development import RuntimeStatus
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-ROOT_WRAPPER = REPOSITORY_ROOT / "framenest"
+ROOT_WRAPPER = REPOSITORY_ROOT / "kronika"
 CANONICAL_VENV_BIN = REPOSITORY_ROOT / ".venv" / "bin"
 SYNTHETIC_NVIDIA_KEY = "synthetic-nvidia-key"
 SYNTHETIC_GATEWAY_KEY = "synthetic-gateway-key"
@@ -35,8 +35,8 @@ FAKE_POETRY_SCRIPT = (
     "#!/bin/sh\n"
     "echo poetry:$*:venv=$POETRY_VIRTUALENVS_IN_PROJECT >> \"$LOG\"\n"
     "mkdir -p .venv/bin\n"
-    "printf '#!/bin/sh\\nexit 0\\n' > .venv/bin/framenest-dev\n"
-    "chmod +x .venv/bin/framenest-dev\n"
+    "printf '#!/bin/sh\\nexit 0\\n' > .venv/bin/kronika-dev\n"
+    "chmod +x .venv/bin/kronika-dev\n"
     "exit 0\n"
 )
 FAKE_POETRY_FAILING_SCRIPT = (
@@ -52,7 +52,7 @@ _RUNNING_URL = "http://127.0.0.1:8000/"
 class _SetupScenario:
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.launcher = root / "framenest"
+        self.launcher = root / "kronika"
         self.bin_dir = root / "bin"
         self.log = root / "commands.log"
         self.found = root / "found"
@@ -230,11 +230,11 @@ def test_root_wrapper_avoids_eval_and_bash_only_constructs() -> None:
 def test_root_wrapper_resolves_script_root_from_another_cwd_and_preserves_exit(
     tmp_path: Path,
 ) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-dev"
+    controller = venv_bin / "kronika-dev"
     controller.write_text(
         "#!/bin/sh\nprintf '%s\\n' \"$PWD\" \"$1\" \"$2\"\nexit 37\n",
         encoding="utf-8",
@@ -257,11 +257,11 @@ def test_root_wrapper_resolves_script_root_from_another_cwd_and_preserves_exit(
 
 
 def test_root_wrapper_routes_ai_commands_to_ai_controller(tmp_path: Path) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-ai"
+    controller = venv_bin / "kronika-ai"
     controller.write_text(
         "#!/bin/sh\nprintf '%s\\n' \"$1\" \"$2\"\nexit 23\n",
         encoding="utf-8",
@@ -280,7 +280,7 @@ def test_root_wrapper_routes_ai_commands_to_ai_controller(tmp_path: Path) -> Non
 
 
 def test_root_wrapper_loads_local_ai_env_for_ai_controller(tmp_path: Path) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     secrets_dir = tmp_path / ".secrets"
     secrets_dir.mkdir()
@@ -298,7 +298,7 @@ def test_root_wrapper_loads_local_ai_env_for_ai_controller(tmp_path: Path) -> No
     secrets_file.chmod(0o600)
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-ai"
+    controller = venv_bin / "kronika-ai"
     controller.write_text(
         "#!/bin/sh\n"
         f'test "$NVIDIA_API_KEY" = "{SYNTHETIC_NVIDIA_KEY}" || exit 41\n'
@@ -322,7 +322,7 @@ def test_root_wrapper_loads_local_ai_env_for_ai_controller(tmp_path: Path) -> No
 
 
 def test_root_wrapper_loads_local_ai_env_for_managed_start(tmp_path: Path) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     secrets_dir = tmp_path / ".secrets"
     secrets_dir.mkdir()
@@ -340,7 +340,7 @@ def test_root_wrapper_loads_local_ai_env_for_managed_start(tmp_path: Path) -> No
     secrets_file.chmod(0o600)
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-dev"
+    controller = venv_bin / "kronika-dev"
     controller.write_text(
         "#!/bin/sh\n"
         f'test "$NVIDIA_API_KEY" = "{SYNTHETIC_NVIDIA_KEY}" || exit 43\n'
@@ -364,7 +364,7 @@ def test_root_wrapper_loads_local_ai_env_for_managed_start(tmp_path: Path) -> No
 
 
 def test_root_wrapper_rejects_symlinked_local_ai_env(tmp_path: Path) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     secrets_dir = tmp_path / ".secrets"
     secrets_dir.mkdir()
@@ -374,7 +374,7 @@ def test_root_wrapper_rejects_symlinked_local_ai_env(tmp_path: Path) -> None:
     (secrets_dir / "ai.env.fish").symlink_to(target)
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-ai"
+    controller = venv_bin / "kronika-ai"
     controller.write_text("#!/bin/sh\nprintf 'controller-ran\\n'\n", encoding="utf-8")
     controller.chmod(0o755)
 
@@ -392,7 +392,7 @@ def test_root_wrapper_rejects_symlinked_local_ai_env(tmp_path: Path) -> None:
 
 
 def test_root_wrapper_rejects_insecure_local_ai_env_permissions(tmp_path: Path) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     secrets_dir = tmp_path / ".secrets"
     secrets_dir.mkdir()
@@ -403,7 +403,7 @@ def test_root_wrapper_rejects_insecure_local_ai_env_permissions(tmp_path: Path) 
         pytest.skip("platform did not preserve test file permissions")
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-ai"
+    controller = venv_bin / "kronika-ai"
     controller.write_text("#!/bin/sh\nprintf 'controller-ran\\n'\n", encoding="utf-8")
     controller.chmod(0o755)
 
@@ -421,7 +421,7 @@ def test_root_wrapper_rejects_insecure_local_ai_env_permissions(tmp_path: Path) 
 
 
 def test_root_wrapper_rejects_invalid_local_ai_env_before_execution(tmp_path: Path) -> None:
-    launcher = tmp_path / "framenest"
+    launcher = tmp_path / "kronika"
     shutil.copy2(ROOT_WRAPPER, launcher)
     secrets_dir = tmp_path / ".secrets"
     secrets_dir.mkdir()
@@ -433,7 +433,7 @@ def test_root_wrapper_rejects_invalid_local_ai_env_before_execution(tmp_path: Pa
     secrets_file.chmod(0o600)
     venv_bin = tmp_path / ".venv" / "bin"
     venv_bin.mkdir(parents=True)
-    controller = venv_bin / "framenest-ai"
+    controller = venv_bin / "kronika-ai"
     controller.write_text("#!/bin/sh\nprintf 'controller-ran\\n'\n", encoding="utf-8")
     controller.chmod(0o755)
 
@@ -472,7 +472,7 @@ def test_setup_uses_uv_managed_python_and_poetry_install_without_real_download(
 
     # Positive control: the fake Poetry really wrote its console script, and
     # it wrote it only under the test-owned root.
-    fake_controller = tmp_path / ".venv" / "bin" / "framenest-dev"
+    fake_controller = tmp_path / ".venv" / "bin" / "kronika-dev"
     assert fake_controller.read_text(encoding="utf-8") == FAKE_CONTROLLER_STUB
 
     # The isolated Fish surface observed no persistent path mutation.
@@ -482,7 +482,7 @@ def test_setup_uses_uv_managed_python_and_poetry_install_without_real_download(
 
 
 def _canonical_controller_hash() -> str | None:
-    controller = CANONICAL_VENV_BIN / "framenest-dev"
+    controller = CANONICAL_VENV_BIN / "kronika-dev"
     if not controller.is_file():
         return None
     return hashlib.sha256(controller.read_bytes()).hexdigest()
@@ -621,7 +621,7 @@ def test_setup_scenario_cannot_replace_canonical_venv_console_script(tmp_path: P
     assert result.returncode == 0
 
     assert _canonical_controller_hash() == canonical_before
-    fake_controller = tmp_path / ".venv" / "bin" / "framenest-dev"
+    fake_controller = tmp_path / ".venv" / "bin" / "kronika-dev"
     assert fake_controller.read_text(encoding="utf-8") == FAKE_CONTROLLER_STUB
     assert fake_controller.resolve().is_relative_to(tmp_path)
 
@@ -631,7 +631,7 @@ def test_owned_tree_cleanup_is_idempotent_and_contained(tmp_path: Path) -> None:
     scenario = _SetupScenario(owned_root)
     result = scenario.run()
     assert result.returncode == 0
-    assert (owned_root / ".venv" / "bin" / "framenest-dev").exists()
+    assert (owned_root / ".venv" / "bin" / "kronika-dev").exists()
 
     _remove_owned_tree(owned_root, owned_root)
     assert not owned_root.exists()
@@ -837,7 +837,7 @@ def test_cli_import_has_no_runtime_side_effects() -> None:
     command = [
         sys.executable,
         "-c",
-        "import framenest.adapters.cli.development; print('imported')",
+        "import kronika.adapters.cli.development; print('imported')",
     ]
 
     result = subprocess.run(command, check=True, text=True, capture_output=True)

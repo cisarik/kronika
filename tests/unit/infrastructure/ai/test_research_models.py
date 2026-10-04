@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.domain.research import (
+from kronika.domain.research import (
     ResearchUsage,
     ResearchValueError,
     UsageTokenPrices,
     usage_cost_micro_usd,
     usage_cost_micro_usd_or_none,
 )
-from framenest.infrastructure.ai.research_models import (
+from kronika.infrastructure.ai.research_models import (
     DEFAULT_RESEARCH_MODEL_ID,
     LEGACY_OPENAI_2026_09_26,
     LEGACY_RESEARCH_ADMISSION_VERSION,

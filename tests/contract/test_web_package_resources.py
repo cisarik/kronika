@@ -11,7 +11,7 @@ import zipfile
 from importlib import resources
 from pathlib import Path
 
-import framenest.adapters.api.web as web_resources
+import kronika.adapters.api.web as web_resources
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 WEB_RESOURCE_NAMES = ("index.html", "styles.css", "app.js")
@@ -46,14 +46,14 @@ def test_web_resources_are_included_in_built_wheel(
     )
     assert build.returncode == 0, build.stderr
 
-    wheels = sorted(wheelhouse.glob("framenest-*.whl"))
+    wheels = sorted(wheelhouse.glob("kronika-*.whl"))
     assert len(wheels) == 1
 
     with zipfile.ZipFile(wheels[0]) as wheel:
         wheel_names = set(wheel.namelist())
 
     for resource_name in WEB_RESOURCE_NAMES:
-        assert f"framenest/adapters/api/web/{resource_name}" in wheel_names
+        assert f"kronika/adapters/api/web/{resource_name}" in wheel_names
 
     assert not (REPOSITORY_ROOT / "dist").exists()
 
@@ -75,7 +75,7 @@ def test_web_resources_are_discoverable_from_installed_wheel(
     )
     assert build.returncode == 0, build.stderr
 
-    wheels = sorted(wheelhouse.glob("framenest-*.whl"))
+    wheels = sorted(wheelhouse.glob("kronika-*.whl"))
     assert len(wheels) == 1
 
     venv.EnvBuilder(with_pip=True).create(virtualenv_path)
@@ -103,7 +103,7 @@ def test_web_resources_are_discoverable_from_installed_wheel(
             (
                 "import json\n"
                 "from importlib import resources\n"
-                "import framenest.adapters.api.web as web\n"
+                "import kronika.adapters.api.web as web\n"
                 "root = resources.files(web)\n"
                 "print(json.dumps({\n"
                 "    'index': root.joinpath('index.html').is_file(),\n"

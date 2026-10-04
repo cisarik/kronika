@@ -9,11 +9,11 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.media_suggestion_api import MediaSuggestionApiDependencies
-from framenest.application.companion_review import encode_companion_review_cursor
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.media_suggestion_api import MediaSuggestionApiDependencies
+from kronika.application.companion_review import encode_companion_review_cursor
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     MediaRelativePath,
     PreparedAnalysisResult,
     REQUESTED_FRAME_COUNT,
@@ -21,24 +21,24 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     PNG_SIGNATURE,
 )
-from framenest.application.media_analysis_lifecycle import PersistImportedPreviewAnalysis
-from framenest.application.media_suggestion import (
+from kronika.application.media_analysis_lifecycle import PersistImportedPreviewAnalysis
+from kronika.application.media_suggestion import (
     MediaSuggestion,
     PreviewImportedMediaSuggestion,
     PreviewMediaSuggestion,
     PROMPT_VERSION,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.media_analysis_run_repository import (
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.media_analysis_run_repository import (
     SqliteMediaAnalysisRunRepository,
 )
-from framenest.infrastructure.persistence.media_metadata_repository import (
+from kronika.infrastructure.persistence.media_metadata_repository import (
     SqliteMediaMetadataRepository,
 )
-from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -101,7 +101,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN, origin: str = EXTERNAL_ORIGIN) -
 def _client(
     tmp_path: Path, *, companion_origins: tuple[str, ...] = ()
 ) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -1034,7 +1034,7 @@ def test_imported_preview_joins_inbox_and_own_history(tmp_path: Path) -> None:
     alice_asset = "c5111111-1111-4111-8111-111111111111"
     extra_movie = "c2222222-2222-4222-8222-222222222222"
     extra_movie_loc = "c3222222-2222-4222-8222-222222222222"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -1190,9 +1190,9 @@ def test_imported_preview_joins_inbox_and_own_history(tmp_path: Path) -> None:
 
 
 def test_analysis_run_id_parsing_returns_analysis_run_identity() -> None:
-    from framenest.application.companion_review import _parse_analysis_run_id
-    from framenest.domain.identities import MediaId
-    from framenest.domain.media_analysis_runs import MediaAnalysisRunId
+    from kronika.application.companion_review import _parse_analysis_run_id
+    from kronika.domain.identities import MediaId
+    from kronika.domain.media_analysis_runs import MediaAnalysisRunId
 
     parsed = _parse_analysis_run_id(GENERIC_RUN)
     assert isinstance(parsed, MediaAnalysisRunId)
@@ -1201,8 +1201,8 @@ def test_analysis_run_id_parsing_returns_analysis_run_identity() -> None:
 
 
 def test_analysis_run_id_parsing_keeps_sanitized_failure_contract() -> None:
-    from framenest.application.companion_review import _parse_analysis_run_id
-    from framenest.application.ports.companion_review_repository import (
+    from kronika.application.companion_review import _parse_analysis_run_id
+    from kronika.application.ports.companion_review_repository import (
         CompanionReviewAnalysisRunNotFoundError,
     )
 

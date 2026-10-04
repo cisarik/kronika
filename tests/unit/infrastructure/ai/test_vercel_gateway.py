@@ -4,22 +4,22 @@ from __future__ import annotations
 
 import json
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import TechnicalMetadata, build_representative_frame
-from framenest.application.media_analysis import PNG_SIGNATURE
-from framenest.application.media_suggestion import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import TechnicalMetadata, build_representative_frame
+from kronika.application.media_analysis import PNG_SIGNATURE
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderAuthError,
     MediaSuggestionRequest,
     PROMPT_VERSION,
 )
-from framenest.infrastructure.ai.constants import (
+from kronika.infrastructure.ai.constants import (
     VERCEL_AI_GATEWAY_CHAT_COMPLETIONS_URL,
     VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID,
 )
-from framenest.infrastructure.ai.credentials import VercelAiGatewayCredential
-from framenest.infrastructure.ai.image_derivative import VlmImageDerivative
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
-from framenest.infrastructure.ai.vercel_gateway import VercelAiGatewayMediaSuggestionProvider
+from kronika.infrastructure.ai.credentials import VercelAiGatewayCredential
+from kronika.infrastructure.ai.image_derivative import VlmImageDerivative
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.ai.vercel_gateway import VercelAiGatewayMediaSuggestionProvider
 
 
 class _Transport:

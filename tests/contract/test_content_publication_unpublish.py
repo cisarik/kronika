@@ -8,10 +8,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -41,7 +41,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
 
 
 def _client(tmp_path: Path) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",

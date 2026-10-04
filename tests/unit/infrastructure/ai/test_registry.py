@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.ai.configuration import (
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.ai.configuration import (
     AiConfigurationError,
     AiServerConfig,
     AiStatusSnapshot,
@@ -15,18 +15,18 @@ from framenest.infrastructure.ai.configuration import (
     write_ai_status_snapshot,
     write_ai_server_config,
 )
-from framenest.infrastructure.ai.constants import VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID
-from framenest.application.media_suggestion import (
+from kronika.infrastructure.ai.constants import VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderUnavailableError,
 )
-from framenest.infrastructure.ai.openai_chat_completions import (
+from kronika.infrastructure.ai.openai_chat_completions import (
     OpenAiChatCompletionsMediaSuggestionProvider,
 )
-from framenest.infrastructure.ai.provider_records import (
+from kronika.infrastructure.ai.provider_records import (
     AiProviderModel,
     AiProviderRecord,
 )
-from framenest.infrastructure.ai.registry import (
+from kronika.infrastructure.ai.registry import (
     PROVIDER_DEFINITIONS,
     DynamicAiProviderResolver,
     LazyResolvedAiProvider,
@@ -34,15 +34,15 @@ from framenest.infrastructure.ai.registry import (
     provider_definitions,
     resolve_ai_provider,
 )
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
 
 DECLARED_PROVIDER_ID = "opencode-go"
 DECLARED_MODEL_ID = "deepseek-v4-flash-vision-exp"
 DECLARED_CREDENTIAL_ENV = "OPENCODE_API_KEY"
 
 
-def _settings(tmp_path: Path, **kwargs: object) -> FrameNestSettings:
-    return FrameNestSettings(
+def _settings(tmp_path: Path, **kwargs: object) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
         **kwargs,

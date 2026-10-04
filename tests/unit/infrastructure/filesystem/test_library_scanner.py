@@ -10,18 +10,18 @@ from unittest.mock import patch
 
 import pytest
 
-from framenest.application.library_scan import (
+from kronika.application.library_scan import (
     LibraryScanCandidateKind,
     LibraryScanLimits,
     LibraryScanUnavailableError,
     VIDEO_EXTENSIONS,
 )
-from framenest.domain import LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.filesystem.library_scanner import LocalLibraryScanner
+from kronika.domain import LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.filesystem.library_scanner import LocalLibraryScanner
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 SCANNER_MODULE = (
-    REPOSITORY_ROOT / "src" / "framenest" / "infrastructure" / "filesystem" / "library_scanner.py"
+    REPOSITORY_ROOT / "src" / "kronika" / "infrastructure" / "filesystem" / "library_scanner.py"
 )
 FORBIDDEN_IMPORT_ROOTS = frozenset(
     {

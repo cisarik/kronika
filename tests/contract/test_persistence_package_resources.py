@@ -29,7 +29,7 @@ def test_migration_resources_are_discoverable_from_installed_wheel(
     )
     assert build.returncode == 0, build.stderr
 
-    wheels = sorted(wheelhouse.glob("framenest-*.whl"))
+    wheels = sorted(wheelhouse.glob("kronika-*.whl"))
     assert len(wheels) == 1
 
     venv.EnvBuilder(with_pip=True).create(virtualenv_path)
@@ -57,7 +57,7 @@ def test_migration_resources_are_discoverable_from_installed_wheel(
             (
                 "import json\n"
                 "from importlib import resources\n"
-                "import framenest.infrastructure.persistence.alembic_environment as env\n"
+                "import kronika.infrastructure.persistence.alembic_environment as env\n"
                 "root = resources.files(env)\n"
                 "print(json.dumps({\n"
                 "    'env': root.joinpath('env.py').is_file(),\n"

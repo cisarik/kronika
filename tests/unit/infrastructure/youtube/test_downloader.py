@@ -12,17 +12,17 @@ from typing import Any
 
 import pytest
 
-from framenest.application.ports.youtube_downloader import (
+from kronika.application.ports.youtube_downloader import (
     YouTubeDownloadError,
     YouTubeDownloaderConfigurationError,
     YouTubeDownloadPlan,
     YouTubeInspection,
     YouTubeInspectionError,
 )
-from framenest.domain.youtube_acquisition import canonicalize_youtube_url
-from framenest.infrastructure.youtube.downloader import YtDlpYouTubeDownloader
-from framenest.infrastructure.youtube.staging import FilesystemYouTubeStaging
-from framenest.application.in_process_lifecycle import ShutdownDeadline
+from kronika.domain.youtube_acquisition import canonicalize_youtube_url
+from kronika.infrastructure.youtube.downloader import YtDlpYouTubeDownloader
+from kronika.infrastructure.youtube.staging import FilesystemYouTubeStaging
+from kronika.application.in_process_lifecycle import ShutdownDeadline
 
 VIDEO_ID = "AbCdEf123_-"
 STAGING_KEY = "2" * 32
@@ -271,7 +271,7 @@ def test_fake_download_resumes_partial_and_produces_fixed_artifact(
         on_spawn=on_spawn,
     )
     monkeypatch.setattr(
-        "framenest.infrastructure.youtube.downloader.shutil.which",
+        "kronika.infrastructure.youtube.downloader.shutil.which",
         lambda *_args, **_kwargs: "/usr/bin/ffmpeg",
     )
     downloader = YtDlpYouTubeDownloader(
@@ -333,11 +333,11 @@ def test_timeout_terminates_process_group_then_uses_bounded_kill_fallback(
             process.finished.set()
 
     monkeypatch.setattr(
-        "framenest.infrastructure.youtube.downloader.os.killpg",
+        "kronika.infrastructure.youtube.downloader.os.killpg",
         fake_killpg,
     )
     monkeypatch.setattr(
-        "framenest.infrastructure.youtube.downloader.TERMINATE_GRACE_SECONDS",
+        "kronika.infrastructure.youtube.downloader.TERMINATE_GRACE_SECONDS",
         0.01,
     )
     downloader = YtDlpYouTubeDownloader(
@@ -414,7 +414,7 @@ def test_shutdown_term_kill_respects_remaining_budget_and_reaps_child(
             process.finished.set()
 
     monkeypatch.setattr(
-        "framenest.infrastructure.youtube.downloader.os.killpg",
+        "kronika.infrastructure.youtube.downloader.os.killpg",
         fake_killpg,
     )
     downloader = YtDlpYouTubeDownloader(

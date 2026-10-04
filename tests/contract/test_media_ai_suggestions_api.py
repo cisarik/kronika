@@ -5,22 +5,22 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.media_analysis_lifecycle_api import (
+from kronika.adapters.api.media_analysis_lifecycle_api import (
     MediaAnalysisLifecycleApiDependencies,
     create_media_analysis_lifecycle_api_router,
 )
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY, find_route_policy
-from framenest.application.companion_review import (
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY, find_route_policy
+from kronika.application.companion_review import (
     CompanionReviewDetail,
     CompanionReviewSuggestion,
     MappedSuggestedTag,
     MappedTagStatus,
 )
-from framenest.application.ports.companion_review_repository import (
+from kronika.application.ports.companion_review_repository import (
     CompanionReviewMovieExcludedError,
 )
-from framenest.domain.content_publication import ContentPublicationReadiness
-from framenest.domain.identity_access import (
+from kronika.domain.content_publication import ContentPublicationReadiness
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_GALLERY_READ,
     CAPABILITY_MEDIA_WORKFLOW_READ,

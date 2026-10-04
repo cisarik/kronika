@@ -26,92 +26,92 @@ from fastapi import FastAPI
 from sqlalchemy import insert
 import uvicorn
 
-from framenest.adapters.api.local_identity_api import (
+from kronika.adapters.api.local_identity_api import (
     LocalIdentityMiddleware,
     configured_local_identity,
 )
-from framenest.adapters.api.youtube_operator_api import (
+from kronika.adapters.api.youtube_operator_api import (
     YouTubeOperatorApiDependencies,
     create_youtube_operator_api_router,
 )
-from framenest.adapters.cli import youtube as youtube_cli
-from framenest.application.ports.upload_media_validation import (
+from kronika.adapters.cli import youtube as youtube_cli
+from kronika.application.ports.upload_media_validation import (
     UploadMediaValidationEvidence,
 )
-from framenest.application.ports.youtube_downloader import (
+from kronika.application.ports.youtube_downloader import (
     YouTubeDownloadError,
     YouTubeDownloadPlan,
     YouTubeDownloadResult,
     YouTubeInspection,
 )
-from framenest.application.upload_catalog import CatalogPublishedUpload
-from framenest.application.upload_catalog_coordinator import (
+from kronika.application.upload_catalog import CatalogPublishedUpload
+from kronika.application.upload_catalog_coordinator import (
     UploadCatalogCoordinator,
 )
-from framenest.application.upload_publication import PublishPendingUpload
-from framenest.application.upload_publication_coordinator import (
+from kronika.application.upload_publication import PublishPendingUpload
+from kronika.application.upload_publication_coordinator import (
     UploadPublicationCoordinator,
 )
-from framenest.application.upload_transport import (
+from kronika.application.upload_transport import (
     UploadSessionLockRegistry,
     UploadTransportLimits,
     UploadTransportService,
 )
-from framenest.application.upload_validation import ValidateReceivedUpload
-from framenest.application.upload_validation_coordinator import (
+from kronika.application.upload_validation import ValidateReceivedUpload
+from kronika.application.upload_validation_coordinator import (
     UploadValidationCoordinator,
 )
-from framenest.application.youtube_acquisition import (
+from kronika.application.youtube_acquisition import (
     YouTubeAcquisitionCoordinator,
     YouTubeAcquisitionService,
     automatic_analysis_allowed_for_upload,
     youtube_classification_for_upload,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import LibraryId
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import LibraryId
+from kronika.domain.identity_access import (
     CAPABILITY_UPLOAD_MANAGE,
     CAPABILITY_YOUTUBE_ACQUIRE,
     build_identity_mapping,
     mapped_role_has_capability,
 )
-from framenest.domain.uploads import (
+from kronika.domain.uploads import (
     UploadSessionId,
     UploadSessionState,
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.filesystem.published_media_storage import (
+from kronika.infrastructure.filesystem.published_media_storage import (
     FilesystemPublishedMediaStorage,
 )
-from framenest.infrastructure.filesystem.quarantine_storage import (
+from kronika.infrastructure.filesystem.quarantine_storage import (
     FilesystemQuarantineStorage,
 )
-from framenest.infrastructure.persistence.catalog_schema import (
+from kronika.infrastructure.persistence.catalog_schema import (
     devices,
     libraries,
     media_metadata,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.library_repository import (
+from kronika.infrastructure.persistence.library_repository import (
     SqliteLibraryRepository,
 )
-from framenest.infrastructure.persistence.migrations import (
+from kronika.infrastructure.persistence.migrations import (
     upgrade_database_to_head,
 )
-from framenest.infrastructure.persistence.upload_publication_repository import (
+from kronika.infrastructure.persistence.upload_publication_repository import (
     SqliteUploadPublicationRepository,
 )
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
-from framenest.infrastructure.persistence.youtube_acquisition_claim_repository import (
+from kronika.infrastructure.persistence.youtube_acquisition_claim_repository import (
     SqliteYouTubeAcquisitionClaimRepository,
 )
-from framenest.infrastructure.youtube.staging import (
+from kronika.infrastructure.youtube.staging import (
     ARTIFACT_FILENAME,
     FilesystemYouTubeStaging,
 )
@@ -289,7 +289,7 @@ def _initialize_roots(base: Path) -> _Roots:
         root.mkdir(parents=True)
     roots.staging.chmod(0o700)
     upgrade_database_to_head(
-        FrameNestSettings(
+        KronikaSettings(
             database_path=roots.database_path,
             _env_file=None,
         )
@@ -479,7 +479,7 @@ def _build_environment(
             )
         )
     )
-    local_settings = FrameNestSettings(
+    local_settings = KronikaSettings(
         database_path=roots.database_path,
         host=HOST,
         port=8000,

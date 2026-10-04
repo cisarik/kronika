@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.quarantine_storage import QuarantineStateInconsistentError
-from framenest.domain.uploads import FrameNestUploadSessionError, UploadStorageKey
-from framenest.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
+from kronika.application.ports.quarantine_storage import QuarantineStateInconsistentError
+from kronika.domain.uploads import FrameNestUploadSessionError, UploadStorageKey
+from kronika.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
 
 
 def _key(value: str = "uploadquarantinekey0001") -> UploadStorageKey:

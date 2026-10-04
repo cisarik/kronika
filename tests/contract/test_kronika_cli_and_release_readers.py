@@ -251,25 +251,25 @@ def test_release_helper_env_file_path_constant_is_unchanged(release_helper: Any)
 def test_protocol_magic_and_version_reads_are_unchanged() -> None:
     from importlib.metadata import version
 
-    from framenest.infrastructure.persistence.catalog_backup_transfer import PROTOCOL_MAGIC
+    from kronika.infrastructure.persistence.catalog_backup_transfer import PROTOCOL_MAGIC
 
     assert PROTOCOL_MAGIC == b"FNCBE01\0"
-    assert isinstance(version("framenest"), str)
+    assert isinstance(version("kronika"), str)
 
 
 def test_development_database_directory_is_unchanged() -> None:
-    from framenest.configuration import DEVELOPMENT_DATABASE_DIRECTORY
+    from kronika.configuration import DEVELOPMENT_DATABASE_DIRECTORY
 
     assert DEVELOPMENT_DATABASE_DIRECTORY == "framenest-development"
 
 
 def test_emitted_cli_error_codes_stay_on_the_former_prefix() -> None:
-    from framenest.adapters.cli.backup import COMMAND_FAILED_CODE, INVALID_INPUT_CODE
-    from framenest.infrastructure.persistence.cli import (
+    from kronika.adapters.cli.backup import COMMAND_FAILED_CODE, INVALID_INPUT_CODE
+    from kronika.infrastructure.persistence.cli import (
         COMMAND_ERROR_CODE,
         CONFIGURATION_ERROR_CODE,
     )
-    from framenest.infrastructure.runtime.production import (
+    from kronika.infrastructure.runtime.production import (
         DATABASE_NOT_READY_CODE,
         HEALTH_CHECK_FAILED_CODE,
     )
@@ -287,7 +287,7 @@ def test_emitted_cli_error_codes_stay_on_the_former_prefix() -> None:
 
 
 def test_catalog_cli_error_codes_stay_on_the_former_prefix() -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     codes = [
         value

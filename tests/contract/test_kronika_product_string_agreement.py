@@ -61,9 +61,9 @@ from pathlib import Path
 
 import pytest
 
-from framenest.adapters.cli import development as development_cli
-from framenest.infrastructure.persistence import cli as database_cli
-from framenest.infrastructure.runtime import production
+from kronika.adapters.cli import development as development_cli
+from kronika.infrastructure.persistence import cli as database_cli
+from kronika.infrastructure.runtime import production
 from tests.support.kronika_identity import (
     BRAND,
     DISPLAY_NAME,
@@ -81,9 +81,9 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src"
 #: the directory; it may not change those bytes.
 FROZEN_VERSIONS_MARKER = "alembic_environment/versions"
 
-DEVELOPMENT_RUNTIME = "src/framenest/infrastructure/runtime/development.py"
-APPLICATION_X_ACQUISITION = "src/framenest/application/x_acquisition.py"
-API_X_REQUEST = "src/framenest/adapters/api/x_request_api.py"
+DEVELOPMENT_RUNTIME = "src/kronika/infrastructure/runtime/development.py"
+APPLICATION_X_ACQUISITION = "src/kronika/application/x_acquisition.py"
+API_X_REQUEST = "src/kronika/adapters/api/x_request_api.py"
 
 STOPPED_LITERAL = "Kronika is stopped."
 CONFLICT_LITERAL = "Requested category conflicts with the existing Kronika save."
@@ -175,76 +175,76 @@ IN_SCOPE_OCCURRENCE_COUNT = 48
 EXCLUDED_PROMPT_OCCURRENCE_COUNT = 2
 
 EXPECTED: dict[tuple[str, str, str, int], str] = {
-    # src/framenest/adapters/api/media_alias_api.py
-    ("src/framenest/adapters/api/media_alias_api.py", "<module>", "Constant", 0): "Invalid Kronika media user alias.",
-    # src/framenest/adapters/api/tailscale_ingress.py
-    ("src/framenest/adapters/api/tailscale_ingress.py", "__call__", "Constant", 0): "The FrameNest or Kronika mutation header is required and must be exactly 1.",
-    # src/framenest/adapters/api/x_request_api.py
-    ("src/framenest/adapters/api/x_request_api.py", "create_x_request_api_router.submit_x_request", "Constant", 0): "Invalid Kronika media user alias.",
-    ("src/framenest/adapters/api/x_request_api.py", "create_x_request_api_router.submit_x_request", "Constant", 1): "Requested category conflicts with the existing Kronika save.",
-    # src/framenest/adapters/cli/ai.py
-    ("src/framenest/adapters/cli/ai.py", "_resolve", "Constant", 0): "Kronika configuration could not be loaded.",
-    # src/framenest/adapters/cli/development.py
-    ("src/framenest/adapters/cli/development.py", "build_parser", "Constant", 0): "Control the local Kronika browser-development server.",
-    ("src/framenest/adapters/cli/development.py", "main", "JoinedStr", 0): "Kronika launcher error: {exc}",
-    ("src/framenest/adapters/cli/development.py", "_print_logs", "Constant", 0): "Kronika development log is not yet available.",
-    # src/framenest/adapters/cli/youtube.py
-    ("src/framenest/adapters/cli/youtube.py", "main", "Constant", 0): "Kronika configuration could not be loaded.",
-    ("src/framenest/adapters/cli/youtube.py", "main", "Constant", 1): "The loopback Kronika operator API is unavailable.",
-    ("src/framenest/adapters/cli/youtube.py", "main", "Constant", 2): "The loopback Kronika operator API is unavailable.",
-    # src/framenest/application/library_workflow.py
-    ("src/framenest/application/library_workflow.py", "<module>", "Constant", 0): "Kronika Server",
-    # src/framenest/application/x_acquisition.py
-    ("src/framenest/application/x_acquisition.py", "_reject_category_conflict", "Constant", 0): "Requested category conflicts with the existing Kronika save.",
-    ("src/framenest/application/x_acquisition.py", "_reject_category_conflict", "Constant", 1): "Requested category conflicts with the existing Kronika save.",
-    ("src/framenest/application/x_acquisition.py", "_reject_category_conflict", "Constant", 2): "Requested category conflicts with the existing Kronika save.",
-    # src/framenest/configuration.py
-    ("src/framenest/configuration.py", "validate_private_storage_roots", "Constant", 0): "Kronika private storage paths must not overlap",
-    # src/framenest/domain/devices.py
-    ("src/framenest/domain/devices.py", "<module>", "Constant", 0): "Invalid Kronika device.",
-    # src/framenest/domain/identities.py
-    ("src/framenest/domain/identities.py", "<module>", "Constant", 0): "Invalid Kronika identity.",
-    # src/framenest/domain/libraries.py
-    ("src/framenest/domain/libraries.py", "<module>", "Constant", 0): "Invalid Kronika library.",
-    ("src/framenest/domain/libraries.py", "<module>", "Constant", 1): "Invalid Kronika library root.",
-    # src/framenest/domain/media.py
-    ("src/framenest/domain/media.py", "<module>", "Constant", 0): "Invalid Kronika media.",
-    ("src/framenest/domain/media.py", "<module>", "Constant", 1): "Invalid Kronika media location.",
-    ("src/framenest/domain/media.py", "<module>", "Constant", 2): "Invalid Kronika media relative path.",
-    # src/framenest/domain/media_cover.py
-    ("src/framenest/domain/media_cover.py", "<module>", "Constant", 0): "Invalid Kronika accepted cover.",
-    ("src/framenest/domain/media_cover.py", "<module>", "Constant", 1): "Invalid Kronika cover source observation.",
-    # src/framenest/domain/media_metadata.py
-    ("src/framenest/domain/media_metadata.py", "<module>", "Constant", 0): "Invalid Kronika media metadata.",
-    # src/framenest/domain/media_user_alias.py
-    ("src/framenest/domain/media_user_alias.py", "<module>", "Constant", 0): "Invalid Kronika media user alias.",
-    # src/framenest/domain/uploads.py
-    ("src/framenest/domain/uploads.py", "<module>", "Constant", 0): "Invalid Kronika upload session.",
-    # src/framenest/infrastructure/persistence/alembic_environment/env.py
-    ("src/framenest/infrastructure/persistence/alembic_environment/env.py", "run_migrations_online", "Constant", 0): "Kronika migration connection is unavailable.",
-    # src/framenest/infrastructure/persistence/cli.py
-    ("src/framenest/infrastructure/persistence/cli.py", "main", "Constant", 0): "Kronika configuration could not be loaded.",
-    ("src/framenest/infrastructure/persistence/cli.py", "_build_parser", "Constant", 0): "Upgrade the Kronika database to head.",
-    ("src/framenest/infrastructure/persistence/cli.py", "_build_parser", "Constant", 1): "Inspect the Kronika database revision.",
-    # src/framenest/infrastructure/runtime/development.py
-    ("src/framenest/infrastructure/runtime/development.py", "start", "JoinedStr", 0): "Kronika is already running at {self.url}",
-    ("src/framenest/infrastructure/runtime/development.py", "start", "Constant", 1): "Kronika did not become healthy in time.",
-    ("src/framenest/infrastructure/runtime/development.py", "start", "Constant", 2): "Kronika startup failed. Check logs for details.",
-    ("src/framenest/infrastructure/runtime/development.py", "start", "JoinedStr", 3): "Kronika is running at {self.url}",
-    ("src/framenest/infrastructure/runtime/development.py", "stop", "Constant", 0): "Kronika is stopped.",
-    ("src/framenest/infrastructure/runtime/development.py", "stop", "Constant", 1): "Kronika is stopped.",
-    ("src/framenest/infrastructure/runtime/development.py", "stop", "Constant", 2): "Kronika stopped.",
-    ("src/framenest/infrastructure/runtime/development.py", "open", "Constant", 0): "Kronika is not running.",
-    ("src/framenest/infrastructure/runtime/development.py", "_status_with_state", "Constant", 0): "Kronika is stopped.",
-    ("src/framenest/infrastructure/runtime/development.py", "_status_with_state", "JoinedStr", 1): "Kronika is running at {_url(state.port)}",
-    ("src/framenest/infrastructure/runtime/development.py", "_status_with_state", "Constant", 2): "Managed Kronika process is running but health is not ready.",
-    ("src/framenest/infrastructure/runtime/development.py", "_operation_lock", "Constant", 0): "Another Kronika runtime operation is in progress.",
-    # src/framenest/infrastructure/runtime/production.py
-    ("src/framenest/infrastructure/runtime/production.py", "main", "Constant", 0): "Kronika health check failed.",
-    ("src/framenest/infrastructure/runtime/production.py", "_build_parser", "Constant", 0): "Verify the Kronika listener answers a local /health request.",
-    ("src/framenest/infrastructure/runtime/production.py", "_build_parser", "Constant", 1): "Run the production Kronika server in the foreground.",
-    # src/framenest/server.py
-    ("src/framenest/server.py", "main", "JoinedStr", 0): "Kronika configuration error: {exc}",
+    # src/kronika/adapters/api/media_alias_api.py
+    ("src/kronika/adapters/api/media_alias_api.py", "<module>", "Constant", 0): "Invalid Kronika media user alias.",
+    # src/kronika/adapters/api/tailscale_ingress.py
+    ("src/kronika/adapters/api/tailscale_ingress.py", "__call__", "Constant", 0): "The FrameNest or Kronika mutation header is required and must be exactly 1.",
+    # src/kronika/adapters/api/x_request_api.py
+    ("src/kronika/adapters/api/x_request_api.py", "create_x_request_api_router.submit_x_request", "Constant", 0): "Invalid Kronika media user alias.",
+    ("src/kronika/adapters/api/x_request_api.py", "create_x_request_api_router.submit_x_request", "Constant", 1): "Requested category conflicts with the existing Kronika save.",
+    # src/kronika/adapters/cli/ai.py
+    ("src/kronika/adapters/cli/ai.py", "_resolve", "Constant", 0): "Kronika configuration could not be loaded.",
+    # src/kronika/adapters/cli/development.py
+    ("src/kronika/adapters/cli/development.py", "build_parser", "Constant", 0): "Control the local Kronika browser-development server.",
+    ("src/kronika/adapters/cli/development.py", "main", "JoinedStr", 0): "Kronika launcher error: {exc}",
+    ("src/kronika/adapters/cli/development.py", "_print_logs", "Constant", 0): "Kronika development log is not yet available.",
+    # src/kronika/adapters/cli/youtube.py
+    ("src/kronika/adapters/cli/youtube.py", "main", "Constant", 0): "Kronika configuration could not be loaded.",
+    ("src/kronika/adapters/cli/youtube.py", "main", "Constant", 1): "The loopback Kronika operator API is unavailable.",
+    ("src/kronika/adapters/cli/youtube.py", "main", "Constant", 2): "The loopback Kronika operator API is unavailable.",
+    # src/kronika/application/library_workflow.py
+    ("src/kronika/application/library_workflow.py", "<module>", "Constant", 0): "Kronika Server",
+    # src/kronika/application/x_acquisition.py
+    ("src/kronika/application/x_acquisition.py", "_reject_category_conflict", "Constant", 0): "Requested category conflicts with the existing Kronika save.",
+    ("src/kronika/application/x_acquisition.py", "_reject_category_conflict", "Constant", 1): "Requested category conflicts with the existing Kronika save.",
+    ("src/kronika/application/x_acquisition.py", "_reject_category_conflict", "Constant", 2): "Requested category conflicts with the existing Kronika save.",
+    # src/kronika/configuration.py
+    ("src/kronika/configuration.py", "validate_private_storage_roots", "Constant", 0): "Kronika private storage paths must not overlap",
+    # src/kronika/domain/devices.py
+    ("src/kronika/domain/devices.py", "<module>", "Constant", 0): "Invalid Kronika device.",
+    # src/kronika/domain/identities.py
+    ("src/kronika/domain/identities.py", "<module>", "Constant", 0): "Invalid Kronika identity.",
+    # src/kronika/domain/libraries.py
+    ("src/kronika/domain/libraries.py", "<module>", "Constant", 0): "Invalid Kronika library.",
+    ("src/kronika/domain/libraries.py", "<module>", "Constant", 1): "Invalid Kronika library root.",
+    # src/kronika/domain/media.py
+    ("src/kronika/domain/media.py", "<module>", "Constant", 0): "Invalid Kronika media.",
+    ("src/kronika/domain/media.py", "<module>", "Constant", 1): "Invalid Kronika media location.",
+    ("src/kronika/domain/media.py", "<module>", "Constant", 2): "Invalid Kronika media relative path.",
+    # src/kronika/domain/media_cover.py
+    ("src/kronika/domain/media_cover.py", "<module>", "Constant", 0): "Invalid Kronika accepted cover.",
+    ("src/kronika/domain/media_cover.py", "<module>", "Constant", 1): "Invalid Kronika cover source observation.",
+    # src/kronika/domain/media_metadata.py
+    ("src/kronika/domain/media_metadata.py", "<module>", "Constant", 0): "Invalid Kronika media metadata.",
+    # src/kronika/domain/media_user_alias.py
+    ("src/kronika/domain/media_user_alias.py", "<module>", "Constant", 0): "Invalid Kronika media user alias.",
+    # src/kronika/domain/uploads.py
+    ("src/kronika/domain/uploads.py", "<module>", "Constant", 0): "Invalid Kronika upload session.",
+    # src/kronika/infrastructure/persistence/alembic_environment/env.py
+    ("src/kronika/infrastructure/persistence/alembic_environment/env.py", "run_migrations_online", "Constant", 0): "Kronika migration connection is unavailable.",
+    # src/kronika/infrastructure/persistence/cli.py
+    ("src/kronika/infrastructure/persistence/cli.py", "main", "Constant", 0): "Kronika configuration could not be loaded.",
+    ("src/kronika/infrastructure/persistence/cli.py", "_build_parser", "Constant", 0): "Upgrade the Kronika database to head.",
+    ("src/kronika/infrastructure/persistence/cli.py", "_build_parser", "Constant", 1): "Inspect the Kronika database revision.",
+    # src/kronika/infrastructure/runtime/development.py
+    ("src/kronika/infrastructure/runtime/development.py", "start", "JoinedStr", 0): "Kronika is already running at {self.url}",
+    ("src/kronika/infrastructure/runtime/development.py", "start", "Constant", 1): "Kronika did not become healthy in time.",
+    ("src/kronika/infrastructure/runtime/development.py", "start", "Constant", 2): "Kronika startup failed. Check logs for details.",
+    ("src/kronika/infrastructure/runtime/development.py", "start", "JoinedStr", 3): "Kronika is running at {self.url}",
+    ("src/kronika/infrastructure/runtime/development.py", "stop", "Constant", 0): "Kronika is stopped.",
+    ("src/kronika/infrastructure/runtime/development.py", "stop", "Constant", 1): "Kronika is stopped.",
+    ("src/kronika/infrastructure/runtime/development.py", "stop", "Constant", 2): "Kronika stopped.",
+    ("src/kronika/infrastructure/runtime/development.py", "open", "Constant", 0): "Kronika is not running.",
+    ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "Constant", 0): "Kronika is stopped.",
+    ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "JoinedStr", 1): "Kronika is running at {_url(state.port)}",
+    ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "Constant", 2): "Managed Kronika process is running but health is not ready.",
+    ("src/kronika/infrastructure/runtime/development.py", "_operation_lock", "Constant", 0): "Another Kronika runtime operation is in progress.",
+    # src/kronika/infrastructure/runtime/production.py
+    ("src/kronika/infrastructure/runtime/production.py", "main", "Constant", 0): "Kronika health check failed.",
+    ("src/kronika/infrastructure/runtime/production.py", "_build_parser", "Constant", 0): "Verify the Kronika listener answers a local /health request.",
+    ("src/kronika/infrastructure/runtime/production.py", "_build_parser", "Constant", 1): "Run the production Kronika server in the foreground.",
+    # src/kronika/server.py
+    ("src/kronika/server.py", "main", "JoinedStr", 0): "Kronika configuration error: {exc}",
 }
 
 EXPECTED_DUPLICATE_LITERALS: dict[str, int] = {
@@ -256,8 +256,8 @@ EXPECTED_DUPLICATE_LITERALS: dict[str, int] = {
 }
 
 EXCLUDED_PROMPT_OPENINGS: dict[tuple[str, str, str, int], str] = {
-    ("src/framenest/application/movie_identification.py", "movie_identification_prompt", "JoinedStr", 0): "You are Kronika's movie identification assistant.",
-    ("src/framenest/infrastructure/ai/prompts.py", "<module>", "JoinedStr", 0): "You are Kronika's media metadata assistant.",
+    ("src/kronika/application/movie_identification.py", "movie_identification_prompt", "JoinedStr", 0): "You are Kronika's movie identification assistant.",
+    ("src/kronika/infrastructure/ai/prompts.py", "<module>", "JoinedStr", 0): "You are Kronika's media metadata assistant.",
 }
 # ---------------------------------------------------------------------------
 # Identity source: derivation plus an independent display-name pin
@@ -511,7 +511,7 @@ def test_database_status_help_carries_the_derived_brand() -> None:
 # ---------------------------------------------------------------------------
 
 ALEMBIC_ENVIRONMENT = (
-    SOURCE_ROOT / "framenest" / "infrastructure" / "persistence" / "alembic_environment" / "env.py"
+    SOURCE_ROOT / "kronika" / "infrastructure" / "persistence" / "alembic_environment" / "env.py"
 )
 
 

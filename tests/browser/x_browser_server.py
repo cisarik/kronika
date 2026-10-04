@@ -85,7 +85,7 @@ class BrowserFakeExtractor:
         return "browser-fake-2026.07.04"
 
     def inspect(self, *, post_id: str, submitted_url: str):
-        from framenest.domain.x_acquisition import (
+        from kronika.domain.x_acquisition import (
             XMediaType,
             XNormalizedAssetDescriptor,
             XNormalizedInspection,
@@ -150,10 +150,10 @@ class BrowserFakeExtractor:
         submitted_url: str,
         staging: object,
     ) -> None:
-        from framenest.application.ports.x_extractor import XAssetAcquisition
+        from kronika.application.ports.x_extractor import XAssetAcquisition
 
         if self.scenario == "partial" and ordinal == 0:
-            from framenest.application.ports.x_extractor import XExtractionError
+            from kronika.application.ports.x_extractor import XExtractionError
 
             raise XExtractionError(
                 "X_DOWNLOAD_TIMEOUT", "fake extractor video retrieval timed out"
@@ -171,16 +171,16 @@ class BrowserFakeExtractor:
 
 
 # ------------------------------------------------------------------ wire app
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     ROLE_ADMIN,
     ROLE_USER,
     IdentityContext,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DEV = "66666666-6666-4666-8666-666666666666"
 LIB = "55555555-5555-4555-8555-555555555555"
@@ -190,7 +190,7 @@ fail_second = False
 if len(sys.argv) > 7:
     scenario = sys.argv[7]
 
-settings_pre = FrameNestSettings(database_path=DB, _env_file=None)
+settings_pre = KronikaSettings(database_path=DB, _env_file=None)
 upgrade_database_to_head(settings_pre)
 
 conn = sqlite3.connect(DB)
@@ -206,7 +206,7 @@ try:
 finally:
     conn.close()
 
-settings = FrameNestSettings(
+settings = KronikaSettings(
     database_path=DB,
     upload_quarantine_root=str(QUARANTINE),
     upload_publication_library_id=LIB,

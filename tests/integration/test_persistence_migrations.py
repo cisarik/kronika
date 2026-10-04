@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
+from kronika.configuration import KronikaSettings
 
 FORBIDDEN_PRODUCT_TABLE_FRAGMENTS = (
     "media",
@@ -25,12 +25,12 @@ FORBIDDEN_PRODUCT_TABLE_FRAGMENTS = (
     "gallery",
 )
 PRODUCTION_VERSIONS_PACKAGE = (
-    "framenest.infrastructure.persistence.alembic_environment.versions"
+    "kronika.infrastructure.persistence.alembic_environment.versions"
 )
 
 
-def _settings_for(database_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(database_path=database_path, _env_file=None)
+def _settings_for(database_path: Path) -> KronikaSettings:
+    return KronikaSettings(database_path=database_path, _env_file=None)
 
 
 def _table_names(database_path: Path) -> set[str]:
@@ -47,7 +47,7 @@ def _table_names(database_path: Path) -> set[str]:
 def test_nonexistent_database_status_reports_current_head_without_file_creation(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
     )
 
@@ -62,7 +62,7 @@ def test_nonexistent_database_status_reports_current_head_without_file_creation(
 
 
 def test_empty_database_upgrades_to_current_head_revision(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )
@@ -80,7 +80,7 @@ def test_empty_database_upgrades_to_current_head_revision(tmp_path: Path) -> Non
 
 
 def test_repeated_migration_at_head_is_safe_and_stable(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )
@@ -96,7 +96,7 @@ def test_repeated_migration_at_head_is_safe_and_stable(tmp_path: Path) -> None:
 
 
 def test_migration_status_is_stable_after_engine_close_and_reopen(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )
@@ -110,8 +110,8 @@ def test_migration_status_is_stable_after_engine_close_and_reopen(tmp_path: Path
 
 def test_initial_revision_creates_only_alembic_version_tracking(tmp_path: Path) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     settings = _settings_for(tmp_path / "schema.sqlite3")
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,7 +119,7 @@ def test_initial_revision_creates_only_alembic_version_tracking(tmp_path: Path) 
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "0001")
@@ -131,8 +131,8 @@ def test_initial_revision_creates_only_alembic_version_tracking(tmp_path: Path) 
 
 def test_initial_revision_creates_no_product_schema(tmp_path: Path) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     settings = _settings_for(tmp_path / "no-product-schema.sqlite3")
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,7 +140,7 @@ def test_initial_revision_creates_no_product_schema(tmp_path: Path) -> None:
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "0001")
@@ -157,7 +157,7 @@ def test_initial_revision_creates_no_product_schema(tmp_path: Path) -> None:
 
 
 def test_initial_revision_downgrade_is_explicitly_unsupported() -> None:
-    from framenest.infrastructure.persistence.migrations import load_script_directory
+    from kronika.infrastructure.persistence.migrations import load_script_directory
 
     script_directory = load_script_directory()
     revision = script_directory.get_revision("0001")
@@ -171,8 +171,8 @@ def test_failed_migration_is_sanitized_and_does_not_claim_head(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.infrastructure.persistence.errors import FrameNestMigrationError
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.errors import FrameNestMigrationError
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )
@@ -258,8 +258,8 @@ def test_failed_migration_is_sanitized_and_does_not_claim_head(
 def test_missing_migration_resources_keep_resource_unavailable_classification(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.errors import FrameNestMigrationError
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.errors import FrameNestMigrationError
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings_for(tmp_path / "missing-resources.sqlite3")
     with pytest.raises(FrameNestMigrationError) as exc_info:

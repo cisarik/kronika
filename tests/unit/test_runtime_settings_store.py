@@ -9,18 +9,18 @@ from stat import S_IMODE
 
 import pytest
 
-from framenest.application.media_analysis_coordinator import MediaAnalysisCoordinator
-from framenest.application.media_analysis_lifecycle import (
+from kronika.application.media_analysis_coordinator import MediaAnalysisCoordinator
+from kronika.application.media_analysis_lifecycle import (
     CatalogedAnalysisTarget,
     ScheduleAutomaticMediaAnalysis,
 )
-from framenest.configuration import (
+from kronika.configuration import (
     RUNTIME_SETTINGS_FILENAME,
-    FrameNestSettings,
+    KronikaSettings,
     resolved_runtime_settings_path,
 )
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.infrastructure.runtime_settings import (
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.infrastructure.runtime_settings import (
     RuntimeSettingsError,
     RuntimeSettingsStore,
 )
@@ -30,12 +30,12 @@ LOCATION_ID = MediaLocationId.from_string("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
 def test_candidate_source_provenance() -> None:
-    import framenest
+    import kronika
 
     expected = (
-        Path(__file__).resolve().parents[2] / "src" / "framenest" / "__init__.py"
+        Path(__file__).resolve().parents[2] / "src" / "kronika" / "__init__.py"
     )
-    assert Path(framenest.__file__).resolve() == expected
+    assert Path(kronika.__file__).resolve() == expected
 
 
 class _CountingRepository:
@@ -108,7 +108,7 @@ def test_resolved_path_defaults_beside_catalog_and_honors_override(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "state" / "catalog.sqlite3"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -119,7 +119,7 @@ def test_resolved_path_defaults_beside_catalog_and_honors_override(
         database_path.parent / RUNTIME_SETTINGS_FILENAME
     )
     override = tmp_path / "override" / "runtime-settings.json"
-    overridden = FrameNestSettings(
+    overridden = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -177,7 +177,7 @@ def test_from_settings_uses_env_named_override(tmp_path: Path) -> None:
     previous = os.environ.get("FRAMENEST_RUNTIME_SETTINGS_PATH")
     os.environ["FRAMENEST_RUNTIME_SETTINGS_PATH"] = str(override)
     try:
-        settings = FrameNestSettings(
+        settings = KronikaSettings(
             database_path=tmp_path / "catalog.sqlite3",
             gallery_preview_cache_path=tmp_path / "previews",
             cover_storage_root=tmp_path / "covers",

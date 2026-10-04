@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     ROLE_ADMIN,
     ROLE_USER,
     IdentityContext,
 )
-from framenest.domain.record_access import (
+from kronika.domain.record_access import (
     READ_APPROVED,
     READ_CURRENT,
     READ_DENY,
@@ -17,7 +17,7 @@ from framenest.domain.record_access import (
     may_approve,
     scope_for_identity,
 )
-from framenest.domain.records import RecordKind, RecordVisibility
+from kronika.domain.records import RecordKind, RecordVisibility
 
 
 def _identity(login: str, role: str) -> IdentityContext:

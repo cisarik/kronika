@@ -8,17 +8,17 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain import MediaId
-from framenest.domain.identity_access import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain import MediaId
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _insert_media(database_path: Path) -> MediaId:
@@ -38,7 +38,7 @@ def _insert_media(database_path: Path) -> MediaId:
     return media_id
 
 
-def _admin_client(settings: FrameNestSettings) -> TestClient:
+def _admin_client(settings: KronikaSettings) -> TestClient:
     app = create_app(settings=settings)
 
     @app.middleware("http")
@@ -74,7 +74,7 @@ def _publish_for_test(database_path: Path, media_id: MediaId) -> None:
 
 def test_local_web_persists_display_title_and_canonical_tags(tmp_path: Path) -> None:
     database_path = tmp_path / "catalog.sqlite3"
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     media_id = _insert_media(database_path)
 
@@ -128,7 +128,7 @@ def test_local_web_metadata_api_exposes_processed_collection_lifecycle(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "processed-lifecycle.sqlite3"
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     media_id = _insert_media(database_path)
     _publish_for_test(database_path, media_id)
@@ -210,7 +210,7 @@ def test_metadata_save_leaves_automatic_analysis_result_and_path_unchanged(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "durable-suggestion-immutability.sqlite3"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         automatic_media_analysis_enabled=True,
         _env_file=None,

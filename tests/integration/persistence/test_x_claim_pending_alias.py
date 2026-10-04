@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from sqlalchemy import create_engine, text
 
-from framenest.domain.media_user_alias import parse_alias_content
-from framenest.domain.x_acquisition import XPostClaim
-from framenest.infrastructure.persistence.catalog_schema import metadata
-from framenest.infrastructure.persistence.x_acquisition_claim_repository import (
+from kronika.domain.media_user_alias import parse_alias_content
+from kronika.domain.x_acquisition import XPostClaim
+from kronika.infrastructure.persistence.catalog_schema import metadata
+from kronika.infrastructure.persistence.x_acquisition_claim_repository import (
     SqliteXAcquisitionClaimRepository,
 )
 

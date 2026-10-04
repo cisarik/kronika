@@ -8,20 +8,20 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from framenest.application.media_analysis import RepresentativeFrame
-from framenest.application.ports.cover_storage import (
+from kronika.application.media_analysis import RepresentativeFrame
+from kronika.application.ports.cover_storage import (
     CoverArtifact,
     CoverStorageError,
     CoverThumbnailImage,
     CoverThumbnailUnavailableError,
 )
-from framenest.domain.identities import MediaId
-from framenest.domain.media_cover import (
+from kronika.domain.identities import MediaId
+from kronika.domain.media_cover import (
     COVER_ARTIFACT_MEDIA_TYPE,
     COVER_ARTIFACT_PROFILE,
     COVER_THUMBNAIL_ALGORITHM,
 )
-from framenest.infrastructure.filesystem.cover_storage import (
+from kronika.infrastructure.filesystem.cover_storage import (
     COVER_ARTIFACT_MAX_BYTES,
     COVER_ARTIFACT_MAX_LONG_EDGE,
     FilesystemCoverThumbnailCache,
@@ -76,8 +76,8 @@ def test_still_image_pipeline_normalizes_jpeg_and_png_sources_deterministically(
 ) -> None:
     import hashlib
 
-    from framenest.application.media_analysis import MediaRelativePath
-    from framenest.infrastructure.media_analysis.still_image import prepare_still_image_analysis
+    from kronika.application.media_analysis import MediaRelativePath
+    from kronika.infrastructure.media_analysis.still_image import prepare_still_image_analysis
 
     def prepared_frame(filename: str, payload: bytes) -> RepresentativeFrame:
         source = tmp_path / filename

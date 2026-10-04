@@ -9,19 +9,19 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identity_access import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
 )
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _native_flavor() -> LibraryPathFlavor:
@@ -48,7 +48,7 @@ def _register_library(database_path: Path, library_root: Path) -> LibraryId:
         dispose_engine(engine)
 
 
-def _admin_client(settings: FrameNestSettings) -> TestClient:
+def _admin_client(settings: KronikaSettings) -> TestClient:
     app = create_app(settings=settings)
 
     @app.middleware("http")
@@ -74,7 +74,7 @@ def test_local_web_catalog_search_tags_pagination_locations_and_read_only_get(
     library_root.mkdir()
     (library_root / "entropy.mp4").write_bytes(b"mp4-data-a")
     (library_root / "reaction.gif").write_bytes(b"gif-data-b")
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     library_id = _register_library(database_path, library_root)
 

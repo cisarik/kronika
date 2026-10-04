@@ -7,15 +7,15 @@ from typing import Any
 
 import pytest
 
-from framenest.domain.identities import LibraryId, MediaId, MediaLocationId
-from framenest.domain.media import MediaKind, MediaRelativePath
-from framenest.domain.media_classification import (
+from kronika.domain.identities import LibraryId, MediaId, MediaLocationId
+from kronika.domain.media import MediaKind, MediaRelativePath
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     CreatorAttributionKind,
     MovieGenre,
 )
-from framenest.domain.media_metadata import (
+from kronika.domain.media_metadata import (
     CanonicalTagDisplayName,
     CanonicalTagKey,
     MediaCollectionKey,
@@ -23,7 +23,7 @@ from framenest.domain.media_metadata import (
     MediaDisplayTitle,
     PROCESSED_COLLECTION_KEY,
 )
-from framenest.domain.media_sidecar import (
+from kronika.domain.media_sidecar import (
     MAX_SIDECAR_BYTES,
     SIDECAR_FORMAT,
     SIDECAR_SCHEMA_VERSION,

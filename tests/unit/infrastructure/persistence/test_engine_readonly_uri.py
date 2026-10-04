@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_readonly_engine,
     dispose_engine,
 )

@@ -10,13 +10,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -55,7 +55,7 @@ def companion_api_client(tmp_path: Path):
     (library_root / "owner-private.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x01" * 32)
     (library_root / "foreign-private.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x02" * 32)
     (library_root / "movie.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x03" * 32)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",

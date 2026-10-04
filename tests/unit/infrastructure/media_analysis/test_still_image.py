@@ -8,12 +8,12 @@ from pathlib import Path
 from PIL import Image
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     MediaAnalysisFailedError,
     MediaRelativePath,
 )
-from framenest.infrastructure.media_analysis.still_image import prepare_still_image_analysis
+from kronika.infrastructure.media_analysis.still_image import prepare_still_image_analysis
 
 
 def _write_image(path: Path, *, fmt: str, size: tuple[int, int] = (32, 24)) -> None:

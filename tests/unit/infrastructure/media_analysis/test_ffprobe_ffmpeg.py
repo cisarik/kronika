@@ -7,22 +7,22 @@ from collections.abc import Sequence
 
 import pytest
 
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     FFPROBE_STDOUT_MAX_BYTES,
     PNG_SIGNATURE,
     FrameNestMediaAnalysisError,
     build_representative_frame,
     compute_target_timestamps_ms,
 )
-from framenest.infrastructure.media_analysis.ffmpeg import (
+from kronika.infrastructure.media_analysis.ffmpeg import (
     FRAME_EXTRACTION_FAILED_MESSAGE,
     INDIVIDUAL_FRAME_FAILED_WARNING,
     build_ffmpeg_frame_argv,
     extract_representative_frames,
     format_timestamp_ms,
 )
-from framenest.infrastructure.media_analysis.ffprobe import parse_ffprobe_payload, probe_media_metadata
-from framenest.infrastructure.media_analysis.process import ProcessRunResult
+from kronika.infrastructure.media_analysis.ffprobe import parse_ffprobe_payload, probe_media_metadata
+from kronika.infrastructure.media_analysis.process import ProcessRunResult
 
 PRIVATE_ROOT = "/Users/agile/Video"
 
@@ -159,7 +159,7 @@ def test_probe_media_metadata_uses_expected_argv() -> None:
 
 
 def test_probe_media_metadata_rejects_oversized_output() -> None:
-    from framenest.infrastructure.media_analysis.process import (
+    from kronika.infrastructure.media_analysis.process import (
         PROCESS_OUTPUT_LIMIT_MESSAGE,
         ProcessExecutionError,
     )

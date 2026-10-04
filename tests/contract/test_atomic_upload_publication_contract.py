@@ -11,19 +11,19 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import insert
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.upload_api import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.upload_api import (
     UploadApiDependencies,
     UploadCapabilityResponse,
     UploadDuplicateResolutionResponse,
     UploadSessionResponse,
     create_upload_api_router,
 )
-from framenest.application.upload_transport import UploadSessionSnapshot
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.catalog_schema import devices, libraries
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.application.upload_transport import UploadSessionSnapshot
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.catalog_schema import devices, libraries
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DESTINATION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
@@ -58,7 +58,7 @@ def _configured_settings(tmp_path: Path, *, publication_id: str | None):
     published = tmp_path / "published"
     quarantine.mkdir(parents=True)
     published.mkdir(parents=True)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "cache" / "previews",
         upload_quarantine_root=quarantine,
@@ -126,7 +126,7 @@ def test_duplicate_keep_notifies_publication_only_after_publish_pending_response
             )
         )
     )
-    from framenest.domain.identity_access import ROLE_ADMIN
+    from kronika.domain.identity_access import ROLE_ADMIN
     from tests.support.record_access import install_synthetic_caller
 
     client = TestClient(install_synthetic_caller(app, "ada", role=ROLE_ADMIN))
@@ -185,7 +185,7 @@ def test_youtube_staging_under_database_state_root_composes_operator_lifecycle(
     )
     youtube_root = base.database_path.parent / "youtube-acquisition"
     youtube_root.mkdir(mode=0o700)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=base.database_path,
         gallery_preview_cache_path=base.gallery_preview_cache_path,
         upload_quarantine_root=quarantine,
@@ -212,7 +212,7 @@ def test_non_loopback_bind_fails_closed_before_composition(
     youtube_root = base.database_path.parent / "youtube-acquisition"
     youtube_root.mkdir(mode=0o700)
     with pytest.raises(ValidationError, match="loopback"):
-        FrameNestSettings(
+        KronikaSettings(
             host="0.0.0.0",
             database_path=base.database_path,
             gallery_preview_cache_path=base.gallery_preview_cache_path,
@@ -253,7 +253,7 @@ def test_overlapping_publication_and_quarantine_roots_fail_closed(tmp_path: Path
     database_path = tmp_path / "database" / "catalog.sqlite3"
     shared_root = tmp_path / "shared"
     shared_root.mkdir(parents=True)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "cache" / "previews",
         upload_quarantine_root=shared_root,
@@ -289,13 +289,13 @@ def test_overlapping_publication_and_quarantine_roots_fail_closed(tmp_path: Path
 def test_publication_modules_contain_no_catalog_creation_provider_or_public_route_code() -> None:
     root = Path(__file__).resolve().parents[2]
     publication_only_paths = (
-        root / "src/framenest/domain/upload_publications.py",
-        root / "src/framenest/application/upload_publication.py",
-        root / "src/framenest/application/upload_publication_coordinator.py",
-        root / "src/framenest/infrastructure/filesystem/published_media_storage.py",
+        root / "src/kronika/domain/upload_publications.py",
+        root / "src/kronika/application/upload_publication.py",
+        root / "src/kronika/application/upload_publication_coordinator.py",
+        root / "src/kronika/infrastructure/filesystem/published_media_storage.py",
     )
     repository_path = (
-        root / "src/framenest/infrastructure/persistence/upload_publication_repository.py"
+        root / "src/kronika/infrastructure/persistence/upload_publication_repository.py"
     )
     combined = "\n".join(path.read_text(encoding="utf-8") for path in publication_only_paths)
     forbidden = (

@@ -7,14 +7,14 @@ import json
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     PNG_SIGNATURE,
     RepresentativeFrame,
     TechnicalMetadata,
     build_representative_frame,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderAuthError,
     MediaSuggestionProviderFailedError,
     MediaSuggestionProviderInvalidResponseError,
@@ -25,25 +25,25 @@ from framenest.application.media_suggestion import (
     MediaSuggestionRequest,
     PROMPT_VERSION,
 )
-from framenest.infrastructure.ai.constants import (
+from kronika.infrastructure.ai.constants import (
     DEFAULT_MODEL_ID,
     NVIDIA_CHAT_COMPLETIONS_URL,
     TEMPERATURE,
     TOP_K,
 )
-from framenest.infrastructure.ai.credentials import NvidiaApiCredential
-from framenest.infrastructure.ai.image_derivative import (
+from kronika.infrastructure.ai.credentials import NvidiaApiCredential
+from kronika.infrastructure.ai.image_derivative import (
     FrameNestImageDerivativeError,
     VlmImageDerivative,
 )
-from framenest.infrastructure.ai.nvidia_nim import (
+from kronika.infrastructure.ai.nvidia_nim import (
     NvidiaNimMediaSuggestionProvider,
     build_nvidia_connection_test_body,
     build_nvidia_request_body,
     extract_message_content,
     parse_suggestion_content_text,
 )
-from framenest.infrastructure.ai.transport import (
+from kronika.infrastructure.ai.transport import (
     HttpsJsonResponse,
     HttpsTransportError,
     TRANSPORT_AUTH_REJECTED_MESSAGE,
@@ -52,7 +52,7 @@ from framenest.infrastructure.ai.transport import (
     TRANSPORT_RATE_LIMITED_MESSAGE,
     TRANSPORT_UNAVAILABLE_MESSAGE,
 )
-from framenest.infrastructure.ai.vision_probe import (
+from kronika.infrastructure.ai.vision_probe import (
     VISION_PROBE_PROMPT,
     load_vision_probe_fixture,
 )
@@ -380,7 +380,7 @@ def test_provider_rejects_invalid_pending_envelopes_without_leaking_id(
 
 
 def test_provider_times_out_pending_status_without_leaking_request_id() -> None:
-    from framenest.application.media_suggestion import (
+    from kronika.application.media_suggestion import (
         MediaSuggestionProviderPendingTimeoutError,
     )
 
@@ -661,7 +661,7 @@ def test_provider_enforces_aggregate_derivative_bound_before_transport(
         transport,
         image_encoder=_FakeImageEncoder((_VALID_JPEG, _OTHER_VALID_JPEG)),
     )
-    monkeypatch.setattr("framenest.infrastructure.ai.nvidia_nim.VLM_JPEG_AGGREGATE_MAX_BYTES", 1)
+    monkeypatch.setattr("kronika.infrastructure.ai.nvidia_nim.VLM_JPEG_AGGREGATE_MAX_BYTES", 1)
 
     with pytest.raises(MediaSuggestionProviderInvalidResponseError):
         provider.suggest(_sample_request((_VALID_PNG, _OTHER_VALID_PNG)))

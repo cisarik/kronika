@@ -5,15 +5,15 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const APP_SOURCE = fs.readFileSync(
-  path.resolve(__dirname, "../src/framenest/adapters/api/web/app.js"),
+  path.resolve(__dirname, "../src/kronika/adapters/api/web/app.js"),
   "utf8",
 );
 const INDEX_SOURCE = fs.readFileSync(
-  path.resolve(__dirname, "../src/framenest/adapters/api/web/index.html"),
+  path.resolve(__dirname, "../src/kronika/adapters/api/web/index.html"),
   "utf8",
 );
 const STYLES_SOURCE = fs.readFileSync(
-  path.resolve(__dirname, "../src/framenest/adapters/api/web/styles.css"),
+  path.resolve(__dirname, "../src/kronika/adapters/api/web/styles.css"),
   "utf8",
 );
 

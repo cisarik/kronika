@@ -6,17 +6,17 @@ from pathlib import Path
 
 import pytest
 
-from framenest.adapters.cli import library
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.cli import library
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _migrate(database_path: Path) -> None:
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
 
 
 def _counts(database_path: Path) -> tuple[int, int, int, int]:
@@ -55,7 +55,7 @@ def test_status_is_network_free_scan_free_read_only(
     def fail_preview(*args: object, **kwargs: object) -> object:
         raise AssertionError("status must not scan")
 
-    monkeypatch.setattr("framenest.infrastructure.filesystem.library_scanner.LocalLibraryScanner.preview", fail_preview)
+    monkeypatch.setattr("kronika.infrastructure.filesystem.library_scanner.LocalLibraryScanner.preview", fail_preview)
 
     assert _run(monkeypatch, database_path, ["status"]) == 0
 

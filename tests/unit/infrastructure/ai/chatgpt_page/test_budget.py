@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.infrastructure.ai.chatgpt_page.archive import zip_overhead_for_count
-from framenest.infrastructure.ai.chatgpt_page.budget import (
+from kronika.infrastructure.ai.chatgpt_page.archive import zip_overhead_for_count
+from kronika.infrastructure.ai.chatgpt_page.budget import (
     LOCAL_ATTACHMENT_CEILING_BYTES,
     VIDEO_MINIMUM_FRAME_COUNT,
     byte_cap,
@@ -15,8 +15,8 @@ from framenest.infrastructure.ai.chatgpt_page.budget import (
     qualifies_for_video,
     validate_budget_profile,
 )
-from framenest.infrastructure.ai.chatgpt_page.envelope import PER_FRAME_ACCOUNTING_BYTES
-from framenest.infrastructure.ai.chatgpt_page.errors import BudgetProfileRejected
+from kronika.infrastructure.ai.chatgpt_page.envelope import PER_FRAME_ACCOUNTING_BYTES
+from kronika.infrastructure.ai.chatgpt_page.errors import BudgetProfileRejected
 
 PACK = "ab" * 32
 SESSION = "page-session-a"

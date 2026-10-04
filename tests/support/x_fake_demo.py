@@ -9,11 +9,11 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from framenest.application.ports.x_extractor import (
+from kronika.application.ports.x_extractor import (
     XAssetAcquisition,
     XExtractionError,
 )
-from framenest.domain.x_acquisition import (
+from kronika.domain.x_acquisition import (
     XMediaType,
     XNormalizedAssetDescriptor,
     XNormalizedInspection,

@@ -29,11 +29,11 @@ from pathlib import Path
 import uvicorn
 from sqlalchemy import insert
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.catalog_schema import devices, libraries
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.catalog_schema import devices, libraries
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DESTINATION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
@@ -82,7 +82,7 @@ def main() -> None:
     published.mkdir()
     youtube_root.mkdir(mode=0o700)
     youtube_root.chmod(0o700)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         port=port,
         database_path=database_path,

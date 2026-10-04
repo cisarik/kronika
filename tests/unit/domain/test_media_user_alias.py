@@ -6,16 +6,16 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.domain import MediaId
-from framenest.domain.media_metadata import CanonicalTagKey, MediaDescription, MediaDisplayTitle
-from framenest.domain.media_user_alias import (
+from kronika.domain import MediaId
+from kronika.domain.media_metadata import CanonicalTagKey, MediaDescription, MediaDisplayTitle
+from kronika.domain.media_user_alias import (
     FrameNestMediaUserAliasError,
     MediaUserAlias,
     MediaUserAliasContent,
     PendingMediaUserAlias,
     parse_alias_content,
 )
-from framenest.domain.x_acquisition import XPostClaimId
+from kronika.domain.x_acquisition import XPostClaimId
 
 MEDIA_ID = MediaId.from_string("12345678-1234-4234-9234-123456789abc")
 CLAIM_ID = XPostClaimId.from_string("22345678-1234-4234-9234-123456789abc")

@@ -7,22 +7,22 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.media_content_api import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.media_content_api import (
     MediaContentApiDependencies,
     _FALLBACK_DOWNLOAD_FILENAME,
 )
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
 from tests.support.record_access import scoped_policy, synthetic_identity
-from framenest.application.media_content import (
+from kronika.application.media_content import (
     MediaContentFailedError,
     MediaContentNotFoundError,
     MediaContentUnavailableError,
     ResolvedMediaContent,
 )
-from framenest.application.ports.media_repository import FrameNestMediaRepositoryError
-from framenest.application.ports.library_repository import FrameNestLibraryRepositoryError
-from framenest.configuration import FrameNestSettings
+from kronika.application.ports.media_repository import FrameNestMediaRepositoryError
+from kronika.application.ports.library_repository import FrameNestLibraryRepositoryError
+from kronika.configuration import KronikaSettings
 
 MEDIA_ID = "12345678-1234-4234-9234-123456789abc"
 LOCATION_ID = "abcdefab-cdef-4abc-8def-abcdefabcdef"
@@ -74,7 +74,7 @@ def _client(
             {MEDIA_ID} if audience_ids is None else audience_ids
         ),
     )
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path or Path("/tmp/framenest-media-content-api.sqlite3"),
         _env_file=None,
     )

@@ -9,7 +9,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
 
-from framenest.application.ports.media_metadata_repository import (
+from kronika.application.ports.media_metadata_repository import (
     OMITTED,
     CanonicalTagDefinitionConflictError,
     CanonicalTagNotFoundError,
@@ -17,37 +17,37 @@ from framenest.application.ports.media_metadata_repository import (
     MediaMetadataMediaNotFoundError,
     SourceDerivedMetadataImmutableError,
 )
-from framenest.domain.media import LogicalMedia, MediaKind
-from framenest.domain.media_classification import (
+from kronika.domain.media import LogicalMedia, MediaKind
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     CreatorAttributionKind,
 )
-from framenest.domain.media_metadata import (
+from kronika.domain.media_metadata import (
     CanonicalTagDisplayName,
     CanonicalTagKey,
     MediaDescription,
     MediaDisplayTitle,
 )
-from framenest.application.companion_review import canonical_field_digest
-from framenest.domain.identities import MediaId
+from kronika.application.companion_review import canonical_field_digest
+from kronika.domain.identities import MediaId
 
 CANONICAL_MEDIA_ID = "12345678-1234-4234-9234-123456789abc"
 SECOND_MEDIA_ID = "abcdefab-cdef-4abc-8def-abcdefabcdef"
 
 
 def _migrated_engine(tmp_path: Path) -> sa.Engine:
-    from framenest.configuration import FrameNestSettings
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.configuration import KronikaSettings
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     database_path = tmp_path / "media-metadata-repository.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     return create_sqlite_engine(database_path)
 
 
 def _repository(tmp_path: Path):
-    from framenest.infrastructure.persistence.media_metadata_repository import (
+    from kronika.infrastructure.persistence.media_metadata_repository import (
         SqliteMediaMetadataRepository,
     )
 
@@ -224,7 +224,7 @@ def test_assignment_replacement_failure_rolls_back_previous_state(tmp_path: Path
             now_ms=10,
         )
         with patch(
-            "framenest.infrastructure.persistence.media_metadata_repository._insert_assignments",
+            "kronika.infrastructure.persistence.media_metadata_repository._insert_assignments",
             side_effect=FrameNestMediaMetadataRepositoryError("Media metadata operation failed."),
         ):
             with pytest.raises(FrameNestMediaMetadataRepositoryError):
@@ -268,7 +268,7 @@ def test_malformed_persisted_rows_raise_sanitized_error(tmp_path: Path) -> None:
 
 
 def test_importing_media_does_not_create_metadata_rows(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
+    from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
 
     repository, engine = _repository(tmp_path)
     media_repository = SqliteMediaRepository(engine)
@@ -507,7 +507,7 @@ def test_processed_collection_rollback_preserves_previous_collection_state(
             now_ms=1000,
         )
         with patch(
-            "framenest.infrastructure.persistence.media_metadata_repository._insert_assignments",
+            "kronika.infrastructure.persistence.media_metadata_repository._insert_assignments",
             side_effect=FrameNestMediaMetadataRepositoryError("Media metadata operation failed."),
         ):
             with pytest.raises(FrameNestMediaMetadataRepositoryError):

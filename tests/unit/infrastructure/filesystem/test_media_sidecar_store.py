@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.media_sidecar_store import (
+from kronika.application.ports.media_sidecar_store import (
     SIDECAR_LOCATION_NOT_WRITABLE,
     SIDECAR_UNAVAILABLE,
     SIDECAR_UNSAFE_TARGET,
@@ -17,18 +17,18 @@ from framenest.application.ports.media_sidecar_store import (
     SidecarTargetKind,
     sidecar_filename,
 )
-from framenest.domain.libraries import LibraryPathFlavor, LibraryRoot
-from framenest.domain.identities import LibraryId, MediaId, MediaLocationId
-from framenest.domain.media import FrameNestMediaRelativePathError, MediaKind, MediaRelativePath
-from framenest.domain.media_classification import AcquisitionSource, ContentCategory
-from framenest.domain.media_sidecar import (
+from kronika.domain.libraries import LibraryPathFlavor, LibraryRoot
+from kronika.domain.identities import LibraryId, MediaId, MediaLocationId
+from kronika.domain.media import FrameNestMediaRelativePathError, MediaKind, MediaRelativePath
+from kronika.domain.media_classification import AcquisitionSource, ContentCategory
+from kronika.domain.media_sidecar import (
     MAX_SIDECAR_BYTES,
     SidecarDocument,
     SidecarLocation,
     decode_media_sidecar,
     encode_media_sidecar,
 )
-from framenest.infrastructure.filesystem.media_sidecar import FilesystemMediaSidecarStore
+from kronika.infrastructure.filesystem.media_sidecar import FilesystemMediaSidecarStore
 
 PRIVATE_MARKER = "/home/private/secret.mp4"
 PAYLOAD_MARKER = "PAYLOAD_MARKER_9f3a"
@@ -285,7 +285,7 @@ def test_previous_target_survives_temp_validation_failure(tmp_path: Path, monkey
         raise RuntimeError("injected validation failure")
 
     monkeypatch.setattr(
-        "framenest.infrastructure.filesystem.media_sidecar.decode_media_sidecar",
+        "kronika.infrastructure.filesystem.media_sidecar.decode_media_sidecar",
         fail_validate,
     )
     with pytest.raises(MediaSidecarStoreError):
@@ -308,7 +308,7 @@ def test_previous_target_survives_replace_failure(tmp_path: Path, monkeypatch: p
         raise OSError("injected replace failure")
 
     monkeypatch.setattr(
-        "framenest.infrastructure.filesystem.media_sidecar.os.replace",
+        "kronika.infrastructure.filesystem.media_sidecar.os.replace",
         fail_replace,
     )
     with pytest.raises(MediaSidecarStoreError):

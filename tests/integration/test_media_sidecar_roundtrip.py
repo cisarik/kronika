@@ -8,32 +8,32 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_sidecar import MediaSidecarService
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media import (
+from kronika.application.media_sidecar import MediaSidecarService
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
     MediaLocationAvailability,
     MediaRelativePath,
 )
-from framenest.domain.media_classification import ContentCategory, MovieGenre
-from framenest.domain.media_metadata import (
+from kronika.domain.media_classification import ContentCategory, MovieGenre
+from kronika.domain.media_metadata import (
     CanonicalTagDisplayName,
     CanonicalTagKey,
     MediaDescription,
     MediaDisplayTitle,
 )
-from framenest.domain.media_sidecar import decode_media_sidecar
-from framenest.infrastructure.filesystem.media_sidecar import FilesystemMediaSidecarStore
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.media_metadata_repository import SqliteMediaMetadataRepository
-from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.domain.media_sidecar import decode_media_sidecar
+from kronika.infrastructure.filesystem.media_sidecar import FilesystemMediaSidecarStore
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.media_metadata_repository import SqliteMediaMetadataRepository
+from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 MEDIA_ID = MediaId.from_string("12345678-1234-4234-9234-123456789abc")
 LOCATION_ID = MediaLocationId.from_string("abcdefab-cdef-4abc-8def-abcdefabcdef")
@@ -62,7 +62,7 @@ def test_catalog_projection_export_validate_compare_and_unchanged(
     media_file.write_bytes(b"synthetic-media")
     sidecar_path = media_dir / "clip.mp4.framenest.json"
 
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     try:
         devices = SqliteDeviceRepository(engine)
@@ -119,7 +119,7 @@ def test_catalog_projection_export_validate_compare_and_unchanged(
             return real_replace(*args, **kwargs)
 
         monkeypatch.setattr(
-            "framenest.infrastructure.filesystem.media_sidecar.os.replace",
+            "kronika.infrastructure.filesystem.media_sidecar.os.replace",
             _spy_replace,
         )
 

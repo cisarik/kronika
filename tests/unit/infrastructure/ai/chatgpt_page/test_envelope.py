@@ -7,13 +7,13 @@ import io
 import pytest
 from PIL import Image
 
-from framenest.infrastructure.ai.chatgpt_page.envelope import (
+from kronika.infrastructure.ai.chatgpt_page.envelope import (
     ENVELOPE_STEPS,
     encode_envelope,
     encode_step,
     target_size,
 )
-from framenest.infrastructure.ai.chatgpt_page.errors import BoundedPreparationError
+from kronika.infrastructure.ai.chatgpt_page.errors import BoundedPreparationError
 
 
 def _image(size: tuple[int, int], color: tuple[int, int, int] = (20, 40, 60)) -> Image.Image:

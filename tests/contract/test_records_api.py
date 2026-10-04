@@ -8,24 +8,24 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_ADMIN, ROLE_USER
-from framenest.domain.records import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
+from kronika.domain.records import (
     CompletedDocument,
     DocumentId,
     RecordId,
     RecordKind,
 )
-from framenest.domain.research import CompletionEvidence
-from framenest.infrastructure.persistence.engine import (
+from kronika.domain.research import CompletionEvidence
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
     run_in_immediate_transaction,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import (
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import (
     SqliteRecordRepository,
 )
 from tests.support.record_access import install_synthetic_caller
@@ -52,7 +52,7 @@ def _client(app: FastAPI, login: str | None, role: str = ROLE_USER) -> TestClien
 
 @pytest.fixture()
 def records(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "records-api.sqlite3",
         identity_map={
             "alice@example.com": "user",
@@ -229,7 +229,7 @@ def test_record_list_filters_reject_invalid_combinations(records) -> None:
 
 
 def test_unready_media_cannot_be_approved(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "records-api.sqlite3",
         identity_map={"alice@example.com": "user", "ada@example.com": "admin"},
         _env_file=None,

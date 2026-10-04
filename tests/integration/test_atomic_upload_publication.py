@@ -16,25 +16,25 @@ from PIL import Image
 import pytest
 from sqlalchemy import func, insert, select, text
 
-from framenest.application.ports.quarantine_storage import QuarantineWriteFailedError
-from framenest.application.upload_publication import (
+from kronika.application.ports.quarantine_storage import QuarantineWriteFailedError
+from kronika.application.upload_publication import (
     PublishPendingUpload,
     UploadPublicationCleanupPendingError,
     UploadPublicationInfrastructureError,
     UploadPublicationSourceError,
 )
-from framenest.application.upload_transport import UploadSessionLockRegistry
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_ADMIN
+from kronika.application.upload_transport import UploadSessionLockRegistry
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_ADMIN
 from tests.support.record_access import install_synthetic_caller
-from framenest.domain.identities import LibraryId, MediaByteIdentityId
-from framenest.domain.upload_publications import (
+from kronika.domain.identities import LibraryId, MediaByteIdentityId
+from kronika.domain.upload_publications import (
     UploadPublicationCleanupState,
     UploadPublicationState,
     new_upload_publication_reservation,
 )
-from framenest.domain.uploads import (
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadDuplicateDisposition,
     UploadSession,
@@ -44,25 +44,25 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.filesystem.published_media_storage import (
+from kronika.infrastructure.filesystem.published_media_storage import (
     FilesystemPublishedMediaStorage,
 )
-from framenest.infrastructure.filesystem.quarantine_storage import (
+from kronika.infrastructure.filesystem.quarantine_storage import (
     FilesystemQuarantineStorage,
 )
-from framenest.infrastructure.persistence.catalog_schema import (
+from kronika.infrastructure.persistence.catalog_schema import (
     devices,
     libraries,
     logical_media,
     physical_media_locations,
     upload_publications,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_publication_repository import (
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_publication_repository import (
     SqliteUploadPublicationRepository,
 )
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 
@@ -102,7 +102,7 @@ def _fixture(tmp_path: Path, *, quarantine_override=None) -> _Fixture:
     published_root = tmp_path / "published"
     quarantine_root.mkdir()
     published_root.mkdir()
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     with engine.begin() as connection:
@@ -436,7 +436,7 @@ def test_full_application_lifecycle_automatically_publishes_valid_synthetic_gif(
     cache_root = tmp_path / "full-app-cache"
     quarantine_root.mkdir()
     published_root.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=cache_root,
         upload_quarantine_root=quarantine_root,

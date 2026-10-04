@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import threading
 
-from framenest.application.companion_x_tag import (
+from kronika.application.companion_x_tag import (
     COMPANION_X_TAG_DISPLAY_NAME,
     COMPANION_X_TAG_KEY,
     EnsureCompanionXTag,
 )
-from framenest.application.ports.media_metadata_repository import (
+from kronika.application.ports.media_metadata_repository import (
     CanonicalTagCreateResult,
     CanonicalTagDefinitionConflictError,
     FrameNestMediaMetadataRepositoryError,
 )
-from framenest.domain.media_metadata import (
+from kronika.domain.media_metadata import (
     CanonicalTag,
     CanonicalTagDisplayName,
     CanonicalTagKey,

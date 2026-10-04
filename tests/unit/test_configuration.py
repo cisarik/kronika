@@ -15,7 +15,7 @@ from pydantic import SecretStr, ValidationError
 
 from tests.support.kronika_identity import expected
 
-from framenest.configuration import FrameNestSettings, load_settings
+from kronika.configuration import KronikaSettings, load_settings
 
 FRAMENEST_ENV_VARS = (
     "FRAMENEST_HOST",
@@ -43,7 +43,7 @@ def test_overlapping_private_storage_roots_report_the_derived_brand(
     cache_root = tmp_path / "private"
 
     with pytest.raises(ValidationError) as excinfo:
-        FrameNestSettings(
+        KronikaSettings(
             _env_file=None,
             gallery_preview_cache_path=cache_root,
             cover_storage_root=cache_root / "covers",
@@ -281,8 +281,8 @@ def test_database_path_absent_from_settings_repr_logs_api_and_openapi(
 ) -> None:
     from fastapi.testclient import TestClient
 
-    from framenest.adapters.api.application import create_app
-    from framenest.structured_logging import build_uvicorn_log_config, get_logger
+    from kronika.adapters.api.application import create_app
+    from kronika.structured_logging import build_uvicorn_log_config, get_logger
 
     monkeypatch.chdir(tmp_path)
     private_path = tmp_path / "private" / "catalog.sqlite3"
@@ -419,7 +419,7 @@ def test_invalid_configuration_produces_sanitized_validation_error(
     ["nvidia-nim", "vercel-ai-gateway", "opencode-go"],
 )
 def test_ai_provider_id_accepts_builtin_and_declared_ids(provider_id: str) -> None:
-    settings = FrameNestSettings(_env_file=None, ai_provider_id=provider_id)
+    settings = KronikaSettings(_env_file=None, ai_provider_id=provider_id)
 
     assert settings.ai_provider_id == provider_id
 
@@ -467,7 +467,7 @@ def test_automatic_media_analysis_max_attempts_defaults_compatibly(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.domain.media_analysis_runs import DEFAULT_MAX_ANALYSIS_ATTEMPTS
+    from kronika.domain.media_analysis_runs import DEFAULT_MAX_ANALYSIS_ATTEMPTS
 
     monkeypatch.chdir(tmp_path)
     settings = load_settings(env_file=None)

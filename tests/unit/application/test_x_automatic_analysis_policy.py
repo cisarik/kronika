@@ -7,17 +7,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
-from framenest.application.ports.x_acquisition import FrameNestXClaimRepositoryError
-from framenest.application.x_acquisition import automatic_analysis_allowed_for_upload
-from framenest.application.youtube_acquisition import (
+from kronika.application.ports.x_acquisition import FrameNestXClaimRepositoryError
+from kronika.application.x_acquisition import automatic_analysis_allowed_for_upload
+from kronika.application.youtube_acquisition import (
     automatic_analysis_allowed_for_upload as youtube_automatic_analysis_allowed_for_upload,
 )
-from framenest.domain.identity_access import build_identity_mapping
-from framenest.domain.uploads import UploadSessionId
+from kronika.domain.identity_access import build_identity_mapping
+from kronika.domain.uploads import UploadSessionId
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 APPLICATION_MODULE = (
-    REPOSITORY_ROOT / "src" / "framenest" / "adapters" / "api" / "application.py"
+    REPOSITORY_ROOT / "src" / "kronika" / "adapters" / "api" / "application.py"
 )
 IDENTITY_MAPPING = build_identity_mapping(
     {

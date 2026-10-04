@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-from framenest.application.companion_review import (
+from kronika.application.companion_review import (
     MappedTagStatus,
     decode_companion_review_inbox_cursor,
 )
-from framenest.application.ports.companion_review_repository import (
+from kronika.application.ports.companion_review_repository import (
     CompanionReviewMediaNotFoundError,
     CompanionReviewMovieExcludedError,
     CompanionReviewRunNotEligibleError,
@@ -21,14 +21,14 @@ from framenest.application.ports.companion_review_repository import (
     CompanionReviewTagLimitConflictError,
     FrameNestCompanionReviewRepositoryError,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.content_publication import ContentPublicationOrigin
-from framenest.domain.identities import MediaId
-from framenest.infrastructure.persistence.companion_review_repository import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.content_publication import ContentPublicationOrigin
+from kronika.domain.identities import MediaId
+from kronika.infrastructure.persistence.companion_review_repository import (
     SqliteCompanionReviewRepository,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DEVICE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 LIBRARY_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
@@ -117,7 +117,7 @@ def _result_json(*, title: str, tags: list[str]) -> str:
 
 
 def _repository(tmp_path: Path) -> tuple[SqliteCompanionReviewRepository, object]:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3", _env_file=None
     )
     upgrade_database_to_head(settings)
@@ -1471,7 +1471,7 @@ def test_apply_review_same_value_newer_receipt_and_atomic_rollback(
             raise SQLAlchemyError("forced failure")
 
         with patch(
-            "framenest.infrastructure.persistence.companion_review_repository._upsert_field_source",
+            "kronika.infrastructure.persistence.companion_review_repository._upsert_field_source",
             side_effect=_boom,
         ):
             with pytest.raises(FrameNestCompanionReviewRepositoryError):

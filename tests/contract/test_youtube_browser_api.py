@@ -7,19 +7,19 @@ from dataclasses import replace
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
     SCOPE_REQUEST_ID,
 )
-from framenest.adapters.api.youtube_browser_api import (
+from kronika.adapters.api.youtube_browser_api import (
     YouTubeBrowserApiDependencies,
     create_youtube_browser_api_router,
 )
-from framenest.application.ports.content_publication_repository import (
+from kronika.application.ports.content_publication_repository import (
     MediaWorkflowStatus,
 )
-from framenest.application.youtube_acquisition import (
+from kronika.application.youtube_acquisition import (
     YouTubeAcquisitionInfrastructureError,
     YouTubeAcquisitionInvalidRequestError,
     YouTubeAcquisitionNotFoundError,
@@ -27,14 +27,14 @@ from framenest.application.youtube_acquisition import (
     YouTubeClaimSnapshot,
     YouTubeClaimSubmission,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_YOUTUBE_ACQUIRE,
     IdentityContext,
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.domain.youtube_acquisition import (
+from kronika.domain.youtube_acquisition import (
     FrameNestYouTubeUrlError,
     canonicalize_youtube_url,
 )

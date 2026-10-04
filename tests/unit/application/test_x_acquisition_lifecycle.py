@@ -9,8 +9,8 @@ import types
 import pytest
 from sqlalchemy import create_engine, text
 
-from framenest.application.ports.x_extractor import XExtractionError, XExtractionInterrupted
-from framenest.application.x_acquisition import (
+from kronika.application.ports.x_extractor import XExtractionError, XExtractionInterrupted
+from kronika.application.x_acquisition import (
     XAcquisitionAdministrationService,
     XAcquisitionCategoryConflictError,
     XAcquisitionCoordinator,
@@ -21,28 +21,28 @@ from framenest.application.x_acquisition import (
     XRequestLimits,
     x_classification_for_upload,
 )
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media_classification import ContentCategory
-from framenest.domain.media_user_alias import parse_alias_content
-from framenest.domain.uploads import UploadSessionState
-from framenest.domain.x_acquisition import (
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media_classification import ContentCategory
+from kronika.domain.media_user_alias import parse_alias_content
+from kronika.domain.uploads import UploadSessionState
+from kronika.domain.x_acquisition import (
     XAcquisitionState,
     XAssetState,
     XMediaType,
     XNormalizedAssetDescriptor,
     XPostClaimId,
 )
-from framenest.infrastructure.persistence.catalog_schema import metadata
-from framenest.infrastructure.persistence.media_metadata_repository import (
+from kronika.infrastructure.persistence.catalog_schema import metadata
+from kronika.infrastructure.persistence.media_metadata_repository import (
     SqliteMediaMetadataRepository,
 )
-from framenest.infrastructure.persistence.media_user_alias_repository import (
+from kronika.infrastructure.persistence.media_user_alias_repository import (
     SqliteMediaUserAliasRepository,
 )
-from framenest.infrastructure.persistence.x_acquisition_claim_repository import (
+from kronika.infrastructure.persistence.x_acquisition_claim_repository import (
     SqliteXAcquisitionClaimRepository,
 )
-from framenest.infrastructure.x.staging import FilesystemXStaging
+from kronika.infrastructure.x.staging import FilesystemXStaging
 from tests.support.x_fake_demo import FakeXExtractor
 
 
@@ -235,13 +235,13 @@ def test_cross_requester_does_not_see_foreign_claim(lifecycle) -> None:
     repo, service, admin, coordinator, extractor, _ = lifecycle
     result = service.submit(URL, login_key="alice")
     owned = service.get_owned(
-        __import__("framenest.domain.x_acquisition", fromlist=["XPostClaimId"]).XPostClaimId.from_string(result.request_id),
+        __import__("kronika.domain.x_acquisition", fromlist=["XPostClaimId"]).XPostClaimId.from_string(result.request_id),
         login_key="alice",
     )
     assert owned.claim_id == result.request_id
     with pytest.raises(Exception):
         service.get_owned(
-            __import__("framenest.domain.x_acquisition", fromlist=["XPostClaimId"]).XPostClaimId.from_string(result.request_id),
+            __import__("kronika.domain.x_acquisition", fromlist=["XPostClaimId"]).XPostClaimId.from_string(result.request_id),
             login_key="bob",
         )
 
@@ -269,7 +269,7 @@ def test_partial_success_single_asset_fails(lifecycle) -> None:
 
 def test_invalid_url_submit_rejected(lifecycle) -> None:
     repo, service, admin, coordinator, extractor, _ = lifecycle
-    from framenest.domain.x_acquisition import FrameNestXUrlError
+    from kronika.domain.x_acquisition import FrameNestXUrlError
 
     with pytest.raises(FrameNestXUrlError):
         service.submit("https://youtube.com/watch?v=abc", login_key="alice")
@@ -288,7 +288,7 @@ def test_admin_review_exposes_result(lifecycle) -> None:
     result = service.submit(URL, login_key="alice")
     claim = _run(_drain_until_terminal(coordinator, repo, result.request_id))
     snapshot = admin.get(
-        __import__("framenest.domain.x_acquisition", fromlist=["XPostClaimId"]).XPostClaimId.from_string(result.request_id)
+        __import__("kronika.domain.x_acquisition", fromlist=["XPostClaimId"]).XPostClaimId.from_string(result.request_id)
     )
     assert snapshot.success_count == 2
     assert snapshot.source_author_handle == "author"
@@ -297,7 +297,7 @@ def test_admin_review_exposes_result(lifecycle) -> None:
 
 def _partial_fixture(extractor):
     """Deterministically fail asset ordinal 0 while asset 1 succeeds."""
-    from framenest.application.ports.x_extractor import XExtractionError as _E
+    from kronika.application.ports.x_extractor import XExtractionError as _E
 
     original_download = extractor.download
 
@@ -685,8 +685,8 @@ def test_cross_requester_keep_separate_with_category(lifecycle) -> None:
 
 
 def test_catalog_handoff_uses_claim_category_or_media_kind_default(lifecycle) -> None:
-    from framenest.domain.uploads import UploadSessionId
-    from framenest.domain.x_acquisition import XAsset, XMediaType
+    from kronika.domain.uploads import UploadSessionId
+    from kronika.domain.x_acquisition import XAsset, XMediaType
 
     repo, service, admin, coordinator, extractor, media_id = lifecycle
     movie = service.submit(
@@ -744,8 +744,8 @@ def test_catalog_handoff_uses_claim_category_or_media_kind_default(lifecycle) ->
 
 
 def test_classification_seeds_pending_alias_title_description_and_tags(lifecycle) -> None:
-    from framenest.domain.uploads import UploadSessionId
-    from framenest.domain.x_acquisition import XAsset, XMediaType
+    from kronika.domain.uploads import UploadSessionId
+    from kronika.domain.x_acquisition import XAsset, XMediaType
 
     repo, service, admin, coordinator, extractor, media_id = lifecycle
     _seed_canonical_and_metadata(repo, media_id, "Canonical From Tweet")
@@ -871,8 +871,8 @@ def test_two_users_keep_isolated_aliases_on_shared_media(lifecycle) -> None:
 
 
 def test_multi_asset_first_create_reads_same_pending_alias(lifecycle) -> None:
-    from framenest.domain.uploads import UploadSessionId
-    from framenest.domain.x_acquisition import XAsset, XMediaType
+    from kronika.domain.uploads import UploadSessionId
+    from kronika.domain.x_acquisition import XAsset, XMediaType
 
     repo, service, admin, coordinator, extractor, media_id = lifecycle
     _seed_canonical_and_metadata(repo, media_id, "Canonical From Tweet")
@@ -921,7 +921,7 @@ def test_multi_asset_first_create_reads_same_pending_alias(lifecycle) -> None:
 
 def test_asset_scoped_terminal_failure_continues_later_assets(lifecycle) -> None:
     repo, service, admin, coordinator, extractor, media_id = lifecycle
-    from framenest.application.ports.x_extractor import XExtractionError as _E
+    from kronika.application.ports.x_extractor import XExtractionError as _E
 
     original_download = extractor.download
 
@@ -955,7 +955,7 @@ def test_asset_scoped_terminal_failure_continues_later_assets(lifecycle) -> None
 
 def test_all_failed_multi_asset_uses_multi_asset_code(lifecycle) -> None:
     repo, service, admin, coordinator, extractor, media_id = lifecycle
-    from framenest.application.ports.x_extractor import XExtractionError as _E
+    from kronika.application.ports.x_extractor import XExtractionError as _E
 
     def failing_download(**kwargs):
         raise _E("X_MEDIA_TYPE_UNSUPPORTED", "unsupported")

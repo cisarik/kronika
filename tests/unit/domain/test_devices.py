@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from framenest.domain import Device, DeviceId, FrameNestDeviceError, LibraryId, MediaId
+from kronika.domain import Device, DeviceId, FrameNestDeviceError, LibraryId, MediaId
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DOMAIN_DEVICES_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "devices.py"
+DOMAIN_DEVICES_MODULE = REPOSITORY_ROOT / "src" / "kronika" / "domain" / "devices.py"
 EXPECTED_ERROR_MESSAGE = "Invalid Kronika device."
 CANONICAL_UUID4_TEXT = "12345678-1234-4234-9234-123456789abc"
 SECOND_CANONICAL_UUID4_TEXT = "abcdefab-cdef-4abc-8def-abcdefabcdef"
@@ -121,9 +121,9 @@ def test_domain_devices_module_imports_no_infrastructure_or_framework() -> None:
         "sqlalchemy",
         "starlette",
         "uvicorn",
-        "framenest.infrastructure",
-        "framenest.application",
-        "framenest.adapters",
+        "kronika.infrastructure",
+        "kronika.application",
+        "kronika.adapters",
     }
     violations: list[str] = []
     for node in ast.walk(tree):

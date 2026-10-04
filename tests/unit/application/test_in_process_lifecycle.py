@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from framenest.application.in_process_lifecycle import (
+from kronika.application.in_process_lifecycle import (
     APPLICATION_LIFESPAN_SHUTDOWN_BUDGET_SECONDS,
     MINIMUM_EXTERNAL_RESERVE_SECONDS,
     SYSTEMD_TIMEOUT_STOP_SECONDS,

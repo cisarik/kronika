@@ -9,14 +9,14 @@ from dataclasses import dataclass
 import pytest
 from PIL import Image
 
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     MediaAnalysisFailedError,
     MediaAnalysisUnavailableError,
     MediaRelativePath,
     RepresentativeFrame,
     build_representative_frame,
 )
-from framenest.application.media_cover import (
+from kronika.application.media_cover import (
     CoverConflictError,
     CoverFailedError,
     CoverMediaNotFoundError,
@@ -25,28 +25,28 @@ from framenest.application.media_cover import (
     CoverSourceUnavailableError,
     CoverTimestampInvalidError,
 )
-from framenest.application.ports.cover_source_analysis import CoverSourceProbe
-from framenest.application.ports.cover_storage import (
+from kronika.application.ports.cover_source_analysis import CoverSourceProbe
+from kronika.application.ports.cover_storage import (
     CoverArtifact,
     CoverStorageError,
     CoverThumbnailImage,
     OpenedCoverThumbnail,
 )
-from framenest.domain.identities import (
+from kronika.domain.identities import (
     DeviceId,
     LibraryId,
     MediaId,
     MediaLocationId,
 )
-from framenest.domain.libraries import Library, LibraryPathFlavor, LibraryRoot
-from framenest.domain.media import (
+from kronika.domain.libraries import Library, LibraryPathFlavor, LibraryRoot
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
     MediaLocationAvailability,
     MediaRelativePath as DomainMediaRelativePath,
 )
-from framenest.domain.media_cover import (
+from kronika.domain.media_cover import (
     COVER_ARTIFACT_MEDIA_TYPE,
     COVER_ARTIFACT_PROFILE,
     SOURCE_OBSERVATION_ALGORITHM,
@@ -221,7 +221,7 @@ class _FakeCoverRepo:
         return tuple(sorted(self._covers.values(), key=lambda c: c.media_id.to_string()))
 
     def set_cover(self, draft, expected_revision):
-        from framenest.application.ports.media_cover_repository import (
+        from kronika.application.ports.media_cover_repository import (
             MediaCoverConflictError,
             MediaCoverSetResult,
         )

@@ -10,16 +10,16 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
     SCOPE_REQUEST_ID,
 )
-from framenest.adapters.api.youtube_request_api import (
+from kronika.adapters.api.youtube_request_api import (
     YouTubeRequestApiDependencies,
     create_youtube_request_api_router,
 )
-from framenest.application.youtube_acquisition import (
+from kronika.application.youtube_acquisition import (
     YouTubeAcquisitionInfrastructureError,
     YouTubeAcquisitionInvalidCursorError,
     YouTubeAcquisitionInvalidRequestError,
@@ -34,26 +34,26 @@ from framenest.application.youtube_acquisition import (
     YouTubeRequestSubmission,
     _decode_owned_cursor,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_YOUTUBE_REQUEST,
     IdentityContext,
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.domain.youtube_acquisition import (
+from kronika.domain.youtube_acquisition import (
     FrameNestYouTubeUrlError,
     YouTubeAcquisitionClaim,
     YouTubeConfirmationMethod,
     canonicalize_youtube_url,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.youtube_acquisition_claim_repository import (
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.youtube_acquisition_claim_repository import (
     SqliteYouTubeAcquisitionClaimRepository,
 )
 
@@ -300,7 +300,7 @@ def _real_service_client(
 ) -> tuple[TestClient, sqlite3.Connection, object]:
     database_path = tmp_path / "requests.sqlite3"
     upgrade_database_to_head(
-        FrameNestSettings(database_path=database_path, _env_file=None)
+        KronikaSettings(database_path=database_path, _env_file=None)
     )
     engine = create_sqlite_engine(database_path)
     repository = SqliteYouTubeAcquisitionClaimRepository(engine)

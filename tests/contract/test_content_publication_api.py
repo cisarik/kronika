@@ -7,30 +7,30 @@ from dataclasses import dataclass
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.content_publication_api import (
+from kronika.adapters.api.content_publication_api import (
     ContentPublicationApiDependencies,
     create_content_publication_api_router,
 )
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
 )
-from framenest.application.ports.content_publication_repository import (
+from kronika.application.ports.content_publication_repository import (
     AdminMediaItem,
     AdminMediaPage,
     ContentPublicationMediaNotFoundError,
     PublishContentResult,
 )
-from framenest.application.ports.media_catalog_repository import (
+from kronika.application.ports.media_catalog_repository import (
     CatalogMediaLocation,
     CatalogMediaTag,
 )
-from framenest.domain.content_publication import (
+from kronika.domain.content_publication import (
     ContentPublication,
     ContentPublicationOrigin,
     derive_content_publication_readiness,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,

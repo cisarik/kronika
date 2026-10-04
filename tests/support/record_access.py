@@ -6,9 +6,9 @@ real record policy and SQLite.
 
 from __future__ import annotations
 
-from framenest.application.content_publication import ContentAudiencePolicy
-from framenest.domain.identities import MediaId
-from framenest.domain.identity_access import (
+from kronika.application.content_publication import ContentAudiencePolicy
+from kronika.domain.identities import MediaId
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     ROLE_USER,
     IdentityContext,
@@ -51,7 +51,7 @@ class FixtureScopedAudience:
 
 def install_synthetic_caller(app, login: str = "alice", *, role: str = ROLE_USER):
     """Attach one verified caller to HTTP scopes that do not already have one."""
-    from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+    from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
 
     identity = synthetic_identity(login, role=role)
 

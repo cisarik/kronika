@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.application.analysis_proposal import (
+from kronika.application.analysis_proposal import (
     DEFAULT_ANALYSIS_PROPOSAL_MAX_SUBMITS_PER_HOUR,
     MS_PER_HOUR,
     ListAnalysisProposals,
@@ -12,12 +12,12 @@ from framenest.application.analysis_proposal import (
     AnalysisProposalLimitError,
     AnalysisProposalValidationError,
 )
-from framenest.application.ports.analysis_proposal import (
+from kronika.application.ports.analysis_proposal import (
     AdminAnalysisProposalPage,
     AnalysisProposal,
     AnalysisProposalMediaNotFoundError,
 )
-from framenest.domain.identities import MediaId
+from kronika.domain.identities import MediaId
 
 MEDIA_A = "11111111-1111-4111-8111-111111111111"
 

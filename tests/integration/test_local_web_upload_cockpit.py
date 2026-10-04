@@ -9,28 +9,28 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 import pytest
 
-from framenest.adapters.api.application import create_app
-from framenest.domain.identity_access import ROLE_ADMIN
+from kronika.adapters.api.application import create_app
+from kronika.domain.identity_access import ROLE_ADMIN
 from tests.support.record_access import install_synthetic_caller
-from framenest.adapters.api.upload_api import UploadApiDependencies
-from framenest.application.ports.upload_media_validation import (
+from kronika.adapters.api.upload_api import UploadApiDependencies
+from kronika.application.ports.upload_media_validation import (
     UploadMediaValidationEvidence,
     UploadMediaValidationRejectedError,
 )
-from framenest.application.upload_transport import (
+from kronika.application.upload_transport import (
     UploadSessionLockRegistry,
     UploadTransportLimits,
     UploadTransportService,
 )
-from framenest.application.upload_validation import UPLOAD_VALIDATION_INVALID_MEDIA
-from framenest.application.upload_validation import ValidateReceivedUpload
-from framenest.application.upload_validation_coordinator import UploadValidationCoordinator
-from framenest.configuration import FrameNestSettings
-from framenest.domain.uploads import UploadValidatedFormat, UploadValidatedMediaKind
-from framenest.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.application.upload_validation import UPLOAD_VALIDATION_INVALID_MEDIA
+from kronika.application.upload_validation import ValidateReceivedUpload
+from kronika.application.upload_validation_coordinator import UploadValidationCoordinator
+from kronika.configuration import KronikaSettings
+from kronika.domain.uploads import UploadValidatedFormat, UploadValidatedMediaKind
+from kronika.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 
@@ -61,10 +61,10 @@ class _SyntheticUploadValidator:
         raise UploadMediaValidationRejectedError(UPLOAD_VALIDATION_INVALID_MEDIA)
 
 
-def _settings(tmp_path: Path) -> FrameNestSettings:
+def _settings(tmp_path: Path) -> KronikaSettings:
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    return FrameNestSettings(
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         upload_quarantine_root=quarantine_root,
         upload_max_total_bytes=128,

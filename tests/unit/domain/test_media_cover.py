@@ -6,8 +6,8 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media_cover import (
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media_cover import (
     COVER_ARTIFACT_MEDIA_TYPE,
     COVER_ARTIFACT_PROFILE,
     SOURCE_OBSERVATION_ALGORITHM,
@@ -169,7 +169,7 @@ def test_timeless_image_cover_uses_canonical_zero_timestamp() -> None:
 
 
 def test_timeless_image_cover_rejects_nonzero_timestamp() -> None:
-    from framenest.domain.media_cover import TIMELESS_IMAGE_TIMESTAMP_MS
+    from kronika.domain.media_cover import TIMELESS_IMAGE_TIMESTAMP_MS
 
     assert TIMELESS_IMAGE_TIMESTAMP_MS == 0
     with pytest.raises(FrameNestMediaCoverError):

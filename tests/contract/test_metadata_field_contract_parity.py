@@ -16,11 +16,11 @@ from typing import Any
 from pydantic import ValidationError
 import pytest
 
-from framenest.adapters.api.media_metadata_api import (
+from kronika.adapters.api.media_metadata_api import (
     CanonicalTagRequest,
     MediaMetadataSaveRequest,
 )
-from framenest.application.media_metadata import _parse_genres
+from kronika.application.media_metadata import _parse_genres
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]

@@ -8,27 +8,27 @@ import tomllib
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
+from kronika.adapters.api.application import create_app
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 UPLOAD_FOUNDATION_FILES = (
-    REPOSITORY_ROOT / "src" / "framenest" / "domain" / "uploads.py",
-    REPOSITORY_ROOT / "src" / "framenest" / "application" / "ports" / "upload_sessions.py",
+    REPOSITORY_ROOT / "src" / "kronika" / "domain" / "uploads.py",
+    REPOSITORY_ROOT / "src" / "kronika" / "application" / "ports" / "upload_sessions.py",
     REPOSITORY_ROOT
     / "src"
-    / "framenest"
+    / "kronika"
     / "infrastructure"
     / "persistence"
     / "upload_session_repository.py",
-    REPOSITORY_ROOT / "src" / "framenest" / "infrastructure" / "persistence" / "upload_schema.py",
+    REPOSITORY_ROOT / "src" / "kronika" / "infrastructure" / "persistence" / "upload_schema.py",
 )
 UPLOAD_TRANSPORT_FILES = (
-    REPOSITORY_ROOT / "src" / "framenest" / "application" / "upload_transport.py",
-    REPOSITORY_ROOT / "src" / "framenest" / "application" / "ports" / "quarantine_storage.py",
-    REPOSITORY_ROOT / "src" / "framenest" / "adapters" / "api" / "upload_api.py",
+    REPOSITORY_ROOT / "src" / "kronika" / "application" / "upload_transport.py",
+    REPOSITORY_ROOT / "src" / "kronika" / "application" / "ports" / "quarantine_storage.py",
+    REPOSITORY_ROOT / "src" / "kronika" / "adapters" / "api" / "upload_api.py",
     REPOSITORY_ROOT
     / "src"
-    / "framenest"
+    / "kronika"
     / "infrastructure"
     / "filesystem"
     / "quarantine_storage.py",
@@ -124,7 +124,7 @@ def test_upload_transport_adds_no_migration_or_dependency() -> None:
     versions = (
         REPOSITORY_ROOT
         / "src"
-        / "framenest"
+        / "kronika"
         / "infrastructure"
         / "persistence"
         / "alembic_environment"

@@ -9,22 +9,22 @@ from fastapi.testclient import TestClient
 
 from tests.support.kronika_identity import expected
 
-from framenest.adapters.api.media_alias_api import (
+from kronika.adapters.api.media_alias_api import (
     MediaAliasApiDependencies,
     create_media_alias_api_router,
 )
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.application.media_user_alias import EMPTY_ALIAS_VIEW, MediaUserAliasView
-from framenest.application.ports.media_user_alias_repository import (
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.application.media_user_alias import EMPTY_ALIAS_VIEW, MediaUserAliasView
+from kronika.application.ports.media_user_alias_repository import (
     AliasTagNotFoundError,
     MediaUserAliasMediaNotFoundError,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITY_GALLERY_READ,
     CAPABILITY_METADATA_ALIAS_WRITE,
     IdentityContext,
 )
-from framenest.domain.media_user_alias import FrameNestMediaUserAliasError
+from kronika.domain.media_user_alias import FrameNestMediaUserAliasError
 
 MEDIA_ID = "12345678-1234-4234-9234-123456789abc"
 

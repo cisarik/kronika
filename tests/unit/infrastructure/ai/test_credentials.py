@@ -7,7 +7,7 @@ import stat
 
 import pytest
 
-from framenest.infrastructure.ai.credentials import (
+from kronika.infrastructure.ai.credentials import (
     AI_CREDENTIAL_MAX_BYTES,
     CREDENTIAL_MISSING_MESSAGE,
     NvidiaApiCredential,

@@ -650,7 +650,7 @@ test("every companion and served-prose display surface carries the manifest bran
     ["extension/ui/picker.js", "literal"],
     ["extension/ui/sidebar.js", "literal"],
     ["extension/content/x_adapter.js", "literal"],
-    ["src/framenest/adapters/api/web/app.js", "literal"],
+    ["src/kronika/adapters/api/web/app.js", "literal"],
     ["extension/ui/save.html", "carrier"],
     ["extension/ui/picker.html", "carrier"],
   ];

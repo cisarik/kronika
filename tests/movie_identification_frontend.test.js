@@ -7,11 +7,11 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const APP_SOURCE = fs.readFileSync(
-  path.join(__dirname, "..", "src", "framenest", "adapters", "api", "web", "app.js"),
+  path.join(__dirname, "..", "src", "kronika", "adapters", "api", "web", "app.js"),
   "utf8",
 );
 const INDEX_SOURCE = fs.readFileSync(
-  path.join(__dirname, "..", "src", "framenest", "adapters", "api", "web", "index.html"),
+  path.join(__dirname, "..", "src", "kronika", "adapters", "api", "web", "index.html"),
   "utf8",
 );
 

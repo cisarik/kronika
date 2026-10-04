@@ -14,9 +14,9 @@ import pytest
 import uvicorn
 from pydantic import SecretStr
 
-from framenest.configuration import FrameNestSettings
-from framenest.server import create_server
-from framenest.structured_logging import (
+from kronika.configuration import KronikaSettings
+from kronika.server import create_server
+from kronika.structured_logging import (
     FrameNestJsonFormatter,
     FrameNestRedactionFilter,
     build_uvicorn_log_config,
@@ -144,7 +144,7 @@ def test_uvicorn_access_emits_no_line() -> None:
 def test_create_server_passes_framenest_log_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = FrameNestSettings(host="127.0.0.1", port=8000, _env_file=None)
+    settings = KronikaSettings(host="127.0.0.1", port=8000, _env_file=None)
     server = create_server(settings=settings)
     assert isinstance(server.config.log_config, dict)
     assert server.config.log_config["formatters"]["framenest_json"]["()"].endswith(
@@ -155,7 +155,7 @@ def test_create_server_passes_framenest_log_config(
 def test_server_config_access_log_is_false(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = FrameNestSettings(host="127.0.0.1", port=8000, _env_file=None)
+    settings = KronikaSettings(host="127.0.0.1", port=8000, _env_file=None)
     server = create_server(settings=settings)
     assert server.config.access_log is False
 
@@ -187,5 +187,5 @@ def test_constructing_config_and_server_does_not_bind_listener(
 
     monkeypatch.setattr(socket.socket, "bind", tracked_bind)
     build_uvicorn_log_config()
-    create_server(settings=FrameNestSettings(host="127.0.0.1", port=8000, _env_file=None))
+    create_server(settings=KronikaSettings(host="127.0.0.1", port=8000, _env_file=None))
     assert bind_attempts == []

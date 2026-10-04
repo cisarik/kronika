@@ -17,18 +17,18 @@ SECOND_OPERATION_ROW_ID = "22222222-2222-4222-8222-222222222222"
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -82,10 +82,10 @@ def _insert_request(
 def test_head_is_0035() -> None:
     from alembic.script import ScriptDirectory
 
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     with _alembic_config(
-        "framenest.infrastructure.persistence.alembic_environment"
+        "kronika.infrastructure.persistence.alembic_environment"
     ) as config:
         scripts = ScriptDirectory.from_config(config)
         assert scripts.get_current_head() == "0035"

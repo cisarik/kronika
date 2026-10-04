@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
+from kronika.configuration import KronikaSettings
 
 MEDIA_A = "11111111-1111-4111-8111-111111111111"
 MEDIA_B = "22222222-2222-4222-8222-222222222222"
@@ -21,18 +21,18 @@ SOURCE_OBS = "b" * 64
 
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -296,12 +296,12 @@ def test_downgrade_is_guarded_against_populated_cover_state(tmp_path: Path) -> N
 
 
 def test_packaged_head_is_0023(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         inspect_database_migration_status,
         upgrade_database_to_head,
     )
 
-    settings = FrameNestSettings(database_path=tmp_path / "head.sqlite3", _env_file=None)
+    settings = KronikaSettings(database_path=tmp_path / "head.sqlite3", _env_file=None)
     status = upgrade_database_to_head(settings)
     assert status.current_revision == status.head_revision == "0035"
     assert inspect_database_migration_status(settings) == status

@@ -9,15 +9,15 @@ import tempfile
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import (
     ROUTE_POLICIES,
     SCOPE_AUDIT_EVENT_ID,
     find_route_policy,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_ADMIN
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_ADMIN
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 from tests.support.record_access import install_synthetic_caller
 
 INVENTORY = Path("docs/KRONIKA_ACCESS_INVENTORY.md")
@@ -26,7 +26,7 @@ _REQUIRED_TEMPLATES = (
     "/api/operator/youtube/claims",
     "/api/admin/x/requests/{claim_id}",
 )
-def _settings(tmp_path: Path, *, public: bool) -> FrameNestSettings:
+def _settings(tmp_path: Path, *, public: bool) -> KronikaSettings:
     common = dict(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
@@ -35,12 +35,12 @@ def _settings(tmp_path: Path, *, public: bool) -> FrameNestSettings:
         _env_file=None,
     )
     if public:
-        return FrameNestSettings(
+        return KronikaSettings(
             ingress_mode="public_published_uds",
             uds_path=tmp_path / "public.sock",
             **common,
         )
-    return FrameNestSettings(**common)
+    return KronikaSettings(**common)
 
 
 def _routes(app: object) -> set[tuple[str, str]]:

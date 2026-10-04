@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.infrastructure.ai.chatgpt_page.errors import ReceiptRejected
-from framenest.infrastructure.ai.chatgpt_page.receipt import ProbeReceipt, serialize_receipt
+from kronika.infrastructure.ai.chatgpt_page.errors import ReceiptRejected
+from kronika.infrastructure.ai.chatgpt_page.receipt import ProbeReceipt, serialize_receipt
 
 PACK = "ab" * 32
 CANARIES = (

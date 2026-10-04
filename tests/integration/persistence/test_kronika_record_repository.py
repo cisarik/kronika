@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_USER
-from framenest.application.records import RecordService
-from framenest.domain.identity_access import ROLE_ADMIN
-from framenest.domain.records import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_USER
+from kronika.application.records import RecordService
+from kronika.domain.identity_access import ROLE_ADMIN
+from kronika.domain.records import (
     CompletedDocument,
     DocumentId,
     RecordConflictError,
@@ -22,14 +22,14 @@ from framenest.domain.records import (
     RecordStorageIntegrityError,
     RecordValueError,
 )
-from framenest.domain.research import CompletionEvidence
-from framenest.infrastructure.persistence.engine import (
+from kronika.domain.research import CompletionEvidence
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
     run_in_immediate_transaction,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import (
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import (
     SqliteRecordRepository,
     note_successful_analysis,
 )
@@ -37,7 +37,7 @@ from tests.support.record_access import synthetic_identity
 
 
 def _engine(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )

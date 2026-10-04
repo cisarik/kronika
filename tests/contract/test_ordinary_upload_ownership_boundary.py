@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.domain.uploads import (
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.domain.uploads import (
     UploadDuplicateDisposition,
     UploadDuplicateResolutionMode,
     UploadSessionId,
@@ -20,9 +20,9 @@ from framenest.domain.uploads import (
     UploadValidatedMediaKind,
     uses_explicit_duplicate_resolution,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 
@@ -54,7 +54,7 @@ def _mutation_headers(login: str) -> dict[str, str]:
 def upload_tailscale_client(tmp_path: Path):
     quarantine = tmp_path / "quarantine"
     quarantine.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         upload_quarantine_root=quarantine,

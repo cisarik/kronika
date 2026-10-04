@@ -9,18 +9,18 @@ import threading
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _migrated_database(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 
 def _ops_config(tmp_path: Path, *, keep_auto: int = 30):
-    from framenest.infrastructure.persistence.catalog_backup_ops import CatalogBackupOpsConfig
+    from kronika.infrastructure.persistence.catalog_backup_ops import CatalogBackupOpsConfig
 
     database = _migrated_database(tmp_path / "catalog.sqlite3")
     return CatalogBackupOpsConfig(
@@ -33,7 +33,7 @@ def _ops_config(tmp_path: Path, *, keep_auto: int = 30):
 
 
 def test_automatic_and_pinned_bundle_name_classification() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import is_automatic_bundle_name
+    from kronika.infrastructure.persistence.catalog_backup_ops import is_automatic_bundle_name
 
     assert is_automatic_bundle_name("auto-20260804T031700Z-deadbeef")
     assert not is_automatic_bundle_name("pre-admin-catalog-removal-deploy-20260804T150358Z-3f89b8b2")
@@ -42,7 +42,7 @@ def test_automatic_and_pinned_bundle_name_classification() -> None:
 
 
 def test_keep_auto_validation_rejects_invalid_values() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         parse_keep_auto,
     )
@@ -56,7 +56,7 @@ def test_keep_auto_validation_rejects_invalid_values() -> None:
 
 
 def test_restore_readiness_boundaries() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import derive_restore_readiness
+    from kronika.infrastructure.persistence.catalog_backup_ops import derive_restore_readiness
 
     now = datetime(2026, 8, 4, 15, 0, 0, tzinfo=UTC)
     assert derive_restore_readiness(status={}, now=now) == "never_verified"
@@ -125,8 +125,8 @@ def test_restore_readiness_boundaries() -> None:
 
 
 def test_run_scheduled_pipeline_success_and_source_unchanged(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import sha256_file
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup import sha256_file
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         read_operator_status,
         run_scheduled_catalog_backup,
     )
@@ -162,9 +162,9 @@ def test_run_scheduled_pipeline_success_and_source_unchanged(tmp_path: Path) -> 
 
 
 def test_same_timestamp_failure_uses_attempt_seq(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.infrastructure.persistence import catalog_backup_ops as ops
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence import catalog_backup_ops as ops
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         derive_restore_readiness,
         run_scheduled_catalog_backup,
@@ -209,7 +209,7 @@ def test_same_timestamp_failure_uses_attempt_seq(tmp_path: Path, monkeypatch: py
 
 
 def test_nested_operation_lock_does_not_self_deadlock(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         operation_lock,
         run_scheduled_catalog_backup,
     )
@@ -226,8 +226,8 @@ def test_nested_operation_lock_does_not_self_deadlock(tmp_path: Path) -> None:
 
 
 def test_failed_pipeline_skips_retention(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.infrastructure.persistence import catalog_backup_ops as ops
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence import catalog_backup_ops as ops
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         run_scheduled_catalog_backup,
     )
@@ -251,8 +251,8 @@ def test_failed_pipeline_skips_retention(tmp_path: Path, monkeypatch: pytest.Mon
 
 
 def test_retention_keep_n_floor_newest_and_pinned(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsConfig,
         build_retention_plan,
         expire_automatic_backups,
@@ -301,7 +301,7 @@ def test_retention_keep_n_floor_newest_and_pinned(tmp_path: Path) -> None:
 
 
 def test_fewer_than_n_eligible_expire_empty(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         build_retention_plan,
         run_scheduled_catalog_backup,
     )
@@ -314,7 +314,7 @@ def test_fewer_than_n_eligible_expire_empty(tmp_path: Path) -> None:
 
 
 def test_manual_verify_restore_does_not_masquerade_as_scheduled(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         run_scheduled_catalog_backup,
         verify_restore_bundle,
     )
@@ -330,7 +330,7 @@ def test_manual_verify_restore_does_not_masquerade_as_scheduled(tmp_path: Path) 
 
 
 def test_symlink_and_root_escape_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         expire_automatic_backups,
         load_catalog_backup_ops_config,
@@ -358,7 +358,7 @@ def test_symlink_and_root_escape_rejected(tmp_path: Path) -> None:
 
 
 def test_incomplete_bundle_not_retention_eligible(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         build_retention_plan,
         run_scheduled_catalog_backup,
     )
@@ -374,7 +374,7 @@ def test_incomplete_bundle_not_retention_eligible(tmp_path: Path) -> None:
 
 
 def test_flock_conflict_returns_busy(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         operation_lock,
         run_scheduled_catalog_backup,
@@ -401,8 +401,8 @@ def test_flock_conflict_returns_busy(tmp_path: Path) -> None:
 
 
 def test_pending_cleanup_preserves_readiness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.infrastructure.persistence import catalog_backup_ops as ops
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence import catalog_backup_ops as ops
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         derive_restore_readiness,
         run_scheduled_catalog_backup,
@@ -426,8 +426,8 @@ def test_pending_cleanup_preserves_readiness(tmp_path: Path, monkeypatch: pytest
 
 
 def test_corrupt_and_tampered_manifest_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, verify_catalog_backup
-    from framenest.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup_ops import run_scheduled_catalog_backup
 
     config = _ops_config(tmp_path)
     result = run_scheduled_catalog_backup(config, now=datetime(2026, 8, 4, 3, 17, 0, tzinfo=UTC))

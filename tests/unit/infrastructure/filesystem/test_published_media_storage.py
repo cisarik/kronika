@@ -11,16 +11,16 @@ import uuid
 
 import pytest
 
-from framenest.application.ports.published_media_storage import (
+from kronika.application.ports.published_media_storage import (
     PublishedMediaInsufficientSpaceError,
     PublishedMediaStorageUnavailableError,
     PublishedMediaTargetCollisionError,
     PublishedMediaVerificationError,
     PublishedMediaWriteError,
 )
-from framenest.domain.identities import LibraryId, MediaByteIdentityId
-from framenest.domain.upload_publications import new_upload_publication_reservation
-from framenest.domain.uploads import (
+from kronika.domain.identities import LibraryId, MediaByteIdentityId
+from kronika.domain.upload_publications import new_upload_publication_reservation
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadSession,
     UploadSessionId,
@@ -29,11 +29,11 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.filesystem.published_media_storage import (
+from kronika.infrastructure.filesystem.published_media_storage import (
     FilesystemPublishedMediaStorage,
 )
-import framenest.infrastructure.filesystem.published_media_storage as storage_module
-from framenest.infrastructure.filesystem.quarantine_storage import (
+import kronika.infrastructure.filesystem.published_media_storage as storage_module
+from kronika.infrastructure.filesystem.quarantine_storage import (
     FilesystemQuarantineStorage,
 )
 

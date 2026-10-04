@@ -8,15 +8,15 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.cover_api import (
+from kronika.adapters.api.cover_api import (
     CoverApiDependencies,
     create_cover_api_router,
 )
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
 )
-from framenest.application.media_cover import (
+from kronika.application.media_cover import (
     CoverConflictError,
     CoverFailedError,
     CoverMediaNotFoundError,
@@ -27,8 +27,8 @@ from framenest.application.media_cover import (
     CoverTimestampInvalidError,
     CoverTimeline,
 )
-from framenest.application.ports.cover_storage import OpenedCoverThumbnail
-from framenest.domain.identity_access import (
+from kronika.application.ports.cover_storage import OpenedCoverThumbnail
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
@@ -54,8 +54,8 @@ def _identity(role: str) -> IdentityContext:
 
 
 def _timeline() -> CoverTimeline:
-    from framenest.domain.identities import MediaId, MediaLocationId
-    from framenest.domain.media import MediaKind
+    from kronika.domain.identities import MediaId, MediaLocationId
+    from kronika.domain.media import MediaKind
 
     return CoverTimeline(
         media_id=MediaId.from_string(MEDIA_ID),
@@ -213,8 +213,8 @@ def test_timeline_maps_missing_and_unavailable_sources() -> None:
 
 
 def test_timeline_reports_timeless_image_without_fabricated_duration() -> None:
-    from framenest.domain.identities import MediaId, MediaLocationId
-    from framenest.domain.media import MediaKind
+    from kronika.domain.identities import MediaId, MediaLocationId
+    from kronika.domain.media import MediaKind
 
     image_timeline = CoverTimeline(
         media_id=MediaId.from_string(MEDIA_ID),
@@ -286,7 +286,7 @@ def test_accept_requires_capability_and_audit_before_mutation() -> None:
 
 
 def test_accept_created_replaced_and_conflict_statuses() -> None:
-    from framenest.application.media_cover import CoverAcceptResult
+    from kronika.application.media_cover import CoverAcceptResult
 
     created_client, _ = _client(
         identity=_identity(ROLE_ADMIN),

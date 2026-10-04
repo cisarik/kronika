@@ -8,25 +8,25 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.catalog_schema import metadata
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.catalog_schema import metadata
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
 
 
-def _settings(database_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(database_path=database_path, _env_file=None)
+def _settings(database_path: Path) -> KronikaSettings:
+    return KronikaSettings(database_path=database_path, _env_file=None)
 
 
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -233,7 +233,7 @@ def _insert_publication(connection: sqlite3.Connection, values: dict[str, object
 def test_fresh_database_upgrades_to_head_with_empty_publication_table(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings(tmp_path / "fresh" / "catalog.sqlite3")
     status = upgrade_database_to_head(settings)

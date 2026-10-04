@@ -8,19 +8,19 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.library_api import LibraryApiDependencies
-from framenest.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
-from framenest.adapters.api.media_suggestion_api import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.library_api import LibraryApiDependencies
+from kronika.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
+from kronika.adapters.api.media_suggestion_api import (
     MediaSuggestionApiDependencies,
 )
-from framenest.application.library_scan import (
+from kronika.application.library_scan import (
     LibraryFilesystemScanResult,
     LibraryScanCandidateKind,
     LibraryScanLimits,
     LibraryScanSummary,
 )
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     MediaRelativePath,
     PreparedAnalysisResult,
     REQUESTED_FRAME_COUNT,
@@ -28,8 +28,8 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     PNG_SIGNATURE,
 )
-from framenest.application.media_analysis_lifecycle import MediaAnalysisLifecycleError
-from framenest.application.media_suggestion import (
+from kronika.application.media_analysis_lifecycle import MediaAnalysisLifecycleError
+from kronika.application.media_suggestion import (
     ImportedMediaSuggestionPreviewResult,
     MediaSuggestion,
     MediaSuggestionNotFoundError,
@@ -43,8 +43,8 @@ from framenest.application.media_suggestion import (
     MediaSuggestionPreviewResult,
     PROMPT_VERSION,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import LibraryId, MediaId, MediaLocationId
+from kronika.configuration import KronikaSettings
+from kronika.domain import LibraryId, MediaId, MediaLocationId
 
 CANONICAL_LIBRARY_ID = "12345678-1234-4234-9234-123456789abc"
 CANONICAL_MEDIA_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
@@ -250,7 +250,7 @@ def _client(
 ) -> tuple[TestClient, _FakeSuggestionPreview, _FakeImportedSuggestionPreview]:
     suggestion_preview = preview or _FakeSuggestionPreview()
     imported_suggestion_preview = imported_preview or _FakeImportedSuggestionPreview()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=database_path or Path("/tmp/framenest-media-suggestion-api.sqlite3"),
         _env_file=None,
@@ -281,7 +281,7 @@ def _client(
             audience_policy=_record_policy(),
         ),
     )
-    from framenest.domain.identity_access import ROLE_ADMIN
+    from kronika.domain.identity_access import ROLE_ADMIN
     from tests.support.record_access import install_synthetic_caller
 
     return TestClient(install_synthetic_caller(app, "ada", role=ROLE_ADMIN)), suggestion_preview, imported_suggestion_preview

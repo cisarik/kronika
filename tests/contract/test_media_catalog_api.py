@@ -8,18 +8,18 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.media_catalog_api import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.media_catalog_api import (
     MediaCatalogApiDependencies,
     create_media_catalog_api_router,
 )
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.application.media_catalog import ListMediaCatalog
-from framenest.application.media_user_alias import (
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.application.media_catalog import ListMediaCatalog
+from kronika.application.media_user_alias import (
     CallerAliasOverlayPage,
     MediaUserAliasView,
 )
-from framenest.application.ports.media_catalog_repository import (
+from kronika.application.ports.media_catalog_repository import (
     CatalogMediaItem,
     CatalogMediaLocation,
     CatalogMediaTag,
@@ -27,13 +27,13 @@ from framenest.application.ports.media_catalog_repository import (
     MediaCatalogPage,
     MediaCatalogQuery,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import (
     CAPABILITY_GALLERY_READ,
     CAPABILITY_METADATA_ALIAS_WRITE,
     IdentityContext,
 )
-from framenest.domain.media_metadata import MediaCollectionKey
+from kronika.domain.media_metadata import MediaCollectionKey
 
 MEDIA_ID = "12345678-1234-4234-9234-123456789abc"
 LOCATION_ID = "abcdefab-cdef-4abc-8def-abcdefabcdef"
@@ -80,7 +80,7 @@ class _FakeListMediaCatalog:
         )
         if self.error is not None:
             raise self.error
-        from framenest.domain.record_access import RecordAccessScope
+        from kronika.domain.record_access import RecordAccessScope
 
         return ListMediaCatalog(_FakeCatalogRepository()).execute(
             q=q,
@@ -139,7 +139,7 @@ def _client(
     list_media: _FakeListMediaCatalog | None = None,
     database_path: Path | None = None,
 ) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path or Path("/tmp/framenest-media-catalog-api.sqlite3"),
         _env_file=None,
     )

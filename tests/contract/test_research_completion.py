@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.research import ResearchStoreError
-from framenest.domain.research import (
+from kronika.application.ports.research import ResearchStoreError
+from kronika.domain.research import (
     ApprovedResourceLimits,
     CompletionEvidence,
     FIXED_OPENAI_RESPONSES_MODEL_ID,
@@ -26,18 +26,18 @@ from framenest.domain.research import (
     ServerSelectedProfile,
     WEB_SEARCH_TOOL,
 )
-from framenest.domain.research import ResearchAccountingState
-from framenest.infrastructure.persistence.engine import (
+from kronika.domain.research import ResearchAccountingState
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.record_repository import (
+from kronika.infrastructure.persistence.record_repository import (
     SqliteResearchResultCompletion,
 )
-from framenest.infrastructure.persistence.research_budget_repository import (
+from kronika.infrastructure.persistence.research_budget_repository import (
     SqliteResearchBudgetLedger,
 )
-from framenest.infrastructure.persistence.research_request_repository import (
+from kronika.infrastructure.persistence.research_request_repository import (
     SqliteResearchRequestRepository,
 )
 
@@ -48,14 +48,14 @@ FINGERPRINT = "e" * 64
 def _migrate(database_path: Path) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "head")
@@ -81,7 +81,7 @@ def _row(
     kind: ResearchOperationKind = ResearchOperationKind.SEARCH,
     prompt: str = "What is the synthetic question?",
 ):
-    from framenest.application.ports.research import ResearchRequestRow
+    from kronika.application.ports.research import ResearchRequestRow
 
     profile = ServerSelectedProfile(
         provider_id=OPENAI_RESPONSES_PROVIDER_ID,
@@ -135,7 +135,7 @@ def _row(
 
 
 def _admit(engine, row=None):
-    from framenest.domain.research import BudgetReservation
+    from kronika.domain.research import BudgetReservation
 
     repository = SqliteResearchRequestRepository(engine)
     row = row or _row()
@@ -254,11 +254,11 @@ def test_unknown_request_is_refused(database) -> None:
 
 def test_coordinator_with_real_completion_binds_the_record(database) -> None:
     path, engine = database
-    from framenest.application.research import ResearchCoordinator
-    from framenest.infrastructure.ai.research_configuration import (
+    from kronika.application.research import ResearchCoordinator
+    from kronika.infrastructure.ai.research_configuration import (
         default_research_configuration,
     )
-    from framenest.infrastructure.ai.research_registry import (
+    from kronika.infrastructure.ai.research_registry import (
         select_research_provider,
     )
 
@@ -267,8 +267,8 @@ def test_coordinator_with_real_completion_binds_the_record(database) -> None:
             raise AssertionError("not used")
 
         def submit(self, request):
-            from framenest.domain.research import ProviderObservation
-            from framenest.domain.research import ProviderObservationKind
+            from kronika.domain.research import ProviderObservation
+            from kronika.domain.research import ProviderObservationKind
 
             return ProviderObservation(
                 kind=ProviderObservationKind.RUNNING,
@@ -276,8 +276,8 @@ def test_coordinator_with_real_completion_binds_the_record(database) -> None:
             )
 
         def poll(self, handle):
-            from framenest.domain.research import ProviderObservation
-            from framenest.domain.research import ProviderObservationKind
+            from kronika.domain.research import ProviderObservation
+            from kronika.domain.research import ProviderObservationKind
 
             return ProviderObservation(
                 kind=ProviderObservationKind.COMPLETE,

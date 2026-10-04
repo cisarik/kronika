@@ -11,29 +11,29 @@ from typing import Any
 from fastapi import Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.domain.identity_access import ROLE_ADMIN
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.domain.identity_access import ROLE_ADMIN
 from tests.support.record_access import synthetic_identity
 from sqlalchemy import insert, text
 
-from framenest.adapters.api.upload_api import (
+from kronika.adapters.api.upload_api import (
     UploadApiDependencies,
     _catalog_media_id,
     _parse_content_length,
     _parse_upload_offset,
 )
-from framenest.application.upload_catalog import CatalogPublishedUpload
-from framenest.application.upload_transport import (
+from kronika.application.upload_catalog import CatalogPublishedUpload
+from kronika.application.upload_transport import (
     UploadSessionSnapshot,
     UploadTransportLimits,
     UploadTransportService,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identities import MediaByteIdentityId
-from framenest.domain.upload_publications import new_upload_publication_reservation
-from framenest.domain.uploads import (
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identities import MediaByteIdentityId
+from kronika.domain.upload_publications import new_upload_publication_reservation
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadSession,
     UploadSessionId,
@@ -42,16 +42,16 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
-from framenest.infrastructure.persistence.catalog_schema import devices, libraries, media_byte_identities
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_publication_repository import (
+from kronika.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
+from kronika.infrastructure.persistence.catalog_schema import devices, libraries, media_byte_identities
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_publication_repository import (
     SqliteUploadPublicationRepository,
 )
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 
@@ -70,11 +70,11 @@ def _identified(app):
     return app
 
 
-def _settings(tmp_path: Path, *, quarantine: bool = True, reserve: int = 0) -> FrameNestSettings:
+def _settings(tmp_path: Path, *, quarantine: bool = True, reserve: int = 0) -> KronikaSettings:
     quarantine_root = tmp_path / "quarantine"
     if quarantine:
         quarantine_root.mkdir(parents=True, exist_ok=True)
-    return FrameNestSettings(
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         upload_quarantine_root=quarantine_root if quarantine else None,
         upload_max_total_bytes=16,
@@ -85,7 +85,7 @@ def _settings(tmp_path: Path, *, quarantine: bool = True, reserve: int = 0) -> F
     )
 
 
-def _migrated_client(settings: FrameNestSettings) -> TestClient:
+def _migrated_client(settings: KronikaSettings) -> TestClient:
     upgrade_database_to_head(settings)
     return TestClient(_identified(create_app(settings=settings)))
 
@@ -237,7 +237,7 @@ class _FailingCoordinator(_RecordingCoordinator):
         raise RuntimeError("synthetic coordinator notification failure")
 
 
-def _part_file(settings: FrameNestSettings) -> Path:
+def _part_file(settings: KronikaSettings) -> Path:
     files = list(settings.upload_quarantine_root.glob("*.part"))  # type: ignore[union-attr]
     assert len(files) == 1
     return files[0]
@@ -245,7 +245,7 @@ def _part_file(settings: FrameNestSettings) -> Path:
 
 def _create_validated_duplicate_pair(
     client: TestClient,
-    settings: FrameNestSettings,
+    settings: KronikaSettings,
 ) -> tuple[UploadSession, UploadSession]:
     upload_ids = []
     for _ in range(2):
@@ -962,7 +962,7 @@ def test_status_media_id_absent_until_cataloged_and_gates_published_disclosure(
     destination_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
     upload_id = "11111111-1111-4111-8111-111111111111"
     identity_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         upload_quarantine_root=tmp_path / "quarantine",
         upload_max_total_bytes=16,

@@ -7,32 +7,32 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.domain.security_audit import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.security_audit import (
     AUDIT_OUTCOME_ALLOWED,
     AUDIT_OUTCOME_DENIED,
     SecurityAuditEvent,
 )
 
 
-def _settings(database_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(database_path=database_path, _env_file=None)
+def _settings(database_path: Path) -> KronikaSettings:
+    return KronikaSettings(database_path=database_path, _env_file=None)
 
 
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -118,12 +118,12 @@ def test_downgrade_refuses_to_drop_existing_audit_history(
 ) -> None:
     database_path = tmp_path / "audit.sqlite3"
     settings = _settings(database_path)
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-    from framenest.infrastructure.persistence.security_audit_repository import (
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.security_audit_repository import (
         SqliteSecurityAuditRepository,
     )
 
@@ -169,12 +169,12 @@ def test_empty_audit_table_downgrades_back_to_0019(tmp_path: Path) -> None:
 def test_repository_records_and_counts_exact_audit_events(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-    from framenest.infrastructure.persistence.security_audit_repository import (
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.security_audit_repository import (
         SqliteSecurityAuditRepository,
     )
 

@@ -8,17 +8,17 @@ import sys
 
 import pytest
 
-from framenest.application.media_content import (
+from kronika.application.media_content import (
     MEDIA_CONTENT_UNAVAILABLE_MESSAGE,
     MediaContentUnavailableError,
 )
-from framenest.domain import LibraryPathFlavor, LibraryRoot
-from framenest.domain.media import (
+from kronika.domain import LibraryPathFlavor, LibraryRoot
+from kronika.domain.media import (
     FrameNestMediaRelativePathError,
     MediaKind,
     MediaRelativePath,
 )
-from framenest.infrastructure.filesystem.media_content import LocalMediaContentReader
+from kronika.infrastructure.filesystem.media_content import LocalMediaContentReader
 
 MP4_BYTES = b"\x00\x00\x00\x18ftypmp42" + b"\x01" * 100
 GIF_BYTES = b"GIF89a" + b"\x02" * 50

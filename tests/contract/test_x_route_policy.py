@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.adapters.api.tailscale_ingress import RoutePolicy, find_route_policy
-from framenest.application.content_publication import ContentAudiencePolicy
-from framenest.domain.identity_access import (
+from kronika.adapters.api.tailscale_ingress import RoutePolicy, find_route_policy
+from kronika.application.content_publication import ContentAudiencePolicy
+from kronika.domain.identity_access import (
     CAPABILITY_METADATA_ALIAS_TEAM_READ,
     CAPABILITY_METADATA_ALIAS_WRITE,
     CAPABILITY_METADATA_CANONICAL_WRITE,
@@ -104,7 +104,7 @@ def test_only_companion_mutations_are_companion_flagged() -> None:
     assert opened.additional_capabilities == ()
     assert apply.capability == CAPABILITY_MEDIA_CONTENT_PUBLISH
     assert apply.additional_capabilities == (CAPABILITY_METADATA_CANONICAL_WRITE,)
-    from framenest.adapters.api.tailscale_ingress import ROUTE_POLICIES
+    from kronika.adapters.api.tailscale_ingress import ROUTE_POLICIES
 
     own, own_match = find_route_policy("GET", "/api/companion/own-history")
     assert own_match is not None and own.companion_mutation is False
@@ -122,7 +122,7 @@ def test_only_companion_mutations_are_companion_flagged() -> None:
 
 
 def test_route_policy_additional_capabilities_default_empty() -> None:
-    from framenest.adapters.api.tailscale_ingress import ROUTE_POLICIES
+    from kronika.adapters.api.tailscale_ingress import ROUTE_POLICIES
 
     constructed = RoutePolicy(method="GET", template="/health", channel="any")
     assert constructed.additional_capabilities == ()
@@ -197,7 +197,7 @@ class _Repo:
 
 
 def test_requester_can_read_own_private_media() -> None:
-    from framenest.domain.identities import MediaId
+    from kronika.domain.identities import MediaId
 
     policy = ContentAudiencePolicy(
         _Repo(outcome=True), x_requester_private_access=_Repo(outcome=True)
@@ -207,7 +207,7 @@ def test_requester_can_read_own_private_media() -> None:
 
 
 def test_foreign_requester_cannot_read_private_media() -> None:
-    from framenest.domain.identities import MediaId
+    from kronika.domain.identities import MediaId
 
     policy = ContentAudiencePolicy(
         _Repo(outcome=False), x_requester_private_access=_Repo(outcome=False)

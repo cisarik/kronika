@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from framenest.infrastructure.ai.chatgpt_page.budget import (
+from kronika.infrastructure.ai.chatgpt_page.budget import (
     LOCAL_ATTACHMENT_CEILING_BYTES,
     operating_count,
     validate_budget_profile,
 )
-from framenest.infrastructure.ai.chatgpt_page.probe import (
+from kronika.infrastructure.ai.chatgpt_page.probe import (
     CancellationToken,
     TrialObservation,
     TrialSpec,

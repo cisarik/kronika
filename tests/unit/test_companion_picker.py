@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.application.companion_picker import (
+from kronika.application.companion_picker import (
     COMPANION_API_VERSION,
     CompanionPickerLocation,
     ListCompanionPickerMedia,
 )
-from framenest.application.media_catalog import MediaCatalogValidationError
-from framenest.application.ports.media_catalog_repository import (
+from kronika.application.media_catalog import MediaCatalogValidationError
+from kronika.application.ports.media_catalog_repository import (
     CatalogMediaItem,
     CatalogMediaLocation,
     CatalogMediaTag,
     MediaCatalogPage,
     MediaCatalogQuery,
 )
-from framenest.domain.media_classification import ContentCategory
+from kronika.domain.media_classification import ContentCategory
 
 
 class _Repository:

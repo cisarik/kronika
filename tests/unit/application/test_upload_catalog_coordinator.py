@@ -8,23 +8,23 @@ import threading
 import time
 import uuid
 
-from framenest.application.ports.upload_publications import UploadPublicationCandidate
-from framenest.application.upload_catalog import (
+from kronika.application.ports.upload_publications import UploadPublicationCandidate
+from kronika.application.upload_catalog import (
     UploadCatalogInfrastructureError,
     UploadCatalogResult,
 )
-from framenest.application.upload_catalog_coordinator import UploadCatalogCoordinator
-from framenest.application.in_process_lifecycle import ShutdownDeadline
-from framenest.application.upload_transport import UploadSessionLockRegistry
-from framenest.domain.identities import LibraryId, MediaByteIdentityId, MediaId, MediaLocationId
-from framenest.domain.upload_publications import (
+from kronika.application.upload_catalog_coordinator import UploadCatalogCoordinator
+from kronika.application.in_process_lifecycle import ShutdownDeadline
+from kronika.application.upload_transport import UploadSessionLockRegistry
+from kronika.domain.identities import LibraryId, MediaByteIdentityId, MediaId, MediaLocationId
+from kronika.domain.upload_publications import (
     UploadPublication,
     UploadPublicationCleanupState,
     UploadPublicationId,
     UploadPublicationRelativePath,
     UploadPublicationState,
 )
-from framenest.domain.uploads import (
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadSession,
     UploadSessionId,

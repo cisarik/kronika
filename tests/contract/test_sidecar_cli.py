@@ -11,30 +11,30 @@ from typing import Any
 
 import pytest
 
-from framenest.application.media_sidecar import (
+from kronika.application.media_sidecar import (
     FrameNestMediaSidecarApplicationError,
     SidecarCompareResult,
     SidecarExportResult,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media import (
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
     MediaLocationAvailability,
     MediaRelativePath,
 )
-from framenest.domain.media_classification import AcquisitionSource, ContentCategory
-from framenest.domain.media_metadata import MediaDisplayTitle
-from framenest.domain.media_sidecar import SidecarDocument, SidecarLocation, encode_media_sidecar
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.media_metadata_repository import SqliteMediaMetadataRepository
-from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.domain.media_classification import AcquisitionSource, ContentCategory
+from kronika.domain.media_metadata import MediaDisplayTitle
+from kronika.domain.media_sidecar import SidecarDocument, SidecarLocation, encode_media_sidecar
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.media_metadata_repository import SqliteMediaMetadataRepository
+from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MEDIA_ID_TEXT = "12345678-1234-4234-9234-123456789abc"
@@ -97,7 +97,7 @@ def _assert_sanitized(*chunks: str) -> None:
 
 
 def _run(argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
-    from framenest.adapters.cli import sidecar
+    from kronika.adapters.cli import sidecar
 
     code = sidecar.main(argv)
     captured = capsys.readouterr()
@@ -105,7 +105,7 @@ def _run(argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str,
 
 
 def _stub_catalog_ready(monkeypatch: pytest.MonkeyPatch, *, dispose_calls: list[object] | None = None) -> None:
-    from framenest.adapters.cli import sidecar
+    from kronika.adapters.cli import sidecar
 
     monkeypatch.setattr(sidecar, "load_settings", lambda: SimpleNamespace(database_path=Path(PRIVATE_MARKER)))
     monkeypatch.setattr(
@@ -134,7 +134,7 @@ def _install_fake_service(
     compare_error: Exception | None = None,
     validate_error: Exception | None = None,
 ) -> list[tuple[object, ...]]:
-    from framenest.adapters.cli import sidecar
+    from kronika.adapters.cli import sidecar
 
     constructed: list[tuple[object, ...]] = []
 
@@ -168,7 +168,7 @@ def _install_fake_service(
 
 def test_console_script_registration_points_to_sidecar_main() -> None:
     text = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'framenest-sidecar = "framenest.adapters.cli.sidecar:main"' in text
+    assert 'framenest-sidecar = "kronika.adapters.cli.sidecar:main"' in text
 
 
 def test_missing_command_is_invalid_input(capsys: pytest.CaptureFixture[str]) -> None:
@@ -372,10 +372,10 @@ def test_catalog_not_ready_and_unexpected_fallback(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    from framenest.adapters.cli import sidecar
+    from kronika.adapters.cli import sidecar
 
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "missing" / "catalog.sqlite3"))
-    monkeypatch.setattr(sidecar, "load_settings", lambda: FrameNestSettings(
+    monkeypatch.setattr(sidecar, "load_settings", lambda: KronikaSettings(
         database_path=tmp_path / "missing" / "catalog.sqlite3",
         _env_file=None,
     ))
@@ -416,7 +416,7 @@ def test_validate_does_not_load_or_require_catalog(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    from framenest.adapters.cli import sidecar
+    from kronika.adapters.cli import sidecar
 
     sidecar_path = tmp_path / "clip.mp4.framenest.json"
     sidecar_path.write_bytes(encode_media_sidecar(_document()))
@@ -475,7 +475,7 @@ def _seed_catalog(tmp_path: Path) -> Path:
     media_dir = library_root / "movies"
     media_dir.mkdir(parents=True)
     (media_dir / "clip.mp4").write_bytes(b"synthetic-media")
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     try:
         devices = SqliteDeviceRepository(engine)

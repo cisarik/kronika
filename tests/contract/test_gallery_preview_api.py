@@ -7,11 +7,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.gallery_preview_api import GalleryPreviewApiDependencies
-from framenest.application.gallery_preview import GalleryPreviewNotFoundError, GalleryPreviewUnavailableError
-from framenest.application.ports.gallery_preview import OpenedGalleryPreview
-from framenest.configuration import FrameNestSettings
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.gallery_preview_api import GalleryPreviewApiDependencies
+from kronika.application.gallery_preview import GalleryPreviewNotFoundError, GalleryPreviewUnavailableError
+from kronika.application.ports.gallery_preview import OpenedGalleryPreview
+from kronika.configuration import KronikaSettings
 from tests.support.record_access import install_synthetic_caller, scoped_policy
 
 MEDIA_ID = "12345678-1234-4234-9234-123456789abc"
@@ -50,7 +50,7 @@ def _client(
     catalog_available: bool = True,
     audience_ids: set[str] | None = None,
 ) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=Path("/tmp/framenest-gallery-preview-api.sqlite3"),
         gallery_preview_cache_path=Path("/tmp/framenest-gallery-preview-cache"),
         _env_file=None,

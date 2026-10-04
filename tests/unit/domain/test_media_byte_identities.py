@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from framenest.domain import (
+from kronika.domain import (
     FrameNestMediaByteIdentityError,
     MediaByteIdentity,
     MediaByteIdentityId,

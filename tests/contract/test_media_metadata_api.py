@@ -8,10 +8,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 import pytest
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.media_metadata_api import MediaMetadataApiDependencies
-from framenest.application.media_metadata import MediaMetadataView, SaveMediaMetadataResult
-from framenest.application.ports.media_metadata_repository import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.media_metadata_api import MediaMetadataApiDependencies
+from kronika.application.media_metadata import MediaMetadataView, SaveMediaMetadataResult
+from kronika.application.ports.media_metadata_repository import (
     CanonicalTagCreateResult,
     CanonicalTagDefinitionConflictError,
     CanonicalTagNotFoundError,
@@ -19,8 +19,8 @@ from framenest.application.ports.media_metadata_repository import (
     MediaMetadataMediaNotFoundError,
     SourceDerivedMetadataImmutableError,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.media_metadata import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.media_metadata import (
     CanonicalTag,
     CanonicalTagDisplayName,
     CanonicalTagKey,
@@ -116,7 +116,7 @@ class _FakeSaveMetadata:
         creator_handle: str | None | object = None,
         creator_display_name: str | None | object = None,
     ) -> object:
-        from framenest.application.ports.media_metadata_repository import OMITTED
+        from kronika.application.ports.media_metadata_repository import OMITTED
 
         self.last_display_title = display_title
         self.last_description = description
@@ -160,7 +160,7 @@ def _client(
     ensure_companion_x_tag: _FakeEnsureCompanionXTag | None = None,
     database_path: Path | None = None,
 ) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path or Path("/tmp/framenest-media-metadata-api.sqlite3"),
         _env_file=None,
     )

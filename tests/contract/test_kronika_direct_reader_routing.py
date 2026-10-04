@@ -12,7 +12,7 @@ import pytest
 
 
 def test_catalog_backup_ops_config_reads_either_prefix(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         load_catalog_backup_ops_config,
     )
 
@@ -28,7 +28,7 @@ def test_catalog_backup_ops_config_reads_either_prefix(tmp_path: Path) -> None:
 
 
 def test_catalog_backup_ops_config_keeps_the_caller_default() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         DEFAULT_BACKUP_ROOT,
         load_catalog_backup_ops_config,
     )
@@ -37,7 +37,7 @@ def test_catalog_backup_ops_config_keeps_the_caller_default() -> None:
 
 
 def test_catalog_backup_ops_config_treats_an_empty_value_as_unset(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         DEFAULT_BACKUP_ROOT,
         load_catalog_backup_ops_config,
     )
@@ -50,8 +50,8 @@ def test_catalog_backup_ops_config_treats_an_empty_value_as_unset(tmp_path: Path
 
 
 def test_catalog_backup_ops_config_fails_closed_on_a_conflict(tmp_path: Path) -> None:
-    from framenest.identity_env import IdentityEnvironmentConflictError
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.identity_env import IdentityEnvironmentConflictError
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupIdentityEnvironmentConflictError,
         load_catalog_backup_ops_config,
     )
@@ -74,7 +74,7 @@ def test_catalog_backup_ops_config_fails_closed_on_a_conflict(tmp_path: Path) ->
 
 
 def test_offdevice_destination_id_reads_either_prefix() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         parse_configured_destination_id,
     )
@@ -98,7 +98,7 @@ def test_offdevice_destination_id_reads_either_prefix() -> None:
 
 
 def test_offdevice_destination_id_fails_closed_on_a_conflict() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         parse_configured_destination_id,
     )
@@ -120,7 +120,7 @@ def test_offdevice_destination_id_fails_closed_on_a_conflict() -> None:
 
 
 def test_ai_config_path_reads_either_prefix(tmp_path: Path) -> None:
-    from framenest.infrastructure.ai.configuration import (
+    from kronika.infrastructure.ai.configuration import (
         AiConfigurationError,
         default_ai_config_path,
     )
@@ -133,7 +133,7 @@ def test_ai_config_path_reads_either_prefix(tmp_path: Path) -> None:
 
 
 def test_ai_config_path_fails_closed_on_a_conflict(tmp_path: Path) -> None:
-    from framenest.infrastructure.ai.configuration import (
+    from kronika.infrastructure.ai.configuration import (
         AiConfigurationError,
         default_ai_config_path,
     )
@@ -153,7 +153,7 @@ def test_ai_config_path_fails_closed_on_a_conflict(tmp_path: Path) -> None:
 
 
 def test_development_runtime_paths_read_either_prefix(tmp_path: Path) -> None:
-    from framenest.infrastructure.runtime.development import resolve_development_paths
+    from kronika.infrastructure.runtime.development import resolve_development_paths
 
     old = resolve_development_paths(
         environ={"FRAMENEST_DATABASE_PATH": str(tmp_path / "old.sqlite3")},
@@ -171,7 +171,7 @@ def test_development_runtime_paths_read_either_prefix(tmp_path: Path) -> None:
 
 
 def test_development_runtime_dirs_read_either_prefix(tmp_path: Path) -> None:
-    from framenest.infrastructure.runtime.development import resolve_development_paths
+    from kronika.infrastructure.runtime.development import resolve_development_paths
 
     resolved = resolve_development_paths(
         environ={
@@ -187,7 +187,7 @@ def test_development_runtime_dirs_read_either_prefix(tmp_path: Path) -> None:
 
 
 def test_development_port_reads_either_prefix() -> None:
-    from framenest.infrastructure.runtime.development import (
+    from kronika.infrastructure.runtime.development import (
         DEFAULT_PORT,
         DevelopmentRuntimeError,
         selected_development_port,
@@ -211,7 +211,7 @@ def test_development_port_reads_either_prefix() -> None:
 
 
 def test_development_spawned_child_environment_keeps_the_old_names(tmp_path: Path) -> None:
-    from framenest.infrastructure.runtime import development
+    from kronika.infrastructure.runtime import development
 
     assert development.DATABASE_ENV == "FRAMENEST_DATABASE_PATH"
     assert development.PORT_ENV == "FRAMENEST_PORT"
@@ -220,12 +220,12 @@ def test_development_spawned_child_environment_keeps_the_old_names(tmp_path: Pat
 
 
 def test_ai_config_environment_name_constant_is_unchanged() -> None:
-    from framenest.infrastructure.ai.configuration import AI_CONFIG_PATH_ENVIRONMENT_NAME
+    from kronika.infrastructure.ai.configuration import AI_CONFIG_PATH_ENVIRONMENT_NAME
 
     assert AI_CONFIG_PATH_ENVIRONMENT_NAME == "FRAMENEST_AI_CONFIG_PATH"
 
 
 def test_env_file_environment_variable_constant_is_unchanged() -> None:
-    from framenest.configuration import ENV_FILE_ENVIRONMENT_VARIABLE
+    from kronika.configuration import ENV_FILE_ENVIRONMENT_VARIABLE
 
     assert ENV_FILE_ENVIRONMENT_VARIABLE == "FRAMENEST_ENV_FILE"

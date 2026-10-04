@@ -19,8 +19,8 @@ from typing import Any
 import pytest
 from pydantic import SecretStr
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPRESENTATIVE_SECRET = "contract-runtime-api-key-secret"
 STARTUP_TIMEOUT_SECONDS = 5.0
@@ -82,13 +82,13 @@ def _child_pids() -> set[int]:
 def test_live_loopback_runtime_health_shutdown_and_cleanup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     monkeypatch.delenv("UVICORN_HOST", raising=False)
     monkeypatch.delenv("UVICORN_PORT", raising=False)
     monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
 
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         port=0,
         api_key=SecretStr(REPRESENTATIVE_SECRET),
@@ -161,8 +161,8 @@ def _precreate_unix_socket_file(path: Path, mode: int) -> None:
         sock.close()
 
 
-def _build_uds_settings(tmp_path: Path, filename: str) -> FrameNestSettings:
-    return FrameNestSettings(
+def _build_uds_settings(tmp_path: Path, filename: str) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -174,7 +174,7 @@ def _build_uds_settings(tmp_path: Path, filename: str) -> FrameNestSettings:
 
 
 def _record_server_emissions(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    from framenest.server import LOGGER
+    from kronika.server import LOGGER
 
     emissions: list[dict[str, Any]] = []
     original_emit = LOGGER.emit
@@ -188,7 +188,7 @@ def _record_server_emissions(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, 
 
 
 def _record_verification_sightings(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    import framenest.server as server_module
+    import kronika.server as server_module
 
     original_verify = server_module._verify_uds_socket_provenance
     sightings: list[dict[str, Any]] = []
@@ -275,7 +275,7 @@ def test_uds_startup_tightens_bound_socket_to_owner_only_and_serves(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import UdsProvenanceVerifyingServer, create_server
+    from kronika.server import UdsProvenanceVerifyingServer, create_server
 
     uds_path = tmp_path / "framenest.sock"
     settings = _build_uds_settings(tmp_path, "framenest.sock")
@@ -315,7 +315,7 @@ def test_uds_startup_fails_closed_when_tightening_is_neutralized(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import UdsSocketProvenanceError, create_server
+    from kronika.server import UdsSocketProvenanceError, create_server
 
     uds_path = tmp_path / "guard.sock"
     _precreate_unix_socket_file(uds_path, mode=0o755)
@@ -324,7 +324,7 @@ def test_uds_startup_fails_closed_when_tightening_is_neutralized(
     emissions = _record_server_emissions(monkeypatch)
     sightings = _record_verification_sightings(monkeypatch)
     monkeypatch.setattr(
-        "framenest.server._tighten_uds_socket_permissions",
+        "kronika.server._tighten_uds_socket_permissions",
         lambda path: None,
     )
 
@@ -354,7 +354,7 @@ def test_uds_startup_fails_closed_when_tightening_chmod_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import UdsSocketProvenanceError, create_server
+    from kronika.server import UdsSocketProvenanceError, create_server
 
     uds_path = tmp_path / "chmod-fail.sock"
     settings = _build_uds_settings(tmp_path, "chmod-fail.sock")
@@ -394,7 +394,7 @@ def test_uds_startup_fails_closed_when_socket_owner_is_foreign(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import UdsSocketProvenanceError, create_server
+    from kronika.server import UdsSocketProvenanceError, create_server
 
     uds_path = tmp_path / "foreign-owner.sock"
     settings = _build_uds_settings(tmp_path, "foreign-owner.sock")

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from framenest.application.media_sidecar import (
+from kronika.application.media_sidecar import (
     FrameNestMediaSidecarApplicationError,
     MediaSidecarService,
     SIDECAR_COMPARE_MATCH,
@@ -18,17 +18,17 @@ from framenest.application.media_sidecar import (
     SIDECAR_NOT_FOUND,
     SIDECAR_UNAVAILABLE,
 )
-from framenest.application.ports.media_metadata_repository import (
+from kronika.application.ports.media_metadata_repository import (
     MediaMetadataMediaNotFoundError,
     MediaMetadataSnapshot,
 )
-from framenest.application.ports.media_sidecar_store import (
+from kronika.application.ports.media_sidecar_store import (
     SIDECAR_UNSAFE_TARGET,
     SidecarTargetKind,
     SidecarTargetObservation,
     sidecar_filename,
 )
-from framenest.domain import (
+from kronika.domain import (
     DeviceId,
     Library,
     LibraryId,
@@ -37,20 +37,20 @@ from framenest.domain import (
     MediaId,
     MediaLocationId,
 )
-from framenest.domain.media import (
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
     MediaLocationAvailability,
     MediaRelativePath,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     CreatorAttributionKind,
     MovieGenre,
 )
-from framenest.domain.media_metadata import (
+from kronika.domain.media_metadata import (
     CanonicalTag,
     CanonicalTagDisplayName,
     CanonicalTagKey,
@@ -59,7 +59,7 @@ from framenest.domain.media_metadata import (
     MediaDisplayTitle,
     PROCESSED_COLLECTION_KEY,
 )
-from framenest.domain.media_sidecar import (
+from kronika.domain.media_sidecar import (
     SIDECAR_FORMAT,
     SidecarDocument,
     encode_media_sidecar,

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     PNG_SIGNATURE,
     PreparedAnalysisResult,
     RepresentativeFrame,
@@ -16,13 +16,13 @@ from framenest.application.media_analysis import (
     REQUESTED_FRAME_COUNT,
     MediaRelativePath,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestion,
     MediaSuggestionRequest,
     PreviewMediaSuggestion,
     PROMPT_VERSION,
 )
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
 
 _VALID_PNG = PNG_SIGNATURE + b"png"
 

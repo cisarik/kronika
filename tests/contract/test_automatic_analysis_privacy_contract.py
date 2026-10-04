@@ -7,7 +7,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PRODUCT = REPOSITORY_ROOT / "PRODUCT.md"
-CONFIGURATION = REPOSITORY_ROOT / "src" / "framenest" / "configuration.py"
+CONFIGURATION = REPOSITORY_ROOT / "src" / "kronika" / "configuration.py"
 ADR_0044 = (
     REPOSITORY_ROOT
     / "docs"

@@ -16,13 +16,13 @@ from typing import Any
 import pytest
 from pydantic import Field, SecretStr, ValidationError, field_validator
 
-from framenest.configuration import (
+from kronika.configuration import (
     EXPLICIT_ENV_FILE_MESSAGE,
     FrameNestConfigurationError,
-    FrameNestSettings,
+    KronikaSettings,
     load_settings,
 )
-from framenest.identity_env import IdentityEnvironmentConflictError, lookup_env
+from kronika.identity_env import IdentityEnvironmentConflictError, lookup_env
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 INSTALLED_ENV_FILE_EXAMPLE = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.env.example"
@@ -256,15 +256,15 @@ def test_extra_ignore_is_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     settings = load_settings(env_file=env_file)
 
     assert settings.port == 7004
-    assert FrameNestSettings.model_config["extra"] == "ignore"
+    assert KronikaSettings.model_config["extra"] == "ignore"
 
 
 def test_env_file_encoding_is_preserved() -> None:
-    assert FrameNestSettings.model_config["env_file_encoding"] == "utf-8"
+    assert KronikaSettings.model_config["env_file_encoding"] == "utf-8"
 
 
 def test_hide_input_in_errors_is_preserved() -> None:
-    assert FrameNestSettings.model_config["hide_input_in_errors"] is True
+    assert KronikaSettings.model_config["hide_input_in_errors"] is True
 
 
 def test_bare_unprefixed_process_variables_are_not_read(
@@ -287,7 +287,7 @@ def test_bare_unprefixed_process_variables_are_not_read(
 # ---------------------------------------------------------------------------
 
 
-class _SecretLengthSettings(FrameNestSettings):
+class _SecretLengthSettings(KronikaSettings):
     """Production settings plus a constraint the ``SecretStr`` field can fail.
 
     ``api_key`` itself cannot fail validation, so the containment control needs
@@ -506,12 +506,12 @@ def test_the_same_shape_with_the_new_prefix_also_works(
 def test_settings_source_resolves_each_field_through_the_resolver(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.configuration import _DualPrefixEnvSettingsSource
+    from kronika.configuration import _DualPrefixEnvSettingsSource
 
     monkeypatch.setenv(f"{PRIMARY}PORT", "7201")
     monkeypatch.setenv(f"{COMPATIBLE}DATABASE_PATH", "/srv/catalog.sqlite3")
 
-    loaded = _DualPrefixEnvSettingsSource(FrameNestSettings)._load_env_vars()
+    loaded = _DualPrefixEnvSettingsSource(KronikaSettings)._load_env_vars()
 
     assert loaded == {
         "framenest_port": "7201",
@@ -546,15 +546,15 @@ def test_dual_prefix_sources_hook_the_installed_pydantic_settings_api() -> None:
 def test_configured_source_order_keeps_process_environment_over_env_file() -> None:
     from pydantic_settings.sources import DotEnvSettingsSource, EnvSettingsSource
 
-    from framenest.configuration import (
+    from kronika.configuration import (
         _DualPrefixDotEnvSettingsSource,
         _DualPrefixEnvSettingsSource,
     )
 
     placeholder = object()
-    dotenv_placeholder = DotEnvSettingsSource(FrameNestSettings, env_file=None)
-    sources = FrameNestSettings.settings_customise_sources(
-        FrameNestSettings,
+    dotenv_placeholder = DotEnvSettingsSource(KronikaSettings, env_file=None)
+    sources = KronikaSettings.settings_customise_sources(
+        KronikaSettings,
         placeholder,
         placeholder,
         dotenv_placeholder,

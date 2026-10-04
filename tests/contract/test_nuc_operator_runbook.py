@@ -14,7 +14,7 @@ UBUNTU_DOC_PATH = REPOSITORY_ROOT / "docs" / "UBUNTU_NUC_DEPLOYMENT.md"
 README_PATH = REPOSITORY_ROOT / "README.md"
 SPEC_PATH = REPOSITORY_ROOT / "SPEC.md"
 DEVELOPMENT_DOC_PATH = REPOSITORY_ROOT / "DEVELOPMENT.md"
-LAUNCHER_PATH = REPOSITORY_ROOT / "framenest"
+LAUNCHER_PATH = REPOSITORY_ROOT / "kronika"
 DEPLOY_HELPER_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "production_ai_deploy.py"
 SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.service"
 ADR_PATH = (
@@ -107,8 +107,8 @@ def test_runbook_does_not_present_fish_launcher_as_nuc_interface() -> None:
 
     for line in text.splitlines():
         stripped = line.strip()
-        assert not stripped.startswith("./framenest "), stripped
-        assert stripped != "./framenest", stripped
+        assert not stripped.startswith(("./framenest ", "./kronika ")), stripped
+        assert stripped not in ("./framenest", "./kronika"), stripped
     flattened = " ".join(text.split())
     assert "CachyOS Fish development tooling" in flattened
     assert "Fish is not a production prerequisite" in flattened
@@ -235,14 +235,14 @@ def test_fish_launcher_remains_development_only_and_repo_rooted() -> None:
     text = LAUNCHER_PATH.read_text(encoding="utf-8")
 
     assert text.startswith("#!/usr/bin/env fish")
-    assert "_framenest_use_repo_env_file" in text
+    assert "_kronika_use_repo_env_file" in text
     assert 'set -g local_dotenv "$repo_root/.env"' in text
     # The launcher never overrides an operator-supplied explicit env file.
     assert "if set -q FRAMENEST_ENV_FILE" in text
     assert 'set -gx FRAMENEST_ENV_FILE "$local_dotenv"' in text
     # The repository-root .env must be a regular non-symlink file.
     assert 'test -L "$local_dotenv"' in text
-    assert "./framenest youtube ingest URL" in text
+    assert "./kronika youtube ingest URL" in text
 
 
 @pytest.mark.skipif(resolve_tool_optional("fish") is None, reason="fish is not installed")

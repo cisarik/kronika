@@ -12,20 +12,20 @@ import threading
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 STORE_ID = "0123456789abcdef0123456789abcdef"
 
 
 def _migrated_database(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 
 def _ops_config(tmp_path: Path):
-    from framenest.infrastructure.persistence.catalog_backup_ops import CatalogBackupOpsConfig
+    from kronika.infrastructure.persistence.catalog_backup_ops import CatalogBackupOpsConfig
 
     return CatalogBackupOpsConfig(
         database_path=_migrated_database(tmp_path / "catalog.sqlite3"),
@@ -43,7 +43,7 @@ def _test_rename_noreplace(source: Path, destination: Path) -> None:
 
 
 def _hooks(mount_root: Path, *, is_mountpoint: bool = True, same_as_parent: bool = False):
-    from framenest.infrastructure.persistence.catalog_backup_workstation import WorkstationOsHooks
+    from kronika.infrastructure.persistence.catalog_backup_workstation import WorkstationOsHooks
 
     mount_resolved = mount_root.resolve()
 
@@ -73,7 +73,7 @@ def _prepare_mount(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def test_init_store_creates_marker_and_is_idempotent(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         init_workstation_store,
         validate_workstation_store,
     )
@@ -97,7 +97,7 @@ def test_init_store_creates_marker_and_is_idempotent(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
 def test_init_store_rejects_unsafe_mode(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
     )
@@ -111,7 +111,7 @@ def test_init_store_rejects_unsafe_mode(tmp_path: Path) -> None:
 
 
 def test_init_store_rejects_nonempty_without_marker(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
     )
@@ -125,7 +125,7 @@ def test_init_store_rejects_nonempty_without_marker(tmp_path: Path) -> None:
 
 
 def test_store_trust_missing_mount_and_symlink(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
         validate_workstation_store,
@@ -162,7 +162,7 @@ def test_store_trust_missing_mount_and_symlink(tmp_path: Path) -> None:
 
 
 def test_store_id_mismatch_and_invalid_marker(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         MARKER_NAME,
         WorkstationError,
         init_workstation_store,
@@ -203,7 +203,7 @@ def test_store_id_mismatch_and_invalid_marker(tmp_path: Path) -> None:
 
 
 def test_ssh_target_injection_and_fixed_remote_command() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         FIXED_REMOTE_EXPORT_COMMAND,
         WorkstationError,
         build_ssh_argv,
@@ -225,7 +225,7 @@ def test_ssh_target_injection_and_fixed_remote_command() -> None:
 
 
 def test_export_latest_source_selection_and_lock(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         export_latest_scheduled_recovery_point,
         operation_lock,
@@ -276,7 +276,7 @@ def test_export_latest_source_selection_and_lock(tmp_path: Path) -> None:
 
 
 def test_export_rejects_symlink_and_evidence_mismatch(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         CatalogBackupOpsError,
         run_scheduled_catalog_backup,
         select_latest_successful_scheduled_recovery_point,
@@ -307,11 +307,11 @@ def test_export_rejects_symlink_and_evidence_mismatch(tmp_path: Path) -> None:
 
 
 def test_pull_success_idempotent_conflict_and_remote_nonzero(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         export_latest_scheduled_recovery_point,
         run_scheduled_catalog_backup,
     )
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
         list_workstation_snapshots,
@@ -442,11 +442,11 @@ def test_pull_success_idempotent_conflict_and_remote_nonzero(tmp_path: Path) -> 
 
 
 def test_stderr_flood_does_not_deadlock(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         export_latest_scheduled_recovery_point,
         run_scheduled_catalog_backup,
     )
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         STDERR_CAP_BYTES,
         init_workstation_store,
         pull_workstation_snapshot,
@@ -498,7 +498,7 @@ def test_stderr_flood_does_not_deadlock(tmp_path: Path) -> None:
 
 
 def test_spawn_failure_and_missing_executable(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
         pull_workstation_snapshot,
@@ -524,11 +524,11 @@ def test_spawn_failure_and_missing_executable(tmp_path: Path) -> None:
 
 
 def test_offline_verify_rejects_corrupt_envelope(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         export_latest_scheduled_recovery_point,
         run_scheduled_catalog_backup,
     )
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
         pull_workstation_snapshot,
@@ -593,7 +593,7 @@ def test_real_pipe_body_stall_times_out_and_reaps_child(tmp_path: Path) -> None:
     import sys
     import time
 
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         init_workstation_store,
         pull_workstation_snapshot,
@@ -685,13 +685,13 @@ def test_exporter_stalled_stdout_releases_operation_lock(tmp_path: Path, monkeyp
     import threading
     import time
 
-    from framenest.infrastructure.persistence import catalog_backup_transfer as transfer_mod
-    from framenest.infrastructure.persistence.catalog_backup_ops import (
+    from kronika.infrastructure.persistence import catalog_backup_transfer as transfer_mod
+    from kronika.infrastructure.persistence.catalog_backup_ops import (
         export_latest_scheduled_recovery_point,
         operation_lock,
         run_scheduled_catalog_backup,
     )
-    from framenest.infrastructure.persistence.catalog_backup_transfer import TransferError
+    from kronika.infrastructure.persistence.catalog_backup_transfer import TransferError
 
     monkeypatch.setattr(transfer_mod, "EXPORT_STDOUT_NO_PROGRESS_SECONDS", 2)
 

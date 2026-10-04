@@ -6,9 +6,9 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const APP_PATH = path.resolve(__dirname, "../src/framenest/adapters/api/web/app.js");
-const INDEX_PATH = path.resolve(__dirname, "../src/framenest/adapters/api/web/index.html");
-const STYLES_PATH = path.resolve(__dirname, "../src/framenest/adapters/api/web/styles.css");
+const APP_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/app.js");
+const INDEX_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/index.html");
+const STYLES_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/styles.css");
 const APP_SOURCE = fs.readFileSync(APP_PATH, "utf8");
 const INDEX_SOURCE = fs.readFileSync(INDEX_PATH, "utf8");
 const STYLES_SOURCE = fs.readFileSync(STYLES_PATH, "utf8");

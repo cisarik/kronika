@@ -9,16 +9,16 @@ import time
 
 import pytest
 
-from framenest.application.ports.x_extractor import XExtractionError, XExtractionInterrupted
-from framenest.domain.x_acquisition import (
+from kronika.application.ports.x_extractor import XExtractionError, XExtractionInterrupted
+from kronika.domain.x_acquisition import (
     XMediaType,
     XNormalizedInspection,
     X_VARIANT_PHOTO_JPEG,
     X_VARIANT_VIDEO_MP4,
 )
-from framenest.infrastructure.x.downloader import YtDlpXExtractor
-from framenest.infrastructure.x.staging import ARTIFACT_FILENAME, FilesystemXStaging
-from framenest.infrastructure.x.status_bridge import PhotoHttpResult
+from kronika.infrastructure.x.downloader import YtDlpXExtractor
+from kronika.infrastructure.x.staging import ARTIFACT_FILENAME, FilesystemXStaging
+from kronika.infrastructure.x.status_bridge import PhotoHttpResult
 
 
 POST_ID = "123456789"
@@ -206,7 +206,7 @@ def test_inspect_malformed_status() -> None:
 def test_inspect_command_uses_isolated_status_bridge() -> None:
     extractor = YtDlpXExtractor()
     argv = extractor.inspect_argv(POST_ID)
-    assert argv[1:4] == ["-I", "-m", "framenest.infrastructure.x.status_bridge"]
+    assert argv[1:4] == ["-I", "-m", "kronika.infrastructure.x.status_bridge"]
     assert "inspect" in argv
     joined = " ".join(argv)
     assert "--cookies" not in joined

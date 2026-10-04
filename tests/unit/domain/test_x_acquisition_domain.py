@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.domain.media_classification import AcquisitionSource, ContentCategory
-from framenest.domain.x_acquisition import (
+from kronika.domain.media_classification import AcquisitionSource, ContentCategory
+from kronika.domain.x_acquisition import (
     MAX_ASSETS_PER_POST,
     FrameNestXAssetError,
     FrameNestXClaimError,
@@ -203,7 +203,7 @@ def test_category_defaults() -> None:
 
 
 def test_parse_requested_category_accepts_four_values() -> None:
-    from framenest.domain.x_acquisition import parse_x_requested_content_category
+    from kronika.domain.x_acquisition import parse_x_requested_content_category
 
     for value in ("general", "meme", "movie", "youtube"):
         assert parse_x_requested_content_category(value).value == value

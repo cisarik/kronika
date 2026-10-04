@@ -8,17 +8,17 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect, text
 
-from framenest.adapters.api.application import create_app
-from framenest.application.content_publication import ContentAudiencePolicy
-from framenest.domain.identity_access import ROLE_ADMIN
-from framenest.infrastructure.persistence.content_publication_repository import (
+from kronika.adapters.api.application import create_app
+from kronika.application.content_publication import ContentAudiencePolicy
+from kronika.domain.identity_access import ROLE_ADMIN
+from kronika.infrastructure.persistence.content_publication_repository import (
     SqliteContentPublicationRepository,
 )
-from framenest.infrastructure.persistence.record_repository import SqliteRecordRepository
+from kronika.infrastructure.persistence.record_repository import SqliteRecordRepository
 from tests.support.record_access import install_synthetic_caller
-from framenest.adapters.api.media_suggestion_api import MediaSuggestionApiDependencies
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.adapters.api.media_suggestion_api import MediaSuggestionApiDependencies
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     MediaRelativePath,
     PreparedAnalysisResult,
     REQUESTED_FRAME_COUNT,
@@ -26,20 +26,20 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     PNG_SIGNATURE,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestion,
     MediaSuggestionRequest,
     PreviewImportedMediaSuggestion,
     PreviewMediaSuggestion,
     PROMPT_VERSION,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.media_repository import SqliteMediaRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.media_repository import SqliteMediaRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 class _DeterministicPreparer:
@@ -136,7 +136,7 @@ def test_local_web_media_suggestion_review_is_confirmed_validated_and_readonly(
     source.write_bytes(original_source)
     before_files = _snapshot_files(library_root)
 
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     library_id = LibraryId.new()
@@ -219,7 +219,7 @@ def test_local_web_imported_media_suggestion_uses_identity_and_is_readonly(
     source.write_bytes(original_source)
     before_files = _snapshot_files(library_root)
 
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     library_id = LibraryId.new()

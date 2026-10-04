@@ -6,7 +6,7 @@ from dataclasses import replace
 
 import pytest
 
-from framenest.domain.research import (
+from kronika.domain.research import (
     CHATGPT_PAGE_PROVIDER_ID,
     FIXED_OPENAI_RESPONSES_MODEL_ID,
     OPENAI_RESPONSES_PROVIDER_ID,
@@ -17,8 +17,8 @@ from framenest.domain.research import (
     ResearchOperationKind,
     SubmissionIdempotency,
 )
-from framenest.infrastructure.ai.research_configuration import default_research_configuration
-from framenest.infrastructure.ai.research_registry import (
+from kronika.infrastructure.ai.research_configuration import default_research_configuration
+from kronika.infrastructure.ai.research_registry import (
     RESEARCH_PROVIDER_DESCRIPTORS,
     ResearchSelectionError,
     require_selectable,

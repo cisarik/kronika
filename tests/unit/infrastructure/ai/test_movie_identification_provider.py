@@ -7,22 +7,22 @@ from dataclasses import dataclass, field
 
 from PIL import Image
 
-from framenest.application.media_analysis import TechnicalMetadata, build_representative_frame
-from framenest.application.movie_identification import (
+from kronika.application.media_analysis import TechnicalMetadata, build_representative_frame
+from kronika.application.movie_identification import (
     MovieIdentificationRequest,
     MovieIdentificationSuggestion,
     parse_movie_identification_payload,
 )
-from framenest.infrastructure.ai.nvidia_nim import (
+from kronika.infrastructure.ai.nvidia_nim import (
     build_nvidia_movie_identification_body,
     build_nvidia_request_body,
 )
-from framenest.application.movie_identification import LocalMovieHints
-from framenest.infrastructure.media_analysis.contact_sheet import (
+from kronika.application.movie_identification import LocalMovieHints
+from kronika.infrastructure.media_analysis.contact_sheet import (
     compose_contact_sheet,
 )
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_suggestion import MediaSuggestionRequest, PROMPT_VERSION
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_suggestion import MediaSuggestionRequest, PROMPT_VERSION
 
 
 def _png(color: tuple[int, int, int]) -> bytes:

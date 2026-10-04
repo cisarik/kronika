@@ -9,10 +9,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect, text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     MediaRelativePath,
     MediaAnalysisUnavailableError,
     PreparedAnalysisResult,
@@ -22,12 +22,12 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     PNG_SIGNATURE,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 class _DeterministicLocalPreparer:
@@ -104,7 +104,7 @@ def test_local_web_media_analysis_preview_is_explicit_readonly_and_stateless(
     source.write_bytes(original_source)
     before_files = _snapshot_files(library_root)
 
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     library_id = LibraryId.new()

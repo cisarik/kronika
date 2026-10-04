@@ -6,7 +6,7 @@ import io
 
 from PIL import Image
 
-from framenest.infrastructure.ai.chatgpt_page.fixtures import generate_fixtures, incompressible_bytes
+from kronika.infrastructure.ai.chatgpt_page.fixtures import generate_fixtures, incompressible_bytes
 
 
 def test_same_seed_is_byte_identical_and_another_seed_differs() -> None:

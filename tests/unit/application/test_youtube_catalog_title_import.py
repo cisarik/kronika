@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from framenest.application.upload_catalog import CatalogUploadClassification
-from framenest.application.youtube_acquisition import (
+from kronika.application.upload_catalog import CatalogUploadClassification
+from kronika.application.youtube_acquisition import (
     _imported_display_title_from_upstream,
     youtube_classification_for_upload,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     CreatorAttributionKind,
 )
-from framenest.domain.media_metadata import MAX_DISPLAY_TITLE_CODE_POINTS
-from framenest.domain.uploads import UploadSessionId
-from framenest.domain.youtube_acquisition import (
+from kronika.domain.media_metadata import MAX_DISPLAY_TITLE_CODE_POINTS
+from kronika.domain.uploads import UploadSessionId
+from kronika.domain.youtube_acquisition import (
     YouTubeAcquisitionClaim,
     YouTubeAcquisitionState,
     YouTubeConfirmationMethod,

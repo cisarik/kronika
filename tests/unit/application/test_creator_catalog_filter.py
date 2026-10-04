@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.domain.record_access import RecordAccessScope
-from framenest.application.media_catalog import (
+from kronika.domain.record_access import RecordAccessScope
+from kronika.application.media_catalog import (
     ListMediaCatalog,
     MediaCatalogValidationError,
 )
-from framenest.application.ports.media_catalog_repository import (
+from kronika.application.ports.media_catalog_repository import (
     CatalogMediaItem,
     MediaCatalogPage,
     MediaCatalogQuery,
 )
-from framenest.domain.media_metadata import CanonicalTagKey
+from kronika.domain.media_metadata import CanonicalTagKey
 
 
 class _FakeCatalogRepository:

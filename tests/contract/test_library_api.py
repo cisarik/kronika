@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.application.library_scan import (
+from kronika.application.library_scan import (
     LibraryFilesystemScanResult,
     LibraryScanCandidate,
     LibraryScanCandidateKind,
@@ -20,10 +20,10 @@ from framenest.application.library_scan import (
     SCAN_FAILED_MESSAGE,
     SCAN_UNAVAILABLE_MESSAGE,
 )
-from framenest.application.ports.library_repository import FrameNestLibraryRepositoryError
-from framenest.configuration import FrameNestSettings
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.adapters.api.application import create_app
+from kronika.application.ports.library_repository import FrameNestLibraryRepositoryError
+from kronika.configuration import KronikaSettings
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.adapters.api.application import create_app
 
 CANONICAL_LIBRARY_ID = "12345678-1234-4234-9234-123456789abc"
 SECOND_LIBRARY_ID = "abcdefab-cdef-4abc-8def-abcdefabcdef"
@@ -144,7 +144,7 @@ def _client(
     catalog_available: bool = True,
     database_path: Path | None = None,
 ) -> TestClient:
-    from framenest.adapters.api.library_api import LibraryApiDependencies
+    from kronika.adapters.api.library_api import LibraryApiDependencies
 
     dependencies = LibraryApiDependencies(
         repository=repository or _FakeRepository(),
@@ -152,9 +152,9 @@ def _client(
         catalog_available=lambda: catalog_available,
     )
     if database_path is None:
-        settings = FrameNestSettings(host="127.0.0.1", _env_file=None)
+        settings = KronikaSettings(host="127.0.0.1", _env_file=None)
     else:
-        settings = FrameNestSettings(
+        settings = KronikaSettings(
             host="127.0.0.1",
             database_path=database_path,
             _env_file=None,
@@ -369,7 +369,7 @@ def test_production_missing_catalog_read_does_not_create_database(tmp_path: Path
     database_path = tmp_path / "missing" / "catalog.sqlite3"
     client = TestClient(
         create_app(
-            settings=FrameNestSettings(
+            settings=KronikaSettings(
                 host="127.0.0.1",
                 database_path=database_path,
                 _env_file=None,

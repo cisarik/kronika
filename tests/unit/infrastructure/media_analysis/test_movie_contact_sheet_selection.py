@@ -10,17 +10,17 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     FrameNestMediaAnalysisError,
     build_representative_frame,
     compute_target_timestamps_ms,
 )
-from framenest.application.movie_identification import (
+from kronika.application.movie_identification import (
     LocalMovieHints,
     MovieIdentificationRequest,
     parse_movie_identification_payload,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     CONTACT_SHEET_DERIVATIVE_STRATEGY,
     CONTACT_SHEET_REQUESTED_FRAME_COUNT,
     MOVIE_IDENTIFICATION_MAX_TOKENS,
@@ -29,8 +29,8 @@ from framenest.domain.media_classification import (
     MOVIE_IDENTIFICATION_TEMPERATURE,
     MOVIE_IDENTIFICATION_TOP_P,
 )
-from framenest.infrastructure.ai.nvidia_nim import build_nvidia_movie_identification_body
-from framenest.infrastructure.media_analysis.contact_sheet import (
+from kronika.infrastructure.ai.nvidia_nim import build_nvidia_movie_identification_body
+from kronika.infrastructure.media_analysis.contact_sheet import (
     CONTACT_SHEET_CELL_MAX_EDGE,
     CONTACT_SHEET_JPEG_QUALITY,
     CONTACT_SHEET_MAX_LONG_EDGE,
@@ -39,11 +39,11 @@ from framenest.infrastructure.media_analysis.contact_sheet import (
     extract_and_compose_contact_sheet,
     extract_movie_identification_frames,
 )
-from framenest.infrastructure.media_analysis.ffmpeg import (
+from kronika.infrastructure.media_analysis.ffmpeg import (
     FRAME_EXTRACTION_FAILED_MESSAGE,
     INDIVIDUAL_FRAME_FAILED_WARNING,
 )
-from framenest.infrastructure.media_analysis.process import (
+from kronika.infrastructure.media_analysis.process import (
     ProcessExecutionError,
     ProcessRunResult,
 )

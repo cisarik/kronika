@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_metadata import (
+from kronika.application.media_metadata import (
     CreateCanonicalTag,
     GetMediaMetadata,
     ListCanonicalTags,
     SaveMediaMetadata,
 )
-from framenest.application.ports.media_metadata_repository import (
+from kronika.application.ports.media_metadata_repository import (
     OMITTED,
     AcquisitionSourceImmutableError,
     CanonicalTagCreateResult,
@@ -23,8 +23,8 @@ from framenest.application.ports.media_metadata_repository import (
     MediaMetadataSaveResult,
     MediaMetadataSnapshot,
 )
-from framenest.domain import MediaId
-from framenest.domain.media_metadata import (
+from kronika.domain import MediaId
+from kronika.domain.media_metadata import (
     CanonicalTag,
     CanonicalTagDisplayName,
     CanonicalTagKey,
@@ -34,7 +34,7 @@ from framenest.domain.media_metadata import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-APPLICATION_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "application" / "media_metadata.py"
+APPLICATION_MODULE = REPOSITORY_ROOT / "src" / "kronika" / "application" / "media_metadata.py"
 MEDIA_ID = MediaId.from_string("12345678-1234-4234-9234-123456789abc")
 
 
@@ -105,7 +105,7 @@ class _FakeRepository:
         creator_handle=None,
         creator_display_name=None,
     ) -> MediaMetadataSaveResult:
-        from framenest.domain.media_classification import (
+        from kronika.domain.media_classification import (
             DEFAULT_ACQUISITION_SOURCE,
             DEFAULT_CONTENT_CATEGORY,
         )
@@ -288,10 +288,10 @@ def test_media_metadata_application_imports_no_framework_infrastructure_or_media
     forbidden_roots = {
         "fastapi",
         "sqlalchemy",
-        "framenest.infrastructure",
-        "framenest.adapters",
-        "framenest.infrastructure.media_analysis",
-        "framenest.infrastructure.ai",
+        "kronika.infrastructure",
+        "kronika.adapters",
+        "kronika.infrastructure.media_analysis",
+        "kronika.infrastructure.ai",
     }
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.research import (
+from kronika.application.ports.research import (
     ResearchRequestRow,
     ResearchStoreError,
 )
-from framenest.domain.research import (
+from kronika.domain.research import (
     ApprovedResourceLimits,
     BudgetReconciliation,
     BudgetReservation,
@@ -27,14 +27,14 @@ from framenest.domain.research import (
     ServerSelectedProfile,
     WEB_SEARCH_TOOL,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.research_budget_repository import (
+from kronika.infrastructure.persistence.research_budget_repository import (
     SqliteResearchBudgetLedger,
 )
-from framenest.infrastructure.persistence.research_request_repository import (
+from kronika.infrastructure.persistence.research_request_repository import (
     SqliteResearchRequestRepository,
 )
 
@@ -47,14 +47,14 @@ MONTHLY_LIMIT = 30_000_000
 def _migrate(database_path: Path) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "head")

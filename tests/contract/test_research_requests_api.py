@@ -8,13 +8,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.research_api import (
+from kronika.adapters.api.research_api import (
     ResearchApiDependencies,
     create_research_api_router,
 )
-from framenest.application.research import ResearchCoordinator
-from framenest.configuration import FrameNestSettings
-from framenest.domain.research import (
+from kronika.application.research import ResearchCoordinator
+from kronika.configuration import KronikaSettings
+from kronika.domain.research import (
     CompletionEvidence,
     ProviderHandle,
     ProviderObservation,
@@ -24,22 +24,22 @@ from framenest.domain.research import (
     ResearchErrorCode,
     ResearchUsage,
 )
-from framenest.infrastructure.ai.research_configuration import (
+from kronika.infrastructure.ai.research_configuration import (
     default_research_configuration,
 )
-from framenest.infrastructure.ai.research_registry import select_research_provider
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.ai.research_registry import select_research_provider
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import (
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import (
     SqliteResearchResultCompletion,
 )
-from framenest.infrastructure.persistence.research_budget_repository import (
+from kronika.infrastructure.persistence.research_budget_repository import (
     SqliteResearchBudgetLedger,
 )
-from framenest.infrastructure.persistence.research_request_repository import (
+from kronika.infrastructure.persistence.research_request_repository import (
     SqliteResearchRequestRepository,
 )
 from tests.support.record_access import install_synthetic_caller
@@ -76,7 +76,7 @@ class FakeProvider:
         )
 
     def release_remote(self, handle):
-        from framenest.domain.research import CleanupOutcome, ResearchRemoteCleanupState
+        from kronika.domain.research import CleanupOutcome, ResearchRemoteCleanupState
 
         self.releases.append(handle)
         return CleanupOutcome(state=ResearchRemoteCleanupState.DELETED)
@@ -105,7 +105,7 @@ def _answer() -> ResearchAnswer:
 
 @pytest.fixture()
 def api(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "research-api.sqlite3",
         identity_map={"alice": "user", "bob": "user", "ada": "admin"},
         _env_file=None,

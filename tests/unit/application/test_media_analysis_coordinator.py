@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import asyncio
 
-from framenest.application.media_analysis_coordinator import (
+from kronika.application.media_analysis_coordinator import (
     InterruptAwareMediaAnalysisRunExecutor,
     MediaAnalysisCoordinator,
 )
-from framenest.application.in_process_lifecycle import ShutdownDeadline
-from framenest.application.media_analysis_lifecycle import (
+from kronika.application.in_process_lifecycle import ShutdownDeadline
+from kronika.application.media_analysis_lifecycle import (
     CatalogedAnalysisTarget,
     ExecuteAutomaticMediaAnalysisRun,
     ScheduleAutomaticMediaAnalysis,
 )
-from framenest.application.media_suggestion import MediaSuggestion, PROMPT_VERSION
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media_analysis_runs import (
+from kronika.application.media_suggestion import MediaSuggestion, PROMPT_VERSION
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media_analysis_runs import (
     AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
     MediaAnalysisRun,
     MediaAnalysisRunId,

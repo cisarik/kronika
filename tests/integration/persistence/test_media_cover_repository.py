@@ -7,27 +7,27 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.media_cover_repository import (
+from kronika.application.ports.media_cover_repository import (
     MediaCoverConflictError,
     MediaCoverDraft,
     MediaCoverMediaNotFoundError,
 )
-from framenest.domain.identities import DeviceId, LibraryId, MediaId, MediaLocationId
-from framenest.domain.media_cover import (
+from kronika.domain.identities import DeviceId, LibraryId, MediaId, MediaLocationId
+from kronika.domain.media_cover import (
     COVER_ARTIFACT_MEDIA_TYPE,
     COVER_ARTIFACT_PROFILE,
     SOURCE_OBSERVATION_ALGORITHM,
     CoverSourceKind,
     source_reference_for_location,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.media_cover_repository import (
+from kronika.infrastructure.persistence.media_cover_repository import (
     SqliteMediaCoverRepository,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 MEDIA_ID = MediaId.from_string("11111111-1111-4111-8111-111111111111")
 LOCATION_ID = MediaLocationId.from_string("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
@@ -112,10 +112,10 @@ def repository(tmp_path: Path):
 
 
 def upgrade_database_to_head_from_path(database_path: Path) -> None:
-    from framenest.configuration import FrameNestSettings
+    from kronika.configuration import KronikaSettings
 
     upgrade_database_to_head(
-        FrameNestSettings(database_path=database_path, _env_file=None)
+        KronikaSettings(database_path=database_path, _env_file=None)
     )
 
 

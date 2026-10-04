@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.records import RecordService
-from framenest.domain.identity_access import ROLE_ADMIN, ROLE_USER
-from framenest.domain.records import (
+from kronika.application.records import RecordService
+from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
+from kronika.domain.records import (
     CompletedDocument,
     DocumentId,
     RecordId,
@@ -16,12 +16,12 @@ from framenest.domain.records import (
     RecordNotFoundError,
     RecordVisibility,
 )
-from framenest.domain.research import CompletionEvidence
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import SqliteRecordRepository
+from kronika.domain.research import CompletionEvidence
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import SqliteRecordRepository
 from tests.support.record_access import synthetic_identity
-from framenest.configuration import FrameNestSettings
+from kronika.configuration import KronikaSettings
 
 
 def _evidence() -> CompletionEvidence:
@@ -49,7 +49,7 @@ def _document() -> CompletedDocument:
 
 
 def _service(tmp_path: Path) -> tuple[RecordService, object]:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )

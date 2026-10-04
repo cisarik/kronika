@@ -6,14 +6,14 @@ const vm = require("node:vm");
 
 const REPO = path.resolve(__dirname, "..");
 const companion = require(path.join(REPO, "extension/shared/messages.js"));
-const webHost = require(path.join(REPO, "src/framenest/adapters/api/web/companion_host.js"));
+const webHost = require(path.join(REPO, "src/kronika/adapters/api/web/companion_host.js"));
 const sidebarSource = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.js"), "utf8");
 const hostSource = fs.readFileSync(
-  path.join(REPO, "src/framenest/adapters/api/web/companion_host.js"),
+  path.join(REPO, "src/kronika/adapters/api/web/companion_host.js"),
   "utf8"
 );
 const appSource = fs.readFileSync(
-  path.join(REPO, "src/framenest/adapters/api/web/app.js"),
+  path.join(REPO, "src/kronika/adapters/api/web/app.js"),
   "utf8"
 );
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from framenest.infrastructure.x.staging import ARTIFACT_FILENAME, FilesystemXStaging
+from kronika.infrastructure.x.staging import ARTIFACT_FILENAME, FilesystemXStaging
 
 STAGING_KEY = "a" * 32
 

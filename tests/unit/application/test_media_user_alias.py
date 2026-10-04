@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.application.media_user_alias import (
+from kronika.application.media_user_alias import (
     GetMediaUserAlias,
     ListMediaUserAliasesForLogin,
     ListTeamMediaAliases,
     SaveMediaUserAlias,
 )
-from framenest.application.ports.media_user_alias_repository import AliasTagNotFoundError
-from framenest.domain import MediaId
-from framenest.domain.media_metadata import CanonicalTagKey
-from framenest.domain.media_user_alias import (
+from kronika.application.ports.media_user_alias_repository import AliasTagNotFoundError
+from kronika.domain import MediaId
+from kronika.domain.media_metadata import CanonicalTagKey
+from kronika.domain.media_user_alias import (
     FrameNestMediaUserAliasError,
     MediaUserAlias,
     MediaUserAliasContent,
@@ -35,7 +35,7 @@ class _FakeRepository:
         return self.aliases.get((media_id.to_string(), login_key))
 
     def list_aliases_for_media(self, media_id: MediaId) -> tuple[MediaUserAlias, ...]:
-        from framenest.application.ports.media_user_alias_repository import (
+        from kronika.application.ports.media_user_alias_repository import (
             MediaUserAliasMediaNotFoundError,
         )
 
@@ -128,7 +128,7 @@ def test_save_alias_rejects_invalid_content() -> None:
 
 
 def test_list_team_aliases_aggregates_by_login_and_unknown_media_is_not_found() -> None:
-    from framenest.application.ports.media_user_alias_repository import (
+    from kronika.application.ports.media_user_alias_repository import (
         MediaUserAliasMediaNotFoundError,
     )
 

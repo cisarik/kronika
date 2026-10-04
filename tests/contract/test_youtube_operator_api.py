@@ -7,20 +7,20 @@ from dataclasses import replace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.adapters.api.youtube_operator_api import (
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.adapters.api.youtube_operator_api import (
     YouTubeOperatorApiDependencies,
     create_youtube_operator_api_router,
 )
-from framenest.domain.identity_access import ROLE_ADMIN, ROLE_USER
+from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
 from tests.support.record_access import synthetic_identity
-from framenest.application.youtube_acquisition import (
+from kronika.application.youtube_acquisition import (
     YouTubeAcquisitionInfrastructureError,
     YouTubeAcquisitionInvalidRequestError,
     YouTubeClaimSnapshot,
     YouTubeClaimSubmission,
 )
-from framenest.domain.youtube_acquisition import (
+from kronika.domain.youtube_acquisition import (
     FrameNestYouTubeUrlError,
     canonicalize_youtube_url,
 )
@@ -283,13 +283,13 @@ def test_handoff_keeps_explicit_duplicates_for_upload_manage_only() -> None:
     The previous handoff treated every present login as silent. That hid the
     operator administrator after claims began carrying a verified identity.
     """
-    from framenest.application.youtube_acquisition import handoff_duplicate_resolution
-    from framenest.domain.identity_access import (
+    from kronika.application.youtube_acquisition import handoff_duplicate_resolution
+    from kronika.domain.identity_access import (
         CAPABILITY_UPLOAD_MANAGE,
         build_identity_mapping,
         mapped_role_has_capability,
     )
-    from framenest.domain.uploads import UploadDuplicateResolutionMode
+    from kronika.domain.uploads import UploadDuplicateResolutionMode
 
     mapping = build_identity_mapping(
         {

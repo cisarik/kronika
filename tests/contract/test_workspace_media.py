@@ -9,21 +9,21 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY, find_route_policy
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identity_access import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY, find_route_policy
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_MEDIA_WORKSPACE_READ,
     IdentityContext,
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 ALICE = "alice@example.com"
 BOB = "bob@example.com"
@@ -86,7 +86,7 @@ def _register_library(database_path: Path, library_root: Path) -> LibraryId:
         dispose_engine(engine)
 
 
-def _client(settings: FrameNestSettings, login: str, role: str, **identity_kwargs: object) -> TestClient:
+def _client(settings: KronikaSettings, login: str, role: str, **identity_kwargs: object) -> TestClient:
     app = create_app(settings=settings)
 
     @app.middleware("http")
@@ -97,7 +97,7 @@ def _client(settings: FrameNestSettings, login: str, role: str, **identity_kwarg
     return TestClient(app)
 
 
-def _plain_client(settings: FrameNestSettings) -> TestClient:
+def _plain_client(settings: KronikaSettings) -> TestClient:
     return TestClient(create_app(settings=settings))
 
 
@@ -471,7 +471,7 @@ def _seed(database_path: Path, library_id: LibraryId) -> None:
         dispose_engine(engine)
 
 
-def _prepare(tmp_path: Path) -> FrameNestSettings:
+def _prepare(tmp_path: Path) -> KronikaSettings:
     database_path = tmp_path / "database" / "catalog.sqlite3"
     database_path.parent.mkdir(parents=True)
     library_root = tmp_path / "library"
@@ -486,7 +486,7 @@ def _prepare(tmp_path: Path) -> FrameNestSettings:
         "unattributed.mp4",
     ):
         (library_root / name).write_bytes(MP4_BYTES)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",

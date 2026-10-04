@@ -6,12 +6,12 @@ from typing import Any
 
 import pytest
 
-from framenest.infrastructure.ai.constants import (
+from kronika.infrastructure.ai.constants import (
     DEFAULT_MODEL_ID,
     NVIDIA_CHAT_COMPLETIONS_URL,
     VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID,
 )
-from framenest.infrastructure.ai.provider_records import (
+from kronika.infrastructure.ai.provider_records import (
     AiProviderRecordError,
     MAX_DECLARED_MODELS_PER_PROVIDER,
     MAX_DECLARED_PROVIDERS,

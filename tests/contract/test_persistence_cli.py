@@ -183,7 +183,7 @@ def test_framenest_db_status_dispatch_does_not_bind_socket(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from framenest.infrastructure.persistence.cli import main
+    from kronika.infrastructure.persistence.cli import main
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "no-bind.sqlite3"))
@@ -203,7 +203,7 @@ def test_importing_cli_module_has_no_execution_side_effects(
         [
             sys.executable,
             "-c",
-            "import framenest.infrastructure.persistence.cli",
+            "import kronika.infrastructure.persistence.cli",
         ],
         cwd=tmp_path,
         check=False,

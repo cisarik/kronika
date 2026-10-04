@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from framenest.application.library_scan import (
+from kronika.application.library_scan import (
     LibraryFilesystemScanResult,
     LibraryScanCandidate,
     LibraryScanCandidateKind,
@@ -12,15 +12,15 @@ from framenest.application.library_scan import (
     LibraryScanSummary,
     default_scan_limits,
 )
-from framenest.application.library_workflow import (
+from kronika.application.library_workflow import (
     LibraryWorkflowDeviceSelectionRequiredError,
     LibraryWorkflowLibrarySelectionRequiredError,
     LibraryWorkflowNoLibraryError,
     LibraryWorkflowReservedRootConflictError,
     ServerLibraryWorkflow,
 )
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot, MediaId, MediaLocationId
-from framenest.domain.media import LogicalMedia, MediaKind, MediaLocation, MediaLocationAvailability, MediaRelativePath
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot, MediaId, MediaLocationId
+from kronika.domain.media import LogicalMedia, MediaKind, MediaLocation, MediaLocationAvailability, MediaRelativePath
 
 
 class _DeviceRepository:

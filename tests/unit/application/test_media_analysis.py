@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     FrameNestMediaAnalysisError,
     MediaAnalysisNotFoundError,
     MediaRelativePath,
@@ -25,11 +25,11 @@ from framenest.application.media_analysis import (
     REQUESTED_FRAME_COUNT,
     PNG_SIGNATURE,
 )
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 APPLICATION_MEDIA_ANALYSIS = (
-    REPOSITORY_ROOT / "src" / "framenest" / "application" / "media_analysis.py"
+    REPOSITORY_ROOT / "src" / "kronika" / "application" / "media_analysis.py"
 )
 
 _VALID_PNG = PNG_SIGNATURE + b"rest-of-png-bytes"
@@ -294,6 +294,6 @@ def test_application_media_analysis_module_imports_no_infrastructure() -> None:
             module = node.module or ""
         else:
             continue
-        if module.startswith("framenest.infrastructure"):
+        if module.startswith("kronika.infrastructure"):
             violations.append(module)
     assert violations == []

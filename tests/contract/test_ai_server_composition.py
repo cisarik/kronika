@@ -8,16 +8,16 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.ai.configuration import (
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.ai.configuration import (
     AiServerConfig,
     AiTestState,
     default_ai_test_state_path,
     write_ai_server_config,
     write_ai_test_state,
 )
-from framenest.infrastructure.ai.provider_records import (
+from kronika.infrastructure.ai.provider_records import (
     AiProviderModel,
     AiProviderRecord,
 )
@@ -29,7 +29,7 @@ DECLARED_CREDENTIAL_ENV = "OPENCODE_API_KEY"
 
 
 def _client(tmp_path: Path, *, provider_id: str) -> TestClient:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         ai_provider_id=provider_id,
         _env_file=None,
@@ -50,7 +50,7 @@ def _configured_nvidia_client(
     test_state_path = default_ai_test_state_path(config_path)
     if initial_status is not None:
         _write_test_state(test_state_path, status=initial_status)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         ai_provider_id="nvidia-nim",
         ai_model_id=NVIDIA_MODEL_ID,
@@ -305,7 +305,7 @@ def _declared_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestCli
         ),
         config_path,
     )
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )

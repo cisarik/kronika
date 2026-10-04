@@ -13,8 +13,8 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import (
     ERROR_MUTATION_HEADER_REQUIRED,
     EXPECTED_MUTATION_HEADER_VALUE,
     HEADER_MUTATION,
@@ -22,8 +22,8 @@ from framenest.adapters.api.tailscale_ingress import (
     MUTATION_HEADERS,
     _mutation_header_authorized,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -58,7 +58,7 @@ def _fresh_tag_key() -> str:
 
 @pytest.fixture
 def tailscale_client(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",

@@ -10,24 +10,24 @@ import sys
 
 import pytest
 
-from framenest.configuration import ENV_FILE_ENVIRONMENT_VARIABLE
-from framenest.infrastructure.persistence import cli as db_cli
+from kronika.configuration import ENV_FILE_ENVIRONMENT_VARIABLE
+from kronika.infrastructure.persistence import cli as db_cli
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-DB_MODULE = "framenest.infrastructure.persistence.cli"
-YOUTUBE_MODULE = "framenest.adapters.cli.youtube"
+DB_MODULE = "kronika.infrastructure.persistence.cli"
+YOUTUBE_MODULE = "kronika.adapters.cli.youtube"
 
 CLI_MODULES = (
-    "framenest.server",
-    "framenest.infrastructure.persistence.cli",
-    "framenest.infrastructure.runtime.production",
-    "framenest.adapters.cli.ai",
-    "framenest.adapters.cli.backup",
-    "framenest.adapters.cli.catalog",
-    "framenest.adapters.cli.library",
-    "framenest.adapters.cli.previews",
-    "framenest.adapters.cli.recovery",
-    "framenest.adapters.cli.youtube",
+    "kronika.server",
+    "kronika.infrastructure.persistence.cli",
+    "kronika.infrastructure.runtime.production",
+    "kronika.adapters.cli.ai",
+    "kronika.adapters.cli.backup",
+    "kronika.adapters.cli.catalog",
+    "kronika.adapters.cli.library",
+    "kronika.adapters.cli.previews",
+    "kronika.adapters.cli.recovery",
+    "kronika.adapters.cli.youtube",
 )
 
 

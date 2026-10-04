@@ -6,8 +6,8 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.domain import MediaId
-from framenest.domain.media_metadata import (
+from kronika.domain import MediaId
+from kronika.domain.media_metadata import (
     CanonicalTag,
     CanonicalTagDisplayName,
     CanonicalTagKey,

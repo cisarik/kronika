@@ -10,18 +10,18 @@ from fastapi.testclient import TestClient
 
 from tests.support.kronika_identity import expected
 
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.adapters.api.x_request_api import (
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.adapters.api.x_request_api import (
     XRequestApiDependencies,
     create_x_request_api_router,
 )
-from framenest.application.x_acquisition import (
+from kronika.application.x_acquisition import (
     XAcquisitionInvalidCursorError,
     XAcquisitionInvalidRequesterIdentityError,
     XAcquisitionNoRetryableAssetsError,
     XAcquisitionNotRetryableError,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITY_X_REQUEST,
     IdentityContext,
 )
@@ -112,7 +112,7 @@ def test_missing_identity_fails_closed() -> None:
 
 
 def test_invalid_url_maps_to_sanitized_422() -> None:
-    from framenest.domain.x_acquisition import FrameNestXUrlError
+    from kronika.domain.x_acquisition import FrameNestXUrlError
 
     class _InvalidService:
         def submit(self, url: str, login_key: str, alias=None, content_category=None):
@@ -207,7 +207,7 @@ def test_optional_alias_is_parsed_and_login_key_is_forbidden() -> None:
 
 
 def test_unknown_alias_tag_maps_to_422() -> None:
-    from framenest.application.ports.media_user_alias_repository import (
+    from kronika.application.ports.media_user_alias_repository import (
         AliasTagNotFoundError,
     )
 
@@ -283,7 +283,7 @@ def test_category_conflict_maps_to_sanitized_409() -> None:
     response echoed the exception, this assertion would fail, which is what makes
     it a guard on the API's own literal rather than on fixture data.
     """
-    from framenest.application.x_acquisition import XAcquisitionCategoryConflictError
+    from kronika.application.x_acquisition import XAcquisitionCategoryConflictError
 
     class _ConflictService:
         def submit(self, url: str, login_key: str, alias=None, content_category=None):
@@ -303,7 +303,7 @@ def test_category_conflict_maps_to_sanitized_409() -> None:
 
 
 def test_invalid_alias_maps_to_the_derived_brand_422() -> None:
-    from framenest.domain.media_user_alias import FrameNestMediaUserAliasError
+    from kronika.domain.media_user_alias import FrameNestMediaUserAliasError
 
     class _InvalidAliasService:
         def submit(self, url: str, login_key: str, alias=None, content_category=None):

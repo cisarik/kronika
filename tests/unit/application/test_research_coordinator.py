@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.research import ResearchStoreError
-from framenest.application.research import ResearchCoordinator
-from framenest.domain.research import (
+from kronika.application.ports.research import ResearchStoreError
+from kronika.application.research import ResearchCoordinator
+from kronika.domain.research import (
     CompletionEvidence,
     FIXED_OPENAI_RESPONSES_MODEL_ID,
     OPENAI_RESPONSES_PROVIDER_ID,
@@ -25,21 +25,21 @@ from framenest.domain.research import (
     ResultCompletionReceipt,
     UsagePriceSchedule,
 )
-from framenest.infrastructure.ai.research_configuration import (
+from kronika.infrastructure.ai.research_configuration import (
     default_research_configuration,
 )
-from framenest.infrastructure.ai.research_registry import (
+from kronika.infrastructure.ai.research_registry import (
     ResearchSelectionError,
     select_research_provider,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.research_budget_repository import (
+from kronika.infrastructure.persistence.research_budget_repository import (
     SqliteResearchBudgetLedger,
 )
-from framenest.infrastructure.persistence.research_request_repository import (
+from kronika.infrastructure.persistence.research_request_repository import (
     SqliteResearchRequestRepository,
 )
 
@@ -49,14 +49,14 @@ HANDLE = ProviderHandle("remote-handle-1")
 def _migrate(database_path: Path) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "head")
@@ -97,7 +97,7 @@ class FakeProvider:
         return self.cancel_observation
 
     def release_remote(self, handle):
-        from framenest.domain.research import CleanupOutcome, ResearchRemoteCleanupState
+        from kronika.domain.research import CleanupOutcome, ResearchRemoteCleanupState
 
         self.calls.append("release")
         if self.release_outcome_error is not None:

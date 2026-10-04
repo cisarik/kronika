@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from framenest.domain import LibraryId, MediaId, MediaLocationId
-from framenest.domain.media import (
+from kronika.domain import LibraryId, MediaId, MediaLocationId
+from kronika.domain.media import (
     FrameNestMediaError,
     FrameNestMediaLocationError,
     MediaKind,
@@ -20,7 +20,7 @@ from framenest.domain.media import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DOMAIN_MEDIA_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "media.py"
+DOMAIN_MEDIA_MODULE = REPOSITORY_ROOT / "src" / "kronika" / "domain" / "media.py"
 INVALID_MEDIA_MESSAGE = "Invalid Kronika media."
 INVALID_LOCATION_MESSAGE = "Invalid Kronika media location."
 INVALID_PATH_MESSAGE = "Invalid Kronika media relative path."
@@ -214,10 +214,10 @@ def test_media_domain_module_imports_no_infrastructure_or_framework() -> None:
         "uvicorn",
         "os",
         "subprocess",
-        "framenest.infrastructure",
-        "framenest.application",
-        "framenest.adapters",
-        "framenest.configuration",
+        "kronika.infrastructure",
+        "kronika.application",
+        "kronika.adapters",
+        "kronika.configuration",
     }
     violations: list[str] = []
     for node in ast.walk(tree):

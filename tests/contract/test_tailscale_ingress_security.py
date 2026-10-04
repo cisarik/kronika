@@ -19,28 +19,28 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import (
     ROUTE_POLICIES,
     _UNCLASSIFIED_FALLBACK_POLICY,
     find_route_policy,
 )
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_MEDIA_CONTENT_PUBLISH,
     CAPABILITY_METADATA_CANONICAL_WRITE,
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-from framenest.infrastructure.persistence.engine import (
+from kronika.configuration import KronikaSettings
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -85,7 +85,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
 
 @pytest.fixture
 def tailscale_client(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -103,7 +103,7 @@ def tailscale_client(tmp_path: Path):
 @pytest.fixture
 def unclassified_client(tmp_path: Path):
     """App with one dynamically mounted route that has no explicit policy."""
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -279,7 +279,7 @@ def test_unmarked_local_channel_keeps_only_narrow_health(tailscale_client) -> No
 def test_tcp_mode_has_no_identity_api_and_ignores_spoofed_headers(
     tmp_path: Path,
 ) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
@@ -738,7 +738,7 @@ def test_error_responses_are_sanitized(tailscale_client) -> None:
         assert str(tmp_path_sentinel(settings)) not in body
 
 
-def tmp_path_sentinel(settings: FrameNestSettings) -> Path:
+def tmp_path_sentinel(settings: KronikaSettings) -> Path:
     return settings.database_path.parent
 
 
@@ -1110,7 +1110,7 @@ def test_missing_additional_capability_is_denied(tailscale_client) -> None:
     policy.additional_capabilities = (CAPABILITY_METADATA_CANONICAL_WRITE,)
     try:
         with patch.dict(
-            "framenest.domain.identity_access.CAPABILITIES_BY_ROLE",
+            "kronika.domain.identity_access.CAPABILITIES_BY_ROLE",
             {ROLE_ADMIN: reduced_admin, ROLE_USER: CAPABILITIES_BY_ROLE[ROLE_USER]},
         ):
             response = client.put(
@@ -1325,7 +1325,7 @@ def test_media_detail_route_policy_uses_gallery_read_without_shadowing() -> None
 def test_requester_private_media_detail_reaches_application_through_ingress(
     tmp_path: Path,
 ) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -1447,7 +1447,7 @@ SPOOFED_COMPANION_ORIGIN = "chrome-extension://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 @pytest.fixture
 def companion_client(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -1743,7 +1743,7 @@ def test_companion_apply_requires_dual_capabilities_and_hosted_origin(
         CAPABILITY_METADATA_CANONICAL_WRITE
     }
     with patch.dict(
-        "framenest.domain.identity_access.CAPABILITIES_BY_ROLE",
+        "kronika.domain.identity_access.CAPABILITIES_BY_ROLE",
         {ROLE_ADMIN: reduced_admin, ROLE_USER: CAPABILITIES_BY_ROLE[ROLE_USER]},
     ):
         publish_only = client.post(
@@ -1757,7 +1757,7 @@ def test_companion_apply_requires_dual_capabilities_and_hosted_origin(
         CAPABILITY_MEDIA_CONTENT_PUBLISH
     }
     with patch.dict(
-        "framenest.domain.identity_access.CAPABILITIES_BY_ROLE",
+        "kronika.domain.identity_access.CAPABILITIES_BY_ROLE",
         {ROLE_ADMIN: canonical_only, ROLE_USER: CAPABILITIES_BY_ROLE[ROLE_USER]},
     ):
         write_only = client.post(
@@ -1784,7 +1784,7 @@ AI_ADMIN_ROUTE_SPECS = (
 
 
 def test_ai_admin_route_policies_are_provider_operate_gated_and_non_companion() -> None:
-    from framenest.domain.identity_access import CAPABILITY_PROVIDER_OPERATE
+    from kronika.domain.identity_access import CAPABILITY_PROVIDER_OPERATE
 
     for method, path in AI_ADMIN_ROUTE_SPECS:
         matching = [

@@ -8,27 +8,27 @@ from pathlib import Path
 import sqlalchemy as sa
 from sqlalchemy import event, text
 
-from framenest.application.ports.content_publication_repository import (
+from kronika.application.ports.content_publication_repository import (
     ContentPublicationMediaNotFoundError,
     AdminMediaQuery,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import MediaId
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import MediaId
 
 MEDIA_READY = "11111111-1111-4111-8111-111111111111"
 MEDIA_INCOMPLETE = "22222222-2222-4222-8222-222222222222"
 
 
 def _repository(tmp_path: Path):
-    from framenest.infrastructure.persistence.content_publication_repository import (
+    from kronika.infrastructure.persistence.content_publication_repository import (
         SqliteContentPublicationRepository,
     )
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     database_path = tmp_path / "publication.sqlite3"
     upgrade_database_to_head(
-        FrameNestSettings(database_path=database_path, _env_file=None)
+        KronikaSettings(database_path=database_path, _env_file=None)
     )
     engine = create_sqlite_engine(database_path)
     return SqliteContentPublicationRepository(engine), engine

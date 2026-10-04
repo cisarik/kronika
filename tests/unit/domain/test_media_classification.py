@@ -7,37 +7,37 @@ import io
 from PIL import Image
 import pytest
 
-from framenest.application.movie_identification import (
+from kronika.application.movie_identification import (
     FrameNestMovieIdentificationError,
     parse_movie_identification_payload,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     IdentificationConfidence,
     MovieGenre,
     MovieIdentificationStatus,
 )
-from framenest.domain.media_metadata import MediaMetadata, normalize_genres_for_category
-from framenest.domain.identities import MediaId
-from framenest.infrastructure.ai.nvidia_nim import (
+from kronika.domain.media_metadata import MediaMetadata, normalize_genres_for_category
+from kronika.domain.identities import MediaId
+from kronika.infrastructure.ai.nvidia_nim import (
     build_nvidia_movie_identification_body,
     build_nvidia_request_body,
 )
-from framenest.infrastructure.media_analysis.contact_sheet import (
+from kronika.infrastructure.media_analysis.contact_sheet import (
     compose_contact_sheet,
     compute_movie_identification_timestamps_ms,
     is_near_black_png,
     sanitize_local_hint,
 )
-from framenest.application.media_analysis import build_representative_frame
-from framenest.application.movie_identification import MovieIdentificationRequest, LocalMovieHints
-from framenest.application.media_suggestion import (
+from kronika.application.media_analysis import build_representative_frame
+from kronika.application.movie_identification import MovieIdentificationRequest, LocalMovieHints
+from kronika.application.media_suggestion import (
     MediaSuggestionRequest,
     PROMPT_VERSION,
 )
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import TechnicalMetadata
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import TechnicalMetadata
 
 
 def _solid_png(*, color: tuple[int, int, int], size: tuple[int, int] = (64, 48)) -> bytes:

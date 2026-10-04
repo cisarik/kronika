@@ -9,22 +9,22 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from framenest.application.gallery_preview import (
+from kronika.application.gallery_preview import (
     GALLERY_PREVIEW_ALGORITHM_VERSION,
     GalleryPreviewService,
     GalleryPreviewState,
     GalleryPreviewUnavailableError,
 )
-from framenest.application.media_analysis import (
+from kronika.application.media_analysis import (
     PREPARATION_UNAVAILABLE_MESSAGE,
     MediaAnalysisUnavailableError,
     build_representative_frame,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot, MediaId, MediaLocationId
-from framenest.domain.media import LogicalMedia, MediaKind, MediaLocation, MediaLocationAvailability, MediaRelativePath
-from framenest.infrastructure.filesystem.media_content import LocalMediaContentReader
-from framenest.infrastructure.media_analysis.gallery_preview import (
+from kronika.configuration import KronikaSettings
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot, MediaId, MediaLocationId
+from kronika.domain.media import LogicalMedia, MediaKind, MediaLocation, MediaLocationAvailability, MediaRelativePath
+from kronika.infrastructure.filesystem.media_content import LocalMediaContentReader
+from kronika.infrastructure.media_analysis.gallery_preview import (
     FilesystemGalleryPreviewCache,
     PillowGalleryPreviewEncoder,
 )
@@ -137,7 +137,7 @@ def _fixture(tmp_path: Path, *, cache_inside_root: bool = False, availability=Me
 
 def test_configuration_rejects_relative_gallery_preview_cache_root() -> None:
     with pytest.raises(ValueError, match="gallery preview cache path must be an absolute path"):
-        FrameNestSettings(
+        KronikaSettings(
             database_path=Path("/tmp/framenest-test.sqlite3"),
             gallery_preview_cache_path=Path("relative-cache"),
             _env_file=None,
@@ -158,7 +158,7 @@ def test_key_is_stable_and_changes_for_source_and_algorithm(tmp_path: Path, monk
     key_c = service.plan_generate(library_id=location.library_id, include_all=False, max_items=1).to_generate[0].cache_key
     assert key_c != key_a
 
-    monkeypatch.setattr("framenest.application.gallery_preview.GALLERY_PREVIEW_ALGORITHM_VERSION", "gallery-preview-jpeg-v2")
+    monkeypatch.setattr("kronika.application.gallery_preview.GALLERY_PREVIEW_ALGORITHM_VERSION", "gallery-preview-jpeg-v2")
     key_d = service.plan_generate(library_id=location.library_id, include_all=False, max_items=1).to_generate[0].cache_key
     assert key_d != key_c
     assert GALLERY_PREVIEW_ALGORITHM_VERSION == "gallery-preview-jpeg-v1"

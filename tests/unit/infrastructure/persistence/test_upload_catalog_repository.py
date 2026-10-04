@@ -8,40 +8,40 @@ import uuid
 import pytest
 from sqlalchemy import func, insert, select, text, update
 
-from framenest.application.ports.upload_publications import (
+from kronika.application.ports.upload_publications import (
     UploadCatalogInconsistencyError,
     UploadCatalogStateConflictError,
 )
-from framenest.application.upload_catalog import (
+from kronika.application.upload_catalog import (
     CatalogPublishedUpload,
     CatalogUploadClassification,
     UploadCatalogInfrastructureError,
 )
-from framenest.domain.identities import LibraryId, MediaByteIdentityId, MediaId, MediaLocationId
-from framenest.domain.media import (
+from kronika.domain.identities import LibraryId, MediaByteIdentityId, MediaId, MediaLocationId
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
     MediaLocationAvailability,
     MediaRelativePath,
 )
-from framenest.domain.media_classification import (
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     MovieGenre,
 )
-from framenest.domain.media_metadata import (
+from kronika.domain.media_metadata import (
     CanonicalTagKey,
     MediaDescription,
     MediaDisplayTitle,
     MediaMetadata,
 )
-from framenest.domain.upload_publications import (
+from kronika.domain.upload_publications import (
     UploadPublicationCleanupState,
     UploadPublicationState,
     new_upload_publication_reservation,
 )
-from framenest.domain.uploads import (
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadSession,
     UploadSessionId,
@@ -50,7 +50,7 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.persistence.catalog_schema import (
+from kronika.infrastructure.persistence.catalog_schema import (
     canonical_tags,
     devices,
     libraries,
@@ -63,11 +63,11 @@ from framenest.infrastructure.persistence.catalog_schema import (
     physical_media_locations,
     upload_sessions,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.upload_publication_repository import (
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.upload_publication_repository import (
     SqliteUploadPublicationRepository,
 )
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 

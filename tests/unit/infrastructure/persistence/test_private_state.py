@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.infrastructure.persistence.private_state import (
+from kronika.infrastructure.persistence.private_state import (
     PrivateCatalogError,
     prepare_readonly_catalog,
     prepare_writable_catalog,

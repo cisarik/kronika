@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _migrated_database(path: Path) -> Path:
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 
@@ -25,7 +25,7 @@ def _manifest(bundle: Path) -> dict[str, object]:
 
 
 def test_create_catalog_backup_from_migrated_database(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup
 
     database_path = _migrated_database(tmp_path / "source" / "catalog.sqlite3")
     bundle = tmp_path / "backup"
@@ -46,7 +46,7 @@ def test_create_catalog_backup_from_migrated_database(tmp_path: Path) -> None:
 
 
 def test_create_uses_sqlite_snapshot_while_source_connection_is_open(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup
 
     database_path = _migrated_database(tmp_path / "catalog.sqlite3")
     with sqlite3.connect(database_path) as connection:
@@ -58,7 +58,7 @@ def test_create_uses_sqlite_snapshot_while_source_connection_is_open(tmp_path: P
 
 
 def test_create_does_not_mutate_source_database(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup, sha256_file
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup, sha256_file
 
     database_path = _migrated_database(tmp_path / "catalog.sqlite3")
     before = sha256_file(database_path)
@@ -69,7 +69,7 @@ def test_create_does_not_mutate_source_database(tmp_path: Path) -> None:
 
 
 def test_create_refuses_existing_output_and_unsafe_source(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
 
     database_path = _migrated_database(tmp_path / "catalog.sqlite3")
     bundle = tmp_path / "bundle"
@@ -91,8 +91,8 @@ def test_create_refuses_existing_output_and_unsafe_source(tmp_path: Path) -> Non
 
 
 def test_create_cleans_temporary_state_after_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.infrastructure.persistence import catalog_backup as catalog
-    from framenest.infrastructure.persistence.catalog_backup import BackupError
+    from kronika.infrastructure.persistence import catalog_backup as catalog
+    from kronika.infrastructure.persistence.catalog_backup import BackupError
 
     database_path = _migrated_database(tmp_path / "catalog.sqlite3")
 
@@ -116,8 +116,8 @@ def test_create_cleans_temporary_state_after_failure(tmp_path: Path, monkeypatch
 
 
 def test_create_refuses_output_created_after_absence_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.infrastructure.persistence import catalog_backup as catalog
-    from framenest.infrastructure.persistence.catalog_backup import BackupError
+    from kronika.infrastructure.persistence import catalog_backup as catalog
+    from kronika.infrastructure.persistence.catalog_backup import BackupError
 
     database_path = _migrated_database(tmp_path / "catalog.sqlite3")
     bundle = tmp_path / "bundle"
@@ -145,7 +145,7 @@ def test_create_refuses_output_created_after_absence_check(tmp_path: Path, monke
 
 
 def test_verify_accepts_intact_bundle_and_rejects_tampering(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -162,7 +162,7 @@ def test_verify_accepts_intact_bundle_and_rejects_tampering(tmp_path: Path) -> N
 
 
 def test_verify_rejects_malformed_manifest_unsupported_version_and_symlink(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -181,7 +181,7 @@ def test_verify_rejects_malformed_manifest_unsupported_version_and_symlink(tmp_p
 
 
 def test_verify_rejects_missing_catalog_catalog_symlink_and_incomplete_state(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -213,7 +213,7 @@ def test_verify_rejects_missing_catalog_catalog_symlink_and_incomplete_state(tmp
     ],
 )
 def test_verify_rejects_unexpected_bundle_entries(tmp_path: Path, name: str, kind: str) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -230,7 +230,7 @@ def test_verify_rejects_unexpected_bundle_entries(tmp_path: Path, name: str, kin
 
 
 def test_manifest_rejects_unexpected_secret_shaped_fields_and_excludes_non_catalog_state(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -271,7 +271,7 @@ def test_manifest_rejects_noncanonical_or_unsafe_metadata(
     mutator: object,
     message: str,
 ) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -285,7 +285,7 @@ def test_manifest_rejects_noncanonical_or_unsafe_metadata(
 
 
 def test_verify_rejects_revision_mismatch_and_corrupt_sqlite(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, verify_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -311,7 +311,7 @@ def test_verify_rejects_revision_mismatch_and_corrupt_sqlite(tmp_path: Path) -> 
 
 
 def test_restore_verified_bundle_to_new_destination(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import (
+    from kronika.infrastructure.persistence.catalog_backup import (
         create_catalog_backup,
         restore_catalog_backup,
         sha256_file,
@@ -338,7 +338,7 @@ def test_restore_verified_bundle_to_new_destination(tmp_path: Path) -> None:
     assert list(destination.parent.iterdir()) == [destination]
 
 def test_restore_refuses_existing_or_symlink_destination_and_leaves_bundle_read_only(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, restore_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup, restore_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -363,8 +363,8 @@ def test_restore_cleans_temporary_destination_after_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.infrastructure.persistence import catalog_backup as catalog
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
+    from kronika.infrastructure.persistence import catalog_backup as catalog
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -389,8 +389,8 @@ def test_restore_cleans_temporary_destination_after_failure(
 
 
 def test_restore_refuses_destination_created_after_absence_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.infrastructure.persistence import catalog_backup as catalog
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
+    from kronika.infrastructure.persistence import catalog_backup as catalog
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
 
     bundle = tmp_path / "bundle"
     create_catalog_backup(_migrated_database(tmp_path / "catalog.sqlite3"), bundle)
@@ -412,7 +412,7 @@ def test_restore_refuses_destination_created_after_absence_check(tmp_path: Path,
 
 
 def test_create_verify_and_restore_handle_sqlite_paths_with_uri_reserved_characters(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup, restore_catalog_backup, verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup, restore_catalog_backup, verify_catalog_backup
 
     database_path = _migrated_database(tmp_path / "space ? # percent% literal%2F" / "catalog ?.sqlite3")
     bundle = tmp_path / "backup ? # percent%"
@@ -434,8 +434,8 @@ def test_create_fails_if_private_permissions_cannot_be_set_where_supported(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.infrastructure.persistence import catalog_backup as catalog
-    from framenest.infrastructure.persistence.catalog_backup import BackupError
+    from kronika.infrastructure.persistence import catalog_backup as catalog
+    from kronika.infrastructure.persistence.catalog_backup import BackupError
 
     if os.name == "nt":
         pytest.skip("POSIX chmod failure handling is not portable to Windows")
@@ -458,8 +458,8 @@ def test_restore_fails_if_private_permissions_cannot_be_set_where_supported(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.infrastructure.persistence import catalog_backup as catalog
-    from framenest.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
+    from kronika.infrastructure.persistence import catalog_backup as catalog
+    from kronika.infrastructure.persistence.catalog_backup import BackupError, create_catalog_backup
 
     if os.name == "nt":
         pytest.skip("POSIX chmod failure handling is not portable to Windows")
@@ -480,7 +480,7 @@ def test_restore_fails_if_private_permissions_cannot_be_set_where_supported(
 
 
 def test_restrictive_file_permissions_where_supported(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup, restore_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup, restore_catalog_backup
 
     if os.name == "nt":
         pytest.skip("POSIX permission bits are not portable to Windows")
@@ -499,7 +499,7 @@ def test_restrictive_file_permissions_where_supported(tmp_path: Path) -> None:
 def test_backup_preserves_cover_rows_while_artifacts_remain_outside_bundle(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import (
+    from kronika.infrastructure.persistence.catalog_backup import (
         create_catalog_backup,
         restore_catalog_backup,
     )
@@ -553,19 +553,19 @@ def test_backup_preserves_cover_rows_while_artifacts_remain_outside_bundle(
 def test_backup_restore_preserves_documents_projections_and_private_modes(
     tmp_path: Path,
 ) -> None:
-    from framenest.application.records import RecordService
-    from framenest.domain.identity_access import ROLE_ADMIN, ROLE_USER
-    from framenest.domain.records import CompletedDocument, DocumentId, RecordKind
-    from framenest.domain.research import CompletionEvidence
-    from framenest.infrastructure.persistence.catalog_backup import (
+    from kronika.application.records import RecordService
+    from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
+    from kronika.domain.records import CompletedDocument, DocumentId, RecordKind
+    from kronika.domain.research import CompletionEvidence
+    from kronika.infrastructure.persistence.catalog_backup import (
         create_catalog_backup,
         restore_catalog_backup,
     )
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.record_repository import (
+    from kronika.infrastructure.persistence.record_repository import (
         SqliteRecordRepository,
     )
     from tests.support.record_access import synthetic_identity

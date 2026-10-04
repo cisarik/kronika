@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from framenest.application.companion_review import (
+from kronika.application.companion_review import (
     CanonicalTagView,
     CompanionReviewCodecError,
     CompanionReviewQueryError,
@@ -22,7 +22,7 @@ from framenest.application.companion_review import (
     pending_inbox_title,
     validate_companion_review_apply_request,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     FrameNestMediaSuggestionError,
     MediaSuggestion,
     PROMPT_VERSION,

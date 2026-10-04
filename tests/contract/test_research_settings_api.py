@@ -9,22 +9,22 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.ai_admin_api import (
+from kronika.adapters.api.ai_admin_api import (
     AiAdminApiDependencies,
     create_ai_admin_api_router,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_ADMIN, ROLE_USER
-from framenest.infrastructure.ai.configuration import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
+from kronika.infrastructure.ai.configuration import (
     AiServerConfig,
     load_ai_server_config,
     load_ai_server_config_snapshot,
     write_ai_server_config,
 )
-from framenest.infrastructure.ai.research_configuration import (
+from kronika.infrastructure.ai.research_configuration import (
     default_research_configuration,
 )
-from framenest.infrastructure.ai.registry import DynamicAiProviderResolver
+from kronika.infrastructure.ai.registry import DynamicAiProviderResolver
 from tests.support.record_access import install_synthetic_caller
 
 CREDENTIAL_ENV = "KRONIKA_RESEARCH_OPENAI_API_KEY"
@@ -33,8 +33,8 @@ ADMIN = "ada@example.com"
 USER = "bob@example.com"
 
 
-def _settings(tmp_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(
+def _settings(tmp_path: Path) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
@@ -294,7 +294,7 @@ def test_put_is_a_noop_result_when_nothing_changes(
 def test_research_save_preserves_media_configuration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from framenest.infrastructure.ai.provider_records import (
+    from kronika.infrastructure.ai.provider_records import (
         AiProviderModel,
         AiProviderRecord,
     )
@@ -354,7 +354,7 @@ def test_expired_model_cannot_be_enabled(
 ) -> None:
     client, config_path = _client(tmp_path, monkeypatch, seed=True)
     monkeypatch.setattr(
-        "framenest.adapters.api.ai_admin_api.now_ms",
+        "kronika.adapters.api.ai_admin_api.now_ms",
         lambda: 1_900_000_000_000,
     )
     revision = load_ai_server_config_snapshot(config_path).revision

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     MediaRelativePath,
     PreparedAnalysisResult,
     PrepareLocalMediaAnalysis,
@@ -18,9 +18,9 @@ from framenest.application.media_analysis import (
     build_representative_frame,
     PNG_SIGNATURE,
 )
-from framenest.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.infrastructure.media_analysis.adapter import LocalMediaAnalysisAdapter
-from framenest.infrastructure.media_analysis.process import ProcessRunResult
+from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.infrastructure.media_analysis.adapter import LocalMediaAnalysisAdapter
+from kronika.infrastructure.media_analysis.process import ProcessRunResult
 
 _VALID_PNG = PNG_SIGNATURE + b"png"
 

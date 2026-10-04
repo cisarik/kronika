@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from framenest.domain import (
+from kronika.domain import (
     DeviceId,
     FrameNestLibraryError,
     FrameNestLibraryRootError,
@@ -21,7 +21,7 @@ from framenest.domain import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-LIBRARIES_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "domain" / "libraries.py"
+LIBRARIES_MODULE = REPOSITORY_ROOT / "src" / "kronika" / "domain" / "libraries.py"
 INVALID_LIBRARY_MESSAGE = "Invalid Kronika library."
 INVALID_ROOT_MESSAGE = "Invalid Kronika library root."
 SECRET_REJECTED_PATH = "/secret/rejected/path"
@@ -205,10 +205,10 @@ def test_domain_libraries_module_imports_no_infrastructure_or_framework() -> Non
         "starlette",
         "uvicorn",
         "os",
-        "framenest.infrastructure",
-        "framenest.application",
-        "framenest.adapters",
-        "framenest.configuration",
+        "kronika.infrastructure",
+        "kronika.application",
+        "kronika.adapters",
+        "kronika.configuration",
     }
     violations: list[str] = []
     for node in ast.walk(tree):
@@ -222,10 +222,10 @@ def test_domain_libraries_module_imports_no_infrastructure_or_framework() -> Non
         if root in forbidden_roots or any(
             module.startswith(prefix)
             for prefix in (
-                "framenest.infrastructure",
-                "framenest.application",
-                "framenest.adapters",
-                "framenest.configuration",
+                "kronika.infrastructure",
+                "kronika.application",
+                "kronika.adapters",
+                "kronika.configuration",
             )
         ):
             violations.append(module)

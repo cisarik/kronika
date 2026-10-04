@@ -7,13 +7,13 @@ import zipfile
 
 import pytest
 
-from framenest.infrastructure.ai.chatgpt_page.archive import (
+from kronika.infrastructure.ai.chatgpt_page.archive import (
     frame_name,
     pack_frames,
     zip_overhead,
     zip_overhead_for_count,
 )
-from framenest.infrastructure.ai.chatgpt_page.errors import BoundedPreparationError
+from kronika.infrastructure.ai.chatgpt_page.errors import BoundedPreparationError
 
 
 def test_overhead_matches_the_fixed_formula() -> None:

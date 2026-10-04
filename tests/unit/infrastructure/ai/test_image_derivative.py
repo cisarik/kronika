@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageCms, PngImagePlugin
 
-from framenest.application.media_analysis import build_representative_frame
-from framenest.infrastructure.ai.image_derivative import (
+from kronika.application.media_analysis import build_representative_frame
+from kronika.infrastructure.ai.image_derivative import (
     FrameNestImageDerivativeError,
     JPEG_SOI,
     JPEG_EOI,
@@ -106,7 +106,7 @@ def test_malformed_or_non_png_input_is_rejected(payload: bytes) -> None:
 
 def test_oversized_output_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = build_representative_frame(timestamp_ms=100, payload=_png_bytes((640, 360)))
-    monkeypatch.setattr("framenest.infrastructure.ai.image_derivative.VLM_JPEG_MAX_BYTES", 1)
+    monkeypatch.setattr("kronika.infrastructure.ai.image_derivative.VLM_JPEG_MAX_BYTES", 1)
 
     with pytest.raises(FrameNestImageDerivativeError):
         PillowVlmImageDerivativeEncoder().encode_frame(frame)

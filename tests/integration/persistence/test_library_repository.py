@@ -9,13 +9,13 @@ import sqlalchemy as sa
 from sqlalchemy import insert, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from framenest.application.ports.library_repository import (
+from kronika.application.ports.library_repository import (
     FrameNestLibraryRepositoryError,
     LibraryAlreadyExistsError,
     LibraryDeviceNotFoundError,
     LibraryRootAlreadyRegisteredError,
 )
-from framenest.domain import (
+from kronika.domain import (
     Device,
     DeviceId,
     Library,
@@ -23,7 +23,7 @@ from framenest.domain import (
     LibraryPathFlavor,
     LibraryRoot,
 )
-from framenest.infrastructure.persistence.catalog_schema import libraries
+from kronika.infrastructure.persistence.catalog_schema import libraries
 
 CANONICAL_UUID4_TEXT = "12345678-1234-4234-9234-123456789abc"
 SECOND_CANONICAL_UUID4_TEXT = "abcdefab-cdef-4abc-8def-abcdefabcdef"
@@ -32,18 +32,18 @@ PRIVATE_DISPLAY_NAME = "secret-library-name"
 
 
 def _migrated_engine(tmp_path: Path) -> sa.Engine:
-    from framenest.configuration import FrameNestSettings
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.configuration import KronikaSettings
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     database_path = tmp_path / "library-registry.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     return create_sqlite_engine(database_path)
 
 
 def _repository(tmp_path: Path):
-    from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-    from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
+    from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+    from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
 
     engine = _migrated_engine(tmp_path)
     return SqliteLibraryRepository(engine), SqliteDeviceRepository(engine), engine
@@ -239,7 +239,7 @@ def test_malformed_stored_record_raises_sanitized_repository_error(tmp_path: Pat
 
 
 def test_transaction_failure_rolls_back(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import run_in_transaction
+    from kronika.infrastructure.persistence.engine import run_in_transaction
 
     repository, device_repository, engine = _repository(tmp_path)
     device = _register_device(device_repository)

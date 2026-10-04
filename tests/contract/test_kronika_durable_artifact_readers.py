@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 PRIMARY_APPLICATION_NAME = "kronika"
 COMPATIBLE_APPLICATION_NAME = "framenest"
@@ -30,7 +30,7 @@ LIBRARY_ID_TEXT = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 
 def _migrated_database(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 
@@ -40,7 +40,7 @@ def _migrated_database(path: Path) -> Path:
 
 
 def _backup_bundle(tmp_path: Path) -> Path:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup
 
     database_path = _migrated_database(tmp_path / "source" / "catalog.sqlite3")
     bundle = tmp_path / "backup"
@@ -66,7 +66,7 @@ def test_backup_manifest_writer_keeps_the_former_application_name(tmp_path: Path
 
 
 def test_old_name_backup_manifest_still_verifies(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import verify_catalog_backup
 
     bundle = _backup_bundle(tmp_path)
     _rewrite_manifest_name(bundle, COMPATIBLE_APPLICATION_NAME)
@@ -77,7 +77,7 @@ def test_old_name_backup_manifest_still_verifies(tmp_path: Path) -> None:
 
 
 def test_new_name_backup_manifest_also_verifies(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import verify_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import verify_catalog_backup
 
     bundle = _backup_bundle(tmp_path)
     _rewrite_manifest_name(bundle, PRIMARY_APPLICATION_NAME)
@@ -88,7 +88,7 @@ def test_new_name_backup_manifest_also_verifies(tmp_path: Path) -> None:
 
 
 def test_an_unrelated_application_name_still_fails_closed(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import (
+    from kronika.infrastructure.persistence.catalog_backup import (
         BackupError,
         verify_catalog_backup,
     )
@@ -103,7 +103,7 @@ def test_an_unrelated_application_name_still_fails_closed(tmp_path: Path) -> Non
 
 
 def test_backup_manifest_keeps_its_closed_field_set(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup import (
+    from kronika.infrastructure.persistence.catalog_backup import (
         BackupError,
         verify_catalog_backup,
     )
@@ -128,12 +128,12 @@ def test_backup_manifest_keeps_its_closed_field_set(tmp_path: Path) -> None:
 
 
 def test_sidecar_writer_keeps_the_former_format_and_suffix() -> None:
-    from framenest.application.ports.media_sidecar_store import (
+    from kronika.application.ports.media_sidecar_store import (
         SIDECAR_FILENAME_SUFFIX,
         sidecar_filename,
     )
-    from framenest.domain.media import MediaRelativePath
-    from framenest.domain.media_sidecar import SIDECAR_FORMAT
+    from kronika.domain.media import MediaRelativePath
+    from kronika.domain.media_sidecar import SIDECAR_FORMAT
 
     assert SIDECAR_FORMAT == COMPATIBLE_SIDECAR_FORMAT
     assert SIDECAR_FILENAME_SUFFIX == ".framenest.json"
@@ -142,7 +142,7 @@ def test_sidecar_writer_keeps_the_former_format_and_suffix() -> None:
 
 @pytest.mark.parametrize("spelling", [COMPATIBLE_SIDECAR_FORMAT, PRIMARY_SIDECAR_FORMAT])
 def test_sidecar_reader_accepts_both_format_spellings(spelling: str) -> None:
-    from framenest.domain.media_sidecar import decode_media_sidecar
+    from kronika.domain.media_sidecar import decode_media_sidecar
 
     payload = _sample_sidecar_payload()
     payload["format"] = spelling
@@ -156,7 +156,7 @@ def test_sidecar_reader_accepts_both_format_spellings(spelling: str) -> None:
 
 
 def test_sidecar_reader_still_rejects_an_unknown_format() -> None:
-    from framenest.domain.media_sidecar import (
+    from kronika.domain.media_sidecar import (
         FrameNestMediaSidecarError,
         decode_media_sidecar,
     )
@@ -173,14 +173,14 @@ def test_sidecar_reader_still_rejects_an_unknown_format() -> None:
 
 
 def test_sidecar_store_observes_both_filename_spellings(tmp_path: Path) -> None:
-    from framenest.application.ports.media_sidecar_store import (
+    from kronika.application.ports.media_sidecar_store import (
         COMPATIBLE_SIDECAR_FILENAME_SUFFIX,
         SIDECAR_FILENAME_SUFFIX,
         sidecar_filename,
     )
-    from framenest.domain.libraries import LibraryPathFlavor, LibraryRoot
-    from framenest.domain.media import MediaRelativePath
-    from framenest.infrastructure.filesystem.media_sidecar import (
+    from kronika.domain.libraries import LibraryPathFlavor, LibraryRoot
+    from kronika.domain.media import MediaRelativePath
+    from kronika.infrastructure.filesystem.media_sidecar import (
         FilesystemMediaSidecarStore,
     )
 
@@ -203,10 +203,10 @@ def test_sidecar_store_observes_both_filename_spellings(tmp_path: Path) -> None:
 
 
 def test_sidecar_store_reports_missing_when_no_accepted_name_exists(tmp_path: Path) -> None:
-    from framenest.application.ports.media_sidecar_store import SidecarTargetKind
-    from framenest.domain.libraries import LibraryPathFlavor, LibraryRoot
-    from framenest.domain.media import MediaRelativePath
-    from framenest.infrastructure.filesystem.media_sidecar import (
+    from kronika.application.ports.media_sidecar_store import SidecarTargetKind
+    from kronika.domain.libraries import LibraryPathFlavor, LibraryRoot
+    from kronika.domain.media import MediaRelativePath
+    from kronika.infrastructure.filesystem.media_sidecar import (
         FilesystemMediaSidecarStore,
     )
 
@@ -220,10 +220,10 @@ def test_sidecar_store_reports_missing_when_no_accepted_name_exists(tmp_path: Pa
 
 
 def encode_sample_sidecar() -> bytes:
-    from framenest.domain.identities import LibraryId, MediaId, MediaLocationId
-    from framenest.domain.media import MediaKind, MediaRelativePath
-    from framenest.domain.media_classification import AcquisitionSource, ContentCategory
-    from framenest.domain.media_sidecar import (
+    from kronika.domain.identities import LibraryId, MediaId, MediaLocationId
+    from kronika.domain.media import MediaKind, MediaRelativePath
+    from kronika.domain.media_classification import AcquisitionSource, ContentCategory
+    from kronika.domain.media_sidecar import (
         SidecarDocument,
         SidecarLocation,
         encode_media_sidecar,
@@ -271,7 +271,7 @@ def _test_rename_noreplace(source: Path, destination: Path) -> None:
 
 
 def _offdevice_hooks(destination_root: Path, *, is_mountpoint: bool = True):
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import OffdeviceOsHooks
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import OffdeviceOsHooks
 
     resolved = destination_root.resolve()
 
@@ -292,7 +292,7 @@ def _offdevice_hooks(destination_root: Path, *, is_mountpoint: bool = True):
 
 
 def _offdevice_root(tmp_path: Path, *, marker_name: str, purpose: str) -> Path:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import BUNDLES_DIRNAME
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import BUNDLES_DIRNAME
 
     root = tmp_path / f"offdevice-{marker_name}"
     root.mkdir()
@@ -309,7 +309,7 @@ def _offdevice_root(tmp_path: Path, *, marker_name: str, purpose: str) -> Path:
 
 
 def test_offdevice_marker_writer_keeps_the_former_spelling() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         COMPATIBLE_MARKER_NAME,
         COMPATIBLE_MARKER_PURPOSE,
         MARKER_NAME,
@@ -334,7 +334,7 @@ def test_offdevice_marker_reader_accepts_both_spellings(
     marker_name: str,
     purpose: str,
 ) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         validate_offdevice_destination,
     )
 
@@ -353,7 +353,7 @@ def test_offdevice_marker_reader_accepts_both_spellings(
 
 
 def test_offdevice_marker_reader_still_rejects_an_unknown_purpose(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -378,7 +378,7 @@ def test_offdevice_marker_reader_still_rejects_an_unknown_purpose(tmp_path: Path
 
 
 def test_offdevice_marker_reader_fails_closed_on_an_unsafe_accepted_name(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_offdevice import (
+    from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         OffdeviceError,
         validate_offdevice_destination,
     )
@@ -410,7 +410,7 @@ def test_offdevice_marker_reader_fails_closed_on_an_unsafe_accepted_name(tmp_pat
 
 
 def _workstation_hooks(mount_root: Path):
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationOsHooks,
     )
 
@@ -440,7 +440,7 @@ def _workstation_mount(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def test_workstation_marker_writer_keeps_the_former_spelling() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         COMPATIBLE_MARKER_NAME,
         COMPATIBLE_MARKER_PURPOSE,
         COMPATIBLE_SNAPSHOT_PURPOSE,
@@ -469,7 +469,7 @@ def test_workstation_marker_reader_accepts_both_spellings(
     marker_name: str,
     purpose: str,
 ) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         validate_workstation_store,
     )
 
@@ -494,7 +494,7 @@ def test_workstation_marker_reader_accepts_both_spellings(
 
 
 def test_workstation_marker_reader_still_rejects_an_unknown_purpose(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         WorkstationError,
         validate_workstation_store,
     )
@@ -521,7 +521,7 @@ def test_workstation_marker_reader_still_rejects_an_unknown_purpose(tmp_path: Pa
 
 
 def test_workstation_store_init_accepts_a_marker_under_the_new_spelling(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_workstation import (
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
         init_workstation_store,
     )
 

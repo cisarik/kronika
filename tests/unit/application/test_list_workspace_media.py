@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.application.ports.media_attribution import WorkspaceMediaPage
-from framenest.application.workspace_media import (
+from kronika.application.ports.media_attribution import WorkspaceMediaPage
+from kronika.application.workspace_media import (
     ListWorkspaceMedia,
     WorkspaceMediaValidationError,
 )

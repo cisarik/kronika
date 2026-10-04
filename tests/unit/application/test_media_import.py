@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.library_scan import (
+from kronika.application.library_scan import (
     LibraryFilesystemScanResult,
     LibraryScanCandidate,
     LibraryScanCandidateKind,
@@ -16,11 +16,11 @@ from framenest.application.library_scan import (
     LibraryScanSummary,
     default_scan_limits,
 )
-from framenest.application.media_import import (
+from kronika.application.media_import import (
     ImportMediaFromScanCandidate,
     MediaImportCandidateUnavailableError,
 )
-from framenest.domain import (
+from kronika.domain import (
     DeviceId,
     Library,
     LibraryId,
@@ -29,7 +29,7 @@ from framenest.domain import (
     MediaId,
     MediaLocationId,
 )
-from framenest.domain.media import (
+from kronika.domain.media import (
     LogicalMedia,
     MediaKind,
     MediaLocation,
@@ -38,7 +38,7 @@ from framenest.domain.media import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-APPLICATION_IMPORT = REPOSITORY_ROOT / "src" / "framenest" / "application" / "media_import.py"
+APPLICATION_IMPORT = REPOSITORY_ROOT / "src" / "kronika" / "application" / "media_import.py"
 CANONICAL_MEDIA_ID = MediaId.from_string("11111111-2222-4333-8444-555555555555")
 CANONICAL_LOCATION_ID = MediaLocationId.from_string("22222222-3333-4444-8555-666666666666")
 
@@ -264,10 +264,10 @@ def test_import_module_imports_no_infrastructure_or_media_tools() -> None:
     tree = ast.parse(APPLICATION_IMPORT.read_text(encoding="utf-8"), filename=str(APPLICATION_IMPORT))
     violations: list[str] = []
     forbidden_roots = {
-        "framenest.infrastructure",
-        "framenest.adapters",
-        "framenest.infrastructure.media_analysis",
-        "framenest.infrastructure.ai",
+        "kronika.infrastructure",
+        "kronika.adapters",
+        "kronika.infrastructure.media_analysis",
+        "kronika.infrastructure.ai",
     }
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

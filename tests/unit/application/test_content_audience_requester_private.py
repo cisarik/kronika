@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from framenest.application.content_publication import ContentAudiencePolicy
-from framenest.domain.identities import MediaId
-from framenest.domain.identity_access import (
+from kronika.application.content_publication import ContentAudiencePolicy
+from kronika.domain.identities import MediaId
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,

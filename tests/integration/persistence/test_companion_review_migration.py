@@ -21,18 +21,18 @@ RESULT_JSON = (
 
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         dispose_engine,
     )
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -119,10 +119,10 @@ def _seed_populated_0030(database_path: Path) -> None:
 
 
 def test_head_is_0034() -> None:
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     with _alembic_config(
-        "framenest.infrastructure.persistence.alembic_environment"
+        "kronika.infrastructure.persistence.alembic_environment"
     ) as config:
         from alembic.script import ScriptDirectory
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from framenest.infrastructure.ai.configuration import (
+from kronika.infrastructure.ai.configuration import (
     AiConfigConflictError,
     AiConfigurationError,
     AiServerConfig,
@@ -26,12 +26,12 @@ from framenest.infrastructure.ai.configuration import (
     write_ai_server_config,
     write_ai_test_state,
 )
-from framenest.infrastructure.ai.constants import VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID
-from framenest.infrastructure.ai.provider_records import (
+from kronika.infrastructure.ai.constants import VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID
+from kronika.infrastructure.ai.provider_records import (
     AiProviderModel,
     AiProviderRecord,
 )
-from framenest.infrastructure.ai.research_configuration import (
+from kronika.infrastructure.ai.research_configuration import (
     default_research_configuration,
     serialize_research_configuration,
 )

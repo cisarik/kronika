@@ -10,8 +10,8 @@ import stat
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-backup"
@@ -23,7 +23,7 @@ BACKUP_DOC = REPOSITORY_ROOT / "docs" / "BACKUP_AND_RECOVERY.md"
 
 def _ops_env(tmp_path: Path) -> dict[str, str]:
     db = tmp_path / "catalog.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=db, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=db, _env_file=None))
     return {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(tmp_path),
@@ -134,7 +134,7 @@ def test_recovery_cli_surface_limited(tmp_path: Path) -> None:
 
 
 def test_root_launcher_exposes_recovery_route() -> None:
-    launcher = (REPOSITORY_ROOT / "framenest").read_text(encoding="utf-8")
+    launcher = (REPOSITORY_ROOT / "kronika").read_text(encoding="utf-8")
     assert "recovery_controller" in launcher
     assert "case recovery" in launcher
     assert "export-latest" in launcher

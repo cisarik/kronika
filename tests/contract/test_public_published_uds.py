@@ -13,30 +13,30 @@ from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Route
 
-from framenest.adapters.api import public_published_api as public_published_api_module
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.public_published_api import (
+from kronika.adapters.api import public_published_api as public_published_api_module
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.public_published_api import (
     PublicPublishedApiDependencies,
     create_public_published_api_router,
 )
-from framenest.adapters.api.public_published_application import (
+from kronika.adapters.api.public_published_application import (
     PublicPublishedStartupError,
     REQUIRED_PUBLIC_SCHEMA_REVISION,
     create_public_published_app,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import MediaId
-from framenest.infrastructure.persistence.content_publication_repository import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import MediaId
+from kronika.infrastructure.persistence.content_publication_repository import (
     SqliteContentPublicationRepository,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     create_sqlite_readonly_engine,
     dispose_engine,
 )
-from framenest.infrastructure.persistence.errors import FrameNestPersistenceError
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.structured_logging import (
+from kronika.infrastructure.persistence.errors import FrameNestPersistenceError
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.structured_logging import (
     FrameNestJsonFormatter,
     FrameNestRedactionFilter,
 )
@@ -123,8 +123,8 @@ WORKSPACE_ROUTER_MARKERS = (
 )
 
 
-def _settings(tmp_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(
+def _settings(tmp_path: Path) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -135,7 +135,7 @@ def _settings(tmp_path: Path) -> FrameNestSettings:
     )
 
 
-def _seed(settings: FrameNestSettings, library_root: Path) -> None:
+def _seed(settings: KronikaSettings, library_root: Path) -> None:
     library_root.mkdir()
     (library_root / "clip.gif").write_bytes(b"GIF89a" + b"\x00" * 32)
     (library_root / "still.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
@@ -464,7 +464,7 @@ def test_fail_closed_startup_on_missing_or_unmigrated_catalog(tmp_path: Path) ->
 
 
 def test_readonly_engine_rejects_writes(tmp_path: Path) -> None:
-    settings = FrameNestSettings(database_path=tmp_path / "catalog.sqlite3", _env_file=None)
+    settings = KronikaSettings(database_path=tmp_path / "catalog.sqlite3", _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_readonly_engine(settings.database_path)
     try:
@@ -484,7 +484,7 @@ def test_readonly_engine_rejects_writes(tmp_path: Path) -> None:
 
 
 def test_public_modules_do_not_import_workspace_routers() -> None:
-    root = Path(__file__).resolve().parents[2] / "src/framenest/adapters/api"
+    root = Path(__file__).resolve().parents[2] / "src/kronika/adapters/api"
     sources = [
         (root / "public_published_application.py").read_text(encoding="utf-8"),
         (root / "public_published_api.py").read_text(encoding="utf-8"),
@@ -503,7 +503,7 @@ def test_public_modules_do_not_import_workspace_routers() -> None:
 
 
 def test_workspace_tcp_audience_bootstrap_is_trusted_loopback() -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=Path("/tmp/framenest-public-audience-tcp.sqlite3"),
         _env_file=None,
     )
@@ -573,7 +573,7 @@ def test_startup_fails_closed_when_companion_marker_missing(
     monkeypatch.setattr(
         public_published_api_module, "_read_web_resource", lambda name: b"<html></html>"
     )
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",

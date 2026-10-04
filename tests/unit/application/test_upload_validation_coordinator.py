@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.upload_transport import UploadSessionLockRegistry
-from framenest.application.upload_validation import UploadValidationResult
-from framenest.application.upload_validation_coordinator import UploadValidationCoordinator
-from framenest.application.in_process_lifecycle import ShutdownDeadline
-from framenest.domain.uploads import (
+from kronika.application.upload_transport import UploadSessionLockRegistry
+from kronika.application.upload_validation import UploadValidationResult
+from kronika.application.upload_validation_coordinator import UploadValidationCoordinator
+from kronika.application.in_process_lifecycle import ShutdownDeadline
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadSession,
     UploadSessionId,
@@ -100,7 +100,7 @@ class _CursorRepository:
         self.startup_calls += 1
         if self.fail_startup_once:
             self.fail_startup_once = False
-            from framenest.application.ports.upload_sessions import (
+            from kronika.application.ports.upload_sessions import (
                 FrameNestUploadSessionRepositoryError,
             )
 
@@ -123,7 +123,7 @@ class _CursorRepository:
         self.runtime_calls += 1
         if self.fail_runtime_once:
             self.fail_runtime_once = False
-            from framenest.application.ports.upload_sessions import (
+            from kronika.application.ports.upload_sessions import (
                 FrameNestUploadSessionRepositoryError,
             )
 
@@ -783,7 +783,7 @@ def test_unexpected_runner_death_is_observable_once_without_private_data(
         recorded.append(fields)
 
     monkeypatch.setattr(
-        "framenest.application.upload_validation_coordinator._safe_log",
+        "kronika.application.upload_validation_coordinator._safe_log",
         capture,
     )
 
@@ -820,7 +820,7 @@ def test_expected_shutdown_does_not_log_runner_death_as_error(
 ) -> None:
     recorded: list[dict[str, object]] = []
     monkeypatch.setattr(
-        "framenest.application.upload_validation_coordinator._safe_log",
+        "kronika.application.upload_validation_coordinator._safe_log",
         lambda **fields: recorded.append(fields),
     )
 

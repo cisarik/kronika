@@ -10,7 +10,7 @@ from threading import Barrier
 
 import pytest
 
-from framenest.application.upload_transport import (
+from kronika.application.upload_transport import (
     UPLOAD_FAILED_STORAGE_INCONSISTENT,
     UploadBodyLengthMismatchError,
     UploadCapabilityNotConfiguredError,
@@ -26,18 +26,18 @@ from framenest.application.upload_transport import (
     UploadTransportLimits,
     UploadTransportService,
 )
-from framenest.application.ports.quarantine_storage import (
+from kronika.application.ports.quarantine_storage import (
     QuarantineStateInconsistentError,
     QuarantineWriteFailedError,
 )
-from framenest.application.ports.upload_sessions import (
+from kronika.application.ports.upload_sessions import (
     FrameNestUploadSessionRepositoryError,
     UploadOffsetConflictError,
     UploadSessionConcurrencyConflictError,
 )
-from framenest.domain import Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.identities import DeviceId
-from framenest.domain.uploads import (
+from kronika.domain import Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.identities import DeviceId
+from kronika.domain.uploads import (
     UploadDuplicateDisposition,
     UploadDisplayFilename,
     UploadSession,
@@ -47,11 +47,11 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_session_repository import SqliteUploadSessionRepository
-from framenest.configuration import FrameNestSettings
+from kronika.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_session_repository import SqliteUploadSessionRepository
+from kronika.configuration import KronikaSettings
 
 
 class _LibraryRepository:
@@ -82,7 +82,7 @@ def _service(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir(parents=True, exist_ok=True)
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     service = UploadTransportService(
@@ -112,7 +112,7 @@ def _service_with(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir(parents=True, exist_ok=True)
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     upgrade_database_to_head(settings)
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
@@ -349,7 +349,7 @@ def test_create_rejects_unconfigured_oversize_and_overlapping_library_root(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "catalog.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     try:
         service = UploadTransportService(
@@ -375,7 +375,7 @@ def test_create_rejects_unconfigured_oversize_and_overlapping_library_root(
     database_path = overlap_root / "catalog.sqlite3"
     quarantine = overlap_root / "library" / "quarantine"
     quarantine.mkdir(parents=True)
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     library = Library(
         id=LibraryId.new(),
@@ -526,7 +526,7 @@ def test_duplicate_discard_deletion_failure_preserves_cancelled_fail_safe_state(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     repository = SqliteUploadSessionRepository(engine)
     canonical, duplicate = _create_duplicate_pair(repository, quarantine_root)
@@ -572,7 +572,7 @@ def test_concurrent_duplicate_keep_versus_discard_has_one_durable_winner(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     setup_engine = create_sqlite_engine(database_path)
     setup_repository = SqliteUploadSessionRepository(setup_engine)
     canonical, duplicate = _create_duplicate_pair(setup_repository, quarantine_root)
@@ -696,7 +696,7 @@ def test_repeated_duplicate_resolutions_survive_service_reconstruction(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine = tmp_path / "quarantine"
     quarantine.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     first_engine = create_sqlite_engine(database_path)
     first_repository = SqliteUploadSessionRepository(first_engine)
     _canonical, duplicate = _create_duplicate_pair(first_repository, quarantine)
@@ -886,7 +886,7 @@ def test_write_flush_and_repository_failures_keep_original_error_after_verified_
     repository_db = repository_root / "catalog.sqlite3"
     repository_quarantine = repository_root / "quarantine"
     repository_quarantine.mkdir(parents=True)
-    settings = FrameNestSettings(database_path=repository_db, _env_file=None)
+    settings = KronikaSettings(database_path=repository_db, _env_file=None)
     upgrade_database_to_head(settings)
     repository_engine = create_sqlite_engine(repository_db)
     inner_repository = SqliteUploadSessionRepository(repository_engine)
@@ -1011,7 +1011,7 @@ def test_unverified_rollback_still_returns_inconsistency_when_failed_state_canno
         rollback_truncate_fails=True,
     )
     database_path = tmp_path / "catalog.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     repository = FailTransitionRepository(SqliteUploadSessionRepository(engine))
     service = UploadTransportService(
@@ -1045,7 +1045,7 @@ def test_persisted_offset_advanced_during_repository_error_is_not_truncated(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
     repository = _AdvanceFailureRepository(
@@ -1098,7 +1098,7 @@ def test_advanced_offset_with_writer_close_failure_remains_resumable(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
     locks = UploadSessionLockRegistry()
@@ -1189,7 +1189,7 @@ def test_advanced_full_offset_can_complete_after_safe_conflict(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
     repository = _AdvanceFailureRepository(
@@ -1244,7 +1244,7 @@ def test_advanced_offset_file_ahead_is_reconciled_to_persisted_offset(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
 
@@ -1297,7 +1297,7 @@ def test_advanced_offset_file_ahead_reconciliation_failure_preserves_session(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
     storage = _FaultyStorage(
@@ -1353,7 +1353,7 @@ def test_advanced_offset_file_behind_fails_closed_without_lowering_offset(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
 
@@ -1437,7 +1437,7 @@ def test_advanced_offset_file_behind_failed_transition_conflict_is_sanitized(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     sqlite_repository = SqliteUploadSessionRepository(engine)
     guarded_repository = FailedTransitionConflictRepository(sqlite_repository)
@@ -1489,7 +1489,7 @@ def test_advanced_offset_file_size_inspection_failure_does_not_terminalize(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
     storage = _FaultyStorage(FilesystemQuarantineStorage(quarantine_root))
@@ -1540,7 +1540,7 @@ def test_advanced_offset_concurrent_state_change_is_not_overwritten(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     inner_repository = SqliteUploadSessionRepository(engine)
 
@@ -1779,7 +1779,7 @@ def test_expired_mutation_transitions_and_rejects(tmp_path: Path) -> None:
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     service = UploadTransportService(
         SqliteUploadSessionRepository(engine),

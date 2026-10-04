@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-from framenest.infrastructure.persistence.catalog_schema import x_post_claims
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.catalog_schema import x_post_claims
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
 )
@@ -17,14 +17,14 @@ from framenest.infrastructure.persistence.engine import (
 
 def _migrate(database_path: Path, revision: str, *, downgrade: bool = False) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 if downgrade:
@@ -83,10 +83,10 @@ def _seed_media_metadata_at_0027(database_path: Path) -> None:
 
 
 def test_head_is_0030() -> None:
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     with _alembic_config(
-        "framenest.infrastructure.persistence.alembic_environment"
+        "kronika.infrastructure.persistence.alembic_environment"
     ) as config:
         from alembic.script import ScriptDirectory
 

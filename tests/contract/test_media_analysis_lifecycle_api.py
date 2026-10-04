@@ -6,19 +6,19 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.library_api import LibraryApiDependencies
-from framenest.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
-from framenest.adapters.api.media_analysis_lifecycle_api import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.library_api import LibraryApiDependencies
+from kronika.adapters.api.media_analysis_api import MediaAnalysisApiDependencies
+from kronika.adapters.api.media_analysis_lifecycle_api import (
     MediaAnalysisLifecycleApiDependencies,
 )
-from framenest.adapters.api.media_suggestion_api import MediaSuggestionApiDependencies
-from framenest.application.media_analysis_lifecycle import (
+from kronika.adapters.api.media_suggestion_api import MediaSuggestionApiDependencies
+from kronika.application.media_analysis_lifecycle import (
     AutomaticAnalysisPublicView,
     ReadAutomaticMediaAnalysis,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import MediaId
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import MediaId
 
 CANONICAL_MEDIA_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 PRIVATE_PATH = "/Users/example/private/videos/secret.mp4"
@@ -43,7 +43,7 @@ def _record_policy():
 
 
 def _with_admin(app):
-    from framenest.domain.identity_access import ROLE_ADMIN
+    from kronika.domain.identity_access import ROLE_ADMIN
     from tests.support.record_access import install_synthetic_caller
 
     return install_synthetic_caller(app, "ada", role=ROLE_ADMIN)
@@ -51,7 +51,7 @@ def _with_admin(app):
 
 def _client(view: AutomaticAnalysisPublicView, *, enabled: bool = True) -> TestClient:
     reader = _FakeReadAnalysis(view)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=Path("/tmp/framenest-analysis-lifecycle-api.sqlite3"),
         automatic_media_analysis_enabled=enabled,
@@ -262,7 +262,7 @@ def test_analyzed_read_is_side_effect_free_and_does_not_schedule_provider_work()
             completed_at_ms=12,
         )
     )
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=Path("/tmp/framenest-analysis-lifecycle-api-side-effect.sqlite3"),
         automatic_media_analysis_enabled=True,
@@ -308,13 +308,13 @@ def test_manual_durable_analysis_request_requires_confirmation_and_schedules() -
     calls: list[tuple[MediaId, object]] = []
 
     def _request(media_id: MediaId, location_id: object) -> object:
-        from framenest.domain.media_analysis_runs import (
+        from kronika.domain.media_analysis_runs import (
             AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
             MediaAnalysisRun,
             MediaAnalysisRunId,
             MediaAnalysisRunState,
         )
-        from framenest.domain.identities import MediaLocationId
+        from kronika.domain.identities import MediaLocationId
 
         assert isinstance(location_id, MediaLocationId)
         calls.append((media_id, location_id))
@@ -339,7 +339,7 @@ def test_manual_durable_analysis_request_requires_confirmation_and_schedules() -
         )
 
     location_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=Path("/tmp/framenest-analysis-lifecycle-api-manual.sqlite3"),
         automatic_media_analysis_enabled=False,
@@ -421,13 +421,13 @@ class _ResolvedModel:
 def _manual_capability_client(
     read_provider: object,
 ) -> tuple[TestClient, list[object]]:
-    from framenest.domain.media_analysis_runs import (
+    from kronika.domain.media_analysis_runs import (
         AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
         MediaAnalysisRun,
         MediaAnalysisRunId,
         MediaAnalysisRunState,
     )
-    from framenest.domain.identities import MediaLocationId
+    from kronika.domain.identities import MediaLocationId
 
     calls: list[object] = []
 
@@ -454,7 +454,7 @@ def _manual_capability_client(
             version=1,
         )
 
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=Path("/tmp/framenest-analysis-lifecycle-capability.sqlite3"),
         automatic_media_analysis_enabled=False,
@@ -538,13 +538,13 @@ def test_manual_durable_analysis_accepts_vision_selected_model() -> None:
 
 
 def test_manual_durable_analysis_after_terminal_returns_new_pending_run() -> None:
-    from framenest.domain.media_analysis_runs import (
+    from kronika.domain.media_analysis_runs import (
         AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
         MediaAnalysisRun,
         MediaAnalysisRunId,
         MediaAnalysisRunState,
     )
-    from framenest.domain.identities import MediaLocationId
+    from kronika.domain.identities import MediaLocationId
 
     calls: list[str] = []
     prior = MediaAnalysisRunId("51c2f844-0240-4c26-8d6c-e185dd42332a")
@@ -574,7 +574,7 @@ def test_manual_durable_analysis_after_terminal_returns_new_pending_run() -> Non
         )
 
     location_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         database_path=Path("/tmp/framenest-analysis-lifecycle-api-rerun.sqlite3"),
         automatic_media_analysis_enabled=False,

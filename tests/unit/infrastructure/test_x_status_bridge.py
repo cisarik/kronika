@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from framenest.domain.x_acquisition import (
+from kronika.domain.x_acquisition import (
     XMediaType,
     X_VARIANT_ANIMATED_GIF_MP4,
     X_VARIANT_PHOTO_JPEG,
     X_VARIANT_PHOTO_PNG,
     X_VARIANT_VIDEO_MP4,
 )
-from framenest.infrastructure.x.status_bridge import (
+from kronika.infrastructure.x.status_bridge import (
     PINNED_YTDLP_VERSION,
     StatusBridgeError,
     attest_pinned_extractor,

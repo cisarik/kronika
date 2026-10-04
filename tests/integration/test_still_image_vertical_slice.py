@@ -13,42 +13,42 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import insert
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
 )
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     MediaRelativePath,
     PreparedAnalysisResult,
     TechnicalMetadata,
     build_representative_frame,
 )
-from framenest.application.media_analysis_lifecycle import (
+from kronika.application.media_analysis_lifecycle import (
     AutomaticImportedMediaSuggestionExecutor,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestion,
     MediaSuggestionRequest,
     PROMPT_VERSION,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import LibraryId, MediaId, MediaLocationId
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import LibraryId, MediaId, MediaLocationId
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
 )
-from framenest.domain.media import MediaKind
-from framenest.infrastructure.persistence.catalog_schema import devices, libraries
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.domain.media import MediaKind
+from kronika.infrastructure.persistence.catalog_schema import devices, libraries
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DESTINATION_ID = LibraryId(uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"))
 
 
-def _admin_app(settings: FrameNestSettings):
+def _admin_app(settings: KronikaSettings):
     app = create_app(settings=settings)
 
     @app.middleware("http")
@@ -199,7 +199,7 @@ def test_still_image_upload_catalog_content_and_single_provider_call(
     cache_root = tmp_path / "cache"
     quarantine_root.mkdir()
     published_root.mkdir()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=cache_root,
         upload_quarantine_root=quarantine_root,
@@ -319,10 +319,10 @@ def test_still_image_upload_catalog_content_and_single_provider_call(
     provider = _CountingProvider()
     preparer = _StillPreparer(relative_target, payload)
 
-    from framenest.infrastructure.persistence.library_repository import (
+    from kronika.infrastructure.persistence.library_repository import (
         SqliteLibraryRepository,
     )
-    from framenest.infrastructure.persistence.media_repository import (
+    from kronika.infrastructure.persistence.media_repository import (
         SqliteMediaRepository,
     )
 
@@ -351,8 +351,8 @@ def test_still_image_upload_catalog_content_and_single_provider_call(
 
 def test_movie_analysis_remains_single_provider_call(tmp_path: Path) -> None:
     """Regression: movie preparation still yields exactly one provider submission."""
-    from framenest.domain import Library, LibraryPathFlavor, LibraryRoot
-    from framenest.domain.media import (
+    from kronika.domain import Library, LibraryPathFlavor, LibraryRoot
+    from kronika.domain.media import (
         LogicalMedia,
         MediaLocation,
         MediaLocationAvailability,
@@ -392,7 +392,7 @@ def test_movie_analysis_remains_single_provider_call(tmp_path: Path) -> None:
             assert requested == library_id
             return Library(
                 id=library_id,
-                device_id=__import__("framenest.domain", fromlist=["DeviceId"]).DeviceId.new(),
+                device_id=__import__("kronika.domain", fromlist=["DeviceId"]).DeviceId.new(),
                 display_name="Lib",
                 root=LibraryRoot(LibraryPathFlavor.POSIX, str(tmp_path)),
             )

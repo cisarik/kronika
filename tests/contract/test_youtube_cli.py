@@ -11,8 +11,8 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.adapters.cli import youtube
-from framenest.configuration import FrameNestSettings
+from kronika.adapters.cli import youtube
+from kronika.configuration import KronikaSettings
 
 CLAIM_ID = "11111111-1111-4111-8111-111111111111"
 MEDIA_ID = "22222222-2222-4222-8222-222222222222"
@@ -80,8 +80,8 @@ class _Client:
         return self.initial
 
 
-def _settings(host: str = "127.0.0.1") -> FrameNestSettings:
-    return FrameNestSettings(host=host, port=8000, _env_file=None)
+def _settings(host: str = "127.0.0.1") -> KronikaSettings:
+    return KronikaSettings(host=host, port=8000, _env_file=None)
 
 
 def _run(
@@ -316,7 +316,7 @@ def test_protocol_failure_reports_the_derived_brand_on_the_loopback_refusal(
     monkeypatch.setattr(youtube, "load_settings", _settings)
 
     class _ProtocolFailingClient:
-        def __init__(self, _settings: FrameNestSettings) -> None:
+        def __init__(self, _settings: KronikaSettings) -> None:
             raise youtube._ProtocolError()
 
     monkeypatch.setattr(youtube, "_LoopbackHttpClient", _ProtocolFailingClient)
@@ -339,7 +339,7 @@ def test_unexpected_failure_reports_the_derived_brand_on_the_loopback_refusal(
     monkeypatch.setattr(youtube, "load_settings", _settings)
 
     class _BrokenClient:
-        def __init__(self, _settings: FrameNestSettings) -> None:
+        def __init__(self, _settings: KronikaSettings) -> None:
             raise RuntimeError("an unexpected failure the CLI must still sanitize")
 
     monkeypatch.setattr(youtube, "_LoopbackHttpClient", _BrokenClient)

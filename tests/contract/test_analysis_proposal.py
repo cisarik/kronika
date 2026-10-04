@@ -10,20 +10,20 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.analysis_proposal_api import AnalysisProposalApiDependencies
-from framenest.adapters.api.tailscale_ingress import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.analysis_proposal_api import AnalysisProposalApiDependencies
+from kronika.adapters.api.tailscale_ingress import (
     SCOPE_AUDIT_EVENT_ID,
     SCOPE_IDENTITY,
     find_route_policy,
 )
-from framenest.application.analysis_proposal import (
+from kronika.application.analysis_proposal import (
     MS_PER_HOUR,
     ListAnalysisProposals,
     ProposeAnalysis,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_ANALYSIS_PROPOSE,
     CAPABILITY_MEDIA_WORKFLOW_READ,
@@ -31,11 +31,11 @@ from framenest.domain.identity_access import (
     ROLE_ADMIN,
     ROLE_USER,
 )
-from framenest.infrastructure.persistence.analysis_proposal_repository import (
+from kronika.infrastructure.persistence.analysis_proposal_repository import (
     SqliteAnalysisProposalRepository,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 ALICE = "alice@example.com"
 BOB = "bob@example.com"
@@ -62,7 +62,7 @@ def _identity(login: str, role: str, *, capabilities: frozenset[str] | None = No
 
 
 def _client(
-    settings: FrameNestSettings,
+    settings: KronikaSettings,
     login: str,
     role: str,
     **identity_kwargs: object,
@@ -78,12 +78,12 @@ def _client(
     return TestClient(app)
 
 
-def _plain_client(settings: FrameNestSettings) -> TestClient:
+def _plain_client(settings: KronikaSettings) -> TestClient:
     return TestClient(create_app(settings=settings))
 
 
 def _rate_limited_client(
-    settings: FrameNestSettings,
+    settings: KronikaSettings,
     login: str,
     role: str,
     *,
@@ -115,10 +115,10 @@ def _rate_limited_client(
     return TestClient(app)
 
 
-def _prepare(tmp_path: Path) -> FrameNestSettings:
+def _prepare(tmp_path: Path) -> KronikaSettings:
     database_path = tmp_path / "database" / "catalog.sqlite3"
     database_path.parent.mkdir(parents=True)
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -317,11 +317,11 @@ def test_route_policies_require_propose_and_workflow_capabilities() -> None:
 
 def test_proposal_modules_do_not_import_provider_or_enqueue_paths() -> None:
     relative_paths = (
-        "src/framenest/application/analysis_proposal.py",
-        "src/framenest/application/ports/analysis_proposal.py",
-        "src/framenest/infrastructure/persistence/analysis_proposal_repository.py",
-        "src/framenest/adapters/api/analysis_proposal_api.py",
-        "src/framenest/infrastructure/persistence/alembic_environment/versions/"
+        "src/kronika/application/analysis_proposal.py",
+        "src/kronika/application/ports/analysis_proposal.py",
+        "src/kronika/infrastructure/persistence/analysis_proposal_repository.py",
+        "src/kronika/adapters/api/analysis_proposal_api.py",
+        "src/kronika/infrastructure/persistence/alembic_environment/versions/"
         "0033_media_analysis_proposals.py",
     )
     forbidden_import_tokens = (
@@ -348,7 +348,7 @@ def test_proposal_modules_do_not_import_provider_or_enqueue_paths() -> None:
         assert token not in combined
     source = inspect.getsource(
         __import__(
-            "framenest.infrastructure.persistence.analysis_proposal_repository",
+            "kronika.infrastructure.persistence.analysis_proposal_repository",
             fromlist=["SqliteAnalysisProposalRepository"],
         )
     )
@@ -376,7 +376,7 @@ def test_propose_does_not_create_analysis_runs(tmp_path: Path) -> None:
 
 
 def test_trusted_ingress_records_propose_audit_event(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",

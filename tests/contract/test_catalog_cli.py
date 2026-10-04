@@ -76,17 +76,17 @@ def _parse_single_json_line(output: str) -> dict[str, Any]:
 def _upgrade_database_to_revision(database_path: Path, revision: str) -> None:
     from alembic import command
 
-    from framenest.configuration import FrameNestSettings
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.configuration import KronikaSettings
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
-    settings = FrameNestSettings(database_path=database_path, _env_file=None)
+    settings = KronikaSettings(database_path=database_path, _env_file=None)
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(settings.database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, revision)
@@ -103,7 +103,7 @@ def test_importing_catalog_module_has_no_execution_side_effects(tmp_path: Path) 
         [
             str(PYTHON_EXECUTABLE),
             "-c",
-            "import framenest.adapters.cli.catalog",
+            "import kronika.adapters.cli.catalog",
         ],
         cwd=tmp_path,
         check=False,
@@ -199,7 +199,7 @@ def test_database_at_revision_0001_returns_exit_4(tmp_path: Path) -> None:
 
 
 def test_catalog_cli_does_not_execute_migrations(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     database_path = tmp_path / "no-migrate.sqlite3"
     monkeypatch.chdir(tmp_path)
@@ -209,7 +209,7 @@ def test_catalog_cli_does_not_execute_migrations(tmp_path: Path, monkeypatch: py
         raise AssertionError("catalog CLI must not execute migrations")
 
     monkeypatch.setattr(
-        "framenest.infrastructure.persistence.migrations.upgrade_database_to_head",
+        "kronika.infrastructure.persistence.migrations.upgrade_database_to_head",
         fail_upgrade,
     )
 
@@ -273,7 +273,7 @@ def test_register_valid_unicode_display_name(tmp_path: Path) -> None:
 
 
 def test_register_invalid_display_name_returns_exit_2(tmp_path: Path) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     database_path = tmp_path / "catalog.sqlite3"
     _run_db_migrate(cwd=tmp_path, database_path=str(database_path))
@@ -381,10 +381,10 @@ def test_list_preserves_repository_ordering(tmp_path: Path) -> None:
     database_path = tmp_path / "catalog.sqlite3"
     _run_db_migrate(cwd=tmp_path, database_path=str(database_path))
 
-    from framenest.application.ports.device_repository import DeviceRepository
-    from framenest.domain import Device, DeviceId
-    from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.application.ports.device_repository import DeviceRepository
+    from kronika.domain import Device, DeviceId
+    from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
 
     engine = create_sqlite_engine(database_path)
     try:
@@ -449,8 +449,8 @@ def test_direct_process_starts_no_listener(tmp_path: Path) -> None:
 
 
 def test_repository_failure_returns_exit_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from framenest.adapters.cli import catalog
-    from framenest.application.ports.device_repository import FrameNestDeviceRepositoryError
+    from kronika.adapters.cli import catalog
+    from kronika.application.ports.device_repository import FrameNestDeviceRepositoryError
 
     database_path = tmp_path / "failure.sqlite3"
     _run_db_migrate(cwd=tmp_path, database_path=str(database_path))
@@ -461,7 +461,7 @@ def test_repository_failure_returns_exit_1(tmp_path: Path, monkeypatch: pytest.M
         raise FrameNestDeviceRepositoryError("Device registry operation failed.")
 
     monkeypatch.setattr(
-        "framenest.infrastructure.persistence.device_repository.SqliteDeviceRepository.add",
+        "kronika.infrastructure.persistence.device_repository.SqliteDeviceRepository.add",
         fail_add,
     )
 
@@ -923,7 +923,7 @@ def test_library_scan_preview_custom_limits(tmp_path: Path) -> None:
 
 
 def test_library_scan_preview_invalid_limits_return_exit_2(tmp_path: Path) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     database_path = tmp_path / "catalog.sqlite3"
     library_dir = tmp_path / "Videos"
@@ -1024,7 +1024,7 @@ def test_library_scan_preview_does_not_execute_migrations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     database_path = tmp_path / "no-migrate.sqlite3"
     monkeypatch.chdir(tmp_path)
@@ -1034,7 +1034,7 @@ def test_library_scan_preview_does_not_execute_migrations(
         raise AssertionError("catalog CLI must not execute migrations")
 
     monkeypatch.setattr(
-        "framenest.infrastructure.persistence.migrations.upgrade_database_to_head",
+        "kronika.infrastructure.persistence.migrations.upgrade_database_to_head",
         fail_upgrade,
     )
 
@@ -1253,7 +1253,7 @@ def test_library_analyze_preview_does_not_execute_migrations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     database_path = tmp_path / "missing.sqlite3"
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
@@ -1310,7 +1310,7 @@ def test_library_suggest_preview_missing_confirmation_skips_local_preparation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     calls: list[bool] = []
@@ -1392,7 +1392,7 @@ def test_library_suggest_preview_success_returns_deterministic_json(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from framenest.adapters.cli import catalog
+    from kronika.adapters.cli import catalog
 
     monkeypatch.setenv("NVIDIA_API_KEY", "test-secret-not-real")
 

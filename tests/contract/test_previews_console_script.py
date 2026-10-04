@@ -37,7 +37,7 @@ def test_previews_console_script_is_declared() -> None:
 
     assert (
         metadata["project"]["scripts"]["framenest-previews"]
-        == "framenest.adapters.cli.previews:main"
+        == "kronika.adapters.cli.previews:main"
     )
 
 
@@ -47,7 +47,7 @@ def test_previews_console_script_is_installed() -> None:
 
 def test_importing_previews_cli_has_no_execution_side_effects(tmp_path: Path) -> None:
     result = subprocess.run(
-        [str(PYTHON_EXECUTABLE), "-c", "import framenest.adapters.cli.previews"],
+        [str(PYTHON_EXECUTABLE), "-c", "import kronika.adapters.cli.previews"],
         cwd=tmp_path,
         check=False,
         capture_output=True,

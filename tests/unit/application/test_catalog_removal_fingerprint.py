@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from framenest.application.catalog_removal import (
+from kronika.application.catalog_removal import (
     CatalogRemovalAnalysisSnapshot,
     CatalogRemovalCoverSnapshot,
     CatalogRemovalLocationSnapshot,

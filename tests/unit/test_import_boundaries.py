@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-DOMAIN_ROOT = REPOSITORY_ROOT / "src" / "framenest" / "domain"
+DOMAIN_ROOT = REPOSITORY_ROOT / "src" / "kronika" / "domain"
 FORBIDDEN_DOMAIN_IMPORT_ROOTS = frozenset(
     {
         "alembic",
@@ -25,10 +25,10 @@ FORBIDDEN_DOMAIN_IMPORT_ROOTS = frozenset(
         "uvicorn",
     }
 )
-FORBIDDEN_FRAMENEST_DOMAIN_IMPORT_PREFIXES = (
-    "framenest.infrastructure",
-    "framenest.adapters",
-    "framenest.application",
+FORBIDDEN_KRONIKA_DOMAIN_IMPORT_PREFIXES = (
+    "kronika.infrastructure",
+    "kronika.adapters",
+    "kronika.application",
 )
 
 
@@ -51,9 +51,9 @@ def test_domain_package_imports_no_framework_or_persistence_modules() -> None:
             root = _module_name_from_import(node)
             if root in FORBIDDEN_DOMAIN_IMPORT_ROOTS:
                 forbidden_roots.append(root)
-            if root == "framenest":
+            if root == "kronika":
                 module = node.module if isinstance(node, ast.ImportFrom) else node.names[0].name
-                if module.startswith(FORBIDDEN_FRAMENEST_DOMAIN_IMPORT_PREFIXES):
+                if module.startswith(FORBIDDEN_KRONIKA_DOMAIN_IMPORT_PREFIXES):
                     forbidden_roots.append(module)
         if forbidden_roots:
             violations.append(
@@ -63,7 +63,7 @@ def test_domain_package_imports_no_framework_or_persistence_modules() -> None:
 
 
 def test_application_ports_import_no_infrastructure_or_sqlalchemy() -> None:
-    application_root = REPOSITORY_ROOT / "src" / "framenest" / "application"
+    application_root = REPOSITORY_ROOT / "src" / "kronika" / "application"
     violations: list[str] = []
     forbidden_roots = FORBIDDEN_DOMAIN_IMPORT_ROOTS | {"sqlite3"}
     for path in sorted(application_root.rglob("*.py")):
@@ -75,9 +75,9 @@ def test_application_ports_import_no_infrastructure_or_sqlalchemy() -> None:
             root = _module_name_from_import(node)
             if root in forbidden_roots:
                 found.append(root or "")
-            if root == "framenest":
+            if root == "kronika":
                 module = node.module if isinstance(node, ast.ImportFrom) else node.names[0].name
-                if module.startswith("framenest.infrastructure"):
+                if module.startswith("kronika.infrastructure"):
                     found.append(module)
         if found:
             violations.append(
@@ -89,9 +89,9 @@ def test_application_ports_import_no_infrastructure_or_sqlalchemy() -> None:
 @pytest.mark.parametrize(
     ("package_path", "forbidden_package"),
     [
-        ("src/framenest/domain", "kronika_capture"),
-        ("src/framenest/application", "kronika_capture"),
-        ("src/kronika_capture", "framenest"),
+        ("src/kronika/domain", "kronika_capture"),
+        ("src/kronika/application", "kronika_capture"),
+        ("src/kronika_capture", "kronika"),
     ],
 )
 def test_application_and_capture_packages_are_independent(
@@ -149,22 +149,22 @@ def test_importing_domain_has_no_identity_or_io_side_effects(
         return {
             name
             for name in sys.modules
-            if name == "framenest.domain" or name.startswith("framenest.domain.")
+            if name == "kronika.domain" or name.startswith("kronika.domain.")
         }
 
     preexisting = _domain_module_names()
-    original_domain = sys.modules.pop("framenest.domain", None)
-    original_identities = sys.modules.pop("framenest.domain.identities", None)
+    original_domain = sys.modules.pop("kronika.domain", None)
+    original_identities = sys.modules.pop("kronika.domain.identities", None)
     try:
-        importlib.import_module("framenest.domain")
+        importlib.import_module("kronika.domain")
 
         assert bind_attempts == []
     finally:
         for name in _domain_module_names() - preexisting:
             sys.modules.pop(name, None)
-        sys.modules.pop("framenest.domain", None)
-        sys.modules.pop("framenest.domain.identities", None)
+        sys.modules.pop("kronika.domain", None)
+        sys.modules.pop("kronika.domain.identities", None)
         if original_domain is not None:
-            sys.modules["framenest.domain"] = original_domain
+            sys.modules["kronika.domain"] = original_domain
         if original_identities is not None:
-            sys.modules["framenest.domain.identities"] = original_identities
+            sys.modules["kronika.domain.identities"] = original_identities

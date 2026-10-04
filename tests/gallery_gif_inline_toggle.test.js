@@ -4,7 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const APP_PATH = path.resolve(__dirname, "../src/framenest/adapters/api/web/app.js");
+const APP_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/app.js");
 const APP_SOURCE = fs.readFileSync(APP_PATH, "utf8");
 
 function productionFunction(name) {

@@ -8,20 +8,20 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.ai_admin_api import AiAdminApiDependencies
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.ai.configuration import (
+from kronika.adapters.api.ai_admin_api import AiAdminApiDependencies
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.ai.configuration import (
     AiServerConfig,
     load_ai_server_config,
     write_ai_server_config,
 )
-from framenest.infrastructure.ai.registry import (
+from kronika.infrastructure.ai.registry import (
     DynamicAiProviderResolver,
     LazyResolvedAiProvider,
 )
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -74,8 +74,8 @@ class _FakeTransport:
         )
 
 
-def _settings(tmp_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(
+def _settings(tmp_path: Path) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -96,7 +96,7 @@ def _client(
     *,
     transport: _FakeTransport | None = None,
     configured: bool = False,
-) -> tuple[TestClient, FrameNestSettings, _FakeTransport, Path]:
+) -> tuple[TestClient, KronikaSettings, _FakeTransport, Path]:
     config_path = _config_path(tmp_path)
     monkeypatch.setenv("FRAMENEST_AI_CONFIG_PATH", str(config_path))
     monkeypatch.setenv(CREDENTIAL_ENV, CREDENTIAL_VALUE)
@@ -136,7 +136,7 @@ def _record_body(
 
 
 def _write_declared_config(config_path: Path, *, active: bool) -> None:
-    from framenest.infrastructure.ai.provider_records import (
+    from kronika.infrastructure.ai.provider_records import (
         AiProviderModel,
         AiProviderRecord,
     )

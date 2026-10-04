@@ -22,7 +22,7 @@ def test_importing_engine_module_does_not_create_database(
     database_path = tmp_path / "import-only.sqlite3"
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
 
-    importlib.import_module("framenest.infrastructure.persistence.engine")
+    importlib.import_module("kronika.infrastructure.persistence.engine")
 
     assert not database_path.exists()
 
@@ -30,7 +30,7 @@ def test_importing_engine_module_does_not_create_database(
 def test_create_sqlite_engine_is_file_backed_and_does_not_connect_immediately(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
 
     database_path = tmp_path / "catalog.sqlite3"
     engine = create_sqlite_engine(database_path)
@@ -43,7 +43,7 @@ def test_create_sqlite_engine_is_file_backed_and_does_not_connect_immediately(
 
 
 def test_foreign_keys_are_enabled_on_every_new_connection(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
 
     database_path = tmp_path / "foreign-keys.sqlite3"
     engine = create_sqlite_engine(database_path)
@@ -57,7 +57,7 @@ def test_foreign_keys_are_enabled_on_every_new_connection(tmp_path: Path) -> Non
 
 
 def test_real_foreign_key_violation_is_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         run_in_transaction,
     )
@@ -84,7 +84,7 @@ def test_real_foreign_key_violation_is_rejected(tmp_path: Path) -> None:
 
 
 def test_parameterized_core_insert_and_select_round_trip(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         run_in_transaction,
     )
@@ -116,7 +116,7 @@ def test_parameterized_core_insert_and_select_round_trip(tmp_path: Path) -> None
 
 
 def test_successful_transaction_commits_and_persists_after_reopen(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         run_in_transaction,
     )
@@ -144,7 +144,7 @@ def test_successful_transaction_commits_and_persists_after_reopen(tmp_path: Path
 
 
 def test_failed_transaction_rolls_back_and_closes_connection(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         run_in_transaction,
     )
@@ -177,7 +177,7 @@ def test_failed_transaction_rolls_back_and_closes_connection(tmp_path: Path) -> 
 
 
 def test_engine_disposal_is_explicit(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
 
     engine = create_sqlite_engine(tmp_path / "dispose.sqlite3")
     with patch.object(engine, "dispose", wraps=engine.dispose) as dispose:
@@ -190,8 +190,8 @@ def test_invalid_busy_timeout_is_rejected_with_sanitized_error(
     tmp_path: Path,
     timeout: float,
 ) -> None:
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
-    from framenest.infrastructure.persistence.errors import FrameNestPersistenceError
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.errors import FrameNestPersistenceError
 
     with pytest.raises(FrameNestPersistenceError) as exc_info:
         create_sqlite_engine(tmp_path / "invalid-timeout.sqlite3", busy_timeout_seconds=timeout)
@@ -202,7 +202,7 @@ def test_invalid_busy_timeout_is_rejected_with_sanitized_error(
 
 
 def test_lock_conflict_uses_bounded_busy_timeout(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import (
+    from kronika.infrastructure.persistence.engine import (
         create_sqlite_engine,
         run_in_transaction,
     )

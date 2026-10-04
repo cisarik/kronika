@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from framenest.application.media_metadata import SaveMediaMetadata
-from framenest.application.ports.media_metadata_repository import (
+from kronika.application.media_metadata import SaveMediaMetadata
+from kronika.application.ports.media_metadata_repository import (
     AcquisitionSourceImmutableError,
     MediaMetadataSaveResult,
     MediaMetadataSnapshot,
 )
-from framenest.domain.identities import MediaId
-from framenest.domain.media_classification import (
+from kronika.domain.identities import MediaId
+from kronika.domain.media_classification import (
     AcquisitionSource,
     ContentCategory,
     CreatorAttributionKind,
 )
-from framenest.domain.media_metadata import CanonicalTagKey, MediaDisplayTitle
+from kronika.domain.media_metadata import CanonicalTagKey, MediaDisplayTitle
 import pytest
 
 

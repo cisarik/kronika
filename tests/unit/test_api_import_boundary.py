@@ -6,9 +6,9 @@ import ast
 from pathlib import Path
 
 FORBIDDEN_IMPORT_ROOTS = frozenset({"fastapi", "starlette"})
-ALLOWED_FASTAPI_PACKAGE_ROOT = Path("src/framenest/adapters/api")
-CONFIGURATION_MODULE = Path("src/framenest/configuration.py")
-SOURCE_ROOT = Path("src/framenest")
+ALLOWED_FASTAPI_PACKAGE_ROOT = Path("src/kronika/adapters/api")
+CONFIGURATION_MODULE = Path("src/kronika/configuration.py")
+SOURCE_ROOT = Path("src/kronika")
 
 
 def _module_name_from_import(node: ast.Import | ast.ImportFrom) -> str | None:

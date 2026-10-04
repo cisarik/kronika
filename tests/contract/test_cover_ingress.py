@@ -11,15 +11,15 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from framenest.adapters.api.application import create_app
-from framenest.application.media_analysis import build_representative_frame
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.filesystem.cover_storage import (
+from kronika.adapters.api.application import create_app
+from kronika.application.media_analysis import build_representative_frame
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.filesystem.cover_storage import (
     FilesystemCoverThumbnailCache,
     FilesystemDurableCoverStorage,
     PillowCoverEncoder,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 EXTERNAL_ORIGIN = "https://nuc-1.example.ts.net"
 EXTERNAL_HOST = "nuc-1.example.ts.net"
@@ -97,7 +97,7 @@ def _seed(database_path: Path) -> None:
 
 
 def _publish_cover_for_media(
-    settings: FrameNestSettings,
+    settings: KronikaSettings,
     media_id: str,
     *,
     source_location_id: str | None,
@@ -105,7 +105,7 @@ def _publish_cover_for_media(
     storage = FilesystemDurableCoverStorage(settings.cover_storage_root)
     thumbnail_cache = FilesystemCoverThumbnailCache(settings.cover_thumbnail_cache_path)
     encoder = PillowCoverEncoder()
-    from framenest.domain.identities import MediaId
+    from kronika.domain.identities import MediaId
 
     frame = build_representative_frame(timestamp_ms=500, payload=_frame_png())
     artifact = encoder.encode_artifact_frame(frame)
@@ -149,7 +149,7 @@ def _publish_cover_for_media(
 
 @pytest.fixture
 def cover_client(tmp_path: Path):
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -247,7 +247,7 @@ def test_unpublished_cover_bytes_are_concealed_from_ordinary_users(cover_client)
 
 
 def test_cover_route_policies_are_bound_to_capabilities() -> None:
-    from framenest.adapters.api.tailscale_ingress import find_route_policy
+    from kronika.adapters.api.tailscale_ingress import find_route_policy
 
     for method, path in (
         ("GET", f"/api/media/{PUBLISHED_ID}/locations/{LOCATION_ID}/cover-timeline"),

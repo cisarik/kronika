@@ -8,18 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
 def _migrated_database(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 
 def _bundle(tmp_path: Path) -> Path:
-    from framenest.infrastructure.persistence.catalog_backup import create_catalog_backup
+    from kronika.infrastructure.persistence.catalog_backup import create_catalog_backup
 
     source = _migrated_database(tmp_path / "catalog.sqlite3")
     output = tmp_path / "bundle"
@@ -28,7 +28,7 @@ def _bundle(tmp_path: Path) -> Path:
 
 
 def test_protocol_round_trip_success(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         PROTOCOL_MAGIC,
         assert_stream_eof,
         capture_bundle_identity,
@@ -71,7 +71,7 @@ def test_protocol_round_trip_success(tmp_path: Path) -> None:
 
 
 def test_protocol_wrong_magic(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         TransferError,
         read_protocol_v1_preamble,
     )
@@ -82,7 +82,7 @@ def test_protocol_wrong_magic(tmp_path: Path) -> None:
 
 
 def test_protocol_unsupported_version(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         PROTOCOL_MAGIC,
         TransferError,
         parse_protocol_v1_header,
@@ -111,7 +111,7 @@ def test_protocol_unsupported_version(tmp_path: Path) -> None:
 
 
 def test_protocol_oversized_header() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         PROTOCOL_MAGIC,
         TransferError,
         read_protocol_v1_preamble,
@@ -124,7 +124,7 @@ def test_protocol_oversized_header() -> None:
 
 
 def test_protocol_unknown_and_missing_fields() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         TransferError,
         parse_protocol_v1_header,
     )
@@ -154,7 +154,7 @@ def test_protocol_unknown_and_missing_fields() -> None:
 
 
 def test_protocol_filename_mismatch() -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         TransferError,
         parse_protocol_v1_header,
     )
@@ -177,7 +177,7 @@ def test_protocol_filename_mismatch() -> None:
 
 
 def test_protocol_truncated_and_trailing(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         TransferError,
         assert_stream_eof,
         capture_bundle_identity,
@@ -235,7 +235,7 @@ def test_protocol_truncated_and_trailing(tmp_path: Path) -> None:
 
 
 def test_protocol_digest_mismatch(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.catalog_backup_transfer import (
+    from kronika.infrastructure.persistence.catalog_backup_transfer import (
         TransferError,
         receive_file_bytes,
     )

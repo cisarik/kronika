@@ -18,10 +18,10 @@ from pydantic import SecretStr
 
 from tests.support.kronika_identity import expected
 
-from framenest.configuration import FrameNestSettings, load_settings
+from kronika.configuration import KronikaSettings, load_settings
 
 FORBIDDEN_UVICORN_IMPORT_ROOT = "uvicorn"
-ALLOWED_UVICORN_MODULE = Path("src/framenest/server.py")
+ALLOWED_UVICORN_MODULE = Path("src/kronika/server.py")
 SOURCE_ROOT = Path("src/framenest")
 REPRESENTATIVE_SECRET = "runtime-unit-test-api-key-secret"
 
@@ -47,8 +47,8 @@ def _collect_uvicorn_imports(path: Path) -> list[str]:
 
 
 @pytest.fixture
-def settings_with_secret() -> FrameNestSettings:
-    return FrameNestSettings(
+def settings_with_secret() -> KronikaSettings:
+    return KronikaSettings(
         host="127.0.0.1",
         port=8000,
         api_key=SecretStr(REPRESENTATIVE_SECRET),
@@ -78,12 +78,12 @@ def test_importing_server_module_has_no_runtime_side_effects(
             server_init_attempts.append((args, kwargs))
             raise AssertionError("uvicorn.Server must not run on import")
 
-    monkeypatch.setattr("framenest.server.load_settings", load_settings_mock)
-    monkeypatch.setattr("framenest.server.create_app", create_app_mock)
+    monkeypatch.setattr("kronika.server.load_settings", load_settings_mock)
+    monkeypatch.setattr("kronika.server.create_app", create_app_mock)
     monkeypatch.setattr("uvicorn.Config", config_mock)
     monkeypatch.setattr("uvicorn.Server", RaisingUvicornServerStub)
 
-    module_name = "framenest.server"
+    module_name = "kronika.server"
     sys.modules.pop(module_name, None)
     importlib.import_module(module_name)
 
@@ -96,9 +96,9 @@ def test_importing_server_module_has_no_runtime_side_effects(
 
 
 def test_create_server_returns_uvicorn_server(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert isinstance(server, uvicorn.Server)
@@ -106,13 +106,13 @@ def test_create_server_returns_uvicorn_server(
 
 
 def test_supplied_settings_bypass_load_settings(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     load_settings_mock = MagicMock(side_effect=AssertionError("load_settings must not be called"))
-    monkeypatch.setattr("framenest.server.load_settings", load_settings_mock)
+    monkeypatch.setattr("kronika.server.load_settings", load_settings_mock)
     server = create_server(settings=settings_with_secret)
     load_settings_mock.assert_not_called()
     assert server.config.app.state.settings is settings_with_secret
@@ -121,29 +121,29 @@ def test_supplied_settings_bypass_load_settings(
 def test_omitted_settings_invoke_load_settings_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
-    expected_settings = FrameNestSettings(host="127.0.0.1", port=8000, _env_file=None)
+    expected_settings = KronikaSettings(host="127.0.0.1", port=8000, _env_file=None)
     load_settings_mock = MagicMock(return_value=expected_settings)
-    monkeypatch.setattr("framenest.server.load_settings", load_settings_mock)
+    monkeypatch.setattr("kronika.server.load_settings", load_settings_mock)
     server = create_server()
     load_settings_mock.assert_called_once_with()
     assert server.config.app.state.settings is expected_settings
 
 
 def test_default_config_host_is_loopback(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert server.config.host == "127.0.0.1"
 
 
 def test_default_config_port_is_8000(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert server.config.port == 8000
@@ -152,7 +152,7 @@ def test_default_config_port_is_8000(
 def test_framenest_host_and_port_overrides_propagate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.5")
     monkeypatch.setenv("FRAMENEST_PORT", "8765")
@@ -164,7 +164,7 @@ def test_framenest_host_and_port_overrides_propagate(
 def test_uvicorn_host_and_port_env_vars_do_not_override_framenest_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.1")
     monkeypatch.setenv("FRAMENEST_PORT", "8000")
@@ -176,9 +176,9 @@ def test_uvicorn_host_and_port_env_vars_do_not_override_framenest_settings(
 
 
 def test_create_server_passes_framenest_log_config_and_disables_access_log(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert isinstance(server.config.log_config, dict)
@@ -189,9 +189,9 @@ def test_create_server_passes_framenest_log_config_and_disables_access_log(
 
 
 def test_proxy_headers_are_disabled_without_wildcard_trust(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert server.config.proxy_headers is False
@@ -200,9 +200,9 @@ def test_proxy_headers_are_disabled_without_wildcard_trust(
 
 
 def test_reload_disabled_and_single_worker(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert server.config.reload is False
@@ -211,9 +211,9 @@ def test_reload_disabled_and_single_worker(
 
 
 def test_api_secret_not_disclosed_in_server_representations(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     surfaces = (
@@ -227,16 +227,16 @@ def test_api_secret_not_disclosed_in_server_representations(
 
 
 def test_run_server_invokes_server_run_once_without_real_listener(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import run_server
+    from kronika.server import run_server
 
     run_mock = MagicMock()
     server_mock = MagicMock()
     server_mock.run = run_mock
     create_server_mock = MagicMock(return_value=server_mock)
-    monkeypatch.setattr("framenest.server.create_server", create_server_mock)
+    monkeypatch.setattr("kronika.server.create_server", create_server_mock)
 
     run_server(settings=settings_with_secret)
 
@@ -247,10 +247,10 @@ def test_run_server_invokes_server_run_once_without_real_listener(
 def test_main_delegates_to_run_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import main
+    from kronika.server import main
 
     run_server_mock = MagicMock()
-    monkeypatch.setattr("framenest.server.run_server", run_server_mock)
+    monkeypatch.setattr("kronika.server.run_server", run_server_mock)
     main()
     run_server_mock.assert_called_once_with()
 
@@ -258,10 +258,10 @@ def test_main_delegates_to_run_server(
 def test_main_catches_keyboard_interrupt_without_propagation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import main
+    from kronika.server import main
 
     run_server_mock = MagicMock(side_effect=KeyboardInterrupt)
-    monkeypatch.setattr("framenest.server.run_server", run_server_mock)
+    monkeypatch.setattr("kronika.server.run_server", run_server_mock)
     main()
     run_server_mock.assert_called_once_with()
 
@@ -269,10 +269,10 @@ def test_main_catches_keyboard_interrupt_without_propagation(
 def test_main_does_not_swallow_system_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import main
+    from kronika.server import main
 
     run_server_mock = MagicMock(side_effect=SystemExit(3))
-    monkeypatch.setattr("framenest.server.run_server", run_server_mock)
+    monkeypatch.setattr("kronika.server.run_server", run_server_mock)
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert exc_info.value.code == 3
@@ -281,10 +281,10 @@ def test_main_does_not_swallow_system_exit(
 def test_main_does_not_swallow_unexpected_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import main
+    from kronika.server import main
 
     run_server_mock = MagicMock(side_effect=RuntimeError("startup failure"))
-    monkeypatch.setattr("framenest.server.run_server", run_server_mock)
+    monkeypatch.setattr("kronika.server.run_server", run_server_mock)
     with pytest.raises(RuntimeError, match="startup failure"):
         main()
 
@@ -305,10 +305,10 @@ def test_production_uvicorn_imports_are_confined_to_server_module() -> None:
 def test_create_server_binds_only_unix_socket_in_tailscale_mode(
     tmp_path: Path,
 ) -> None:
-    from framenest.server import UdsProvenanceVerifyingServer, create_server
+    from kronika.server import UdsProvenanceVerifyingServer, create_server
 
     uds_path = tmp_path / "framenest.sock"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         ingress_mode="tailscale_uds",
@@ -327,11 +327,11 @@ def test_create_server_binds_only_unix_socket_in_tailscale_mode(
 def test_create_server_binds_only_unix_socket_in_public_published_mode(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-    from framenest.server import UdsProvenanceVerifyingServer, create_server
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.server import UdsProvenanceVerifyingServer, create_server
 
     database_path = tmp_path / "catalog.sqlite3"
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=database_path,
         gallery_preview_cache_path=tmp_path / "previews",
         cover_storage_root=tmp_path / "covers",
@@ -349,9 +349,9 @@ def test_create_server_binds_only_unix_socket_in_public_published_mode(
 
 
 def test_create_server_binds_tcp_in_default_mode(
-    settings_with_secret: FrameNestSettings,
+    settings_with_secret: KronikaSettings,
 ) -> None:
-    from framenest.server import create_server
+    from kronika.server import create_server
 
     server = create_server(settings=settings_with_secret)
     assert server.config.uds is None
@@ -362,7 +362,7 @@ def test_create_server_binds_tcp_in_default_mode(
 def test_fastapi_imports_remain_confined_to_adapters_api() -> None:
     repository_root = Path(__file__).resolve().parents[2]
     forbidden_import_roots = frozenset({"fastapi", "starlette"})
-    allowed_fastapi_package_root = Path("src/framenest/adapters/api")
+    allowed_fastapi_package_root = Path("src/kronika/adapters/api")
     violations: list[str] = []
     for path in sorted((repository_root / SOURCE_ROOT).rglob("*.py")):
         relative_path = path.relative_to(repository_root)
@@ -390,7 +390,7 @@ def _create_bound_unix_socket(path: Path) -> None:
 
 
 def test_tighten_uds_socket_permissions_sets_owner_only_mode(tmp_path: Path) -> None:
-    from framenest.server import _tighten_uds_socket_permissions
+    from kronika.server import _tighten_uds_socket_permissions
 
     socket_path = tmp_path / "seam-tighten.sock"
     _create_bound_unix_socket(socket_path)
@@ -403,7 +403,7 @@ def test_tighten_uds_socket_permissions_sets_owner_only_mode(tmp_path: Path) -> 
 
 
 def test_verify_uds_socket_provenance_accepts_owner_only_socket(tmp_path: Path) -> None:
-    from framenest.server import _verify_uds_socket_provenance
+    from kronika.server import _verify_uds_socket_provenance
 
     socket_path = tmp_path / "seam-accept.sock"
     _create_bound_unix_socket(socket_path)
@@ -415,7 +415,7 @@ def test_verify_uds_socket_provenance_accepts_owner_only_socket(tmp_path: Path) 
 
 
 def test_verify_uds_socket_provenance_rejects_non_socket(tmp_path: Path) -> None:
-    from framenest.server import UdsSocketProvenanceError, _verify_uds_socket_provenance
+    from kronika.server import UdsSocketProvenanceError, _verify_uds_socket_provenance
 
     plain_path = tmp_path / "seam-plain.sock"
     plain_path.write_bytes(b"")
@@ -428,7 +428,7 @@ def test_verify_uds_socket_provenance_rejects_non_socket(tmp_path: Path) -> None
 
 
 def test_verify_uds_socket_provenance_rejects_group_or_other_bits(tmp_path: Path) -> None:
-    from framenest.server import UdsSocketProvenanceError, _verify_uds_socket_provenance
+    from kronika.server import UdsSocketProvenanceError, _verify_uds_socket_provenance
 
     socket_path = tmp_path / "seam-bits.sock"
     _create_bound_unix_socket(socket_path)
@@ -445,7 +445,7 @@ def test_verify_uds_socket_provenance_rejects_foreign_owner(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from framenest.server import UdsSocketProvenanceError, _verify_uds_socket_provenance
+    from kronika.server import UdsSocketProvenanceError, _verify_uds_socket_provenance
 
     socket_path = tmp_path / "seam-owner.sock"
     _create_bound_unix_socket(socket_path)
@@ -465,8 +465,8 @@ def test_server_main_reports_the_derived_brand_on_a_configuration_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The operator stderr line, reached by making `run_server` fail as designed."""
-    from framenest import server
-    from framenest.configuration import FrameNestConfigurationError
+    from kronika import server
+    from kronika.configuration import FrameNestConfigurationError
 
     def _fail() -> None:
         raise FrameNestConfigurationError("host is not loopback")

@@ -9,15 +9,15 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import (
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     IdentityContext,
     ROLE_ADMIN,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 PUBLISHED_ID = "11111111-1111-4111-8111-111111111111"
 UNPUBLISHED_ID = "22222222-2222-4222-8222-222222222222"
@@ -25,15 +25,15 @@ UNKNOWN_ID = "33333333-3333-4333-8333-333333333333"
 LOCATION_ID = "44444444-4444-4444-8444-444444444444"
 
 
-def _settings(tmp_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(
+def _settings(tmp_path: Path) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "audience.sqlite3",
         gallery_preview_cache_path=tmp_path / "previews",
         _env_file=None,
     )
 
 
-def _seed(settings: FrameNestSettings) -> None:
+def _seed(settings: KronikaSettings) -> None:
     upgrade_database_to_head(settings)
     connection = sqlite3.connect(settings.database_path)
     try:
@@ -79,7 +79,7 @@ def _admin_identity() -> IdentityContext:
 
 
 def _ordinary_identity() -> IdentityContext:
-    from framenest.domain.identity_access import ROLE_USER
+    from kronika.domain.identity_access import ROLE_USER
 
     return IdentityContext(
         login="owner@example.com",
@@ -92,7 +92,7 @@ def _ordinary_identity() -> IdentityContext:
 
 
 def _client(
-    settings: FrameNestSettings,
+    settings: KronikaSettings,
     *,
     admin: bool = False,
 ) -> TestClient:
@@ -108,14 +108,14 @@ def _client(
 
 
 def test_ordinary_catalog_is_published_only_and_cannot_request_unpublished() -> None:
-    from framenest.application.media_catalog import ListMediaCatalog
+    from kronika.application.media_catalog import ListMediaCatalog
 
     class CapturingRepository:
         query = None
 
         def list_media(self, query):
             self.query = query
-            from framenest.application.ports.media_catalog_repository import (
+            from kronika.application.ports.media_catalog_repository import (
                 MediaCatalogPage,
             )
 
@@ -128,7 +128,7 @@ def test_ordinary_catalog_is_published_only_and_cannot_request_unpublished() -> 
                 tag_keys=query.tag_keys,
             )
 
-    from framenest.domain.record_access import RecordAccessScope
+    from kronika.domain.record_access import RecordAccessScope
 
     repository = CapturingRepository()
     ListMediaCatalog(repository).execute(access_scope=RecordAccessScope.legacy_public())

@@ -6,23 +6,23 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import ROLE_USER
-from framenest.domain.records import (
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import ROLE_USER
+from kronika.domain.records import (
     CompletedDocument,
     DocumentId,
     RecordKind,
 )
-from framenest.domain.research import CompletionEvidence
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import SqliteRecordRepository
+from kronika.domain.research import CompletionEvidence
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import SqliteRecordRepository
 from tests.support.record_access import install_synthetic_caller, synthetic_identity
 
 
 def test_gallery_does_not_list_a_private_search_record(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         identity_map={"alice": "user", "bob": "user"},
         _env_file=None,
@@ -51,7 +51,7 @@ def test_gallery_does_not_list_a_private_search_record(tmp_path: Path) -> None:
             document,
             owner_login_key="alice",
             record_id=__import__(
-                "framenest.domain.records", fromlist=["RecordId"]
+                "kronika.domain.records", fromlist=["RecordId"]
             ).RecordId.new(),
         )
     finally:
@@ -71,7 +71,7 @@ def test_gallery_does_not_list_a_private_search_record(tmp_path: Path) -> None:
     assert anonymous_listing.status_code == 200
     assert anonymous_listing.json()["items"] == []
     assert "Hidden answer" not in anonymous_listing.text
-    public_settings = FrameNestSettings(
+    public_settings = KronikaSettings(
         database_path=settings.database_path,
         ingress_mode="public_published_uds",
         uds_path=tmp_path / "public.sock",

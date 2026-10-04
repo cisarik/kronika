@@ -7,19 +7,19 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.media_catalog import (
+from kronika.application.media_catalog import (
     ListMediaCatalog,
     MediaCatalogValidationError,
 )
-from framenest.application.ports.media_catalog_repository import (
+from kronika.application.ports.media_catalog_repository import (
     MediaCatalogPage,
     MediaCatalogQuery,
 )
-from framenest.domain.media_metadata import CanonicalTagKey
-from framenest.domain.record_access import RecordAccessScope
+from kronika.domain.media_metadata import CanonicalTagKey
+from kronika.domain.record_access import RecordAccessScope
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-APPLICATION_MODULE = REPOSITORY_ROOT / "src" / "framenest" / "application" / "media_catalog.py"
+APPLICATION_MODULE = REPOSITORY_ROOT / "src" / "kronika" / "application" / "media_catalog.py"
 
 
 class _FakeCatalogRepository:
@@ -137,8 +137,8 @@ def test_media_catalog_application_imports_no_framework_or_infrastructure() -> N
     forbidden_roots = {
         "fastapi",
         "sqlalchemy",
-        "framenest.infrastructure",
-        "framenest.adapters",
+        "kronika.infrastructure",
+        "kronika.adapters",
     }
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

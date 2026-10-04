@@ -4,26 +4,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identities import MediaId
-from framenest.domain.records import RecordId
-from framenest.infrastructure.persistence.content_publication_repository import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.identities import MediaId
+from kronika.domain.records import RecordId
+from kronika.infrastructure.persistence.content_publication_repository import (
     SqliteContentPublicationRepository,
 )
-from framenest.infrastructure.persistence.engine import (
+from kronika.infrastructure.persistence.engine import (
     create_sqlite_engine,
     dispose_engine,
     run_in_immediate_transaction,
 )
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.record_repository import SqliteRecordRepository
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.record_repository import SqliteRecordRepository
 
 
 def test_bound_media_is_not_legacy_published_even_with_a_publication_row(
     tmp_path: Path,
 ) -> None:
     media_id = MediaId.new()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )
@@ -63,16 +63,16 @@ def test_bound_media_is_not_legacy_published_even_with_a_publication_row(
 def test_bound_removal_fails_before_receipt_or_cleanup(tmp_path: Path) -> None:
     import sqlite3
 
-    from framenest.application.catalog_removal import (
+    from kronika.application.catalog_removal import (
         CatalogMediaRemovalService,
         CatalogRemovalBoundRecordError,
     )
-    from framenest.infrastructure.persistence.catalog_removal_repository import (
+    from kronika.infrastructure.persistence.catalog_removal_repository import (
         SqliteCatalogRemovalRepository,
     )
 
     media_id = MediaId.new()
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )
@@ -138,8 +138,8 @@ def test_bound_removal_fails_before_receipt_or_cleanup(tmp_path: Path) -> None:
 def test_x_requester_snapshot_hides_a_foreign_bound_media_id() -> None:
     from types import SimpleNamespace
 
-    from framenest.application.x_acquisition import _requester_snapshot
-    from framenest.domain.x_acquisition import XPostClaim
+    from kronika.application.x_acquisition import _requester_snapshot
+    from kronika.domain.x_acquisition import XPostClaim
 
     claim = XPostClaim.new(
         submitted_url="https://x.com/a/status/123",

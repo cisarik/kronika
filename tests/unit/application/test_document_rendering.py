@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from framenest.application.document_rendering import (
+from kronika.application.document_rendering import (
     render_inline,
     render_markdown,
     render_record_document,
@@ -79,7 +79,7 @@ def test_large_document_stays_bounded_and_escaped() -> None:
 
 
 def test_deep_quote_nesting_is_bounded_and_escaped() -> None:
-    from framenest.application.document_rendering import MAX_QUOTE_DEPTH
+    from kronika.application.document_rendering import MAX_QUOTE_DEPTH
 
     html = render_markdown(("> " * 1200) + "leaf")
     assert "leaf" in html

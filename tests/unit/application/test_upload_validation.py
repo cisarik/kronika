@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from framenest.application.ports.upload_media_validation import (
+from kronika.application.ports.upload_media_validation import (
     UploadMediaValidationEvidence,
     UploadMediaValidationRejectedError,
 )
-from framenest.application.upload_validation import (
+from kronika.application.upload_validation import (
     UPLOAD_VALIDATION_INTERNAL_ERROR,
     UPLOAD_VALIDATION_QUARANTINE_INCONSISTENT,
     UPLOAD_VALIDATION_UNSUPPORTED_MEDIA_TYPE,
@@ -21,8 +21,8 @@ from framenest.application.upload_validation import (
     UploadValidationUnavailableError,
     ValidateReceivedUpload,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain.uploads import (
+from kronika.configuration import KronikaSettings
+from kronika.domain.uploads import (
     UploadDisplayFilename,
     UploadSession,
     UploadSessionId,
@@ -31,13 +31,13 @@ from framenest.domain.uploads import (
     UploadValidatedFormat,
     UploadValidatedMediaKind,
 )
-from framenest.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.filesystem.quarantine_storage import FilesystemQuarantineStorage
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
-from framenest.application.ports.upload_sessions import FrameNestUploadSessionRepositoryError
+from kronika.application.ports.upload_sessions import FrameNestUploadSessionRepositoryError
 
 
 class _Validator:
@@ -74,7 +74,7 @@ def _setup(
     database_path = tmp_path / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
     quarantine_root.mkdir()
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)
     repository = SqliteUploadSessionRepository(engine)
     storage = FilesystemQuarantineStorage(quarantine_root)

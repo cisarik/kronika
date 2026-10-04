@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.domain.identity_access import (
+from kronika.domain.identity_access import (
     CAPABILITIES_BY_ROLE,
     CAPABILITY_ANALYSIS_PROPOSE,
     CAPABILITY_MEDIA_WORKSPACE_READ,
@@ -214,7 +214,7 @@ def test_resolve_identity_fails_closed_on_malformed_login() -> None:
 
 
 def test_public_published_capabilities_are_exactly_the_two_read_capabilities() -> None:
-    from framenest.domain.identity_access import (
+    from kronika.domain.identity_access import (
         AUDIENCE_PUBLIC_PUBLISHED,
         CAPABILITY_ANALYSIS_PROPOSE,
         CAPABILITY_GALLERY_READ,

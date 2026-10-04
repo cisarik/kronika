@@ -6,13 +6,13 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from framenest.adapters.api.application import create_app
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 
-def _settings(tmp_path: Path, login: str, role: str) -> FrameNestSettings:
-    settings = FrameNestSettings(
+def _settings(tmp_path: Path, login: str, role: str) -> KronikaSettings:
+    settings = KronikaSettings(
         host="127.0.0.1",
         port=8000,
         database_path=tmp_path / "catalog.sqlite3",
@@ -75,7 +75,7 @@ def test_configured_loopback_echoes_mapped_identity(tmp_path: Path) -> None:
 
 
 def test_missing_local_owner_keeps_null_identity(tmp_path: Path) -> None:
-    settings = FrameNestSettings(
+    settings = KronikaSettings(
         host="127.0.0.1",
         port=8000,
         database_path=tmp_path / "catalog.sqlite3",
@@ -98,7 +98,7 @@ def test_unmapped_local_owner_is_rejected() -> None:
     from pydantic import ValidationError
 
     try:
-        FrameNestSettings(
+        KronikaSettings(
             identity_map={"alice": "user"},
             local_owner_login="intruder",
             _env_file=None,

@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-SOURCE_ROOT = Path("src/framenest")
-PERSISTENCE_ROOT = Path("src/framenest/infrastructure/persistence")
+SOURCE_ROOT = Path("src/kronika")
+PERSISTENCE_ROOT = Path("src/kronika/infrastructure/persistence")
 FORBIDDEN_PERSISTENCE_IMPORT_ROOTS = frozenset({"fastapi", "starlette", "uvicorn"})
 FORBIDDEN_DEPENDENCY_SNIPPETS = (
     "sqlalchemy.orm",
@@ -46,7 +46,7 @@ def test_sqlalchemy_and_alembic_imports_are_confined_to_persistence_package() ->
     violations: list[str] = []
     for path in sorted((repository_root / SOURCE_ROOT).rglob("*.py")):
         relative = path.relative_to(repository_root)
-        if relative == Path("src/framenest/configuration.py"):
+        if relative == Path("src/kronika/configuration.py"):
             forbidden_roots = {"sqlalchemy", "alembic", "sqlite3"}
         elif PERSISTENCE_ROOT in relative.parents or relative == PERSISTENCE_ROOT:
             continue
@@ -107,14 +107,14 @@ def test_no_module_level_engine_creation_or_database_work() -> None:
 
 def test_importing_persistence_modules_does_not_connect_or_bind_socket() -> None:
     modules = (
-        "framenest.infrastructure.persistence",
-        "framenest.infrastructure.persistence.engine",
-        "framenest.infrastructure.persistence.migrations",
-        "framenest.infrastructure.persistence.cli",
-        "framenest.infrastructure.persistence.device_repository",
-        "framenest.infrastructure.persistence.library_repository",
-        "framenest.infrastructure.persistence.media_repository",
-        "framenest.infrastructure.persistence.catalog_schema",
+        "kronika.infrastructure.persistence",
+        "kronika.infrastructure.persistence.engine",
+        "kronika.infrastructure.persistence.migrations",
+        "kronika.infrastructure.persistence.cli",
+        "kronika.infrastructure.persistence.device_repository",
+        "kronika.infrastructure.persistence.library_repository",
+        "kronika.infrastructure.persistence.media_repository",
+        "kronika.infrastructure.persistence.catalog_schema",
     )
     with (
         patch("sqlite3.connect", side_effect=AssertionError("sqlite3.connect must not run")),
@@ -125,7 +125,7 @@ def test_importing_persistence_modules_does_not_connect_or_bind_socket() -> None
 
 
 def test_framenest_persistence_error_strings_are_sanitized() -> None:
-    from framenest.infrastructure.persistence.errors import (
+    from kronika.infrastructure.persistence.errors import (
         FrameNestMigrationError,
         FrameNestPersistenceError,
     )

@@ -6,14 +6,14 @@ import uuid
 
 import pytest
 
-from framenest.domain.records import (
+from kronika.domain.records import (
     CompletedDocument,
     DocumentId,
     RecordKind,
     RecordValueError,
     parse_operation_token,
 )
-from framenest.domain.research import CompletionEvidence
+from kronika.domain.research import CompletionEvidence
 
 
 def _evidence() -> CompletionEvidence:

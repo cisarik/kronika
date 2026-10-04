@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from framenest.infrastructure.ai.configuration import AiConfigurationError
-from framenest.infrastructure.ai.vision_probe import (
+from kronika.infrastructure.ai.configuration import AiConfigurationError
+from kronika.infrastructure.ai.vision_probe import (
     EXPECTED_COLOR,
     VISION_PROBE_PROMPT,
     VISION_PROBE_PROMPT_VERSION,

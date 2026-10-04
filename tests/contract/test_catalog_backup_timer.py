@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-backup"
@@ -53,7 +53,7 @@ def _payload(output: str) -> dict[str, Any]:
 
 
 def _migrated_database(path: Path) -> Path:
-    upgrade_database_to_head(FrameNestSettings(database_path=path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=path, _env_file=None))
     return path
 
 

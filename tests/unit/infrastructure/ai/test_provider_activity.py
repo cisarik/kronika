@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderAuthError,
     MediaSuggestionProviderEmptyResponseError,
     MediaSuggestionProviderFailedError,
@@ -16,7 +16,7 @@ from framenest.application.media_suggestion import (
     MediaSuggestionProviderTruncatedResponseError,
     MediaSuggestionProviderUnavailableError,
 )
-from framenest.infrastructure.ai.provider_activity import (
+from kronika.infrastructure.ai.provider_activity import (
     PROVIDER_CATEGORY_AUTHENTICATION_FAILED,
     PROVIDER_CATEGORY_INVALID_RESPONSE,
     PROVIDER_CATEGORY_MODEL_UNAVAILABLE,

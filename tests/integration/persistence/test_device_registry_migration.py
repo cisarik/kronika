@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from framenest.configuration import FrameNestSettings
-from framenest.domain import DeviceId
+from kronika.configuration import KronikaSettings
+from kronika.domain import DeviceId
 
 PRODUCTION_VERSIONS_PACKAGE = (
-    "framenest.infrastructure.persistence.alembic_environment.versions"
+    "kronika.infrastructure.persistence.alembic_environment.versions"
 )
 EXPECTED_HEAD_REVISION = "0002"
 CURRENT_HEAD_REVISION = "0035"
@@ -21,8 +21,8 @@ CURRENT_HEAD_REVISION = "0035"
 def _upgrade_to_revision(database_path: Path, revision: str) -> None:
     from alembic import command
 
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     settings = _settings_for(database_path)
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -30,7 +30,7 @@ def _upgrade_to_revision(database_path: Path, revision: str) -> None:
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, revision)
@@ -38,8 +38,8 @@ def _upgrade_to_revision(database_path: Path, revision: str) -> None:
         dispose_engine(engine)
 
 
-def _settings_for(database_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(database_path=database_path, _env_file=None)
+def _settings_for(database_path: Path) -> KronikaSettings:
+    return KronikaSettings(database_path=database_path, _env_file=None)
 
 
 def _table_names(database_path: Path) -> set[str]:
@@ -74,7 +74,7 @@ def _devices_sql(database_path: Path) -> str:
 
 
 def test_empty_database_upgrades_to_revision_0002(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import inspect_database_migration_status
+    from kronika.infrastructure.persistence.migrations import inspect_database_migration_status
 
     settings = _settings_for(tmp_path / "head-0002.sqlite3")
     _upgrade_to_revision(settings.database_path, "0002")
@@ -87,12 +87,12 @@ def test_empty_database_upgrades_to_revision_0002(tmp_path: Path) -> None:
 
 def test_database_at_0001_upgrades_to_0002(tmp_path: Path) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.migrations import (
+    from kronika.infrastructure.persistence.migrations import (
         _alembic_config,
         inspect_database_migration_status,
         load_script_directory,
     )
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
 
     settings = _settings_for(tmp_path / "step-upgrade.sqlite3")
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,7 +100,7 @@ def test_database_at_0001_upgrades_to_0002(tmp_path: Path) -> None:
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, "0001")
@@ -119,7 +119,7 @@ def test_database_at_0001_upgrades_to_0002(tmp_path: Path) -> None:
 
 
 def test_repeated_upgrade_to_0002_is_safe(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import inspect_database_migration_status
+    from kronika.infrastructure.persistence.migrations import inspect_database_migration_status
 
     settings = _settings_for(tmp_path / "repeat-0002.sqlite3")
     _upgrade_to_revision(settings.database_path, "0002")
@@ -149,7 +149,7 @@ def test_devices_table_exists_with_required_schema(tmp_path: Path) -> None:
 
 
 def test_duplicate_device_ids_are_rejected(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings_for(tmp_path / "duplicate-id.sqlite3")
     upgrade_database_to_head(settings)
@@ -170,7 +170,7 @@ def test_duplicate_device_ids_are_rejected(tmp_path: Path) -> None:
 
 
 def test_duplicate_display_names_are_allowed(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     settings = _settings_for(tmp_path / "duplicate-name.sqlite3")
     upgrade_database_to_head(settings)
@@ -197,7 +197,7 @@ def test_packaged_migration_resources_include_0002() -> None:
     assert versions.joinpath("0002_device_registry.py").is_file()
 
     script_directory = __import__(
-        "framenest.infrastructure.persistence.migrations",
+        "kronika.infrastructure.persistence.migrations",
         fromlist=["load_script_directory"],
     ).load_script_directory()
     revision = script_directory.get_revision("0002")

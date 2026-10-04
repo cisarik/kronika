@@ -267,7 +267,7 @@ def test_production_console_script_is_declared() -> None:
 
     assert (
         pyproject["project"]["scripts"]["framenest-production"]
-        == "framenest.infrastructure.runtime.production:main"
+        == "kronika.infrastructure.runtime.production:main"
     )
 
 

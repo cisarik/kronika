@@ -10,12 +10,12 @@ import sqlalchemy as sa
 from sqlalchemy import insert, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from framenest.application.ports.device_repository import (
+from kronika.application.ports.device_repository import (
     DeviceAlreadyExistsError,
     FrameNestDeviceRepositoryError,
 )
-from framenest.domain import Device, DeviceId
-from framenest.infrastructure.persistence.catalog_schema import devices
+from kronika.domain import Device, DeviceId
+from kronika.infrastructure.persistence.catalog_schema import devices
 
 INVALID_STORED_ID_TEXT = "12345678-1234-4234-9234-123456789ABC"
 CANONICAL_UUID4_TEXT = "12345678-1234-4234-9234-123456789abc"
@@ -24,17 +24,17 @@ PRIVATE_DATABASE_PATH = "/Users/agile/private/catalog.sqlite3"
 
 
 def _migrated_engine(tmp_path: Path) -> sa.Engine:
-    from framenest.configuration import FrameNestSettings
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.configuration import KronikaSettings
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     database_path = tmp_path / "device-registry.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     return create_sqlite_engine(database_path)
 
 
 def _repository(tmp_path: Path):
-    from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
+    from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
 
     engine = _migrated_engine(tmp_path)
     return SqliteDeviceRepository(engine), engine
@@ -122,7 +122,7 @@ def test_duplicate_display_names_are_allowed(tmp_path: Path) -> None:
 
 
 def test_transaction_failure_rolls_back(tmp_path: Path) -> None:
-    from framenest.infrastructure.persistence.engine import run_in_transaction
+    from kronika.infrastructure.persistence.engine import run_in_transaction
 
     repository, engine = _repository(tmp_path)
     device = _device()
@@ -219,7 +219,7 @@ def test_repository_errors_do_not_leak_sqlalchemy_or_sqlite_details(
 def test_engine_disposal_remains_explicit(tmp_path: Path) -> None:
     from unittest.mock import patch
 
-    from framenest.infrastructure.persistence.engine import dispose_engine
+    from kronika.infrastructure.persistence.engine import dispose_engine
 
     repository, engine = _repository(tmp_path)
     repository.add(_device())

@@ -8,36 +8,36 @@ from pathlib import Path
 from PIL import Image
 from sqlalchemy import create_engine, text
 
-from framenest.application.x_acquisition import (
+from kronika.application.x_acquisition import (
     XAcquisitionCoordinator,
     XAcquisitionRequestService,
     XRequestLimits,
     x_classification_for_upload,
 )
-from framenest.application.upload_catalog import CatalogPublishedUpload
-from framenest.domain.content_publication import (
+from kronika.application.upload_catalog import CatalogPublishedUpload
+from kronika.domain.content_publication import (
     MISSING_TAGS,
     derive_content_publication_readiness,
 )
-from framenest.domain.identities import MediaId, MediaLocationId
-from framenest.domain.media_classification import ContentCategory
-from framenest.domain.media_user_alias import parse_alias_content
-from framenest.domain.uploads import UploadSessionId, UploadValidatedFormat, UploadValidatedMediaKind
-from framenest.domain.x_acquisition import XAcquisitionState, XAssetState, XPostClaimId
-from framenest.infrastructure.media_validation.ffprobe import BoundedUploadMediaValidator
-from framenest.infrastructure.persistence.catalog_schema import metadata
-from framenest.infrastructure.persistence.media_metadata_repository import (
+from kronika.domain.identities import MediaId, MediaLocationId
+from kronika.domain.media_classification import ContentCategory
+from kronika.domain.media_user_alias import parse_alias_content
+from kronika.domain.uploads import UploadSessionId, UploadValidatedFormat, UploadValidatedMediaKind
+from kronika.domain.x_acquisition import XAcquisitionState, XAssetState, XPostClaimId
+from kronika.infrastructure.media_validation.ffprobe import BoundedUploadMediaValidator
+from kronika.infrastructure.persistence.catalog_schema import metadata
+from kronika.infrastructure.persistence.media_metadata_repository import (
     SqliteMediaMetadataRepository,
 )
-from framenest.infrastructure.persistence.media_user_alias_repository import (
+from kronika.infrastructure.persistence.media_user_alias_repository import (
     SqliteMediaUserAliasRepository,
 )
-from framenest.infrastructure.persistence.x_acquisition_claim_repository import (
+from kronika.infrastructure.persistence.x_acquisition_claim_repository import (
     SqliteXAcquisitionClaimRepository,
 )
-from framenest.infrastructure.x.downloader import YtDlpXExtractor
-from framenest.infrastructure.x.staging import ARTIFACT_FILENAME, FilesystemXStaging
-from framenest.infrastructure.x.status_bridge import PhotoHttpResult
+from kronika.infrastructure.x.downloader import YtDlpXExtractor
+from kronika.infrastructure.x.staging import ARTIFACT_FILENAME, FilesystemXStaging
+from kronika.infrastructure.x.status_bridge import PhotoHttpResult
 from tests.support.x_fake_demo import FakeXExtractor
 from tests.unit.application.test_x_acquisition_lifecycle import (
     URL,
@@ -275,7 +275,7 @@ def test_photo_fixture_stages_validates_and_classifies(tmp_path: Path) -> None:
 
 
 def test_photo_claim_retry_after_retryable_timeout(tmp_path: Path) -> None:
-    from framenest.application.ports.x_extractor import XExtractionError
+    from kronika.application.ports.x_extractor import XExtractionError
 
     jpeg = _still_bytes("JPEG")
     staging_root = tmp_path / "xroot"
@@ -376,10 +376,10 @@ def test_photo_catalog_seed_stays_unpublished_and_reports_tag_readiness(
         _seed_canonical_tag,
         _x_seed_classification,
     )
-    from framenest.infrastructure.persistence.upload_publication_repository import (
+    from kronika.infrastructure.persistence.upload_publication_repository import (
         SqliteUploadPublicationRepository,
     )
-    from framenest.infrastructure.persistence.upload_session_repository import (
+    from kronika.infrastructure.persistence.upload_session_repository import (
         SqliteUploadSessionRepository,
     )
 
@@ -444,6 +444,6 @@ def test_photo_catalog_seed_stays_unpublished_and_reports_tag_readiness(
         assert missing.ready is False
         assert MISSING_TAGS in missing.missing_fields
     finally:
-        from framenest.infrastructure.persistence.engine import dispose_engine
+        from kronika.infrastructure.persistence.engine import dispose_engine
 
         dispose_engine(engine)

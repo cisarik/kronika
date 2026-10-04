@@ -4,7 +4,7 @@ Runtime directories are not constants. Callers pass an explicit state
 directory; the development default lives in :mod:`kronika_capture.paths`.
 """
 
-APP_NAME = "framenest-chatgpt-page"
+APP_NAME = "kronika-capture"
 STATE_DIR_NAME = "framenest-chatgpt-page"
 DEFAULT_BRIDGE_HOST = "127.0.0.1"
 DEFAULT_BRIDGE_PORT = 8765

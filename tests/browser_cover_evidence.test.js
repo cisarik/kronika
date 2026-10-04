@@ -22,7 +22,7 @@ const test = require("node:test");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const VENV_PYTHON = path.join(REPO_ROOT, ".venv", "bin", "python");
-const SERVER_APP_JS = path.join(REPO_ROOT, "src", "framenest", "adapters", "api", "web", "app.js");
+const SERVER_APP_JS = path.join(REPO_ROOT, "src", "kronika", "adapters", "api", "web", "app.js");
 const CHROME = process.env.FRAMENEST_CHROME_BIN || "google-chrome-stable";
 const MEDIA_IMG = "99999999-9999-4999-8999-999999999999";
 
@@ -81,16 +81,16 @@ import sqlite3
 import sys
 import uuid
 
-from framenest.adapters.api.application import create_app
-from framenest.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
-from framenest.configuration import FrameNestSettings
-from framenest.domain.identity_access import CAPABILITIES_BY_ROLE, IdentityContext, ROLE_ADMIN
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.adapters.api.application import create_app
+from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID, SCOPE_IDENTITY
+from kronika.configuration import KronikaSettings
+from kronika.domain.identity_access import CAPABILITIES_BY_ROLE, IdentityContext, ROLE_ADMIN
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 DB, MEDIA, PREVIEWS, COVER_ROOT, THUMBS, PORT = sys.argv[1:7]
 PORT = int(PORT)
 
-settings_pre = FrameNestSettings(database_path=DB, _env_file=None)
+settings_pre = KronikaSettings(database_path=DB, _env_file=None)
 upgrade_database_to_head(settings_pre)
 
 MEDIA_MP4 = "11111111-1111-4111-8111-111111111111"
@@ -128,7 +128,7 @@ try:
 finally:
     conn.close()
 
-settings = FrameNestSettings(
+settings = KronikaSettings(
     database_path=DB,
     gallery_preview_cache_path=PREVIEWS,
     cover_storage_root=COVER_ROOT,

@@ -11,7 +11,7 @@ from threading import Barrier, Event
 import pytest
 import sqlalchemy as sa
 
-from framenest.application.ports.upload_sessions import (
+from kronika.application.ports.upload_sessions import (
     FrameNestUploadSessionRepositoryError,
     IncompleteUploadSessionError,
     InvalidUploadChecksumError,
@@ -24,9 +24,9 @@ from framenest.application.ports.upload_sessions import (
     UploadSizeLimitExceededError,
     UploadStorageKeyAlreadyExistsError,
 )
-from framenest.configuration import FrameNestSettings
-from framenest.domain import MediaByteIdentity, MediaByteIdentityId
-from framenest.domain.uploads import (
+from kronika.configuration import KronikaSettings
+from kronika.domain import MediaByteIdentity, MediaByteIdentityId
+from kronika.domain.uploads import (
     UploadDuplicateDisposition,
     UploadDuplicateResolutionMode,
     UploadDisplayFilename,
@@ -38,13 +38,13 @@ from framenest.domain.uploads import (
     UploadValidatedMediaKind,
     VALIDATED_UPLOAD_SESSION_STATES,
 )
-from framenest.infrastructure.persistence.catalog_schema import (
+from kronika.infrastructure.persistence.catalog_schema import (
     media_byte_identities,
     upload_sessions,
 )
-from framenest.infrastructure.persistence.engine import create_sqlite_engine
-from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
-from framenest.infrastructure.persistence.upload_session_repository import (
+from kronika.infrastructure.persistence.engine import create_sqlite_engine
+from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
+from kronika.infrastructure.persistence.upload_session_repository import (
     SqliteUploadSessionRepository,
 )
 
@@ -52,7 +52,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 UPLOAD_REPOSITORY_MODULE = (
     REPOSITORY_ROOT
     / "src"
-    / "framenest"
+    / "kronika"
     / "infrastructure"
     / "persistence"
     / "upload_session_repository.py"
@@ -61,7 +61,7 @@ UPLOAD_REPOSITORY_MODULE = (
 
 def _engine(tmp_path: Path) -> sa.Engine:
     database_path = tmp_path / "upload-sessions.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     return create_sqlite_engine(database_path)
 
 
@@ -178,7 +178,7 @@ def test_duplicate_disposition_update_rolls_back_state_and_provenance_together(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import framenest.infrastructure.persistence.upload_session_repository as module
+    import kronika.infrastructure.persistence.upload_session_repository as module
 
     repository, engine = _repository(tmp_path)
     session = _session(state=UploadSessionState.DUPLICATE_PENDING)
@@ -1514,7 +1514,7 @@ def test_concurrent_identical_validation_serializes_before_canonical_lookup(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "concurrent-validation.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     setup_engine = create_sqlite_engine(database_path)
     setup_repository = SqliteUploadSessionRepository(setup_engine)
     first = _session(
@@ -1604,7 +1604,7 @@ def test_concurrent_identical_validation_serializes_before_canonical_lookup(
 
 def test_concurrent_get_or_create_byte_identity_converges_on_one_row(tmp_path: Path) -> None:
     database_path = tmp_path / "concurrent.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
 
     def worker(created_at_ms: int) -> MediaByteIdentity:
         engine = create_sqlite_engine(database_path, busy_timeout_seconds=5.0)
@@ -1643,7 +1643,7 @@ def test_validation_success_failure_rolls_back_new_identity_and_upload_link(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import framenest.infrastructure.persistence.upload_session_repository as module
+    import kronika.infrastructure.persistence.upload_session_repository as module
 
     repository, engine = _repository(tmp_path)
     session = _session(state=UploadSessionState.VALIDATING)

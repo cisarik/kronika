@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from framenest.application.ports.research import ResearchProvider
-from framenest.domain.research import (
+from kronika.application.ports.research import ResearchProvider
+from kronika.domain.research import (
     ApprovedResourceLimits,
     FIXED_OPENAI_RESPONSES_MODEL_ID,
     OPENAI_RESPONSES_PROVIDER_ID,
@@ -19,19 +19,19 @@ from framenest.domain.research import (
     ServerSelectedProfile,
     WEB_SEARCH_TOOL,
 )
-from framenest.infrastructure.ai.openai_responses import (
+from kronika.infrastructure.ai.openai_responses import (
     DEFAULT_RESPONSES_ENDPOINT,
     OPENAI_RESPONSES_PRICE_SCHEDULE_2026_09_26,
     OpenAIResponsesAdapter,
 )
-from framenest.infrastructure.ai.transport import (
+from kronika.infrastructure.ai.transport import (
     TRANSPORT_AUTH_REJECTED_MESSAGE,
     TRANSPORT_MODEL_UNAVAILABLE_MESSAGE,
     TRANSPORT_UNAVAILABLE_MESSAGE,
     HttpsJsonResponse,
     HttpsTransportError,
 )
-from framenest.domain.research import ProviderHandle
+from kronika.domain.research import ProviderHandle
 
 
 class FakeTransport:

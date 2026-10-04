@@ -8,10 +8,10 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
 
-from framenest.application.ports.media_catalog_repository import MediaCatalogQuery
-from framenest.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
-from framenest.domain.media_metadata import CanonicalTagKey
-from framenest.domain.record_access import AccessScopeKind, RecordAccessScope
+from kronika.application.ports.media_catalog_repository import MediaCatalogQuery
+from kronika.domain import Device, DeviceId, Library, LibraryId, LibraryPathFlavor, LibraryRoot
+from kronika.domain.media_metadata import CanonicalTagKey
+from kronika.domain.record_access import AccessScopeKind, RecordAccessScope
 
 MEDIA_A = "11111111-1111-4111-8111-111111111111"
 MEDIA_B = "22222222-2222-4222-8222-222222222222"
@@ -25,19 +25,19 @@ LOCATION_E = "eeeeeeee-5555-4555-8555-555555555555"
 
 
 def _migrated_engine(tmp_path: Path) -> sa.Engine:
-    from framenest.configuration import FrameNestSettings
-    from framenest.infrastructure.persistence.engine import create_sqlite_engine
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.configuration import KronikaSettings
+    from kronika.infrastructure.persistence.engine import create_sqlite_engine
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     database_path = tmp_path / "media-catalog-repository.sqlite3"
-    upgrade_database_to_head(FrameNestSettings(database_path=database_path, _env_file=None))
+    upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     return create_sqlite_engine(database_path)
 
 
 def _repository(tmp_path: Path):
-    from framenest.infrastructure.persistence.device_repository import SqliteDeviceRepository
-    from framenest.infrastructure.persistence.library_repository import SqliteLibraryRepository
-    from framenest.infrastructure.persistence.media_catalog_repository import SqliteMediaCatalogRepository
+    from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
+    from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
+    from kronika.infrastructure.persistence.media_catalog_repository import SqliteMediaCatalogRepository
 
     engine = _migrated_engine(tmp_path)
     device_repository = SqliteDeviceRepository(engine)
@@ -273,7 +273,7 @@ def test_companion_audience_query_plan_executes_without_a_new_index(
 ) -> None:
     from sqlalchemy import text as sql_text
 
-    from framenest.infrastructure.persistence.media_catalog_repository import (
+    from kronika.infrastructure.persistence.media_catalog_repository import (
         _filtered_media_select,
     )
 

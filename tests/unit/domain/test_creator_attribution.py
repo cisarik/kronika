@@ -6,9 +6,9 @@ import unicodedata
 
 import pytest
 
-from framenest.domain.identities import MediaId
-from framenest.domain.media_classification import ContentCategory, CreatorAttributionKind
-from framenest.domain.media_metadata import (
+from kronika.domain.identities import MediaId
+from kronika.domain.media_classification import ContentCategory, CreatorAttributionKind
+from kronika.domain.media_metadata import (
     FrameNestMediaMetadataError,
     MediaMetadata,
     normalize_creator_display_name,

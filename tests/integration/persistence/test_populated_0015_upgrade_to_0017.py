@@ -6,8 +6,8 @@ import json
 import sqlite3
 from pathlib import Path
 
-from framenest.configuration import FrameNestSettings
-from framenest.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
+from kronika.configuration import KronikaSettings
+from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
 
 
 DEVICE_ID = "12345678-1234-4234-8234-123456789abc"
@@ -35,20 +35,20 @@ RESULT_JSON = json.dumps(
 )
 
 
-def _settings(database_path: Path) -> FrameNestSettings:
-    return FrameNestSettings(database_path=database_path, _env_file=None)
+def _settings(database_path: Path) -> KronikaSettings:
+    return KronikaSettings(database_path=database_path, _env_file=None)
 
 
 def _migrate(database_path: Path, revision: str) -> None:
     from alembic import command
-    from framenest.infrastructure.persistence.migrations import _alembic_config
+    from kronika.infrastructure.persistence.migrations import _alembic_config
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(database_path)
     try:
         with engine.connect() as connection:
             with _alembic_config(
-                "framenest.infrastructure.persistence.alembic_environment"
+                "kronika.infrastructure.persistence.alembic_environment"
             ) as config:
                 config.attributes["connection"] = connection
                 command.upgrade(config, revision)
@@ -209,7 +209,7 @@ def _seed_populated_0015(database_path: Path) -> None:
 def test_populated_0015_upgrades_to_0017_preserving_identities_and_relationships(
     tmp_path: Path,
 ) -> None:
-    from framenest.infrastructure.persistence.migrations import upgrade_database_to_head
+    from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
     database_path = tmp_path / "populated-0015.sqlite3"
     _migrate(database_path, "0015")

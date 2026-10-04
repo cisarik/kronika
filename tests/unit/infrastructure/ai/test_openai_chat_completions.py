@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-from framenest.application.library_scan import LibraryScanCandidateKind
-from framenest.application.media_analysis import (
+from kronika.application.library_scan import LibraryScanCandidateKind
+from kronika.application.media_analysis import (
     PNG_SIGNATURE,
     TechnicalMetadata,
     build_representative_frame,
 )
-from framenest.application.media_suggestion import (
+from kronika.application.media_suggestion import (
     MediaSuggestionProviderAuthError,
     MediaSuggestionProviderFailedError,
     MediaSuggestionProviderInvalidResponseError,
@@ -22,23 +22,23 @@ from framenest.application.media_suggestion import (
     MediaSuggestionRequest,
     PROMPT_VERSION,
 )
-from framenest.infrastructure.ai.constants import (
+from kronika.infrastructure.ai.constants import (
     MAX_REQUEST_BODY_BYTES,
     MAX_RESPONSE_BODY_BYTES,
     REQUEST_TIMEOUT_SECONDS,
     SHARED_USER_AGENT,
 )
-from framenest.infrastructure.ai.credentials import GenericAiProviderCredential
-from framenest.infrastructure.ai.image_derivative import VlmImageDerivative
-from framenest.infrastructure.ai.openai_chat_completions import (
+from kronika.infrastructure.ai.credentials import GenericAiProviderCredential
+from kronika.infrastructure.ai.image_derivative import VlmImageDerivative
+from kronika.infrastructure.ai.openai_chat_completions import (
     VISION_PROBE_MAX_TOKENS,
     OpenAiChatCompletionsMediaSuggestionProvider,
     build_chat_completions_connection_test_body,
     build_chat_completions_suggestion_body,
     build_chat_completions_vision_probe_body,
 )
-from framenest.infrastructure.ai.transport import HttpsJsonResponse
-from framenest.infrastructure.ai.vision_probe import (
+from kronika.infrastructure.ai.transport import HttpsJsonResponse
+from kronika.infrastructure.ai.vision_probe import (
     VISION_PROBE_PROMPT,
     load_vision_probe_fixture,
 )

@@ -12,7 +12,7 @@ import pytest
 
 from tests.support.kronika_identity import expected
 
-from framenest.infrastructure.runtime import production
+from kronika.infrastructure.runtime import production
 
 
 class _HealthHandler(http.server.BaseHTTPRequestHandler):

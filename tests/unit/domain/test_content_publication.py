@@ -1,6 +1,6 @@
 """Domain evidence for server-owned publication readiness."""
 
-from framenest.domain.content_publication import (
+from kronika.domain.content_publication import (
     derive_content_publication_readiness,
 )
 
