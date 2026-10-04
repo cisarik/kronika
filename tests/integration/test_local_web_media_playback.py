@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -226,11 +227,19 @@ def test_local_web_download_uses_sanitized_fallback_for_unsafe_filename(
         response = client.get(f"/api/media/{media_id}/locations/{location['location_id']}/download")
 
     assert response.status_code == 200
-    assert response.headers["content-disposition"] == (
-        f'attachment; filename="framenest-media-{media_id}.mp4"'
-    )
-    assert "\r" not in response.headers["content-disposition"]
-    assert "\n" not in response.headers["content-disposition"]
+    disposition = response.headers["content-disposition"]
+    # The served fallback filename is what reaches a Downloads folder, so it is
+    # user-visible. The structural contract is pinned - one attachment filename
+    # carrying the media identity and the preserved extension - and the retired
+    # spelling is forbidden, while the current brand word is deliberately not
+    # spelled out here so this pin keeps its meaning across the remaining
+    # identity cuts instead of breaking on a spelling this test does not own.
+    assert re.fullmatch(
+        rf'attachment; filename="[a-z0-9-]+-{media_id}\.mp4"', disposition
+    ), disposition
+    assert "framenest" not in disposition.lower()
+    assert "\r" not in disposition
+    assert "\n" not in disposition
 
 
 def test_local_web_download_rejects_missing_file_without_path_disclosure(

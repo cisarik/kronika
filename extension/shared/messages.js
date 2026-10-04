@@ -621,16 +621,16 @@
       ) {
         return {
           kind: "unknown",
-          name: "Save status unknown—check FrameNest",
+          name: "Save status unknown—check Kronika",
           busy: false,
           retainInflight: true,
         };
       }
-      let name = "Save to FrameNest failed";
+      let name = "Save to Kronika failed";
       if (error === "X_REQUEST_INVALID_CATEGORY") {
-        name = "Save to FrameNest failed—FrameNest needs an update";
+        name = "Save to Kronika failed—Kronika needs an update";
       } else if (error === "X_REQUEST_CATEGORY_CONFLICT") {
-        name = "Save to FrameNest failed—category already differs";
+        name = "Save to Kronika failed—category already differs";
       }
       return { kind: "failed", name: name, busy: false, retainInflight: false };
     }
@@ -639,7 +639,7 @@
     if (disposition === "reuse" || disposition === "duplicate_resolved" || state === "duplicate_resolved") {
       return {
         kind: "done",
-        name: "Already saved to FrameNest",
+        name: "Already saved to Kronika",
         busy: false,
         retainInflight: false,
       };
@@ -647,7 +647,7 @@
     if (state === "completed") {
       return {
         kind: "done",
-        name: "Saved to FrameNest",
+        name: "Saved to Kronika",
         busy: false,
         retainInflight: false,
       };
@@ -655,16 +655,16 @@
     if (state === "completed_partial") {
       const successCount = result.successCount;
       const discovered = result.discoveredAssetCount;
-      let name = "Partially saved to FrameNest";
+      let name = "Partially saved to Kronika";
       if (successCount != null && discovered != null) {
-        name = "Partially saved to FrameNest (" + successCount + " of " + discovered + ")";
+        name = "Partially saved to Kronika (" + successCount + " of " + discovered + ")";
       }
       return { kind: "partial", name: name, busy: false, retainInflight: false };
     }
     if (state === "failed") {
       return {
         kind: "failed",
-        name: "Save to FrameNest failed",
+        name: "Save to Kronika failed",
         busy: false,
         retainInflight: false,
       };
@@ -672,7 +672,7 @@
     if (state === "catalog_removed") {
       return {
         kind: "failed",
-        name: "Saved item is no longer available in FrameNest",
+        name: "Saved item is no longer available in Kronika",
         busy: false,
         retainInflight: false,
       };
@@ -680,14 +680,14 @@
     if (result.terminal) {
       return {
         kind: "unknown",
-        name: "Save status unknown—check FrameNest",
+        name: "Save status unknown—check Kronika",
         busy: false,
         retainInflight: true,
       };
     }
     return {
       kind: "busy",
-      name: "Saving to FrameNest…",
+      name: "Saving to Kronika…",
       busy: true,
       retainInflight: true,
     };

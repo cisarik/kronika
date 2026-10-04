@@ -20,7 +20,14 @@ const STYLES_SOURCE = fs.readFileSync(
 const RECOVERY_KEY = "framenest.youtube.currentClaim.v1";
 const RECOVERY_KEY_CURRENT = "kronika.youtube.currentClaim.v1";
 const VIDEO_ID = "AbCdEf123_-";
-const CREATE_CONFIRMATION_MESSAGE = "FrameNest will start the acquisition in the background. Closing the cockpit will not cancel it. Acquired media remains unpublished until it is reviewed and published in Manage media.";
+// The confirmation prose the served shell shows is owned by `app.js` and must
+// carry the same brand as the extension manifest, so the pin is derived from
+// that manifest rather than spelled out here. A one-sided rename on either side
+// breaks the equality assertions below instead of passing silently.
+const BRAND = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "../extension/manifest.json"), "utf8"),
+).name.split(/\s+/)[0];
+const CREATE_CONFIRMATION_MESSAGE = `${BRAND} will start the acquisition in the background. Closing the cockpit will not cancel it. Acquired media remains unpublished until it is reviewed and published in Manage media.`;
 
 function extractFunction(source, name) {
   const markers = [`async function ${name}(`, `function ${name}(`];

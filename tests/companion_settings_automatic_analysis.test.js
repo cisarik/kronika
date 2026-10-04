@@ -505,5 +505,5 @@ test("settings PUT error shows a message and reverts the checkbox", async () => 
   await flush();
   assert.equal(harness.nodes["automatic-analysis-enabled"].checked, false);
   assert.equal(harness.nodes["automatic-analysis-error"].hidden, false);
-  assert.match(harness.nodes["automatic-analysis-error"].textContent, /Could not reach FrameNest/);
+  assert.match(harness.nodes["automatic-analysis-error"].textContent, /Could not reach Kronika/);
 });

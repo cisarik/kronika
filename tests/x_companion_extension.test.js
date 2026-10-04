@@ -18,6 +18,12 @@ const workerSource = fs.readFileSync(
 const manifest = JSON.parse(
   fs.readFileSync(path.join(REPO, "extension/manifest.json"), "utf8")
 );
+// Every user-visible companion string is pinned against the brand word carried
+// by the extension display name, never against a spelled-out brand. A one-sided
+// rename of the product or of a single surface therefore breaks the pin that
+// owns it instead of passing silently.
+const BRAND = manifest.name.split(/\s+/)[0];
+const SAVE_TO_BRAND = `Save to ${BRAND}`;
 
 test("unknown protocol versions and types are dropped", () => {
   assert.equal(companion.TYPES.DISMISS_PICKER, "dismiss_picker");
@@ -114,7 +120,9 @@ test("FrameNest origin canonicalizer accepts ordinary tailnet paste variants", (
   const sidebarJs = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.js"), "utf8");
   assert.match(
     sidebarJs,
-    /Use the FrameNest HTTPS tailnet origin \(https:\/\/<node>\.<tailnet>\.ts\.net\), with no path\./
+    new RegExp(
+      `Use the ${BRAND} HTTPS tailnet origin \\(https://<node>\\.<tailnet>\\.ts\\.net\\), with no path\\.`
+    )
   );
   assert.match(workerSource, /canonicalizeFrameNestOrigin/);
   assert.doesNotMatch(workerSource, /origins: \[origin \+ "\/\/\*"\]/);
@@ -333,7 +341,7 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.match(adapterSource, /accepted\.submittedUrl/);
   assert.doesNotMatch(adapterSource, /pbs\.twimg\.com/);
   assert.match(adapterSource, /data-framenest-companion"\) === "save"/);
-  assert.equal(companion.reduceXSaveOutcome({ ok: false }).name, "Save to FrameNest failed");
+  assert.equal(companion.reduceXSaveOutcome({ ok: false }).name, `${SAVE_TO_BRAND} failed`);
   assert.match(adapterSource, /openSavePopup/);
   assert.match(adapterSource, /ui\/save\.html/);
   assert.doesNotMatch(adapterSource, /TYPES\.SAVE_POST, \{\s*url: accepted\.submittedUrl/);
@@ -578,7 +586,7 @@ test("picker is search-first without a Settings dialog", () => {
   assert.doesNotMatch(pickerHtml, /<dialog/);
   assert.doesNotMatch(pickerCss, /\.settings-dialog/);
   assert.doesNotMatch(pickerCss, /\.picker-settings/);
-  assert.match(pickerJs, /Connect FrameNest in the side panel/);
+  assert.match(pickerJs, new RegExp(`Connect ${BRAND} in the side panel`));
   assert.doesNotMatch(pickerJs, /showModal/);
   assert.doesNotMatch(pickerJs, /openSettings/);
   assert.doesNotMatch(pickerJs, /closeSettings/);
@@ -1480,7 +1488,7 @@ test("side-panel Settings Save sits under origin; empty title-bar Connect opens 
   assert.match(sidebarJs, /originInput\.addEventListener\("change", syncSettingsSave\)/);
   assert.match(sidebarJs, /TYPES\.CONFIGURE_ORIGIN/);
   assert.match(sidebarJs, /textContent = connected \? "Disconnect" : "Connect"/);
-  assert.match(sidebarJs, /Connect FrameNest in Settings/);
+  assert.match(sidebarJs, new RegExp(`Connect ${BRAND} in Settings`));
   assert.doesNotMatch(sidebarJs, /Connect FrameNest to open the library/);
   const connectFn = sidebarJs.match(/async function connect\(\) \{[\s\S]*?\n  \}/);
   assert.ok(connectFn, "connect()");
@@ -1847,7 +1855,10 @@ test("Save popup is an Edit-media subset without radios, source, or on-open focu
   assert.match(saveJs, /target === tagSearch && tagListOpen\(\) && activeSuggestion >= 0/);
   assert.match(saveJs, /tagListOpen\(\)/);
   assert.match(saveJs, /aria-busy/);
-  assert.match(saveJs, /FrameNest needs an update before this Save can complete\./);
+  assert.match(
+    saveJs,
+    new RegExp(`${BRAND} needs an update before this Save can complete\\.`)
+  );
   assert.doesNotMatch(saveJs, /content_category/);
   assert.doesNotMatch(saveJs, /contentCategory:\s*null/);
   assert.doesNotMatch(saveCss, /\.category /);
@@ -1931,7 +1942,7 @@ test("Save live UX keeps + inset, hides Edit image, and searches canonical tags 
   assert.equal(profile.style.left, undefined);
   const save = photo.querySelector("[data-framenest-companion='save']");
   assert.ok(save);
-  assert.equal(save.getAttribute("aria-label"), "Save to FrameNest");
+  assert.equal(save.getAttribute("aria-label"), SAVE_TO_BRAND);
   const prefill = hooks.postTextPrefillFrom(post, photo);
   assert.equal(prefill.description, "First line of the post\nSecond line stays in description");
   assert.equal(prefill.title, "Cardano founder still");
@@ -2011,13 +2022,13 @@ test("Save title ignores companion plus inside the photo host", () => {
   photo.appendChild(
     el(dom, "button", {
       "data-framenest-companion": "save",
-      "aria-label": "Save to FrameNest",
+      "aria-label": SAVE_TO_BRAND,
     })
   );
   post.appendChild(photo);
   const prefill = hooks.postTextPrefillFrom(post, photo);
   assert.equal(prefill.title, "Useful tweet sentence about the photo");
-  assert.notEqual(prefill.title, "Save to FrameNest");
+  assert.notEqual(prefill.title, SAVE_TO_BRAND);
   assert.equal(prefill.description, "Useful tweet sentence about the photo.");
 
   const emptyPost = el(dom, "article", { "data-testid": "tweet" });
@@ -2026,7 +2037,7 @@ test("Save title ignores companion plus inside the photo host", () => {
   emptyPhoto.appendChild(
     el(dom, "button", {
       "data-framenest-companion": "save",
-      "aria-label": "Save to FrameNest",
+      "aria-label": SAVE_TO_BRAND,
     })
   );
   emptyPost.appendChild(emptyPhoto);
@@ -2064,18 +2075,18 @@ test("content-category helper and save-outcome reducer cover every terminal", ()
   assert.equal(companion.defaultContentCategoryForMediaKind("video"), "general");
   assert.equal(companion.defaultContentCategoryForMediaKind("unknown"), "general");
   assert.equal(companion.reduceXSaveOutcome({ ok: true }).kind, "busy");
-  assert.equal(companion.reduceXSaveOutcome({ ok: true }).name, "Saving to FrameNest…");
+  assert.equal(companion.reduceXSaveOutcome({ ok: true }).name, `Saving to ${BRAND}…`);
   assert.equal(
     companion.reduceXSaveOutcome({ ok: true, state: "completed" }).name,
-    "Saved to FrameNest"
+    `Saved to ${BRAND}`
   );
   assert.equal(
     companion.reduceXSaveOutcome({ ok: true, submissionResult: "reuse" }).name,
-    "Already saved to FrameNest"
+    `Already saved to ${BRAND}`
   );
   assert.equal(
     companion.reduceXSaveOutcome({ ok: true, state: "duplicate_resolved" }).name,
-    "Already saved to FrameNest"
+    `Already saved to ${BRAND}`
   );
   assert.equal(
     companion.reduceXSaveOutcome({
@@ -2084,28 +2095,28 @@ test("content-category helper and save-outcome reducer cover every terminal", ()
       successCount: 1,
       discoveredAssetCount: 3,
     }).name,
-    "Partially saved to FrameNest (1 of 3)"
+    `Partially saved to ${BRAND} (1 of 3)`
   );
   const failed = companion.reduceXSaveOutcome({ ok: true, state: "failed", terminal: true });
   assert.equal(failed.kind, "failed");
-  assert.equal(failed.name, "Save to FrameNest failed");
+  assert.equal(failed.name, `${SAVE_TO_BRAND} failed`);
   assert.equal(
     companion.reduceXSaveOutcome({ ok: true, state: "catalog_removed", terminal: true }).name,
-    "Saved item is no longer available in FrameNest"
+    `Saved item is no longer available in ${BRAND}`
   );
   const unknown = companion.reduceXSaveOutcome({ ok: false, error: "network_failed" });
   assert.equal(unknown.kind, "unknown");
-  assert.equal(unknown.name, "Save status unknown—check FrameNest");
+  assert.equal(unknown.name, `Save status unknown—check ${BRAND}`);
   assert.equal(unknown.retainInflight, true);
   assert.equal(
     companion.reduceXSaveOutcome({ ok: false, error: "X_REQUEST_INVALID_CATEGORY" }).name,
-    "Save to FrameNest failed—FrameNest needs an update"
+    `${SAVE_TO_BRAND} failed—${BRAND} needs an update`
   );
   const closed = companion.reduceXSaveOutcome({ ok: true, terminal: true, state: "unexpected" });
   assert.equal(closed.kind, "unknown");
 });
 
-test("failed Save never paints Saved to FrameNest and mirrors every tile on the post", () => {
+test("failed Save never paints the completed Saved to brand copy and mirrors every tile on the post", () => {
   const CLAIM = "11111111-1111-4111-8111-111111111111";
   const POST_ID = "123456789";
   const replies = [];
@@ -2151,11 +2162,11 @@ test("failed Save never paints Saved to FrameNest and mirrors every tile on the 
     state: "failed",
     terminal: true,
   });
-  assert.equal(first.getAttribute("aria-label"), "Save to FrameNest failed");
-  assert.equal(second.getAttribute("aria-label"), "Save to FrameNest failed");
+  assert.equal(first.getAttribute("aria-label"), `${SAVE_TO_BRAND} failed`);
+  assert.equal(second.getAttribute("aria-label"), `${SAVE_TO_BRAND} failed`);
   assert.equal(first.getAttribute("data-framenest-save-kind"), "failed");
   assert.equal(second.getAttribute("data-framenest-save-kind"), "failed");
-  assert.equal(first.getAttribute("aria-label").includes("Saved to FrameNest"), false);
+  assert.equal(first.getAttribute("aria-label").includes(`Saved to ${BRAND}`), false);
   const failedIcon = hooks.saveIconSvg("failed");
   assert.ok(pathDataFrom(failedIcon).includes("M12 6.5v11M6.5 12h11"));
   assert.equal(
@@ -2204,37 +2215,37 @@ test("catalog_removed, reuse, partial, and unknown outcomes paint distinct copy"
   hooks.injectSave(post);
   const button = photo.querySelector("[data-framenest-companion='save']");
   hooks.applySaveResult(button, { ok: true, submissionResult: "reuse", state: "completed" });
-  assert.equal(button.getAttribute("aria-label"), "Already saved to FrameNest");
+  assert.equal(button.getAttribute("aria-label"), `Already saved to ${BRAND}`);
   hooks.applySaveResult(button, {
     ok: true,
     state: "completed_partial",
     successCount: 1,
     discoveredAssetCount: 2,
   });
-  assert.equal(button.getAttribute("aria-label"), "Partially saved to FrameNest (1 of 2)");
+  assert.equal(button.getAttribute("aria-label"), `Partially saved to ${BRAND} (1 of 2)`);
   hooks.applySaveResult(button, { ok: true, state: "catalog_removed", terminal: true });
   assert.equal(
     button.getAttribute("aria-label"),
-    "Saved item is no longer available in FrameNest"
+    `Saved item is no longer available in ${BRAND}`
   );
   hooks.applySaveResult(button, { ok: false, error: "network_failed", ambiguous: true });
-  assert.equal(button.getAttribute("aria-label"), "Save status unknown—check FrameNest");
+  assert.equal(button.getAttribute("aria-label"), `Save status unknown—check ${BRAND}`);
   hooks.applySaveResult(button, {
     ok: true,
     claimId: CLAIM,
     postId: POST_ID,
     state: "inspecting",
   });
-  assert.equal(button.getAttribute("aria-label"), "Saving to FrameNest…");
+  assert.equal(button.getAttribute("aria-label"), `Saving to ${BRAND}…`);
   assert.equal(button.getAttribute("aria-busy"), "true");
   pollState = "catalog_removed";
   await hooks.pollClaim(CLAIM, POST_ID, null, 0);
   assert.equal(
     button.getAttribute("aria-label"),
-    "Saved item is no longer available in FrameNest"
+    `Saved item is no longer available in ${BRAND}`
   );
   await hooks.recover();
-  assert.equal(button.getAttribute("aria-label"), "Saved item is no longer available in FrameNest");
+  assert.equal(button.getAttribute("aria-label"), `Saved item is no longer available in ${BRAND}`);
 });
 
 test("Escape restores focus to the initiating Save control", () => {

@@ -4,7 +4,7 @@
   const TAG_LIMIT = 32;
   const COMPANION_X_TAG_KEY = "x";
   const COMPANION_X_TAG_DISPLAY_NAME = "\u{1D54F}";
-  const UPGRADE_MESSAGE = "FrameNest needs an update before this Save can complete.";
+  const UPGRADE_MESSAGE = "Kronika needs an update before this Save can complete.";
   const form = document.getElementById("save-form");
   const title = document.getElementById("title");
   const description = document.getElementById("description");

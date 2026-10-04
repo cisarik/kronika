@@ -63,11 +63,11 @@
   }
 
   function framingFailureCopy() {
-    return "FrameNest did not load in this panel.";
+    return "Kronika did not load in this panel.";
   }
 
   function companionHostMissingCopy() {
-    return "This FrameNest server cannot host companion Attach yet. The library below is an older web without the companion host.";
+    return "This Kronika server cannot host companion Attach yet. The library below is an older web without the companion host.";
   }
 
   function handshakeTimeoutCopy(frameLoaded) {
@@ -483,7 +483,7 @@
   function syncChromeAction() {
     const connected = Boolean(storedOrigin);
     chromeAction.textContent = connected ? "Disconnect" : "Connect";
-    chromeAction.setAttribute("aria-label", connected ? "Disconnect FrameNest" : "Connect FrameNest");
+    chromeAction.setAttribute("aria-label", connected ? "Disconnect Kronika" : "Connect Kronika");
   }
 
   function request(type, payload) {
@@ -669,7 +669,7 @@
     const error = result && result.error;
     const status = result && result.status;
     if (error === "network_failed") {
-      return "Could not reach FrameNest.";
+      return "Could not reach Kronika.";
     }
     if (error === "CAPABILITY_DENIED" || error === "http_403" || status === 403) {
       return "Automatic media analysis is administrator-only.";
@@ -782,7 +782,7 @@
   }
 
   function promptConnectInSettings() {
-    setText(shellStatus, "Connect FrameNest in Settings");
+    setText(shellStatus, "Connect Kronika in Settings");
     openSettings();
   }
 
@@ -823,7 +823,7 @@
   async function connect() {
     const origin = originInput.value.trim();
     if (!origin) {
-      setText(shellStatus, "Enter a FrameNest origin in Settings", "error");
+      setText(shellStatus, "Enter a Kronika origin in Settings", "error");
       openSettings();
       return;
     }
@@ -835,7 +835,7 @@
       const error = result.error;
       const copy =
         error === "invalid_origin"
-          ? "Use the FrameNest HTTPS tailnet origin (https://<node>.<tailnet>.ts.net), with no path."
+          ? "Use the Kronika HTTPS tailnet origin (https://<node>.<tailnet>.ts.net), with no path."
           : error || "Failed";
       setText(shellStatus, copy, "error");
       return;
@@ -1100,7 +1100,7 @@
       hideAdminSettings();
       hideInboxSection();
       clearFrame();
-      setText(shellStatus, "Connect FrameNest in Settings");
+      setText(shellStatus, "Connect Kronika in Settings");
     }
   );
 })();

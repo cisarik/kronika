@@ -24,7 +24,7 @@
   }
 
   function disconnectedStatus() {
-    return "Connect FrameNest in the side panel";
+    return "Connect Kronika in the side panel";
   }
 
   function trimmedQuery() {

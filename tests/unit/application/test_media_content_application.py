@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -252,7 +253,23 @@ def test_safe_download_filename_uses_deterministic_fallback_when_required():
         media_id=MEDIA_ID,
         relative_path=MediaRelativePath("clips/😈.gif"),
     )
-    assert filename == f"framenest-media-{MEDIA_ID.to_string()}.gif"
+    stem, _, extension = filename.rpartition(".")
+    identity = MEDIA_ID.to_string()
+    # The fallback is deterministic: it is derived only from the media identity,
+    # and only the extension of the sanitised-away name survives.
+    assert extension == "gif"
+    assert stem.endswith(f"-{identity}")
+    assert re.fullmatch(r"[a-z0-9-]+", stem)
+    # The fallback stem is what lands in a Downloads folder, so it is
+    # user-visible. It must carry the sole product identity and never the
+    # retired spelling. The current brand word is deliberately not spelled out
+    # here, so this pin keeps its meaning across the remaining identity cuts
+    # instead of breaking on a spelling this test does not own.
+    assert "framenest" not in filename.lower()
+    assert filename == safe_download_filename(
+        media_id=MEDIA_ID,
+        relative_path=MediaRelativePath("clips/😈.gif"),
+    )
 
 
 def test_repository_failure_propagates_without_private_info():

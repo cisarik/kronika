@@ -195,12 +195,19 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # strings and now carries none, so it leaves this content set entirely.
     # In `extension`, `manifest.json` (three display fields) and `ui/sidebar.html`
     # (five human-readable strings) each lost their last occurrence and left.
+    #
+    # KSI-IMPL-C2C moved `extension` by -2 and nothing else. `ui/save.html`
+    # (document title and heading) and `ui/picker.html` (document title) each
+    # lost their last occurrence and left this content set. No path was renamed,
+    # and `ui/save.js`, `ui/picker.js`, `ui/sidebar.js`, `shared/messages.js` and
+    # `content/x_adapter.js` all stay, each still naming the retired spelling
+    # through a CSS or DOM hook, a port name, a storage key or a global.
     "src": 254,
     "tests": 321,
     "deploy": 19,
     "scripts": 7,
     "docs": 88,
-    "extension": 10,
+    "extension": 8,
 }
 
 # Occurrence counts, not file counts. A content-only rename inside an already
@@ -252,12 +259,42 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `companion_review_extension.test.js` -1, and
     # `contract/test_media_content_api.py` is unmoved because its pin lost one
     # retired spelling and the new fallback test adds one back.
-    "src": 2978,
-    "tests": 4518,
+    #
+    # KSI-IMPL-C2C moved `src` by -10, `extension` by -31 and `tests` by -26.
+    #
+    # `src` -10: `adapters/api/web/app.js` -9 for eight user-visible prose
+    # strings (the two provider-pong words, the removal confirmation and the
+    # credential hint counted once each, the acquisition confirmation once, the
+    # health detail once, the provider-credential reason once and the two AI
+    # disclosures once each), and `application/media_content.py` -1 for the
+    # deterministic download-filename fallback stem.
+    #
+    # `extension` -31, per file: `shared/messages.js` -13 (thirteen outcome names
+    # across twelve literals, one of which names the brand twice),
+    # `ui/sidebar.js` -9 (eight status and aria strings across eight literals,
+    # one of which names the brand twice), `content/x_adapter.js` -4,
+    # `ui/save.html` -2, and `ui/save.js`, `ui/picker.html` and `ui/picker.js`
+    # -1 each. No CSS, DOM hook, port name, storage key, alarm name, protocol
+    # string, API version or mutation-header spelling moved.
+    #
+    # `tests` -26, per file: `x_companion_extension.test.js` -30 (thirty-two
+    # repointed display assertions and one test title, less the three brand
+    # carriers its new derived-brand header adds),
+    # `companion_review_extension.test.js` +6 (the extended agreement guard names
+    # the retired spelling in its machine-read exclusion and its negative
+    # assertion, and names it in its own provenance comment; the repointed
+    # side-panel status pin lost one and the new derived source reads add none),
+    # and `companion_settings_automatic_analysis.test.js`, `test_local_web_
+    # media_playback.py`, `test_media_content_application.py` and
+    # `youtube_acquisition_cockpit.test.js` net -1, 0, 0 and -1. The two
+    # download-stem pins each lost the retired stem and added a retired-spelling
+    # prohibition in its place, so each is provably unchanged.
+    "src": 2968,
+    "tests": 4492,
     "deploy": 212,
     "scripts": 104,
     "docs": 1216,
-    "extension": 176,
+    "extension": 145,
 }
 
 # The exact tracked text paths, this ledger excluded, whose decoded content
@@ -279,6 +316,12 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # of those files now carries no `framenest` spelling in any case, so it is
 # correctly absent rather than merely renamed. No file that still carries the
 # token was dropped, and no file that no longer carries it was retained.
+#
+# KSI-IMPL-C2C removed exactly two paths and added none. `extension/ui/save.html`
+# and `extension/ui/picker.html` each lost their last occurrence, so they are now
+# correctly absent rather than merely renamed. Both remain tracked and both are
+# still served and still rendered; a later cut that reintroduces any `framenest`
+# spelling into either file will now fail loudly here.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -406,10 +449,8 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "extension/content/x_adapter.js",
         "extension/content/x_adapter_contract_v1.js",
         "extension/shared/messages.js",
-        "extension/ui/picker.html",
         "extension/ui/picker.js",
         "extension/ui/review.js",
-        "extension/ui/save.html",
         "extension/ui/save.js",
         "extension/ui/sidebar.js",
         "framenest",
@@ -1046,8 +1087,16 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # `extension/manifest.json`, `extension/ui/sidebar.html` and
 # `src/framenest/adapters/api/web/index.html`, each of which now carries no
 # capitalized name at all and so leaves this count as well as the content set.
-CAPITALIZED_OCCURRENCE_COUNT = 3384
-CAPITALIZED_FILE_COUNT = 479
+#
+# KSI-IMPL-C2C moved this by -69 occurrences and -2 files. The occurrences are
+# the forty-one user-visible `FrameNest` strings it retired across nine files,
+# less the twenty-eight retired spellings its repointed assertions and its
+# extended agreement guard reintroduce. The two files are
+# `extension/ui/save.html` and `extension/ui/picker.html`, each of which now
+# carries no capitalized name at all and so leaves this count as well as the
+# content set.
+CAPITALIZED_OCCURRENCE_COUNT = 3315
+CAPITALIZED_FILE_COUNT = 477
 
 CONSOLE_SCRIPT_ENTRY_COUNT = 14
 

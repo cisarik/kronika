@@ -15,6 +15,8 @@ const workerSource = fs.readFileSync(
   "utf8"
 );
 const sidebarSource = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.js"), "utf8");
+const saveJsSource = fs.readFileSync(path.join(REPO, "extension/ui/save.js"), "utf8");
+const pickerJsSource = fs.readFileSync(path.join(REPO, "extension/ui/picker.js"), "utf8");
 const sidebarHtml = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.html"), "utf8");
 const sidebarCss = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.css"), "utf8");
 const reviewSource = fs.readFileSync(path.join(REPO, "extension/ui/review.js"), "utf8");
@@ -582,6 +584,142 @@ test("manifest display name and side-panel wordmark carry one identical brand", 
   }
 });
 
+test("every companion and served-prose display surface carries the manifest brand", () => {
+  const brand = manifest.name.split(/\s+/)[0];
+
+  // Every display carrier on the surfaces this cut owns, resolved by parsing the
+  // artefact rather than by matching known literals. `jsLiterals` yields every
+  // string literal; `htmlCarriers` yields every inter-element text node and
+  // every quoted attribute value.
+  function jsLiterals(relative) {
+    const source = fs.readFileSync(path.join(REPO, relative), "utf8");
+    const literals = [];
+    const pattern = /(["'`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+      literals.push(match[2]);
+    }
+    return literals;
+  }
+
+  function htmlCarriers(relative) {
+    const html = fs.readFileSync(path.join(REPO, relative), "utf8");
+    const carriers = [];
+    const attribute = /([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+    let match;
+    while ((match = attribute.exec(html)) !== null) {
+      carriers.push({
+        kind: `attr:${match[1]}`,
+        text: match[2] !== undefined ? match[2] : match[3],
+      });
+    }
+    const withoutComments = html.replace(/<!--[\s\S]*?-->/g, (match) => " ".repeat(match.length));
+    const withoutScripts = withoutComments.replace(
+      /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+      (match) => " ".repeat(match.length)
+    );
+    const withoutStyles = withoutScripts.replace(
+      /<style\b[^>]*>[\s\S]*?<\/style>/gi,
+      (match) => " ".repeat(match.length)
+    );
+    const tag = /<\/?[A-Za-z][^>]*>/g;
+    let cursor = 0;
+    while ((match = tag.exec(withoutStyles)) !== null) {
+      const text = withoutStyles.slice(cursor, match.index).replace(/\s+/g, " ").trim();
+      if (/[A-Za-z]/.test(text)) carriers.push({ kind: "text", text });
+      cursor = match.index + match[0].length;
+    }
+    const tail = withoutStyles.slice(cursor).replace(/\s+/g, " ").trim();
+    if (/[A-Za-z]/.test(tail)) carriers.push({ kind: "text", text: tail });
+    return carriers;
+  }
+
+  // Machine-read spellings, not display text: the CSS and DOM hooks, the port
+  // name, the localStorage and alarm keys, the protocol and API-version strings
+  // and the retained mutation-header spelling. C7 owns the hooks, C4 the keys,
+  // C3 the protocol strings and C7 the header; none of them is display text, so
+  // they are excluded here by exact spelling rather than by file. The match is
+  // deliberately case-sensitive: `frameNestOrigin` and `FrameNestCompanion`
+  // style camel-case names never contain `FrameNest`, so excluding them here
+  // would only hide a display string that regressed to the retired brand.
+  const MACHINE_READ = /framenest|X-FrameNest/;
+
+  const surfaces = [
+    ["extension/shared/messages.js", "literal"],
+    ["extension/ui/save.js", "literal"],
+    ["extension/ui/picker.js", "literal"],
+    ["extension/ui/sidebar.js", "literal"],
+    ["extension/content/x_adapter.js", "literal"],
+    ["src/framenest/adapters/api/web/app.js", "literal"],
+    ["extension/ui/save.html", "carrier"],
+    ["extension/ui/picker.html", "carrier"],
+  ];
+
+  let brandCarrying = 0;
+  for (const [relative, kind] of surfaces) {
+    const carriers =
+      kind === "literal"
+        ? jsLiterals(relative).map((text) => ({ kind: "literal", text }))
+        : htmlCarriers(relative);
+    const display = carriers.filter(
+      (carrier) => /[A-Za-z]/.test(carrier.text) && !MACHINE_READ.test(carrier.text)
+    );
+    assert.ok(
+      display.length > 0,
+      `${relative} must still expose letter-bearing display text, or this guard is vacuous`
+    );
+    for (const carrier of display) {
+      assert.doesNotMatch(
+        carrier.text,
+        /FrameNest/,
+        `${relative} ${carrier.kind} must not name the retired brand: ${carrier.text}`
+      );
+    }
+    brandCarrying += display.filter((carrier) => carrier.text.includes(brand)).length;
+  }
+
+  // The manifest name, the side-panel wordmark, the recovery copy, the origin
+  // label and the connection status and aria strings are the surfaces a person
+  // reads first. Each must name the brand the manifest names, so a one-sided
+  // rename of any single one of them fails here.
+  for (const [surface, text] of [
+    ["manifest.name", manifest.name],
+    ["sidebar wordmark", (sidebarHtml.match(/class="title-bar__wordmark"[^>]*>([^<]*)</) || [])[1]],
+    ["EXTENSION_CONTEXT_RECOVERY_COPY", companion.EXTENSION_CONTEXT_RECOVERY_COPY],
+    ["sidebar origin label", (sidebarHtml.match(/<label for="origin">([^<]*)</) || [])[1]],
+    [
+      "ui/save.js UPGRADE_MESSAGE",
+      (saveJsSource.match(/const UPGRADE_MESSAGE = "([^"]*)"/) || [])[1],
+    ],
+    ["ui/picker.js disconnectedStatus", extractNamedFunction(pickerJsSource, "disconnectedStatus")],
+  ]) {
+    assert.ok(
+      (text || "").includes(brand),
+      `${surface} must name the same brand as the manifest display name`
+    );
+  }
+
+  for (const name of [
+    "framingFailureCopy",
+    "companionHostMissingCopy",
+    "automaticAnalysisErrorCopy",
+    "syncChromeAction",
+    "promptConnectInSettings",
+    "connect",
+  ]) {
+    const body = extractNamedFunction(sidebarSource, name);
+    assert.ok(
+      body.includes(brand),
+      `sidebar connection copy ${name}() must name the manifest brand`
+    );
+  }
+
+  assert.ok(
+    brandCarrying >= surfaces.length,
+    `each owned surface must keep at least one brand-carrying display string, saw ${brandCarrying}`
+  );
+});
+
 test("manifest adds alarms, keeps action, and does not add notifications or overlay WAR", () => {
   assert.deepEqual(manifest.permissions.sort(), ["alarms", "sidePanel", "storage"]);
   assert.equal((manifest.permissions || []).includes("alarms"), true);
@@ -1124,7 +1262,7 @@ test("title-bar merged history has the accepted DOM, ARIA, and status contract",
   assert.match(sidebarSource, /ui\/review\.html/);
   assert.doesNotMatch(sidebarSource, /explicitCollapsedKey|seenRunIdKey/);
   assert.doesNotMatch(sidebarSource, /setText\(shellStatus,\s*"Connected"/);
-  assert.match(sidebarSource, /Connect FrameNest in Settings/);
+  assert.match(sidebarSource, new RegExp(`Connect ${manifest.name.split(/\s+/)[0]} in Settings`));
   assert.match(sidebarSource, /setText\(shellStatus, "Cleared"\)/);
   assert.match(sidebarSource, /setText\(shellStatus, "Attached"\)/);
   assert.doesNotMatch(extractNamedFunction(sidebarSource, "openReviewOverlay"), /clearFrame/);

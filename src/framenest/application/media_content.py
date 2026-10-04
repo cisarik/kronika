@@ -85,7 +85,7 @@ def safe_download_filename(
     raw_stem = raw_filename[: -len(extension)] if extension else raw_filename
     stem = _safe_download_stem(raw_stem)
     if not stem:
-        stem = f"framenest-media-{media_id.to_string()}"
+        stem = f"kronika-media-{media_id.to_string()}"
     return f"{stem}{extension}"
 
 

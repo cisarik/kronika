@@ -1622,7 +1622,7 @@ async function submitYouTubeClaim() {
   youtubeClaimState.urlError = "";
   const accepted = await requestConfirmation({
     title: "Confirm YouTube claim",
-    message: "FrameNest will start the acquisition in the background. Closing the cockpit will not cancel it. Acquired media remains unpublished until it is reviewed and published in Manage media.",
+    message: "Kronika will start the acquisition in the background. Closing the cockpit will not cancel it. Acquired media remains unpublished until it is reviewed and published in Manage media.",
     dismissLabel: "Cancel",
     confirmLabel: "Claim media",
     focusReturn: youtubeClaimSubmitButton,
@@ -1871,7 +1871,7 @@ function setLoadingState() {
 function setHealthyState() {
   setStatusClass("status--healthy");
   statusText.textContent = "Local server healthy";
-  statusDetail.textContent = "The FrameNest application process answered the health check.";
+  statusDetail.textContent = "The Kronika application process answered the health check.";
   setServerHealthButtonState("healthy", "Server healthy");
 }
 
@@ -1990,7 +1990,7 @@ function aiStatusInfo(status) {
   if (status === "credential_unavailable") {
     return {
       heading: "Server credential unavailable",
-      reason: "The selected provider credential is not available to this FrameNest server process.",
+      reason: "The selected provider credential is not available to this Kronika server process.",
     };
   }
   if (status === "configured_unverified") {
@@ -5172,7 +5172,7 @@ async function handleAnalyzeCatalogCard(item, button) {
   setCardAnalyzeButtonState(button, "confirming");
   const accepted = await requestConfirmation({
     title: "Analyze with AI?",
-    message: "FrameNest will send up to 3 optimized preview frames and bounded metadata to the configured server-side AI provider. The original file, local path, and API key are not uploaded. The editor will open with proposal strips beside Title, Description, and Tags. Current canonical values are not replaced. Nothing is saved until you click Save, and the physical file is not renamed.",
+    message: "Kronika will send up to 3 optimized preview frames and bounded metadata to the configured server-side AI provider. The original file, local path, and API key are not uploaded. The editor will open with proposal strips beside Title, Description, and Tags. Current canonical values are not replaced. Nothing is saved until you click Save, and the physical file is not renamed.",
     dismissLabel: "Not now",
     confirmLabel: "Analyze by AI",
     destructive: false,
@@ -6791,7 +6791,7 @@ async function handleAnalyzeMetadataByAi() {
   const confirmationContext = captureMetadataAiConfirmationContext(location);
   const accepted = await requestConfirmation({
     title: metadataWorkspace.analysisFailureCode ? "Retry AI analysis?" : "Use AI analysis?",
-    message: "FrameNest will send up to 3 optimized preview frames and bounded metadata to the configured server-side AI provider. The original file, local path, and API key are not uploaded. Returned values become proposal strips beside Title, Description, and Tags. They do not replace the current unsaved values. The result will not be saved automatically, and the physical file will not be renamed.",
+    message: "Kronika will send up to 3 optimized preview frames and bounded metadata to the configured server-side AI provider. The original file, local path, and API key are not uploaded. Returned values become proposal strips beside Title, Description, and Tags. They do not replace the current unsaved values. The result will not be saved automatically, and the physical file will not be renamed.",
     dismissLabel: "Not now",
     confirmLabel: metadataWorkspace.analysisFailureCode ? "Retry analysis" : "Analyze by AI",
     destructive: false,
@@ -8271,7 +8271,7 @@ async function mutateAdminContentPublication(item, opener, published) {
 function buildCatalogRemovalConfirmationMessage(preview) {
   const title = preview.display_title || "Untitled media";
   const lines = [
-    `Remove “${title}” from the FrameNest catalog?`,
+    `Remove “${title}” from the Kronika catalog?`,
     "The original media file remains on disk. This action does not purge originals.",
     `Publication state: ${preview.publication_state}.`,
     `Storage class: ${preview.storage_class}.`,
@@ -11962,7 +11962,7 @@ function aiProviderCredentialHint(provider) {
   const envName = provider && typeof provider.credential_env === "string"
     ? provider.credential_env.trim()
     : "";
-  const suffix = envName ? ` Set ${envName} for the FrameNest server process.` : "";
+  const suffix = envName ? ` Set ${envName} for the Kronika server process.` : "";
   return `Credential available to this process: no.${suffix}`;
 }
 
@@ -12592,7 +12592,7 @@ function requestAiProviderPong(providerId) {
   if (aiProviderPongConfirmNote) {
     aiProviderPongConfirmNote.textContent =
       `Send the color test through ${provider.display_name || provider.provider_id}? `
-      + "FrameNest sends only a tiny solid-red test square made by FrameNest. "
+      + "Kronika sends only a tiny solid-red test square made by Kronika. "
       + "The provider bills image tokens for this request, and no catalog media is used.";
   }
   renderAiProviderActionControls();

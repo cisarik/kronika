@@ -18,7 +18,7 @@
   let attachPositionBound = false;
   let composerFocusBound = false;
   let observer = null;
-  const SAVE_NAME = "Save to FrameNest";
+  const SAVE_NAME = "Save to Kronika";
   const RELOAD_RECOVERY = companion.EXTENSION_CONTEXT_RECOVERY_COPY;
   const SAVE_FRAME_BORDER_Y = 2;
   const GALLERY_ACCENT = "#00ff41";
@@ -27,7 +27,7 @@
   const POLL_FAILURE_BUDGET_MS = 120000;
   const POLL_BASE_DELAY_MS = 1500;
   const POLL_MAX_DELAY_MS = 15000;
-  const ATTACH_NAME = "Attach from FrameNest";
+  const ATTACH_NAME = "Attach from Kronika";
   const COMPANION_STYLE = [
     "[data-framenest-companion='save'] {",
     "  position: absolute;",
@@ -1762,14 +1762,14 @@
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
     closeBtn.className = "close";
-    closeBtn.setAttribute("aria-label", "Close FrameNest picker");
+    closeBtn.setAttribute("aria-label", "Close Kronika picker");
     closeBtn.textContent = "\u2715";
     closeBtn.addEventListener("click", () => {
       closeAttachPopup();
     });
     const iframe = document.createElement("iframe");
     iframe.src = pickerUrl;
-    iframe.title = "FrameNest search";
+    iframe.title = "Kronika search";
     iframe.setAttribute("aria-label", "Search memes");
     frame.appendChild(closeBtn);
     frame.appendChild(iframe);
