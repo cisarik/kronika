@@ -8,6 +8,8 @@ from typing import Any
 
 import pytest
 
+from tests.support.kronika_identity import expected
+
 from framenest.domain import MediaByteIdentityId
 from framenest.domain.uploads import (
     ALLOWED_UPLOAD_SESSION_TRANSITIONS,
@@ -478,3 +480,10 @@ def test_upload_domain_module_imports_no_infrastructure_or_framework() -> None:
         if root in forbidden_roots or any(module.startswith(prefix) for prefix in forbidden_roots):
             violations.append(module)
     assert violations == []
+
+
+def test_rejected_upload_session_identity_reports_the_derived_brand() -> None:
+    with pytest.raises(FrameNestUploadSessionError) as excinfo:
+        UploadSessionId(1)
+
+    assert str(excinfo.value) == expected("Invalid {brand} upload session.")

@@ -9,6 +9,8 @@ import json
 
 import pytest
 
+from tests.support.kronika_identity import expected
+
 from framenest.adapters.cli import youtube
 from framenest.configuration import FrameNestSettings
 
@@ -299,3 +301,57 @@ def test_import_has_no_network_or_operator_side_effects(
     importlib.reload(youtube)
 
     assert calls == []
+
+
+def test_protocol_failure_reports_the_derived_brand_on_the_loopback_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The `_ProtocolError` branch of the loopback refusal.
+
+    Two branches write the same sentence and only one is a declared protocol
+    failure; they are asserted separately so a change to either is caught on its
+    own.
+    """
+    monkeypatch.setattr(youtube, "load_settings", _settings)
+
+    class _ProtocolFailingClient:
+        def __init__(self, _settings: FrameNestSettings) -> None:
+            raise youtube._ProtocolError()
+
+    monkeypatch.setattr(youtube, "_LoopbackHttpClient", _ProtocolFailingClient)
+
+    result = youtube.main(["status", CLAIM_ID])
+    payload = json.loads(capsys.readouterr().err)
+
+    assert result == 5
+    assert payload["error_code"] == "YOUTUBE_LOOPBACK_UNAVAILABLE"
+    assert payload["message"] == expected(
+        "The loopback {brand} operator API is unavailable."
+    )
+
+
+def test_unexpected_failure_reports_the_derived_brand_on_the_loopback_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The bare `Exception` branch of the same refusal."""
+    monkeypatch.setattr(youtube, "load_settings", _settings)
+
+    class _BrokenClient:
+        def __init__(self, _settings: FrameNestSettings) -> None:
+            raise RuntimeError("an unexpected failure the CLI must still sanitize")
+
+    monkeypatch.setattr(youtube, "_LoopbackHttpClient", _BrokenClient)
+
+    result = youtube.main(["status", CLAIM_ID])
+    output = capsys.readouterr()
+    payload = json.loads(output.err)
+
+    assert result == 5
+    assert payload["error_code"] == "YOUTUBE_LOOPBACK_UNAVAILABLE"
+    assert payload["message"] == expected(
+        "The loopback {brand} operator API is unavailable."
+    )
+    assert "an unexpected failure" not in output.err
+    assert "Traceback" not in output.err

@@ -10,6 +10,7 @@ import sys
 from typing import Any
 
 import pytest
+from tests.support.kronika_identity import expected
 from tests.support.tooling import resolve_tool
 
 from framenest.adapters.cli import development as cli
@@ -45,6 +46,7 @@ FAKE_POETRY_FAILING_SCRIPT = (
 )
 FAKE_CONTROLLER_STUB = "#!/bin/sh\nexit 0\n"
 SCENARIO_TMP_MARKER = "test_setup_uses_uv_managed_pyt"
+_RUNNING_URL = "http://127.0.0.1:8000/"
 
 
 class _SetupScenario:
@@ -166,13 +168,19 @@ class _Runtime:
         return _result(True, "running", "restarted")
 
     def status(self) -> RuntimeStatus:
+        # This fake mirrors the real runtime result shape, which interpolates the
+        # served URL into the message. It previously carried a bare sentence that
+        # no longer matched any product message and that no assertion read, so it
+        # proved nothing about the launcher and drifted further at every identity
+        # cut. `_RUNNING_URL` and the derived message are asserted in
+        # `test_cli_status_open_and_logs`.
         return RuntimeStatus(
             kind="running",
-            url="http://127.0.0.1:8000/",
+            url=_RUNNING_URL,
             pid=123,
             database_state="at_head",
             log_available=True,
-            message="FrameNest is running.",
+            message=expected("{brand} is running at {url}", url=_RUNNING_URL),
         )
 
     def open(self) -> Any:
@@ -189,7 +197,7 @@ class _Runtime:
 def _result(ok: bool, kind: str, message: str) -> Any:
     status = RuntimeStatus(
         kind=kind,  # type: ignore[arg-type]
-        url="http://127.0.0.1:8000/" if kind == "running" else None,
+        url=_RUNNING_URL if kind == "running" else None,
         pid=123 if kind == "running" else None,
         database_state="at_head",
         log_available=True,
@@ -767,6 +775,10 @@ def test_cli_status_open_and_logs(monkeypatch: pytest.MonkeyPatch, capsys: pytes
 
     output = capsys.readouterr().out
     assert "Status: running" in output
+    assert f"URL: {_RUNNING_URL}" in output
+    # The status message is now part of what this test proves, so the fake at
+    # `_Runtime.status` is read rather than merely printed.
+    assert expected("{brand} is running at {url}", url=_RUNNING_URL) in output
     assert "opened" in output
     assert "two" in output
 
@@ -779,7 +791,9 @@ def test_cli_missing_log_is_clean(monkeypatch: pytest.MonkeyPatch, capsys: pytes
     monkeypatch.setattr(cli, "DevelopmentRuntime", MissingLogRuntime)
 
     assert cli.main(["logs"]) == cli.EXIT_OK
-    assert "not yet available" in capsys.readouterr().out
+    assert capsys.readouterr().out == expected(
+        "{brand} development log is not yet available."
+    ) + "\n"
 
 
 def test_cli_maps_stopped_unhealthy_and_conflict_exit_codes(
@@ -816,7 +830,7 @@ def test_cli_sanitizes_runtime_errors(
     monkeypatch.setattr(cli, "DevelopmentRuntime", BrokenRuntime)
 
     assert cli.main(["status"]) == cli.EXIT_ERROR
-    assert "sanitized failure" in capsys.readouterr().err
+    assert capsys.readouterr().err == expected("{brand} launcher error: ") + "sanitized failure\n"
 
 
 def test_cli_import_has_no_runtime_side_effects() -> None:

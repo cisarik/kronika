@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.support.kronika_identity import expected
+
 from framenest.domain.identities import MediaId, MediaLocationId
 from framenest.domain.media_cover import (
     COVER_ARTIFACT_MEDIA_TYPE,
@@ -75,6 +77,28 @@ def test_source_location_can_be_absent_with_provenance_reference() -> None:
 def test_invalid_artifact_digest_is_rejected() -> None:
     with pytest.raises(FrameNestMediaCoverError):
         _base_cover(artifact_digest="not-a-hex")
+
+
+def test_rejected_cover_reports_the_derived_brand() -> None:
+    with pytest.raises(FrameNestMediaCoverError) as excinfo:
+        _base_cover(artifact_digest="not-a-hex")
+
+    assert str(excinfo.value) == expected("Invalid {brand} accepted cover.")
+
+
+def test_rejected_cover_source_observation_reports_the_derived_brand() -> None:
+    with pytest.raises(FrameNestMediaCoverError) as excinfo:
+        CoverSourceObservation(
+            source_location_id="not-a-location-id",
+            source_kind=CoverSourceKind.MP4,
+            source_size_bytes=1234,
+            source_mtime_ns=99,
+            source_duration_ms=1000,
+        )
+
+    assert str(excinfo.value) == expected(
+        "Invalid {brand} cover source observation."
+    )
 
 
 def test_negative_or_zero_values_are_rejected() -> None:

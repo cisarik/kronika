@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.support.kronika_identity import expected
+
 from framenest.domain import MediaId
 from framenest.domain.media_metadata import (
     CanonicalTag,
@@ -38,6 +40,13 @@ def test_valid_canonical_tag_keys(value: str) -> None:
 def test_invalid_canonical_tag_keys(value: str) -> None:
     with pytest.raises(FrameNestMediaMetadataError):
         CanonicalTagKey(value)
+
+
+def test_rejected_metadata_reports_the_derived_brand() -> None:
+    with pytest.raises(FrameNestMediaMetadataError) as excinfo:
+        CanonicalTagKey("Math")
+
+    assert str(excinfo.value) == expected("Invalid {brand} media metadata.")
 
 
 def test_canonical_tag_key_maximum_length() -> None:

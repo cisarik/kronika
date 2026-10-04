@@ -13,6 +13,8 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from tests.support.kronika_identity import expected
+
 from framenest.configuration import FrameNestSettings, load_settings
 
 FRAMENEST_ENV_VARS = (
@@ -32,6 +34,24 @@ FRAMENEST_ENV_VARS = (
     "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED",
     "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS",
 )
+
+
+def test_overlapping_private_storage_roots_report_the_derived_brand(
+    tmp_path: Path,
+) -> None:
+    """The overlap refusal, reached with a cache root that contains a cover root."""
+    cache_root = tmp_path / "private"
+
+    with pytest.raises(ValidationError) as excinfo:
+        FrameNestSettings(
+            _env_file=None,
+            gallery_preview_cache_path=cache_root,
+            cover_storage_root=cache_root / "covers",
+        )
+
+    assert expected("{brand} private storage paths must not overlap") in str(
+        excinfo.value
+    )
 
 
 @pytest.fixture(autouse=True)

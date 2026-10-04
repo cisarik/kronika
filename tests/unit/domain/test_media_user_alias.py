@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.support.kronika_identity import expected
+
 from framenest.domain import MediaId
 from framenest.domain.media_metadata import CanonicalTagKey, MediaDescription, MediaDisplayTitle
 from framenest.domain.media_user_alias import (
@@ -40,6 +42,13 @@ def test_parse_alias_content_rejects_invalid_title_and_unknown_shape() -> None:
         parse_alias_content(" Title", None, None)
     with pytest.raises(FrameNestMediaUserAliasError):
         parse_alias_content("ok", None, ["Not-A-Key"])
+
+
+def test_rejected_alias_reports_the_derived_brand() -> None:
+    with pytest.raises(FrameNestMediaUserAliasError) as excinfo:
+        parse_alias_content(" Title", None, None)
+
+    assert str(excinfo.value) == expected("Invalid {brand} media user alias.")
 
 
 def test_persisted_alias_rejects_empty_content_and_unnormalized_login() -> None:

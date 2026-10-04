@@ -16,6 +16,8 @@ import pytest
 import uvicorn
 from pydantic import SecretStr
 
+from tests.support.kronika_identity import expected
+
 from framenest.configuration import FrameNestSettings, load_settings
 
 FORBIDDEN_UVICORN_IMPORT_ROOT = "uvicorn"
@@ -456,3 +458,25 @@ def test_verify_uds_socket_provenance_rejects_foreign_owner(
         assert exc_info.value.reason == "foreign_owner"
     finally:
         socket_path.unlink(missing_ok=True)
+
+
+def test_server_main_reports_the_derived_brand_on_a_configuration_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The operator stderr line, reached by making `run_server` fail as designed."""
+    from framenest import server
+    from framenest.configuration import FrameNestConfigurationError
+
+    def _fail() -> None:
+        raise FrameNestConfigurationError("host is not loopback")
+
+    monkeypatch.setattr(server, "run_server", _fail)
+
+    with pytest.raises(SystemExit) as excinfo:
+        server.main()
+
+    assert excinfo.value.code == 1
+    assert capsys.readouterr().err == (
+        expected("{brand} configuration error: ") + "host is not loopback\n"
+    )

@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.kronika_identity import expected
+
 from framenest.infrastructure.runtime import production
 
 
@@ -114,6 +116,7 @@ def test_check_health_fails_closed_without_listener(
     assert payload["operation"] == "check-health"
     assert payload["state"] == "error"
     assert payload["error_code"] == "FRAMENEST_HEALTH_CHECK_FAILED"
+    assert payload["message"] == expected("{brand} health check failed.")
     assert "Traceback" not in output.err
 
 

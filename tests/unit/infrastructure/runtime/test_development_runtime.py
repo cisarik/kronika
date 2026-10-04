@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,8 @@ from typing import Any
 from unittest import mock
 
 import pytest
+
+from tests.support.kronika_identity import expected
 
 from framenest.configuration import FrameNestSettings
 from framenest.infrastructure.runtime import development
@@ -479,3 +482,201 @@ def test_no_sigkill_literal_in_runtime_source() -> None:
     assert "killall" not in source
     assert "pkill" not in source
     assert "0.0.0.0" not in source
+
+
+# ---------------------------------------------------------------------------
+# Per-occurrence agreement guards for the runtime's product messages
+#
+# The runtime carries twelve brand-bearing string literals and the retention
+# ledger can only notice that one of them moved. These tests reach each branch
+# deliberately with controlled process and port dependencies, and assert the
+# complete message against the brand derived in `tests.support.kronika_identity`.
+# Sites are addressed by branch, not by line, so a line move cannot detach a
+# guard from the literal it owns.
+#
+# `start`'s "did not become healthy in time." raise is deliberately absent: it is
+# raised inside the `try` whose own `except Exception` handler swallows it and
+# substitutes a different fixed message, so it is not observable through the
+# public API at all. The occurrence-level structural inventory in
+# `tests/contract/test_kronika_product_string_agreement.py` is what guards it.
+# ---------------------------------------------------------------------------
+
+
+def _stopped_runtime(tmp_path: Path) -> DevelopmentRuntime:
+    """A runtime with no state file and no process holding the port."""
+    runtime = _runtime(tmp_path)
+    runtime._paths.runtime_dir.mkdir(parents=True, exist_ok=True)
+    return runtime
+
+
+def test_start_reports_the_derived_brand_when_already_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _runtime(tmp_path)
+    runtime._write_state(_state(runtime, start="same"))
+    monkeypatch.setattr(
+        runtime,
+        "_process_snapshot",
+        lambda pid: ProcessSnapshot(
+            pid=pid, start_identity="same", command="python -m framenest.server"
+        ),
+    )
+    monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
+
+    result = runtime.start(open_after_start=False)
+
+    assert result.ok is True
+    assert result.message == expected(
+        "{brand} is already running at {url}", url=runtime.url
+    )
+
+
+def test_stop_reports_the_derived_brand_in_both_the_status_and_the_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two identical literals, one branch, two independently asserted positions.
+
+    `stop` rebuilds the stopped status and then returns a result message built
+    from a second, identical literal. Asserting only one of the two would leave
+    the other unguarded, which is the duplicate-literal hazard this cut exists to
+    close.
+    """
+    runtime = _stopped_runtime(tmp_path)
+    monkeypatch.setattr(runtime, "_port_is_occupied", lambda: False)
+    sentence = expected("{brand} is stopped.")
+
+    result = runtime.stop()
+
+    assert result.ok is True
+    assert result.status.kind == "stopped"
+    assert result.status.message == sentence
+    assert result.message == sentence
+
+
+def test_stop_after_a_verified_terminate_reports_the_derived_brand(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _runtime(tmp_path)
+    runtime._write_state(_state(runtime, start="same"))
+    monkeypatch.setattr(
+        runtime,
+        "_process_snapshot",
+        lambda pid: ProcessSnapshot(
+            pid=pid, start_identity="same", command="python -m framenest.server"
+        ),
+    )
+    monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
+    monkeypatch.setattr(runtime, "_terminate_pid", lambda pid: None)
+    monkeypatch.setattr(runtime, "_wait_for_pid_exit", lambda pid, timeout_seconds: True)
+    sentence = expected("{brand} stopped.")
+
+    result = runtime.stop()
+
+    assert result.ok is True
+    assert result.status.message == sentence
+    assert result.message == sentence
+
+
+def test_open_reports_the_derived_brand_when_nothing_is_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _stopped_runtime(tmp_path)
+    monkeypatch.setattr(runtime, "_port_is_occupied", lambda: False)
+
+    result = runtime.open()
+
+    assert result.ok is False
+    assert result.status.kind == "stopped"
+    assert result.message == expected("{brand} is not running.")
+
+
+def test_status_of_an_absent_state_file_reports_the_derived_brand(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _stopped_runtime(tmp_path)
+    monkeypatch.setattr(runtime, "_port_is_occupied", lambda: False)
+
+    status = runtime.status()
+
+    assert status.kind == "stopped"
+    assert status.message == expected("{brand} is stopped.")
+
+
+def test_status_of_a_healthy_managed_process_reports_the_derived_brand_and_the_recorded_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The recorded port is used, not the launcher's own port.
+
+    The state is written with a port the runtime was not configured with, so a
+    message that interpolated the wrong port would fail here rather than pass
+    because both happened to be the same value.
+    """
+    runtime = _runtime(tmp_path, port=48123)
+    runtime._write_state(replace(_state(runtime, start="same"), port=48124))
+    monkeypatch.setattr(
+        runtime,
+        "_process_snapshot",
+        lambda pid: ProcessSnapshot(
+            pid=pid, start_identity="same", command="python -m framenest.server"
+        ),
+    )
+    monkeypatch.setattr(runtime, "_health_is_ok", lambda port: True)
+
+    status = runtime.status()
+
+    assert status.kind == "running"
+    assert status.url != runtime.url
+    assert status.message == expected(
+        "{brand} is running at {url}", url="http://127.0.0.1:48124/"
+    )
+
+
+def test_status_of_an_unhealthy_managed_process_reports_the_derived_brand(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _runtime(tmp_path)
+    runtime._write_state(_state(runtime, start="same"))
+    monkeypatch.setattr(
+        runtime,
+        "_process_snapshot",
+        lambda pid: ProcessSnapshot(
+            pid=pid, start_identity="same", command="python -m framenest.server"
+        ),
+    )
+    monkeypatch.setattr(runtime, "_health_is_ok", lambda port: False)
+
+    status = runtime.status()
+
+    assert status.kind == "unhealthy"
+    assert status.message == expected(
+        "Managed {brand} process is running but health is not ready."
+    )
+
+
+def test_a_held_operation_lock_reports_the_derived_brand(tmp_path: Path) -> None:
+    """The busy-lock refusal, reached by really holding the lock.
+
+    A second descriptor in this process holds ``LOCK_EX`` on the lock file, so the
+    launcher's non-blocking acquisition genuinely fails; an injected clock makes
+    the bounded wait expire immediately instead of costing five real seconds.
+    """
+    runtime = _stopped_runtime(tmp_path)
+    runtime._paths.lock_path.touch()
+    clock = [0.0]
+
+    with runtime._paths.lock_path.open("a+", encoding="utf-8") as holder:
+        fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        waiting = DevelopmentRuntime(
+            environ=_env(tmp_path),
+            now=lambda: clock[0],
+            sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+        )
+        try:
+            with pytest.raises(development.RuntimeLockError) as excinfo:
+                waiting.stop()
+        finally:
+            fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
+
+    assert str(excinfo.value) == expected(
+        "Another {brand} runtime operation is in progress."
+    )

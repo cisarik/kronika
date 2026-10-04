@@ -8,6 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.support.kronika_identity import expected
+
 from framenest.adapters.api.tailscale_ingress import SCOPE_IDENTITY
 from framenest.adapters.api.x_request_api import (
     XRequestApiDependencies,
@@ -274,13 +276,18 @@ def test_invalid_category_maps_to_sanitized_422() -> None:
 
 
 def test_category_conflict_maps_to_sanitized_409() -> None:
+    """The API substitutes its own sentence, so the fake must not supply one.
+
+    The router catches the conflict by class and builds the response message
+    itself. The fake therefore raises a deliberately different text: if the
+    response echoed the exception, this assertion would fail, which is what makes
+    it a guard on the API's own literal rather than on fixture data.
+    """
     from framenest.application.x_acquisition import XAcquisitionCategoryConflictError
 
     class _ConflictService:
         def submit(self, url: str, login_key: str, alias=None, content_category=None):
-            raise XAcquisitionCategoryConflictError(
-                "Requested category conflicts with the existing Kronika save."
-            )
+            raise XAcquisitionCategoryConflictError("an exception text the API discards")
 
     client = TestClient(_app(_ConflictService()))
     response = client.post(
@@ -288,7 +295,34 @@ def test_category_conflict_maps_to_sanitized_409() -> None:
         json={"url": "https://x.com/a/status/123", "content_category": "movie"},
     )
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "X_REQUEST_CATEGORY_CONFLICT"
+    payload = response.json()
+    assert payload["error"]["code"] == "X_REQUEST_CATEGORY_CONFLICT"
+    assert payload["error"]["message"] == expected(
+        "Requested category conflicts with the existing {brand} save."
+    )
+
+
+def test_invalid_alias_maps_to_the_derived_brand_422() -> None:
+    from framenest.domain.media_user_alias import FrameNestMediaUserAliasError
+
+    class _InvalidAliasService:
+        def submit(self, url: str, login_key: str, alias=None, content_category=None):
+            raise FrameNestMediaUserAliasError("an exception text the API discards")
+
+    client = TestClient(_app(_InvalidAliasService()))
+    response = client.post(
+        "/api/x/requests",
+        json={
+            "url": "https://x.com/a/status/123",
+            "alias": {"display_title": " Title"},
+        },
+    )
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["error"]["code"] == "ALIAS_INVALID"
+    assert payload["error"]["message"] == expected(
+        "Invalid {brand} media user alias."
+    )
 
 
 def test_extra_fields_remain_forbidden() -> None:

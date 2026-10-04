@@ -203,7 +203,14 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # `content/x_adapter.js` all stay, each still naming the retired spelling
     # through a CSS or DOM hook, a port name, a storage key or a global.
     "src": 254,
-    "tests": 321,
+    # KSI-IMPL-C3A moved `tests` by +1 and nothing else. The one addition is the
+    # new `contract/test_kronika_product_string_agreement.py`, which imports the
+    # product modules whose brand strings it pins and therefore carries the
+    # lowercase token. `support/kronika_identity.py` was added by the same cut and
+    # deliberately carries no token at all, because it reads the extension
+    # manifest rather than importing the product package, so it correctly stays
+    # out of this count and out of the content set below.
+    "tests": 322,
     "deploy": 19,
     "scripts": 7,
     "docs": 88,
@@ -322,8 +329,32 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `integration/test_development_launcher.py`. No test was added or removed,
     # no negative assertion was repointed, and no test fixture literal was
     # touched.
+    # KSI-IMPL-C3A moved `tests` by +102 and nothing else. No product string was
+    # renamed by this cut; every movement is test-side, and all of it is additive
+    # except one removal. Per file:
+    # `contract/test_kronika_product_string_agreement.py` +84 (the new file: its
+    # pinned inventory names all fifty brand-bearing runtime string nodes by their
+    # production paths, its product imports, and the one deliberately dual-spelled
+    # mutation-header sentence it must pin verbatim),
+    # `unit/infrastructure/runtime/test_development_runtime.py` +4 and
+    # `unit/test_server_runtime.py` +4 (product imports, and the existing
+    # `python -m framenest.server` launch-module marker its new branch fakes
+    # reuse), `contract/test_x_request_api.py` +3 (the alias-error import and two
+    # class references), `contract/test_youtube_cli.py` +2 (the settings type on
+    # two fake client constructors), `unit/domain/test_media_cover.py` +2,
+    # `unit/domain/test_media_metadata.py` +1,
+    # `unit/domain/test_media_user_alias.py` +1,
+    # `unit/domain/test_upload_sessions.py` +1, `unit/test_configuration.py` +1,
+    # and `contract/test_development_cli.py` -1.
+    #
+    # That single removal is the repaired `RuntimeStatus` fake, which carried the
+    # only retired spelling in its file. It was fixture data rather than an
+    # assertion, so removing it lost no coverage: the fake now builds the same
+    # derived message the real runtime result carries, and
+    # `test_cli_status_open_and_logs` asserts it. No negative assertion was
+    # repointed or removed by this cut.
     "src": 2919,
-    "tests": 4478,
+    "tests": 4580,
     "deploy": 212,
     "scripts": 104,
     "docs": 1216,
@@ -355,6 +386,15 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # correctly absent rather than merely renamed. Both remain tracked and both are
 # still served and still rendered; a later cut that reintroduces any `framenest`
 # spelling into either file will now fail loudly here.
+#
+# KSI-IMPL-C3A added exactly one path and removed none.
+# `tests/contract/test_kronika_product_string_agreement.py` joins this set because
+# it imports the product modules whose brand-bearing string nodes it pins, so its
+# inventory necessarily names them by their `src/framenest/...` paths. It is not a
+# renamed path and it is not a content-only rename of an existing member. The
+# companion `tests/support/kronika_identity.py` added by the same cut is
+# deliberately absent: it reads `extension/manifest.json` and imports nothing from
+# the product package, so it carries no token and correctly stays out.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -797,6 +837,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_durable_artifact_readers.py",
         "tests/contract/test_kronika_identity_dual_read.py",
         "tests/contract/test_kronika_mutation_header.py",
+        "tests/contract/test_kronika_product_string_agreement.py",
         "tests/contract/test_kronika_record_authorization.py",
         "tests/contract/test_kronika_settings_parity.py",
         "tests/contract/test_library_api.py",
@@ -1144,7 +1185,24 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # spelling in an import path, so all three correctly REMAIN in
 # `EXPECTED_FRAMENEST_CONTENT_PATHS` below and this is a capitalized-count
 # movement only, not a content-set movement.
-CAPITALIZED_OCCURRENCE_COUNT = 3252
+# KSI-IMPL-C3A moved the occurrences by +12 and the files by 0. The file count is
+# a genuine swap: `contract/test_development_cli.py` left this count because the
+# repaired `RuntimeStatus` fake removed its only capitalized spelling, and
+# `contract/test_kronika_product_string_agreement.py` entered it because the new
+# inventory pins the deliberately dual-spelled mutation-header sentence verbatim,
+# which is the one place a retired spelling is still correct product text while
+# both header spellings are accepted.
+#
+# Of the twelve added occurrences, eleven are Python identifiers and import paths
+# rather than prose: `FrameNestMediaCoverError` twice, `FrameNestSettings` twice,
+# `FrameNestMediaUserAliasError` twice as an exception reference and once as an
+# import, `FrameNestConfigurationError` once as an exception reference and once as
+# an import, `FrameNestUploadSessionError` once and `FrameNestMediaMetadataError`
+# once. C2D deliberately did not rename a class or module name and C3-B owns that
+# move, so every one of these is a correct reference to a name that still exists.
+# The twelfth is the dual-spelled header sentence above. Nothing here is product
+# prose that should have been retired.
+CAPITALIZED_OCCURRENCE_COUNT = 3264
 CAPITALIZED_FILE_COUNT = 474
 
 CONSOLE_SCRIPT_ENTRY_COUNT = 14

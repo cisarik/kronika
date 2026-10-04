@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.support.kronika_identity import expected
+
 from framenest.adapters.api.media_alias_api import (
     MediaAliasApiDependencies,
     create_media_alias_api_router,
@@ -146,6 +148,9 @@ def test_put_alias_maps_unknown_tag_and_invalid_content() -> None:
     ).put(f"/api/media/{MEDIA_ID}/alias", json={"display_title": " Title"})
     assert invalid.status_code == 422
     assert invalid.json()["error"]["code"] == "ALIAS_INVALID"
+    assert invalid.json()["error"]["message"] == expected(
+        "Invalid {brand} media user alias."
+    )
 
 
 def test_alias_audience_denial_is_not_found() -> None:
