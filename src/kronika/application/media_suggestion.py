@@ -23,6 +23,10 @@ from kronika.application.media_content import supported_media_type
 from kronika.application.ports.library_repository import LibraryRepository
 from kronika.application.ports.media_repository import MediaRepository
 from kronika.domain import LibraryId, MediaId, MediaLocationId
+from kronika.domain.analysis_identities import (
+    accepted_durable_identity,
+    is_accepted_durable_identity,
+)
 from kronika.domain.media import MediaLocationAvailability
 
 if TYPE_CHECKING:
@@ -30,6 +34,12 @@ if TYPE_CHECKING:
     from kronika.application.ports.media_suggestion import MediaSuggestionProvider
 
 PROMPT_VERSION = "framenest-media-suggestion-v4"
+#: The spelling the writer cut will emit. No writer uses it yet; every reader
+#: below accepts it so rows and responses written after that cut stay valid.
+CANONICAL_PROMPT_VERSION = "kronika-media-suggestion-v4"
+ACCEPTED_PROMPT_VERSIONS = accepted_durable_identity(
+    PROMPT_VERSION, CANONICAL_PROMPT_VERSION
+)
 
 INVALID_SUGGESTION_REQUEST_MESSAGE = "Invalid media suggestion request."
 INVALID_SUGGESTION_MESSAGE = "Invalid media suggestion."
@@ -256,7 +266,9 @@ class MediaSuggestionRequest:
         for frame in self.representative_frames:
             if not isinstance(frame, RepresentativeFrame):
                 raise FrameNestMediaSuggestionError(INVALID_SUGGESTION_REQUEST_MESSAGE)
-        if self.prompt_version != PROMPT_VERSION:
+        if not is_accepted_durable_identity(
+            self.prompt_version, ACCEPTED_PROMPT_VERSIONS
+        ):
             raise FrameNestMediaSuggestionError(INVALID_SUGGESTION_REQUEST_MESSAGE)
 
 
@@ -352,7 +364,9 @@ class MediaSuggestion:
                     message=INVALID_SUGGESTION_MESSAGE,
                 ),
             )
-        if self.prompt_version != PROMPT_VERSION:
+        if not is_accepted_durable_identity(
+            self.prompt_version, ACCEPTED_PROMPT_VERSIONS
+        ):
             raise FrameNestMediaSuggestionError(INVALID_SUGGESTION_MESSAGE)
 
 

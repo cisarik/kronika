@@ -213,6 +213,26 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # retired spelling. `deploy`, `scripts`, `docs` and `extension` are unmoved:
     # this cut touches none of them.
     "src": 186,
+    # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
+    #
+    # `deploy` +1: `deploy/ubuntu/kronika-release` and
+    # `deploy/ubuntu/kronika_release.py` each join this set because the engine
+    # and its canonical entry point still carry the retired spelling in their
+    # writer constants, the accepted marker tables, the host layout they own and
+    # the retained wrapper they forward to. `deploy/ubuntu/framenest-release`
+    # leaves it because the retained Fish wrapper no longer names the retired
+    # engine file. Net +1.
+    #
+    # `scripts` is unmoved: `framenest_nuc_worker_gate.fish` becomes a wrapper
+    # that carries no retired spelling and leaves this set, while
+    # `kronika_nuc_worker_gate.fish` joins it by declaring both accepted
+    # identity prefixes. One in, one out.
+    #
+    # `tests` +1: the new
+    # `contract/test_kronika_durable_analysis_identity_readers.py`, which pins
+    # both spellings of every durable analysis identity and therefore names the
+    # retired ones beside the canonical ones.
+    #
     # KSI-IMPL-C3A moved `tests` by +1 and nothing else. The one addition is the
     # new `contract/test_kronika_product_string_agreement.py`, which imports the
     # product modules whose brand strings it pins and therefore carries the
@@ -226,8 +246,8 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # occurrence in the whole file was a `src/framenest` path that now names the
     # moved package directory. It is a whole-file consequence of that one path
     # literal, not a content-only rename, and no path was added to any tree.
-    "tests": 183,
-    "deploy": 19,
+    "tests": 184,
+    "deploy": 20,
     "scripts": 7,
     "docs": 88,
     "extension": 8,
@@ -398,9 +418,34 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `framenest.public_published_api`/`_application` logger names, and two
     # `framenest/**` source globs. No occurrence was added to any tree and no
     # capitalized occurrence moved, so the capitalized counts below are unchanged.
-    "tests": 1835,
-    "deploy": 212,
-    "scripts": 104,
+    # KSI-IMPL-C4A moved `deploy` by -11, `scripts` by -18 and `tests` by
+    # +36, and nothing else. Every movement is one of two causes: the engine
+    # moved to its canonical filename, or a call site stopped naming a retired
+    # spelling as a literal.
+    #
+    # `deploy` -11, per path: `framenest_release.py` -49 and `kronika_release.py`
+    # +41 are the same file at two names, so the move itself is -8, and the
+    # retained Fish wrapper is -4 because it no longer names the retired engine
+    # file. The canonical Fish entry point is +1.
+    #
+    # `scripts` -18: the retained gate wrapper is -20 because it no longer reads
+    # any `FRAMENEST_` variable by name, and the canonical gate is +2 because it
+    # declares both accepted prefixes as data.
+    #
+    # `tests` +36, per path: `test_nuc_release_remote_contract.py` +27 (the
+    # marker matrix, the installed-unit guard demonstrations, the deploy-lock
+    # reclaim cases and their command assertions),
+    # `test_kronika_durable_analysis_identity_readers.py` +11 (the new file, a
+    # symmetric acceptance table per durable identity),
+    # `test_operator_network_scripts.py` +5 (both gate paths, both accepted
+    # prefixes, and the conflict case), `test_nuc_release_docs.py` +4 (the
+    # canonical and retained entry points and the two new exit codes),
+    # `test_nuc_release_source_contract.py` -3 (its literal marker paths became
+    # resolved markers), and `test_kronika_capture_services.py` -8 (the capture
+    # activation runner resolves markers through the shared resolver).
+    "tests": 1871,
+    "deploy": 201,
+    "scripts": 86,
     "docs": 1216,
     "extension": 145,
 }
@@ -498,8 +543,9 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "deploy/ubuntu/README.md",
         "deploy/ubuntu/fn-production-env-deploy",
         "deploy/ubuntu/framenest-catalog-export-v1",
-        "deploy/ubuntu/framenest-release",
         "deploy/ubuntu/framenest_release.py",
+        "deploy/ubuntu/kronika-release",
+        "deploy/ubuntu/kronika_release.py",
         "deploy/ubuntu/production_ai_deploy.py",
         "docs/ACCEPTANCE_DUAL_AUDIENCE.md",
         "docs/ARCHITECTURE_FOUNDATION_EVIDENCE.md",
@@ -605,7 +651,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "scripts/operator/network/README.md",
         "scripts/operator/network/framenest_mullvad_egress.fish",
         "scripts/operator/network/framenest_mullvad_egress.sh",
-        "scripts/operator/network/framenest_nuc_worker_gate.fish",
+        "scripts/operator/network/kronika_nuc_worker_gate.fish",
         "src/kronika/__init__.py",
         "src/kronika/adapters/api/analysis_proposal_api.py",
         "src/kronika/adapters/api/application.py",
@@ -825,6 +871,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_approved_projection.py",
         "tests/contract/test_kronika_capture_services.py",
         "tests/contract/test_kronika_cli_and_release_readers.py",
+        "tests/contract/test_kronika_durable_analysis_identity_readers.py",
         "tests/contract/test_kronika_direct_reader_routing.py",
         "tests/contract/test_kronika_durable_artifact_readers.py",
         "tests/contract/test_kronika_identity_dual_read.py",
@@ -986,9 +1033,27 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # its one distinct name leave. No `FRAMENEST_` environment name was added,
 # removed or respelled anywhere: the settings prefix is a later cut, and this
 # count is the evidence that it did not move here.
-ENV_PREFIX_TOKEN_COUNT = 641
-ENV_PREFIX_DISTINCT_NAME_COUNT = 100
-ENV_PREFIX_BARE_SPELLING_COUNT = 21
+#
+# KSI-IMPL-C4A moved the token count by -13, the distinct-name count by +1 and
+# the bare count by +5, and moved nothing else.
+#
+# The -13 is almost entirely the gate: `framenest_nuc_worker_gate.fish` loses
+# 18 tokens because the retained wrapper no longer reads any `FRAMENEST_`
+# variable by name, and the moved engine keeps the same two
+# `FRAMENEST_ENV_FILE` occurrences it always had. Against that, this cut names
+# the variable family in prose and in tests: `AGENTS.md` +1,
+# `docs/WORKER_EXECUTION_CONTRACT.md` +1 and
+# `test_operator_network_scripts.py` +3, each one the family spelling
+# `FRAMENEST_NUC_SSH_*` that the compatibility rule names.
+#
+# The +1 distinct name is that family spelling, which the token pattern matches
+# up to the trailing `*`. The +5 bare spellings are the two engine files
+# exchanging one declaration of the compatible prefix (-1 and +1) plus the
+# canonical gate declaring it (+1), `test_nuc_release_docs.py` naming it (+1)
+# and `test_operator_network_scripts.py` composing both prefixes as data (+3).
+ENV_PREFIX_TOKEN_COUNT = 628
+ENV_PREFIX_DISTINCT_NAME_COUNT = 101
+ENV_PREFIX_BARE_SPELLING_COUNT = 26
 
 MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C2 kept every occurrence that existed before it and added 14:
@@ -1005,8 +1070,16 @@ MUTATION_HEADER = "X-FrameNest-Request"
 MUTATION_HEADER_OCCURRENCE_COUNT = 73
 MUTATION_HEADER_FILE_COUNT = 30
 
+# KSI-IMPL-C4A moved `/opt/framenest` by +6 and moved every other literal
+# nothing. The move itself is neutral: `framenest_release.py` loses 12 and
+# `kronika_release.py` gains the same 12, because the engine keeps the whole
+# old host layout this cut is forbidden to change. The +6 is test-side: the
+# remote-contract suite gained 10 occurrences of the release root through the
+# installed-unit executable guard and the deploy-lock quarantine paths, and the
+# capture and reader suites each lost 2 because their marker literals became
+# resolved marker names.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 204,
+    "/opt/framenest": 210,
     "/etc/framenest": 76,
     "/var/lib/framenest": 94,
     "/var/cache/framenest": 21,
@@ -1096,7 +1169,16 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # and the three logging classes still hold theirs, which is deliberate: this cut
 # renames the settings class and the logging identifiers it is coupled to, and
 # the error hierarchy is not one of them.
-CAPITALIZED_OCCURRENCE_COUNT = 2742
+# KSI-IMPL-C4A moved the occurrences by +6 and the files by 0.
+#
+# `deploy/ubuntu/framenest-release` -3: the retained Fish wrapper no longer
+# carries the three `FrameNest` messages it used to print. The new
+# `contract/test_kronika_durable_analysis_identity_readers.py` +9: its prose
+# deliberately uses the retired exception-class names
+# (`FrameNestMediaSuggestionError`, `FrameNestMovieIdentificationError` and
+# `FrameNestIdentityError`) where they are the objects under test. No product
+# message, class name or module name changed.
+CAPITALIZED_OCCURRENCE_COUNT = 2748
 CAPITALIZED_FILE_COUNT = 394
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen

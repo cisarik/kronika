@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -21,7 +22,9 @@ ADR_PATH = (
 )
 NUC_BASELINE_PATH = REPOSITORY_ROOT / "docs" / "NUC_HOST_BASELINE.md"
 FISH_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest-release"
+CANONICAL_FISH_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika-release"
 ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
+CANONICAL_ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika_release.py"
 
 POETRY_PATH = "/opt/framenest/tooling/poetry/2.4.1/.venv/bin/poetry"
 CPYTHON_PATH = (
@@ -35,8 +38,12 @@ def _text(path: Path) -> str:
 
 def test_agents_documents_canonical_entry_point() -> None:
     text = _text(AGENTS_PATH)
+    assert "deploy/ubuntu/kronika-release" in text
+    assert "deploy/ubuntu/kronika_release.py" in text
+    # The retained spellings are named as still working until the
+    # compatibility-removal cut.
     assert "deploy/ubuntu/framenest-release" in text
-    assert "framenest_release.py" in text
+    assert "deploy/ubuntu/framenest_release.py" in text
     assert POETRY_PATH in text
     assert CPYTHON_PATH in text
     assert "uv" in text
@@ -46,8 +53,8 @@ def test_agents_documents_canonical_entry_point() -> None:
 
 def test_agents_requires_check_before_deployment() -> None:
     text = _text(AGENTS_PATH)
-    assert "framenest-release status" in text
-    assert "framenest-release check" in text
+    assert "kronika-release status" in text
+    assert "kronika-release check" in text
     assert "Deployment never follows automatically" in text
 
 
@@ -154,24 +161,35 @@ def test_runbook_documents_exit_13_schema_jump_continuation() -> None:
 def test_engine_and_entry_point_are_committed_together() -> None:
     assert FISH_PATH.exists()
     assert ENGINE_PATH.exists()
+    assert CANONICAL_FISH_PATH.exists()
+    assert CANONICAL_ENGINE_PATH.exists()
+
+
+def test_the_retained_entry_points_forward_to_the_canonical_ones() -> None:
+    entry = _text(FISH_PATH)
+    assert "kronika-release" in entry
+    assert "framenest_release.py" not in entry
+    module = _text(ENGINE_PATH)
+    assert "kronika_release.py" in module
+    assert "Kronika release engine is unavailable." in module
 
 
 def test_engine_documents_never_uv_or_migrate() -> None:
-    text = _text(ENGINE_PATH)
-    assert "uv" not in text.split("EXIT_OK")[0].lower() or True  # sanity
-    # The engine must not shell out to uv or run migrations anywhere.
-    assert "framenest-db migrate" not in text
-    assert "uv " not in text
+    for path in (ENGINE_PATH, CANONICAL_ENGINE_PATH):
+        text = _text(path)
+        # The engine must not shell out to uv or run migrations anywhere.
+        assert "framenest-db migrate" not in text
+        assert "uv " not in text
 
 
 def test_poetry_toml_virtualenv_in_project_declared() -> None:
-    text = _text(ENGINE_PATH)
+    text = _text(CANONICAL_ENGINE_PATH)
     assert 'in-project = true' in text
     assert 'POETRY_TOML = "[virtualenvs]\\nin-project = true\\n"' in text
 
 
 def test_exit_codes_are_distinct_and_documented() -> None:
-    text = _text(ENGINE_PATH)
+    text = _text(CANONICAL_ENGINE_PATH)
     for code in (
         "EXIT_SOURCE_GATE",
         "EXIT_PUBLIC_MISMATCH",
@@ -192,6 +210,8 @@ def test_exit_codes_are_distinct_and_documented() -> None:
         "EXIT_CLEANUP",
         "EXIT_TRANSPORT",
         "EXIT_PRIVILEGE",
+        "EXIT_MARKER_CONFLICT",
+        "EXIT_UNIT_EXEC_GUARD",
     ):
         assert code in text
 
@@ -222,3 +242,54 @@ def test_runbook_and_deploy_readme_document_capture_activation() -> None:
     assert "activate-capture --release <40-hex-SHA> --yes" in deploy
     assert "rollback-capture --release <40-hex-SHA> --yes" in deploy
     assert "evidence that capture is already deployed" in deploy
+
+
+def test_canonical_and_retained_entry_points_are_executable() -> None:
+    for path in (CANONICAL_FISH_PATH, FISH_PATH, REPOSITORY_ROOT / "kronika"):
+        assert path.is_file(), path
+        mode = path.stat().st_mode
+        assert mode & stat.S_IXUSR, path
+    for path in (
+        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "kronika_nuc_worker_gate.fish",
+        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "framenest_nuc_worker_gate.fish",
+    ):
+        assert path.is_file(), path
+        assert path.stat().st_mode & stat.S_IXUSR, path
+
+
+def test_the_retained_gate_wrapper_forwards_to_the_canonical_gate() -> None:
+    wrapper = _text(
+        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "framenest_nuc_worker_gate.fish"
+    )
+    canonical = _text(
+        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "kronika_nuc_worker_gate.fish"
+    )
+
+    assert "kronika_nuc_worker_gate.fish" in wrapper
+    assert "exec" in wrapper
+    # The retained wrapper carries no gate logic of its own.
+    assert "_resolve_env" not in wrapper
+    assert "_resolve_env" in canonical
+    assert "KRONIKA_" in canonical
+    assert "FRAMENEST_" in canonical
+
+
+def test_the_canonical_entry_point_reports_the_canonical_program_name() -> None:
+    engine_text = _text(CANONICAL_ENGINE_PATH)
+
+    assert 'PROGRAM = "kronika-release"' in engine_text
+    assert 'print("kronika-release status")' in engine_text
+    assert 'print("kronika-release check")' in engine_text
+    assert "framenest-release status" not in engine_text
+    assert "framenest-release deploy complete" not in engine_text
+
+
+def test_the_installed_unit_guard_and_the_lock_are_engine_owned() -> None:
+    engine_text = _text(CANONICAL_ENGINE_PATH)
+
+    assert "cmd_remote_unit_execution_properties" in engine_text
+    assert "verify_unit_executables" in engine_text
+    assert "cmd_remote_test_regular_executable" in engine_text
+    assert "remote_deploy_lock" in engine_text
+    assert "classify_deploy_lock_owner" in engine_text
+    assert "read_release_markers" in engine_text

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from kronika.domain.analysis_identities import accepted_durable_identity
 from kronika.domain.identities import MediaId, MediaLocationId
 
 
@@ -19,6 +20,12 @@ class MediaAnalysisRunState(str, Enum):
 
 AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION = "automatic_post_catalog"
 RESULT_SCHEMA_VERSION = "framenest-media-suggestion-result-v1"
+#: The spelling the writer cut will emit. No writer uses it yet; readers accept
+#: it so rows written after that cut stay visible to readers written before it.
+CANONICAL_RESULT_SCHEMA_VERSION = "kronika-media-suggestion-result-v1"
+ACCEPTED_RESULT_SCHEMA_VERSIONS = accepted_durable_identity(
+    RESULT_SCHEMA_VERSION, CANONICAL_RESULT_SCHEMA_VERSION
+)
 DEFAULT_MAX_ANALYSIS_ATTEMPTS = 3
 MAX_CONFIGURED_ANALYSIS_ATTEMPTS = 10
 

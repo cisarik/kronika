@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kronika.domain.analysis_identities import is_accepted_durable_identity
 from kronika.domain.media_classification import (
+    ACCEPTED_MOVIE_IDENTIFICATION_PROMPT_VERSIONS,
+    ACCEPTED_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSIONS,
     IdentificationConfidence,
     MOVIE_GENRE_DISPLAY_NAMES,
     MOVIE_IDENTIFICATION_PROMPT_VERSION,
@@ -58,9 +61,14 @@ class MovieIdentificationSuggestion:
     reasoning_enabled: bool
 
     def __post_init__(self) -> None:
-        if self.prompt_version != MOVIE_IDENTIFICATION_PROMPT_VERSION:
+        if not is_accepted_durable_identity(
+            self.prompt_version, ACCEPTED_MOVIE_IDENTIFICATION_PROMPT_VERSIONS
+        ):
             raise FrameNestMovieIdentificationError(INVALID_MOVIE_IDENTIFICATION_MESSAGE)
-        if self.result_schema_version != MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION:
+        if not is_accepted_durable_identity(
+            self.result_schema_version,
+            ACCEPTED_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSIONS,
+        ):
             raise FrameNestMovieIdentificationError(INVALID_MOVIE_IDENTIFICATION_MESSAGE)
         if not isinstance(self.identification_status, MovieIdentificationStatus):
             raise FrameNestMovieIdentificationError(INVALID_MOVIE_IDENTIFICATION_MESSAGE)
@@ -349,7 +357,9 @@ class MovieIdentificationRequest:
     prompt_version: str = MOVIE_IDENTIFICATION_PROMPT_VERSION
 
     def __post_init__(self) -> None:
-        if self.prompt_version != MOVIE_IDENTIFICATION_PROMPT_VERSION:
+        if not is_accepted_durable_identity(
+            self.prompt_version, ACCEPTED_MOVIE_IDENTIFICATION_PROMPT_VERSIONS
+        ):
             raise FrameNestMovieIdentificationError(INVALID_MOVIE_IDENTIFICATION_MESSAGE)
         if not hasattr(self.contact_sheet, "payload") or not hasattr(
             self.contact_sheet, "mime_type"

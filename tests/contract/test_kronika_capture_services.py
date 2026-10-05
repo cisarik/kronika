@@ -11,6 +11,7 @@ from contextlib import redirect_stdout
 import io
 import json
 from pathlib import Path
+import re
 import shlex
 import sqlite3
 import subprocess
@@ -22,7 +23,7 @@ import pytest
 from kronika_capture.config import CAPTURE_RESTART_BRAKE_MS, PROTO_VERSION
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
+ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika_release.py"
 SYSTEMD = REPOSITORY_ROOT / "deploy" / "systemd"
 ENV_EXAMPLE = SYSTEMD / "kronika-capture.env.example"
 PROTOCOL_JS = (
@@ -143,17 +144,28 @@ class CaptureRunner:
             return self.capture_link
         if "readlink -n /opt/framenest/current" in combined:
             return PREV_PATH
-        if ".framenest-release-manifest.json" in combined and PREV in combined:
-            return json.dumps(
-                {
-                    "framenest_release_sha": PREV,
-                    "capture_bridge_protocol": self.capture_protocol,
-                }
+        if "then echo manifest" in combined or "then echo sha" in combined:
+            return "\n".join(
+                f"{kind} {marker}"
+                for _path, marker, kind in re.findall(
+                    r"test -e (/[^ ]+)/(\.\S+); then echo (manifest|sha) ", combined
+                )
             )
-        if ".framenest-release-manifest.json" in combined:
+        sha_read = re.search(r"cat (/[^ ]+)/(\.\S+-release-sha)$", combined)
+        if sha_read is not None:
+            return (PREV if PREV in sha_read.group(1) else RELEASE) + "\n"
+        manifest_read = re.search(
+            r"cat (/[^ ]+)/(\.\S+-release-manifest\.json)$", combined
+        )
+        if manifest_read is not None:
+            if PREV in manifest_read.group(1):
+                return json.dumps(
+                    {
+                        "framenest_release_sha": PREV,
+                        "capture_bridge_protocol": self.capture_protocol,
+                    }
+                )
             return _target_manifest(**self.manifest_overrides)
-        if ".framenest-release-sha" in combined and "cat" in combined:
-            return RELEASE + "\n"
         if "test -e " in combined or "test -x " in combined:
             return ""
         if "capture-current.next" in combined:
@@ -644,17 +656,7 @@ def test_unverifiable_snapshot_refuses_before_pointer_switch(tmp_path, monkeypat
 def test_web_rollback_leaves_capture_untouched(capsys: pytest.CaptureFixture[str]) -> None:
     from tests.contract import test_nuc_release_remote_contract as remote
 
-    class _Rollback(remote.FakeRunner):
-        def _ssh_respond(self, combined: str, input_bytes: bytes | None) -> str:
-            if "test -e /opt/framenest/releases/" in combined and ".framenest-release-sha" not in combined:
-                return ""
-            if ".framenest-release-sha" in combined and "test -e" in combined:
-                return ""
-            if "test -x /opt/framenest/releases/" in combined:
-                return ""
-            return super()._ssh_respond(combined, input_bytes)
-
-    runner = _Rollback()
+    runner = remote.FakeRunner()
     result = remote.engine.main(remote._args("rollback"), runner=runner)
     output = capsys.readouterr().out
     assert result == remote.engine.EXIT_OK

@@ -133,10 +133,18 @@ If a raw Python invocation emits `Failed to import encodings` or
 Canonical Cursor Worker NUC SSH uses the existing project-owned gate:
 
 ```text
-scripts/operator/network/framenest_nuc_worker_gate.fish --probe
-scripts/operator/network/framenest_nuc_worker_gate.fish \
+scripts/operator/network/kronika_nuc_worker_gate.fish --probe
+scripts/operator/network/kronika_nuc_worker_gate.fish \
   --target <name> --user <user> --identity <file> --command <bounded-command>
 ```
+
+The canonical `KRONIKA_NUC_SSH_TARGET`, `KRONIKA_NUC_SSH_USER`,
+`KRONIKA_NUC_SSH_IDENTITY` and `KRONIKA_NUC_SSH_COMMAND` names take precedence.
+The retained `FRAMENEST_NUC_SSH_*` names keep being read when the canonical name
+is unset, both set to different values exits 2 naming the two variable names
+only, and both spellings are removed only in the C7-B window.
+`scripts/operator/network/framenest_nuc_worker_gate.fish` remains a working
+wrapper for the same gate and is removed in that same window.
 
 `--probe` is the idempotent capability check: trusted `gpgconf` discovery
 first, then on Darwin only a validated ambient launchd socket when `gpgconf`

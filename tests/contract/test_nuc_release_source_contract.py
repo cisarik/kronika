@@ -15,13 +15,13 @@ import tarfile
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
+ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika_release.py"
 
-_SPEC = importlib.util.spec_from_file_location("framenest_release", ENGINE_PATH)
+_SPEC = importlib.util.spec_from_file_location("kronika_release", ENGINE_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
 engine = importlib.util.module_from_spec(_SPEC)
 import sys
-sys.modules["framenest_release"] = engine
+sys.modules["kronika_release"] = engine
 _SPEC.loader.exec_module(engine)
 
 RELEASE = "a" * 40

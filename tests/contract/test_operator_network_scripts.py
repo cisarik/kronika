@@ -21,6 +21,7 @@ SCRIPT_DIR = REPOSITORY_ROOT / "scripts" / "operator" / "network"
 BASH_SCRIPT = SCRIPT_DIR / "framenest_mullvad_egress.sh"
 FISH_SCRIPT = SCRIPT_DIR / "framenest_mullvad_egress.fish"
 GATE_SCRIPT = SCRIPT_DIR / "framenest_nuc_worker_gate.fish"
+CANONICAL_GATE_SCRIPT = SCRIPT_DIR / "kronika_nuc_worker_gate.fish"
 SCRIPT_README = SCRIPT_DIR / "README.md"
 ADR_PATH = (
     REPOSITORY_ROOT
@@ -420,6 +421,29 @@ def _fish_executable() -> str:
     pytest.fail("fish is not installed; Fish wrapper and gate tests cannot run")
 
 
+def _hermetic_env(paths: dict[str, Path]) -> dict[str, str]:
+    """Return the synthetic Fish configuration environment every run receives.
+
+    ``fish --no-config`` suppresses configuration files for the process it
+    starts, but a wrapper that re-execs its target through the target's own
+    shebang starts a new process that reads the configuration root of the
+    environment it is given. Pointing every Fish configuration and data root at
+    a synthetic directory keeps both entry points from ever reading the
+    operator's personal configuration, without changing what either entry point
+    does in production.
+    """
+    env = _hook_env(paths)
+    hermetic_home = paths["cwd"] / "hermetic-home"
+    hermetic_config = hermetic_home / "config"
+    hermetic_data = hermetic_home / "data"
+    hermetic_config.mkdir(parents=True, exist_ok=True)
+    hermetic_data.mkdir(parents=True, exist_ok=True)
+    env["HOME"] = str(hermetic_home)
+    env["XDG_CONFIG_HOME"] = str(hermetic_config)
+    env["XDG_DATA_HOME"] = str(hermetic_data)
+    return env
+
+
 def _run_fish(
     script: Path,
     paths: dict[str, Path],
@@ -429,7 +453,7 @@ def _run_fish(
     clear_env: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
     fish = _fish_executable()
-    env = _hook_env(paths)
+    env = _hermetic_env(paths)
     for name in clear_env:
         env.pop(name, None)
     if extra_env:
@@ -458,7 +482,7 @@ def _assert_no_secrets(text: str) -> None:
 
 
 def test_expected_files_exist_and_are_executable() -> None:
-    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT):
+    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT, CANONICAL_GATE_SCRIPT):
         assert path.is_file(), path
         mode = path.stat().st_mode
         assert mode & stat.S_IXUSR
@@ -882,7 +906,7 @@ def test_run_fish_ignores_injected_startup_configuration(tmp_path: Path) -> None
     )
     paths = _install_fakes(tmp_path)
     result = _run_fish(
-        GATE_SCRIPT,
+        CANONICAL_GATE_SCRIPT,
         paths,
         ["--help"],
         extra_env={"XDG_CONFIG_HOME": str(config_home)},
@@ -890,11 +914,192 @@ def test_run_fish_ignores_injected_startup_configuration(tmp_path: Path) -> None
     combined = _combined(result)
     assert "HERMETIC_FISH_STARTUP_MARKER" not in combined
     assert result.returncode == 0, combined
-    assert "Usage: framenest_nuc_worker_gate.fish --probe" in result.stderr
+    assert "Usage: kronika_nuc_worker_gate.fish --probe" in result.stderr
+
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+def test_either_gate_path_never_sees_the_operator_configuration_root(
+    tmp_path: Path, script: Path
+) -> None:
+    """The retained wrapper re-execs through its target's own shebang.
+
+    That new process reads the Fish configuration root of the environment it is
+    given, so the harness must give it a synthetic one. Asserting on the exact
+    environment the harness builds keeps the claim precise: the operator's real
+    home and configuration roots are never in scope for either entry point.
+    """
+    paths = _install_fakes(tmp_path)
+    env = _hermetic_env(paths)
+    hermetic = paths["cwd"] / "hermetic-home"
+
+    for name in ("HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+        assert not env[name].startswith(str(Path.home())), name
+        assert env[name].startswith(str(hermetic)), name
+    assert _run_fish(script, paths, ["--help"]).returncode == 0
+
+
+# --- canonical gate name and the two accepted identity prefixes ---
+
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+def test_both_gate_paths_reach_the_same_gate(
+    tmp_path: Path, script: Path
+) -> None:
+    """The retained wrapper and the canonical gate behave identically."""
+    paths = _install_fakes(tmp_path)
+    canonical = _run_fish(
+        CANONICAL_GATE_SCRIPT, paths, ["--probe"], clear_env=_AMBIENT_NUC_SSH_NAMES
+    )
+    retained = _run_fish(
+        GATE_SCRIPT, paths, ["--probe"], clear_env=_AMBIENT_NUC_SSH_NAMES
+    )
+
+    assert retained.returncode == canonical.returncode
+    assert retained.stdout == canonical.stdout
+    assert retained.stderr == canonical.stderr
+    assert paths["ssh_log"].read_text(encoding="utf-8") == ""
+
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+def test_gate_reads_either_identity_prefix_for_its_operator_variables(
+    tmp_path: Path, script: Path, prefix: str
+) -> None:
+    """Only the new names, only the old names, and no names at all."""
+    paths = _install_fakes(tmp_path)
+    result = _run_fish(
+        script,
+        paths,
+        [
+            "--target",
+            "nuc-magicdns-name",
+            "--user",
+            "operator-user",
+            "--identity",
+            str(paths["identity"]),
+            "--command",
+            "true",
+        ],
+        extra_env={
+            f"{prefix}NUC_SSH_TARGET": "nuc-magicdns-name",
+            f"{prefix}NUC_SSH_USER": "operator-user",
+            f"{prefix}NUC_SSH_IDENTITY": str(paths["identity"]),
+            f"{prefix}NUC_SSH_COMMAND": "true",
+        },
+        clear_env=_AMBIENT_NUC_SSH_NAMES,
+    )
+
+    assert result.returncode == 0, _combined(result)
+    assert "operator-user@nuc-magicdns-name" in paths["ssh_log"].read_text(
+        encoding="utf-8"
+    )
+
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+def test_gate_reads_either_identity_prefix_for_its_test_hooks(
+    tmp_path: Path, script: Path, prefix: str
+) -> None:
+    """Each accepted prefix alone is honoured for a hook value as well."""
+    other = "FRAMENEST_" if prefix == "KRONIKA_" else "KRONIKA_"
+    paths = _install_fakes(tmp_path)
+    result = _run_fish(
+        script,
+        paths,
+        [
+            "--target",
+            "nuc-magicdns-name",
+            "--user",
+            "operator-user",
+            "--identity",
+            str(paths["identity"]),
+            "--command",
+            "true",
+        ],
+        extra_env={f"{prefix}NETWORK_TEST_SSH": "/nonexistent/ssh"},
+        clear_env=(*_AMBIENT_NUC_SSH_NAMES, f"{other}NETWORK_TEST_SSH"),
+    )
+
+    assert result.returncode == 1, _combined(result)
+    assert "Test hook tool path is not a trusted absolute executable." in result.stderr
+    assert paths["ssh_log"].read_text(encoding="utf-8") == ""
+
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+def test_gate_exits_two_on_a_conflicting_pair_naming_only_the_variables(
+    tmp_path: Path, script: Path
+) -> None:
+    """Both set to different values exits 2 and discloses no value."""
+    paths = _install_fakes(tmp_path)
+    result = _run_fish(
+        script,
+        paths,
+        ["--probe"],
+        extra_env={
+            "KRONIKA_NUC_SSH_TARGET": "alpha-host",
+            "FRAMENEST_NUC_SSH_TARGET": "beta-host",
+        },
+        clear_env=_AMBIENT_NUC_SSH_NAMES,
+    )
+    combined = _combined(result)
+
+    assert result.returncode == 2, combined
+    assert "KRONIKA_NUC_SSH_TARGET" in combined
+    assert "FRAMENEST_NUC_SSH_TARGET" in combined
+    assert "alpha-host" not in combined
+    assert "beta-host" not in combined
+    assert "Conflicting environment variables " in combined
+    assert "are set to different values" in combined
+    assert paths["ssh_log"].read_text(encoding="utf-8") == ""
+
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+def test_gate_accepts_identical_values_in_both_prefixes(
+    tmp_path: Path, script: Path
+) -> None:
+    paths = _install_fakes(tmp_path)
+    plain = _run_fish(
+        script, paths, ["--probe"], clear_env=_AMBIENT_NUC_SSH_NAMES
+    )
+    both = _run_fish(
+        script,
+        paths,
+        ["--probe"],
+        extra_env={
+            "KRONIKA_NETWORK_TEST_SSH": paths["ssh"],
+            "FRAMENEST_NETWORK_TEST_SSH": paths["ssh"],
+        },
+        clear_env=_AMBIENT_NUC_SSH_NAMES,
+    )
+
+    assert both.returncode == plain.returncode
+    assert "Conflicting environment variables " not in _combined(both)
+
+
+def test_gate_treats_an_explicitly_empty_value_as_unset(tmp_path: Path) -> None:
+    paths = _install_fakes(tmp_path)
+    result = _run_fish(
+        CANONICAL_GATE_SCRIPT,
+        paths,
+        [
+            "--target",
+            "nuc-magicdns-name",
+            "--user",
+            "operator-user",
+            "--identity",
+            str(paths["identity"]),
+        ],
+        extra_env={"KRONIKA_NUC_SSH_COMMAND": ""},
+        clear_env=_AMBIENT_NUC_SSH_NAMES,
+    )
+
+    assert result.returncode == 2
+    assert "Missing bounded remote command." in result.stderr
+    assert paths["ssh_log"].read_text(encoding="utf-8") == ""
 
 
 def test_ssh_gate_contains_no_private_values() -> None:
-    text = GATE_SCRIPT.read_text(encoding="utf-8")
+    text = CANONICAL_GATE_SCRIPT.read_text(encoding="utf-8")
     for token in (
         "michal",
         "agile",
@@ -1220,7 +1425,7 @@ def test_ssh_gate_darwin_ownership_follows_final_symlink(tmp_path: Path) -> None
     finally:
         agent.close()
 
-    text = GATE_SCRIPT.read_text(encoding="utf-8")
+    text = CANONICAL_GATE_SCRIPT.read_text(encoding="utf-8")
     start = text.index("function _attach_darwin_ambient_from_system")
     end = text.index("\nfunction ", start + 1)
     ownership = [
@@ -1232,7 +1437,7 @@ def test_ssh_gate_darwin_ownership_follows_final_symlink(tmp_path: Path) -> None
 
 
 def test_scripts_contain_no_forbidden_commands() -> None:
-    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT):
+    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT, CANONICAL_GATE_SCRIPT):
         text = path.read_text(encoding="utf-8")
         for token in FORBIDDEN_SCRIPT_TOKENS:
             assert token not in text, f"{path.name} contains {token}"
@@ -1240,7 +1445,7 @@ def test_scripts_contain_no_forbidden_commands() -> None:
 
 
 def test_scripts_do_not_configure_operator_or_invoke_sudo() -> None:
-    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT):
+    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT, CANONICAL_GATE_SCRIPT):
         text = path.read_text(encoding="utf-8")
         assert "--operator" not in text
         assert "sudo" not in text

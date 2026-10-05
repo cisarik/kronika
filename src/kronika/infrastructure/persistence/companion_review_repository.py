@@ -57,8 +57,8 @@ from kronika.application.ports.companion_review_repository import (
 from kronika.domain.content_publication import ContentPublication, ContentPublicationOrigin
 from kronika.domain.identities import MediaId
 from kronika.domain.media_analysis_runs import (
+    ACCEPTED_RESULT_SCHEMA_VERSIONS,
     AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION,
-    RESULT_SCHEMA_VERSION,
     MediaAnalysisRunId,
 )
 from kronika.domain.media_classification import (
@@ -788,7 +788,12 @@ def _analyzed_inbox_predicates() -> tuple[object, ...]:
 def _successful_generic_predicates() -> tuple[object, ...]:
     return (
         *_analyzed_inbox_predicates(),
-        media_analysis_runs.c.result_schema_version == RESULT_SCHEMA_VERSION,
+        # Both accepted result-schema spellings are matched, so a successful
+        # analysis stays in the inbox after the writer changes the spelling.
+        # Sorting keeps the emitted parameter list deterministic.
+        media_analysis_runs.c.result_schema_version.in_(
+            sorted(ACCEPTED_RESULT_SCHEMA_VERSIONS)
+        ),
     )
 
 

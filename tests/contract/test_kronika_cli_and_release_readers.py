@@ -28,7 +28,8 @@ from typing import Any
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-RELEASE_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
+RELEASE_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika_release.py"
+LEGACY_RELEASE_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
 AI_DEPLOY_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "production_ai_deploy.py"
 
 SUFFIX = "NUC_SSH_TARGET"
@@ -188,32 +189,100 @@ def test_release_markers_and_manifest_keys_keep_their_writer_spelling(
     )["framenest_release_sha"] == "0" * 40
 
 
-def test_release_marker_probe_accepts_both_spellings(release_helper: Any) -> None:
-    command = release_helper.cmd_remote_probe_release_markers("/opt/framenest/releases/abc")
+def test_every_reader_resolves_through_the_accepted_marker_tables(
+    release_helper: Any,
+) -> None:
+    """The accepted tables are frozen data, and the writers are members of them.
 
-    assert ".framenest-release-manifest.json" in command
-    assert ".kronika-release-manifest.json" in command
-    assert ".framenest-release-sha" in command
-    assert ".kronika-release-sha" in command
-    assert command.index(".framenest-release-manifest.json") < command.index(
-        ".kronika-release-manifest.json"
+    A reader therefore keeps resolving a historical tree even after the writer
+    cut removes the former writer constants, and the writer spelling can never
+    fall out of the table a reader resolves through.
+    """
+    for writer, accepted in (
+        (release_helper.RELEASE_SHA_MARKER, release_helper.ACCEPTED_RELEASE_SHA_MARKERS),
+        (
+            release_helper.RELEASE_MANIFEST_MARKER,
+            release_helper.ACCEPTED_RELEASE_MANIFEST_MARKERS,
+        ),
+    ):
+        assert writer in accepted
+        assert len(accepted) == 2
+    assert (
+        release_helper.RELEASE_SHA_MANIFEST_KEY
+        in release_helper.ACCEPTED_RELEASE_SHA_MANIFEST_KEYS
     )
-    assert command.index(".kronika-release-manifest.json") < command.index(
-        ".framenest-release-sha"
+    assert (
+        "framenest_release_sha" in release_helper.ACCEPTED_RELEASE_SHA_MANIFEST_KEYS
+        and "kronika_release_sha" in release_helper.ACCEPTED_RELEASE_SHA_MANIFEST_KEYS
     )
 
 
-def test_release_marker_probe_prefers_manifest_over_sha(release_helper: Any) -> None:
-    script = release_helper.cmd_remote_probe_release_markers("/opt/framenest/releases/abc")
+def test_release_marker_presence_probes_every_accepted_spelling(
+    release_helper: Any,
+) -> None:
+    command = release_helper.cmd_remote_release_marker_presence("/opt/x")
 
-    assert script.count("echo manifest") == 2
-    assert script.count("echo sha") == 2
-    assert script.rstrip().endswith("else echo none; fi'")
+    for marker in (
+        *release_helper.ACCEPTED_RELEASE_MANIFEST_MARKERS,
+        *release_helper.ACCEPTED_RELEASE_SHA_MARKERS,
+    ):
+        assert marker in command
+    assert command.count("test -e") == 4
+    assert "then echo manifest" in command
+    assert "then echo sha" in command
+    # Manifest before SHA, and each group in the accepted order.
+    assert command.index(release_helper.ACCEPTED_RELEASE_MANIFEST_MARKERS[0]) < command.index(
+        release_helper.ACCEPTED_RELEASE_MANIFEST_MARKERS[1]
+    )
+    assert command.index(release_helper.ACCEPTED_RELEASE_SHA_MARKERS[0]) < command.index(
+        release_helper.ACCEPTED_RELEASE_SHA_MARKERS[1]
+    )
+    assert command.index(release_helper.ACCEPTED_RELEASE_MANIFEST_MARKERS[1]) < command.index(
+        release_helper.ACCEPTED_RELEASE_SHA_MARKERS[0]
+    )
 
 
-def test_release_read_commands_keep_the_writer_marker_names(release_helper: Any) -> None:
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        ("", ([], [])),
+        ("sha .framenest-release-sha", ([], [".framenest-release-sha"])),
+        ("sha .kronika-release-sha", ([], [".kronika-release-sha"])),
+        (
+            "manifest .kronika-release-manifest.json\nsha .framenest-release-sha",
+            ([".kronika-release-manifest.json"], [".framenest-release-sha"]),
+        ),
+        ("none\n", None),
+        ("sha .unknown-release-sha", None),
+        ("marker .framenest-release-sha", None),
+    ],
+)
+def test_release_marker_presence_parser_is_closed(
+    release_helper: Any, output: str, expected: object
+) -> None:
+    if expected is None:
+        with pytest.raises(release_helper.ReleaseError):
+            release_helper.parse_release_marker_presence(output)
+        return
+    assert release_helper.parse_release_marker_presence(output) == expected
+
+
+def test_release_read_commands_accept_both_spellings(release_helper: Any) -> None:
     assert ".framenest-release-sha" in release_helper.cmd_remote_read_release_sha("/opt/x")
-    assert ".framenest-release-manifest.json" in release_helper.cmd_remote_read_manifest("/opt/x")
+    assert (
+        ".kronika-release-sha"
+        in release_helper.cmd_remote_read_release_sha("/opt/x", ".kronika-release-sha")
+    )
+    assert (
+        ".framenest-release-manifest.json"
+        in release_helper.cmd_remote_read_manifest("/opt/x")
+    )
+    assert (
+        ".kronika-release-manifest.json"
+        in release_helper.cmd_remote_read_manifest(
+            "/opt/x", ".kronika-release-manifest.json"
+        )
+    )
 
 
 @pytest.mark.parametrize(

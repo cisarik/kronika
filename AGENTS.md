@@ -59,9 +59,13 @@ Python evidence.
 
 - Python and tests go through `./.ap/ap project check` and `./.ap/ap exec`
   with an exact authorized `--baseline`.
-- NUC SSH goes through `scripts/operator/network/framenest_nuc_worker_gate.fish`
+- NUC SSH goes through `scripts/operator/network/kronika_nuc_worker_gate.fish`
   (`--probe` for agent capability; BatchMode SSH only when a later task grants
-  NUC access). Do not reconstruct `gpgconf` or print agent sockets.
+  NUC access). Do not reconstruct `gpgconf` or print agent sockets. The retained
+  `scripts/operator/network/framenest_nuc_worker_gate.fish` wrapper and the
+  `FRAMENEST_NUC_SSH_*` variable names keep working, with the canonical
+  `KRONIKA_NUC_SSH_*` names taking precedence and a conflicting pair failing
+  closed with exit 2; both spellings are removed only in the C7-B window.
 - Remote sudo lifecycle is Cooperator timestamp (`sudo -v`, then `sudo -n true`)
   outside the Worker, plus Worker terminal `sudo -K`. Workers must not run
   `sudo -v` or handle a password. Password-required after predecessor `sudo -K`
@@ -82,17 +86,21 @@ point below. Non-routine host work still requires its own explicit bounded task.
 The sole routine immutable NUC release-update entry point is:
 
 ```text
-deploy/ubuntu/framenest-release
+deploy/ubuntu/kronika-release
 ```
 
-It invokes `deploy/ubuntu/framenest_release.py` (standard library only). Future
-Orchestrators and Workers must use it instead of reconstructing deployment
-commands, probing generic PATH locations, or confusing initial host bootstrap
-with a routine release update.
+It invokes `deploy/ubuntu/kronika_release.py` (standard library only).
+`deploy/ubuntu/framenest-release` and `deploy/ubuntu/framenest_release.py` are
+retained wrappers that forward identical arguments to that same engine, and both
+are removed only in the C7-B window; they are not a second deployment system.
+Future Orchestrators and Workers must use the canonical entry point instead of
+reconstructing deployment commands, probing generic PATH locations, or confusing
+initial host bootstrap with a routine release update.
 
-- Always run `framenest-release status` and `framenest-release check --release
+- Always run `kronika-release status` and `kronika-release check --release
   <40-hex-SHA>` before any deployment. Deployment never follows automatically
-  from a check.
+  from a check. The retained `framenest-release` spelling still runs the same
+  two commands unchanged.
 - Routine updates use exactly:
 
 ```text

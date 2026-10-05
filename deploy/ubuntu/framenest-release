@@ -1,25 +1,16 @@
 #!/usr/bin/env fish
 
+# Retained entry-point spelling. The canonical release entry point is
+# deploy/ubuntu/kronika-release (ADR-0085); this file forwards every argument
+# and the exit status to that same engine and is kept until the compatibility
+# spellings are removed.
+
 set -l script_dir (dirname (status filename))
-set -l engine "$script_dir/framenest_release.py"
+set -l entry "$script_dir/kronika-release"
 
-if not test -f "$engine"
-    echo "FrameNest release engine is unavailable." >&2
+if not test -x "$entry"
+    echo "Kronika release engine is unavailable." >&2
     exit 1
 end
 
-set -l repo_root (git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)
-if test $status -ne 0
-    echo "FrameNest repository root could not be resolved." >&2
-    exit 1
-end
-
-set -l python "$repo_root/.venv/bin/python"
-if not test -x "$python"
-    echo "FrameNest repository .venv Python is unavailable." >&2
-    exit 1
-end
-
-# Every engine subcommand is forwarded unchanged, including capture activation.
-command "$python" "$engine" $argv
-exit $status
+exec "$entry" $argv
