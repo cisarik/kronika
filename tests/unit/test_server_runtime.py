@@ -22,7 +22,7 @@ from kronika.configuration import KronikaSettings, load_settings
 
 FORBIDDEN_UVICORN_IMPORT_ROOT = "uvicorn"
 ALLOWED_UVICORN_MODULE = Path("src/kronika/server.py")
-SOURCE_ROOT = Path("src/framenest")
+SOURCE_ROOT = Path("src/kronika")
 REPRESENTATIVE_SECRET = "runtime-unit-test-api-key-secret"
 
 
@@ -182,7 +182,7 @@ def test_create_server_passes_framenest_log_config_and_disables_access_log(
 
     server = create_server(settings=settings_with_secret)
     assert isinstance(server.config.log_config, dict)
-    assert server.config.log_config["formatters"]["framenest_json"]["()"].endswith(
+    assert server.config.log_config["formatters"]["kronika_json"]["()"].endswith(
         "FrameNestJsonFormatter"
     )
     assert server.config.access_log is False

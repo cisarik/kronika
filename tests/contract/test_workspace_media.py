@@ -629,7 +629,7 @@ def test_ordinary_user_lists_own_attributed_media_and_reads_own_bytes(tmp_path: 
 
 
 def test_workspace_attribution_modules_are_read_only() -> None:
-    root = Path(__file__).resolve().parents[2] / "src/framenest"
+    root = Path(__file__).resolve().parents[2] / "src/kronika"
     sources = [
         (root / "infrastructure/persistence/media_attribution_repository.py").read_text(
             encoding="utf-8"

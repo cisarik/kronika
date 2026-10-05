@@ -74,8 +74,8 @@ def test_build_uvicorn_log_config_returns_fresh_independent_dict() -> None:
 
 def test_config_uses_framenest_formatter_and_redaction_filter() -> None:
     config = build_uvicorn_log_config()
-    assert config["formatters"]["framenest_json"]["()"].endswith("FrameNestJsonFormatter")
-    assert config["filters"]["framenest_redaction"]["()"].endswith("FrameNestRedactionFilter")
+    assert config["formatters"]["kronika_json"]["()"].endswith("FrameNestJsonFormatter")
+    assert config["filters"]["kronika_redaction"]["()"].endswith("FrameNestRedactionFilter")
 
 
 def test_config_has_no_file_rotation_socket_syslog_or_network_handlers() -> None:
@@ -86,7 +86,7 @@ def test_config_has_no_file_rotation_socket_syslog_or_network_handlers() -> None
 
 def test_configured_output_uses_stderr() -> None:
     config = build_uvicorn_log_config()
-    handler = config["handlers"]["framenest_stderr"]
+    handler = config["handlers"]["kronika_stderr"]
     assert handler["stream"] == "ext://sys.stderr"
 
 
@@ -147,7 +147,7 @@ def test_create_server_passes_framenest_log_config(
     settings = KronikaSettings(host="127.0.0.1", port=8000, _env_file=None)
     server = create_server(settings=settings)
     assert isinstance(server.config.log_config, dict)
-    assert server.config.log_config["formatters"]["framenest_json"]["()"].endswith(
+    assert server.config.log_config["formatters"]["kronika_json"]["()"].endswith(
         "FrameNestJsonFormatter"
     )
 

@@ -19,7 +19,7 @@ independent display-name pin is what makes a *simultaneous* rename of the
 manifest and of the product detectable. Neither is a production constant.
 
 **An occurrence-level structural inventory.** Every brand-bearing runtime string
-node under ``src/framenest`` is resolved to a durable structural key --
+node under ``src/kronika`` is resolved to a durable structural key --
 ``(path, enclosing function, node kind, occurrence index within that function)``
 -- and compared against a pinned literal. Line numbers are deliberately not
 test selectors: they move. The key is occurrence-level rather than per-file or
@@ -50,6 +50,11 @@ Scope notes that the inventory makes explicit rather than implicit:
   it. Their brand-carrying opening line *is* pinned, and the exclusion list
   itself is pinned, so neither a one-sided rename inside a prompt nor a new
   brand-bearing occurrence anywhere can pass unnoticed.
+- The settings class name is itself an occurrence. Renaming the class made its
+  two return annotations and the redaction filter's identity check brand-bearing,
+  so they are pinned like any other row: a later cut that renames the class
+  without updating the filter fails here instead of silently changing which
+  settings objects are redacted.
 """
 
 from __future__ import annotations
@@ -160,7 +165,7 @@ def product_string_nodes(relative_path: str) -> dict[tuple[str, str, str, int], 
 def measured_product_strings() -> dict[tuple[str, str, str, int], str]:
     """Resolve every brand-bearing runtime string node under the product package."""
     resolved: dict[tuple[str, str, str, int], str] = {}
-    for path in sorted(SOURCE_ROOT.glob("framenest/**/*.py")):
+    for path in sorted(SOURCE_ROOT.glob("kronika/**/*.py")):
         relative = str(path.relative_to(REPOSITORY_ROOT))
         if FROZEN_VERSIONS_MARKER in relative:
             continue
@@ -169,9 +174,9 @@ def measured_product_strings() -> dict[tuple[str, str, str, int], str]:
 
 
 MEASURED = measured_product_strings()
-OCCURRENCE_COUNT = 50
+OCCURRENCE_COUNT = 53
 
-IN_SCOPE_OCCURRENCE_COUNT = 48
+IN_SCOPE_OCCURRENCE_COUNT = 51
 EXCLUDED_PROMPT_OCCURRENCE_COUNT = 2
 
 EXPECTED: dict[tuple[str, str, str, int], str] = {
@@ -200,6 +205,10 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     ("src/kronika/application/x_acquisition.py", "_reject_category_conflict", "Constant", 2): "Requested category conflicts with the existing Kronika save.",
     # src/kronika/configuration.py
     ("src/kronika/configuration.py", "validate_private_storage_roots", "Constant", 0): "Kronika private storage paths must not overlap",
+    # The two `KronikaSettings` return annotations became brand-bearing when the
+    # settings class was renamed, so they are occurrences this inventory now owns.
+    ("src/kronika/configuration.py", "validate_ingress_configuration", "Constant", 0): "KronikaSettings",
+    ("src/kronika/configuration.py", "validate_private_storage_roots", "Constant", 1): "KronikaSettings",
     # src/kronika/domain/devices.py
     ("src/kronika/domain/devices.py", "<module>", "Constant", 0): "Invalid Kronika device.",
     # src/kronika/domain/identities.py
@@ -245,12 +254,15 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     ("src/kronika/infrastructure/runtime/production.py", "_build_parser", "Constant", 1): "Run the production Kronika server in the foreground.",
     # src/kronika/server.py
     ("src/kronika/server.py", "main", "JoinedStr", 0): "Kronika configuration error: {exc}",
+    # src/kronika/structured_logging.py
+    ("src/kronika/structured_logging.py", "_is_kronika_settings", "Constant", 0): "KronikaSettings",
 }
 
 EXPECTED_DUPLICATE_LITERALS: dict[str, int] = {
     "Invalid Kronika media user alias.": 3,
     "Kronika configuration could not be loaded.": 3,
     "Kronika is stopped.": 3,
+    "KronikaSettings": 3,
     "Requested category conflicts with the existing Kronika save.": 4,
     "The loopback Kronika operator API is unavailable.": 2,
 }
@@ -375,7 +387,7 @@ def test_frozen_revision_occurrences_are_excluded_from_this_inventory() -> None:
     """Applied Alembic bytes belong to Part A, not to this guard."""
     versions = sorted(
         str(path.relative_to(REPOSITORY_ROOT))
-        for path in SOURCE_ROOT.glob("framenest/**/alembic_environment/versions/*.py")
+        for path in SOURCE_ROOT.glob("kronika/**/alembic_environment/versions/*.py")
     )
 
     assert versions, "the frozen applied revisions must still exist"

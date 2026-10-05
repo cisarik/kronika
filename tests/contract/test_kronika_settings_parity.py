@@ -30,6 +30,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tomllib
 from typing import Any, Iterator
 from unittest import mock
 
@@ -54,6 +55,13 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 #: Published ``main`` at the moment the restoration was scoped; the behaviour the
 #: dual-prefix cut must not change for old-spelling-only input.
 RESTORATION_REFERENCE = "18c357cf6f8c5ff9cc3b2c28e638510fc73a3672"
+
+#: The library this module measures parity against. Its declared requirement is
+#: the part of ``pyproject.toml`` the oracle's licence depends on, so the manifest
+#: comparison below is scoped to this one entry: an identity cut may legitimately
+#: rename the distribution, its console scripts and its packaging include list,
+#: and none of those is what makes today's library a valid reference.
+SETTINGS_LIBRARY = "pydantic-settings"
 
 #: The library's own hook, taken from the installed library class.
 STOCK_SOURCE_HOOK = BaseSettings.__dict__["settings_customise_sources"]
@@ -166,6 +174,25 @@ def _git_blob(revision: str, path: str) -> bytes:
     return completed.stdout
 
 
+def _declared_requirement(manifest: bytes, distribution: str) -> str:
+    """Return the one declared runtime requirement for ``distribution``, verbatim.
+
+    The requirement string is compared exactly as written, including its version
+    constraint, extras and markers, because the constraint is what decides which
+    library version the lockfile is allowed to resolve to.
+    """
+    declared = tomllib.loads(manifest.decode("utf-8"))["project"]["dependencies"]
+    matches = [
+        entry
+        for entry in declared
+        if entry.partition("(")[0].strip().lower() == distribution.lower()
+    ]
+    assert len(matches) == 1, (
+        f"expected exactly one declared requirement for {distribution}, found {matches}"
+    )
+    return matches[0]
+
+
 @pytest.fixture(autouse=True)
 def _isolate_accepted_identity_variables(monkeypatch: pytest.MonkeyPatch) -> None:
     for field_name in KronikaSettings.model_fields:
@@ -250,9 +277,9 @@ def test_the_settings_library_is_unchanged_since_the_restoration_reference() -> 
 
     assert pydantic_settings.VERSION == locked.group(1)
     assert _git_blob(RESTORATION_REFERENCE, "poetry.lock") == _git_blob("HEAD", "poetry.lock")
-    assert _git_blob(RESTORATION_REFERENCE, "pyproject.toml") == _git_blob(
-        "HEAD", "pyproject.toml"
-    )
+    assert _declared_requirement(
+        _git_blob(RESTORATION_REFERENCE, "pyproject.toml"), SETTINGS_LIBRARY
+    ) == _declared_requirement(_git_blob("HEAD", "pyproject.toml"), SETTINGS_LIBRARY)
 
 
 # ---------------------------------------------------------------------------

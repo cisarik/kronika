@@ -21,7 +21,7 @@ from kronika.configuration import KronikaSettings
 REPRESENTATIVE_SECRET = "structured-logging-unit-secret"
 FORBIDDEN_LOGGING_PACKAGES = frozenset({"structlog", "pythonjsonlogger"})
 ALLOWED_LOGGING_MODULE = Path("src/kronika/structured_logging.py")
-SOURCE_ROOT = Path("src/framenest")
+SOURCE_ROOT = Path("src/kronika")
 
 
 class _ReprRaises:
@@ -37,7 +37,7 @@ def _configure_capture() -> StringIO:
 
     logging.config.dictConfig(build_uvicorn_log_config())
     stream = StringIO()
-    logger = logging.getLogger("framenest")
+    logger = logging.getLogger("kronika")
     logger.setLevel(logging.DEBUG)
     handler = logger.handlers[0]
     handler.setLevel(logging.DEBUG)

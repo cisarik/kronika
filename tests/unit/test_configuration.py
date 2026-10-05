@@ -294,7 +294,7 @@ def test_database_path_absent_from_settings_repr_logs_api_and_openapi(
 
     logging.config.dictConfig(build_uvicorn_log_config())
     stream = StringIO()
-    logger = logging.getLogger("framenest")
+    logger = logging.getLogger("kronika")
     handler = logger.handlers[0]
     handler.stream = stream  # type: ignore[attr-defined]
     get_logger("configuration").emit(

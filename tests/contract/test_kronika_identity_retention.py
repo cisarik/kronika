@@ -220,7 +220,13 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # deliberately carries no token at all, because it reads the extension
     # manifest rather than importing the product package, so it correctly stays
     # out of this count and out of the content set below.
-    "tests": 184,
+    #
+    # KSI-CORR-C3B-2 moved `tests` by -1 and nothing else. Exactly one file left
+    # this content set: `contract/test_workspace_media.py`, whose single retired
+    # occurrence in the whole file was a `src/framenest` path that now names the
+    # moved package directory. It is a whole-file consequence of that one path
+    # literal, not a content-only rename, and no path was added to any tree.
+    "tests": 183,
     "deploy": 19,
     "scripts": 7,
     "docs": 88,
@@ -383,7 +389,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # state-directory name and the Unix account all keep it, and this cut does
     # not own them.
     "src": 1695,
-    "tests": 1851,
+    # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
+    # occurrences left the `tests` tree, all of them test-side references to the
+    # names C3-B moved: four `src/framenest` path literals across four files
+    # (including one inside a module docstring), five `dictConfig` keys
+    # (`framenest_json` three times, `framenest_redaction`, `framenest_stderr`),
+    # two `logging.getLogger("framenest")` root-namespace arguments, three
+    # `framenest.public_published_api`/`_application` logger names, and two
+    # `framenest/**` source globs. No occurrence was added to any tree and no
+    # capitalized occurrence moved, so the capitalized counts below are unchanged.
+    "tests": 1835,
     "deploy": 212,
     "scripts": 104,
     "docs": 1216,
@@ -441,6 +456,17 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # lost its last occurrence with its last message. Both `deploy/**` and
 # `scripts/**` members are untouched and stay. No file that still carries the
 # token was dropped, and no file that no longer carries it was retained.
+#
+# KSI-CORR-C3B-2 removed exactly one path and added none.
+# `tests/contract/test_workspace_media.py` leaves this set because its only
+# retired occurrence in the entire file was a `src/framenest` path literal naming
+# the package directory that C3-B moved; with that literal repointed the file
+# carries no retired spelling in any case and is correctly absent rather than
+# merely renamed. Every other edited file keeps at least one occurrence for a
+# reason this cut does not own - an environment variable prefix, a systemd unit
+# name, a socket suffix, a companion protocol string, a negative assertion, a
+# deliberately frozen `FrameNest*` class name, or a historical provenance
+# comment - so no other member moves. No path was added to any tree.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -842,7 +868,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_uvicorn_runtime.py",
         "tests/contract/test_web_package_resources.py",
         "tests/contract/test_worker_execution_contract.py",
-        "tests/contract/test_workspace_media.py",
         "tests/contract/test_x_companion_api.py",
         "tests/contract/test_x_request_api.py",
         "tests/contract/test_youtube_browser_api.py",

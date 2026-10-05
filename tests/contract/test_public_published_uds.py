@@ -617,7 +617,7 @@ def test_public_read_failure_logs_only_sanitized_error_class(caplog) -> None:
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "PUBLIC_READ_FAILED"
     records = [
-        record for record in caplog.records if record.name == "framenest.public_published_api"
+        record for record in caplog.records if record.name == "kronika.public_published_api"
     ]
     assert len(records) == 1
     record = records[0]
@@ -633,12 +633,12 @@ def test_public_read_failure_logs_only_sanitized_error_class(caplog) -> None:
 
 def test_validation_rejection_logs_no_request_details(public_client, caplog) -> None:
     client, _settings = public_client
-    with caplog.at_level("WARNING", logger="framenest.public_published_application"):
+    with caplog.at_level("WARNING", logger="kronika.public_published_application"):
         client.get("/api/media/not-a-uuid")
     records = [
         record
         for record in caplog.records
-        if record.name == "framenest.public_published_application"
+        if record.name == "kronika.public_published_application"
     ]
     assert len(records) == 1
     assert FrameNestRedactionFilter().filter(records[0]) is True
