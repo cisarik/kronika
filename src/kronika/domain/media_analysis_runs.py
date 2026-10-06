@@ -19,12 +19,12 @@ class MediaAnalysisRunState(str, Enum):
 
 
 AUTOMATIC_POST_CATALOG_ANALYSIS_DEFINITION = "automatic_post_catalog"
-RESULT_SCHEMA_VERSION = "framenest-media-suggestion-result-v1"
-#: The spelling the writer cut will emit. No writer uses it yet; readers accept
-#: it so rows written after that cut stay visible to readers written before it.
-CANONICAL_RESULT_SCHEMA_VERSION = "kronika-media-suggestion-result-v1"
+RESULT_SCHEMA_VERSION = "kronika-media-suggestion-result-v1"
+#: The spelling written before the durable-writer cut. Every reader keeps
+#: accepting it so rows written under it stay visible.
+COMPATIBLE_RESULT_SCHEMA_VERSION = "framenest-media-suggestion-result-v1"
 ACCEPTED_RESULT_SCHEMA_VERSIONS = accepted_durable_identity(
-    RESULT_SCHEMA_VERSION, CANONICAL_RESULT_SCHEMA_VERSION
+    RESULT_SCHEMA_VERSION, COMPATIBLE_RESULT_SCHEMA_VERSION
 )
 DEFAULT_MAX_ANALYSIS_ATTEMPTS = 3
 MAX_CONFIGURED_ANALYSIS_ATTEMPTS = 10

@@ -49,15 +49,15 @@ PROGRAM = "kronika-release"
 IDENTITY_ENVIRONMENT_PREFIX = "KRONIKA_"
 COMPATIBLE_ENVIRONMENT_PREFIX = "FRAMENEST_"
 
-RELEASE_SHA_MARKER = ".framenest-release-sha"
-RELEASE_MANIFEST_MARKER = ".framenest-release-manifest.json"
+RELEASE_SHA_MARKER = ".kronika-release-sha"
+RELEASE_MANIFEST_MARKER = ".kronika-release-manifest.json"
 # The spellings a release artefact has ever been written under. These two tables
 # are frozen data rather than a derivation from the writer constants above: a
-# release written before the writer cut must still resolve after that cut removes
-# the former constants, so every reader resolves through these tables and never
-# through a literal or through the current writer name. The writer cut owns
-# changing ``RELEASE_SHA_MARKER`` and ``RELEASE_MANIFEST_MARKER``; this cut
-# changes no writer spelling and adds the canonical spellings as readers only.
+# release written before the durable-writer cut must still resolve after that
+# cut, so every reader resolves through these tables and never through a literal
+# or through the current writer name. The writers now emit the canonical
+# spellings; the former spellings stay in the tables permanently, because
+# historical release trees carry them and are read during rollback.
 ACCEPTED_RELEASE_SHA_MARKERS = (
     ".framenest-release-sha",
     ".kronika-release-sha",
@@ -66,7 +66,7 @@ ACCEPTED_RELEASE_MANIFEST_MARKERS = (
     ".framenest-release-manifest.json",
     ".kronika-release-manifest.json",
 )
-RELEASE_SHA_MANIFEST_KEY = "framenest_release_sha"
+RELEASE_SHA_MANIFEST_KEY = "kronika_release_sha"
 ACCEPTED_RELEASE_SHA_MANIFEST_KEYS = (
     "framenest_release_sha",
     "kronika_release_sha",

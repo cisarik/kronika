@@ -24,7 +24,7 @@ import pytest
 
 from kronika.application.media_suggestion import (
     ACCEPTED_PROMPT_VERSIONS,
-    CANONICAL_PROMPT_VERSION,
+    COMPATIBLE_PROMPT_VERSION,
     MediaSuggestion,
     MediaSuggestionRequest,
     PROMPT_VERSION,
@@ -45,14 +45,14 @@ from kronika.domain.analysis_identities import (
 )
 from kronika.domain.media_analysis_runs import (
     ACCEPTED_RESULT_SCHEMA_VERSIONS,
-    CANONICAL_RESULT_SCHEMA_VERSION,
+    COMPATIBLE_RESULT_SCHEMA_VERSION,
     RESULT_SCHEMA_VERSION,
 )
 from kronika.domain.media_classification import (
     ACCEPTED_MOVIE_IDENTIFICATION_PROMPT_VERSIONS,
     ACCEPTED_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSIONS,
-    CANONICAL_MOVIE_IDENTIFICATION_PROMPT_VERSION,
-    CANONICAL_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
+    COMPATIBLE_MOVIE_IDENTIFICATION_PROMPT_VERSION,
+    COMPATIBLE_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
     MOVIE_IDENTIFICATION_PROMPT_VERSION,
     MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
 )
@@ -66,31 +66,32 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src" / "kronika"
 
 HISTORICAL_RUN = "abababab-abab-4bab-8bab-000000000003"
 
-#: Every durable analysis identity, its writer spelling and its canonical
-#: spelling, derived rather than enumerated.
+#: Every durable analysis identity, its writer spelling (canonical since the
+#: durable-writer cut) and its retained historical spelling, derived rather
+#: than enumerated.
 DURABLE_IDENTITIES: tuple[tuple[str, str, str, frozenset[str]], ...] = (
     (
         "generic result schema",
         RESULT_SCHEMA_VERSION,
-        CANONICAL_RESULT_SCHEMA_VERSION,
+        COMPATIBLE_RESULT_SCHEMA_VERSION,
         ACCEPTED_RESULT_SCHEMA_VERSIONS,
     ),
     (
         "generic prompt version",
         PROMPT_VERSION,
-        CANONICAL_PROMPT_VERSION,
+        COMPATIBLE_PROMPT_VERSION,
         ACCEPTED_PROMPT_VERSIONS,
     ),
     (
         "movie identification result schema",
         MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
-        CANONICAL_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
+        COMPATIBLE_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
         ACCEPTED_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSIONS,
     ),
     (
         "movie identification prompt version",
         MOVIE_IDENTIFICATION_PROMPT_VERSION,
-        CANONICAL_MOVIE_IDENTIFICATION_PROMPT_VERSION,
+        COMPATIBLE_MOVIE_IDENTIFICATION_PROMPT_VERSION,
         ACCEPTED_MOVIE_IDENTIFICATION_PROMPT_VERSIONS,
     ),
 )
@@ -110,31 +111,31 @@ def test_the_acceptance_rule_needs_two_distinct_non_empty_spellings() -> None:
         accepted_durable_identity("same", "same")
 
 
-def test_no_writer_uses_the_canonical_spelling_yet() -> None:
-    """This cut adds readers only; the writer cut owns the writer spelling."""
-    for name, current, canonical, accepted in DURABLE_IDENTITIES:
-        assert current in accepted, name
-        assert canonical in accepted, name
-        assert current != canonical, name
+def test_every_writer_now_emits_the_canonical_spelling() -> None:
+    """The durable-writer cut switched the writers; every reader kept both."""
+    for name, writer, historical, accepted in DURABLE_IDENTITIES:
+        assert writer in accepted, name
+        assert historical in accepted, name
+        assert writer != historical, name
 
 
 @pytest.mark.parametrize(
-    ("name", "current", "canonical", "accepted"),
+    ("name", "writer", "historical", "accepted"),
     DURABLE_IDENTITIES,
     ids=[entry[0] for entry in DURABLE_IDENTITIES],
 )
 def test_acceptance_is_symmetric_and_explicit(
-    name: str, current: str, canonical: str, accepted: frozenset[str]
+    name: str, writer: str, historical: str, accepted: frozenset[str]
 ) -> None:
-    assert is_accepted_durable_identity(current, accepted)
-    assert is_accepted_durable_identity(canonical, accepted)
-    # The historical spelling is accepted in both directions of the writer cut:
-    # before it, and after it.
-    assert is_accepted_durable_identity(canonical, accepted) == is_accepted_durable_identity(
-        current, accepted
+    assert is_accepted_durable_identity(writer, accepted)
+    assert is_accepted_durable_identity(historical, accepted)
+    # Acceptance is symmetric across the writer cut: the historical spelling is
+    # accepted exactly as the current one is, so no stored row is hidden.
+    assert is_accepted_durable_identity(historical, accepted) == (
+        is_accepted_durable_identity(writer, accepted)
     )
-    assert accepted == frozenset({current, canonical})
-    for rejected in ("", "framenest", "not-v1", None, 1, current + "x", canonical.upper()):
+    assert accepted == frozenset({writer, historical})
+    for rejected in ("", "framenest", "not-v1", None, 1, writer + "x", historical.upper()):
         assert not is_accepted_durable_identity(rejected, accepted), (name, rejected)
 
 
@@ -146,9 +147,9 @@ def test_acceptance_is_symmetric_and_explicit(
 @pytest.mark.parametrize(
     "stored",
     [
-        pytest.param(RESULT_SCHEMA_VERSION, id="stored-under-the-former-spelling"),
+        pytest.param(RESULT_SCHEMA_VERSION, id="stored-under-the-writer-spelling"),
         pytest.param(
-            CANONICAL_RESULT_SCHEMA_VERSION, id="stored-under-the-canonical-spelling"
+            COMPATIBLE_RESULT_SCHEMA_VERSION, id="stored-under-the-historical-spelling"
         ),
     ],
 )
@@ -157,9 +158,9 @@ def test_a_successful_run_stays_eligible_under_either_stored_spelling(
 ) -> None:
     """A stored successful analysis stays reviewable under either spelling.
 
-    The writer cut will leave new rows under the canonical spelling. A reader
-    that still compared against one constant refuses the historical row here,
-    and this assertion is the one that fails.
+    The writer cut leaves new rows under the canonical spelling. A reader that
+    still compared against one constant refuses the historical row here, and
+    this assertion is the one that fails.
     """
     repository, engine = inbox._repository(tmp_path)
     with engine.begin() as connection:
@@ -218,7 +219,7 @@ def test_the_predicate_returns_the_same_rows_for_either_spelling(
     """One query, two stored spellings: the same run is eligible either way."""
     eligible: list[str] = []
     for index, stored in enumerate(
-        (RESULT_SCHEMA_VERSION, CANONICAL_RESULT_SCHEMA_VERSION)
+        (RESULT_SCHEMA_VERSION, COMPATIBLE_RESULT_SCHEMA_VERSION)
     ):
         repository, engine = inbox._repository(tmp_path / str(index))
         with engine.begin() as connection:
@@ -322,7 +323,7 @@ def _suggestion(prompt_version: str) -> MediaSuggestion:
     )
 
 
-@pytest.mark.parametrize("prompt_version", [PROMPT_VERSION, CANONICAL_PROMPT_VERSION])
+@pytest.mark.parametrize("prompt_version", [PROMPT_VERSION, COMPATIBLE_PROMPT_VERSION])
 def test_a_stored_suggestion_validates_under_either_prompt_spelling(
     prompt_version: str,
 ) -> None:
@@ -341,7 +342,7 @@ def test_a_stored_suggestion_still_rejects_an_unknown_prompt_spelling(
         _suggestion(prompt_version)
 
 
-@pytest.mark.parametrize("prompt_version", [PROMPT_VERSION, CANONICAL_PROMPT_VERSION])
+@pytest.mark.parametrize("prompt_version", [PROMPT_VERSION, COMPATIBLE_PROMPT_VERSION])
 def test_a_suggestion_request_reads_its_prompt_version_through_the_rule(
     prompt_version: str,
 ) -> None:
@@ -436,14 +437,14 @@ def _local_movie_hints() -> object:
     "prompt_version",
     [
         MOVIE_IDENTIFICATION_PROMPT_VERSION,
-        CANONICAL_MOVIE_IDENTIFICATION_PROMPT_VERSION,
+        COMPATIBLE_MOVIE_IDENTIFICATION_PROMPT_VERSION,
     ],
 )
 @pytest.mark.parametrize(
     "result_schema_version",
     [
         MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
-        CANONICAL_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
+        COMPATIBLE_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
     ],
 )
 def test_a_stored_movie_suggestion_validates_under_either_spelling(
@@ -489,7 +490,7 @@ def test_a_stored_movie_suggestion_still_rejects_an_unknown_spelling(
     "prompt_version",
     [
         MOVIE_IDENTIFICATION_PROMPT_VERSION,
-        CANONICAL_MOVIE_IDENTIFICATION_PROMPT_VERSION,
+        COMPATIBLE_MOVIE_IDENTIFICATION_PROMPT_VERSION,
     ],
 )
 def test_a_movie_request_reads_its_prompt_version_through_the_rule(

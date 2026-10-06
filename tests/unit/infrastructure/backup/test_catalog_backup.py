@@ -112,7 +112,11 @@ def test_create_cleans_temporary_state_after_failure(tmp_path: Path, monkeypatch
         catalog.create_catalog_backup(database_path, tmp_path / "bundle")
 
     assert not (tmp_path / "bundle").exists()
-    assert [path for path in tmp_path.iterdir() if path.name.startswith(".framenest-backup-")] == []
+    assert [
+        path
+        for path in tmp_path.iterdir()
+        if path.name.startswith((".kronika-backup-", ".framenest-backup-"))
+    ] == []
 
 
 def test_create_refuses_output_created_after_absence_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -141,7 +145,11 @@ def test_create_refuses_output_created_after_absence_check(tmp_path: Path, monke
 
     assert bundle.is_dir()
     assert list(bundle.iterdir()) == []
-    assert [path for path in tmp_path.iterdir() if path.name.startswith(".framenest-backup-")] == []
+    assert [
+        path
+        for path in tmp_path.iterdir()
+        if path.name.startswith((".kronika-backup-", ".framenest-backup-"))
+    ] == []
 
 
 def test_verify_accepts_intact_bundle_and_rejects_tampering(tmp_path: Path) -> None:
@@ -451,7 +459,11 @@ def test_create_fails_if_private_permissions_cannot_be_set_where_supported(
         catalog.create_catalog_backup(database_path, tmp_path / "bundle")
 
     assert not (tmp_path / "bundle").exists()
-    assert [path for path in tmp_path.iterdir() if path.name.startswith(".framenest-backup-")] == []
+    assert [
+        path
+        for path in tmp_path.iterdir()
+        if path.name.startswith((".kronika-backup-", ".framenest-backup-"))
+    ] == []
 
 
 def test_restore_fails_if_private_permissions_cannot_be_set_where_supported(

@@ -212,7 +212,15 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # it is the Alembic compatibility shim, whose entire purpose is to name the
     # retired spelling. `deploy`, `scripts`, `docs` and `extension` are unmoved:
     # this cut touches none of them.
-    "src": 186,
+    #
+    # KSI-IMPL-C5 moved `src` by -2, and nothing else. `infrastructure/ai/
+    # constants.py` and `infrastructure/ai/vision_probe.py` each held the
+    # retired spelling only in the one outbound identity this cut switched
+    # (`framenest/0.1` and `framenest-vision-probe-v1`), and both files now
+    # carry no retired spelling at all, so they leave this set. Every other
+    # switched writer file retains the former spelling as a named historical
+    # constant and stays.
+    "src": 184,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -258,7 +266,20 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # `contract/test_kronika_identity_migration.py`, which pins the former
     # layout, the former environment keys and the frozen mount in order to
     # prove the typed transformation. No existing file left this set.
-    "tests": 185,
+    #
+    # KSI-IMPL-C5 moved `src` by -2 and `tests` by -2, and nothing else.
+    # The `src` paragraph above this block names the two departing files.
+    #
+    # `tests` -2: three files left and one entered. `integration/
+    # test_media_sidecar_roundtrip.py` no longer names the retired writer suffix
+    # because it locates the writer's canonical output;
+    # `unit/infrastructure/ai/test_vision_probe.py` no longer pins the retired
+    # probe version; and `unit/application/
+    # test_movie_identification_lifecycle.py` no longer pins the retired movie
+    # prompt version. The new `contract/
+    # test_kronika_durable_writer_identities.py` enters with the retired
+    # spellings it pins as historical. Net -2.
+    "tests": 183,
     "deploy": 22,
     "scripts": 7,
     "docs": 88,
@@ -420,7 +441,20 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # codes, the sidecar suffix, the `framenest/0.1` user agent, the capture
     # state-directory name and the Unix account all keep it, and this cut does
     # not own them.
-    "src": 1695,
+    #
+    # KSI-IMPL-C5 moved `src` by -5, and nothing else. Per file:
+    # `infrastructure/ai/constants.py` -1 and `infrastructure/ai/vision_probe.py`
+    # -1 (each file's only retired spelling became its canonical one),
+    # `infrastructure/filesystem/media_sidecar.py` -1 (the sidecar temporary
+    # prefix; no recognizer reads it), `infrastructure/persistence/
+    # catalog_backup_ops.py` -1 (a hardcoded retired temporary prefix became a
+    # shared accepted-prefix constant), and `infrastructure/persistence/
+    # catalog_backup_workstation.py` -1 (a duplicated retired snapshot-purpose
+    # assignment was folded into the single canonical one). Every other switched
+    # module moved its retired literal from the writer constant to the retained
+    # historical constant, one for one, and the canonical values it now emits
+    # carry no retired spelling, so those files are unmoved.
+    "src": 1690,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -473,8 +507,34 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # answers and the canonical capture-pointer branch), and
     # `test_kronika_capture_services.py` +7 (the same layout probe answers for
     # the capture activation harness).
-    "tests": 2006,
-    "deploy": 246,
+    #
+    # KSI-IMPL-C5 moved `tests` by +2 and `deploy` by -3, and nothing else.
+    #
+    # `tests` +2: the new `contract/test_kronika_durable_writer_identities.py`
+    # +26 (the identity table, the literal writer and historical pins, the
+    # collapse demonstrations, the recognizer cases and the two round trips),
+    # less 24 occurrences retired by writer-pin updates. The retirement is
+    # `unit/domain/test_media_sidecar.py` -3, `contract/
+    # test_kronika_durable_artifact_readers.py` -2, `unit/application/
+    # test_media_suggestion.py` -2, `unit/infrastructure/ai/test_nvidia_nim.py`
+    # -2, `contract/test_nuc_release_source_contract.py` -2, `contract/
+    # test_nuc_release_remote_contract.py` -2, and -1 each in
+    # `contract/test_kronika_cli_and_release_readers.py`, `contract/
+    # test_media_analysis_lifecycle_api.py`, `contract/test_sidecar_cli.py`,
+    # `integration/test_media_sidecar_roundtrip.py`, `unit/application/
+    # test_media_sidecar.py`, `unit/application/
+    # test_movie_identification_lifecycle.py`, `unit/infrastructure/ai/
+    # test_vision_probe.py`, `unit/infrastructure/backup/
+    # test_catalog_backup_offdevice.py`, `unit/infrastructure/backup/
+    # test_catalog_backup_workstation.py`, `unit/infrastructure/filesystem/
+    # test_media_sidecar_store.py` and `unit/infrastructure/media_analysis/
+    # test_movie_contact_sheet_selection.py`. Sum -24; net +2.
+    "tests": 2008,
+    # `deploy` -3: in `kronika_release.py` the two writer marker constants and
+    # the release-manifest identity key now emit the canonical spelling. The
+    # accepted marker tables keep both former spellings as frozen data, so a
+    # historical release tree still resolves.
+    "deploy": 243,
     "scripts": 86,
     "docs": 1216,
     "extension": 145,
@@ -542,6 +602,20 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # name, a socket suffix, a companion protocol string, a negative assertion, a
 # deliberately frozen `FrameNest*` class name, or a historical provenance
 # comment - so no other member moves. No path was added to any tree.
+#
+# KSI-IMPL-C5 added exactly one path and removed exactly five, for a net -4
+# (511 -> 507). The addition is `tests/contract/
+# test_kronika_durable_writer_identities.py`, which pins every retired spelling
+# it retains as historical. The removals are whole-file consequences of the
+# writer switch, not renames: `src/kronika/infrastructure/ai/constants.py` and
+# `src/kronika/infrastructure/ai/vision_probe.py` each held the retired spelling
+# only in the outbound identity this cut switched; `tests/unit/infrastructure/
+# ai/test_vision_probe.py` and `tests/unit/application/
+# test_movie_identification_lifecycle.py` each lost their only retired spelling
+# when the writer pin became canonical; and `tests/integration/
+# test_media_sidecar_roundtrip.py` lost its only retired spelling when its
+# writer-output path became canonical. Every other switched module keeps the
+# former spelling as a named historical constant and stays.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -796,12 +870,10 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/infrastructure/__init__.py",
         "src/kronika/infrastructure/ai/chatgpt_page/budget.py",
         "src/kronika/infrastructure/ai/configuration.py",
-        "src/kronika/infrastructure/ai/constants.py",
         "src/kronika/infrastructure/ai/image_derivative.py",
         "src/kronika/infrastructure/ai/nvidia_nim.py",
         "src/kronika/infrastructure/ai/openai_chat_completions.py",
         "src/kronika/infrastructure/ai/still_frame_smoke.py",
-        "src/kronika/infrastructure/ai/vision_probe.py",
         "src/kronika/infrastructure/filesystem/media_sidecar.py",
         "src/kronika/infrastructure/media_analysis/adapter.py",
         "src/kronika/infrastructure/media_analysis/contact_sheet.py",
@@ -906,6 +978,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_durable_analysis_identity_readers.py",
         "tests/contract/test_kronika_direct_reader_routing.py",
         "tests/contract/test_kronika_durable_artifact_readers.py",
+        "tests/contract/test_kronika_durable_writer_identities.py",
         "tests/contract/test_kronika_identity_dual_read.py",
         "tests/contract/test_kronika_identity_migration.py",
         "tests/contract/test_kronika_mutation_header.py",
@@ -966,7 +1039,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/integration/test_local_web_media_metadata.py",
         "tests/integration/test_local_web_media_playback.py",
         "tests/integration/test_media_analysis_real_tools.py",
-        "tests/integration/test_media_sidecar_roundtrip.py",
         "tests/integration/test_nvidia_nim_live.py",
         "tests/integration/test_persistence_migrations.py",
         "tests/integration/test_still_image_vertical_slice.py",
@@ -987,7 +1059,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/unit/application/test_media_sidecar.py",
         "tests/unit/application/test_media_suggestion.py",
         "tests/unit/application/test_media_user_alias.py",
-        "tests/unit/application/test_movie_identification_lifecycle.py",
         "tests/unit/application/test_still_frame_smoke.py",
         "tests/unit/application/test_upload_transport.py",
         "tests/unit/application/test_upload_validation.py",
@@ -1017,7 +1088,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/unit/infrastructure/ai/test_credentials.py",
         "tests/unit/infrastructure/ai/test_image_derivative.py",
         "tests/unit/infrastructure/ai/test_nvidia_nim.py",
-        "tests/unit/infrastructure/ai/test_vision_probe.py",
         "tests/unit/infrastructure/backup/test_catalog_backup.py",
         "tests/unit/infrastructure/backup/test_catalog_backup_offdevice.py",
         "tests/unit/infrastructure/backup/test_catalog_backup_ops.py",

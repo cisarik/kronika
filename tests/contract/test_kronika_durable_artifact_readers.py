@@ -1,8 +1,8 @@
 """Contract tests for ADR-0085 dual-spelling durable-artifact readers.
 
-Every writer in this cut still emits the former spelling. Each test here writes a
-durable artifact by hand under one accepted spelling, proves the reader accepts
-it, and proves the writer constants are unchanged.
+The durable-writer cut switched every writer to the canonical spelling. Each test
+here proves a writer emits the canonical spelling, writes a durable artifact by
+hand under either accepted spelling, and proves the reader accepts both.
 """
 
 from __future__ import annotations
@@ -58,11 +58,13 @@ def _rewrite_manifest_name(bundle: Path, name: str) -> None:
     )
 
 
-def test_backup_manifest_writer_keeps_the_former_application_name(tmp_path: Path) -> None:
+def test_backup_manifest_writer_emits_the_canonical_application_name(
+    tmp_path: Path,
+) -> None:
     bundle = _backup_bundle(tmp_path)
     manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
 
-    assert manifest["application"]["name"] == COMPATIBLE_APPLICATION_NAME
+    assert manifest["application"]["name"] == PRIMARY_APPLICATION_NAME
 
 
 def test_old_name_backup_manifest_still_verifies(tmp_path: Path) -> None:
@@ -127,7 +129,7 @@ def test_backup_manifest_keeps_its_closed_field_set(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_sidecar_writer_keeps_the_former_format_and_suffix() -> None:
+def test_sidecar_writer_emits_the_canonical_format_and_suffix() -> None:
     from kronika.application.ports.media_sidecar_store import (
         SIDECAR_FILENAME_SUFFIX,
         sidecar_filename,
@@ -135,9 +137,9 @@ def test_sidecar_writer_keeps_the_former_format_and_suffix() -> None:
     from kronika.domain.media import MediaRelativePath
     from kronika.domain.media_sidecar import SIDECAR_FORMAT
 
-    assert SIDECAR_FORMAT == COMPATIBLE_SIDECAR_FORMAT
-    assert SIDECAR_FILENAME_SUFFIX == ".framenest.json"
-    assert sidecar_filename(MediaRelativePath("movie.mkv")).endswith(".framenest.json")
+    assert SIDECAR_FORMAT == PRIMARY_SIDECAR_FORMAT
+    assert SIDECAR_FILENAME_SUFFIX == ".kronika.json"
+    assert sidecar_filename(MediaRelativePath("movie.mkv")).endswith(".kronika.json")
 
 
 @pytest.mark.parametrize("spelling", [COMPATIBLE_SIDECAR_FORMAT, PRIMARY_SIDECAR_FORMAT])
@@ -152,7 +154,9 @@ def test_sidecar_reader_accepts_both_format_spellings(spelling: str) -> None:
     )
 
     assert decoded.media_id.to_string() == MEDIA_ID_TEXT
-    assert decoded.format == COMPATIBLE_SIDECAR_FORMAT
+    # A decoded document always carries the current writer spelling; the input
+    # spelling is validated against the accepted set, not preserved.
+    assert decoded.format == PRIMARY_SIDECAR_FORMAT
 
 
 def test_sidecar_reader_still_rejects_an_unknown_format() -> None:
@@ -184,8 +188,8 @@ def test_sidecar_store_observes_both_filename_spellings(tmp_path: Path) -> None:
         FilesystemMediaSidecarStore,
     )
 
-    assert SIDECAR_FILENAME_SUFFIX == ".framenest.json"
-    assert COMPATIBLE_SIDECAR_FILENAME_SUFFIX == ".kronika.json"
+    assert SIDECAR_FILENAME_SUFFIX == ".kronika.json"
+    assert COMPATIBLE_SIDECAR_FILENAME_SUFFIX == ".framenest.json"
 
     media_relative_path = MediaRelativePath("dual-read.mkv")
     payload = encode_sample_sidecar()
@@ -194,8 +198,14 @@ def test_sidecar_store_observes_both_filename_spellings(tmp_path: Path) -> None:
     (tmp_path / "dual-read.mkv").write_bytes(b"not-real-media")
 
     store.create_adjacent(root, media_relative_path, payload)
+    written = tmp_path / f"dual-read.mkv{SIDECAR_FILENAME_SUFFIX}"
+    assert written.is_file()
     assert store.observe_adjacent(root, media_relative_path).payload == payload
 
+    # Remove the canonical file so the historical name alone is observed. If the
+    # accepted filename tuple lost the historical suffix, this observation would
+    # report MISSING and the payload assertion would fail.
+    written.unlink()
     (tmp_path / f"dual-read.mkv{COMPATIBLE_SIDECAR_FILENAME_SUFFIX}").write_bytes(payload)
     assert store.observe_adjacent(root, media_relative_path).payload == payload
 
@@ -308,7 +318,7 @@ def _offdevice_root(tmp_path: Path, *, marker_name: str, purpose: str) -> Path:
     return root
 
 
-def test_offdevice_marker_writer_keeps_the_former_spelling() -> None:
+def test_offdevice_marker_identity_emits_the_canonical_spelling() -> None:
     from kronika.infrastructure.persistence.catalog_backup_offdevice import (
         COMPATIBLE_MARKER_NAME,
         COMPATIBLE_MARKER_PURPOSE,
@@ -316,10 +326,10 @@ def test_offdevice_marker_writer_keeps_the_former_spelling() -> None:
         MARKER_PURPOSE,
     )
 
-    assert MARKER_NAME == ".framenest-catalog-offdevice.json"
-    assert MARKER_PURPOSE == "framenest-catalog-offdevice"
-    assert COMPATIBLE_MARKER_NAME == ".kronika-catalog-offdevice.json"
-    assert COMPATIBLE_MARKER_PURPOSE == "kronika-catalog-offdevice"
+    assert MARKER_NAME == ".kronika-catalog-offdevice.json"
+    assert MARKER_PURPOSE == "kronika-catalog-offdevice"
+    assert COMPATIBLE_MARKER_NAME == ".framenest-catalog-offdevice.json"
+    assert COMPATIBLE_MARKER_PURPOSE == "framenest-catalog-offdevice"
 
 
 @pytest.mark.parametrize(
@@ -439,7 +449,7 @@ def _workstation_mount(tmp_path: Path) -> tuple[Path, Path]:
     return mount, store
 
 
-def test_workstation_marker_writer_keeps_the_former_spelling() -> None:
+def test_workstation_snapshot_identity_emits_the_canonical_spelling() -> None:
     from kronika.infrastructure.persistence.catalog_backup_workstation import (
         COMPATIBLE_MARKER_NAME,
         COMPATIBLE_MARKER_PURPOSE,
@@ -449,12 +459,12 @@ def test_workstation_marker_writer_keeps_the_former_spelling() -> None:
         SNAPSHOT_PURPOSE,
     )
 
-    assert MARKER_NAME == ".framenest-workstation-snapshot-store.json"
-    assert MARKER_PURPOSE == "framenest-workstation-snapshot-store"
-    assert SNAPSHOT_PURPOSE == "framenest-workstation-catalog-snapshot"
-    assert COMPATIBLE_MARKER_NAME == ".kronika-workstation-snapshot-store.json"
-    assert COMPATIBLE_MARKER_PURPOSE == "kronika-workstation-snapshot-store"
-    assert COMPATIBLE_SNAPSHOT_PURPOSE == "kronika-workstation-catalog-snapshot"
+    assert MARKER_NAME == ".kronika-workstation-snapshot-store.json"
+    assert MARKER_PURPOSE == "kronika-workstation-snapshot-store"
+    assert SNAPSHOT_PURPOSE == "kronika-workstation-catalog-snapshot"
+    assert COMPATIBLE_MARKER_NAME == ".framenest-workstation-snapshot-store.json"
+    assert COMPATIBLE_MARKER_PURPOSE == "framenest-workstation-snapshot-store"
+    assert COMPATIBLE_SNAPSHOT_PURPOSE == "framenest-workstation-catalog-snapshot"
 
 
 @pytest.mark.parametrize(

@@ -217,11 +217,11 @@ def test_request_uses_basename_without_absolute_path() -> None:
     request = build_suggestion_request(prepared)
     assert request.basename == "sample.mp4"
     assert "/" not in request.basename
-    assert request.prompt_version == "framenest-media-suggestion-v4"
+    assert request.prompt_version == "kronika-media-suggestion-v4"
 
 
 def test_prompt_version_is_v4() -> None:
-    assert PROMPT_VERSION == "framenest-media-suggestion-v4"
+    assert PROMPT_VERSION == "kronika-media-suggestion-v4"
 
 
 def test_hidden_segments_rejected_for_suggestion_paths() -> None:

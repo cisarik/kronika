@@ -87,7 +87,7 @@ def _expect_error(exc: BaseException, *, error_code: str) -> None:
 
 
 def test_adjacent_filename_uses_complete_media_filename() -> None:
-    assert sidecar_filename(MediaRelativePath("movies/clip.mp4")) == "clip.mp4.framenest.json"
+    assert sidecar_filename(MediaRelativePath("movies/clip.mp4")) == "clip.mp4.kronika.json"
 
 
 def test_create_replace_and_readback_are_byte_identical_mode_0644(tmp_path: Path) -> None:

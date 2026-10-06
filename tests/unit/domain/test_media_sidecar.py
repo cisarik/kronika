@@ -47,7 +47,7 @@ MINIMAL_CANONICAL_BYTES = (
     b'"created_at_ms":null,"creator_attribution_kind":null,'
     b'"creator_display_name":null,"creator_handle":null,'
     b'"creator_stable_id":null,"description":null,"display_title":null,'
-    b'"format":"framenest-media-sidecar","genre_keys":[],'
+    b'"format":"kronika-media-sidecar","genre_keys":[],'
     b'"location":{"library_id":"'
     + LIBRARY_ID_TEXT.encode("ascii")
     + b'","location_id":"'
@@ -65,7 +65,7 @@ UNICODE_MOVIE_BYTES = (
     b'"creator_handle":"examplehandle","creator_stable_id":"UC123",'
     b'"description":"Unicode description \xc5\xbd\xc3\xa1nr\\nand \xf0\x9f\x8e\xac",'
     b'"display_title":"\xc5\xbd\xc3\xa1nr: \xc3\x89l\xc3\xa9gie",'
-    b'"format":"framenest-media-sidecar","genre_keys":["drama","sci-fi"],'
+    b'"format":"kronika-media-sidecar","genre_keys":["drama","sci-fi"],'
     b'"location":{"library_id":"'
     + LIBRARY_ID_TEXT.encode("ascii")
     + b'","location_id":"'
@@ -202,7 +202,7 @@ def _expect_error(payload: object, *, error_code: str) -> FrameNestMediaSidecarE
 
 
 def test_public_identity_constants() -> None:
-    assert SIDECAR_FORMAT == "framenest-media-sidecar"
+    assert SIDECAR_FORMAT == "kronika-media-sidecar"
     assert SIDECAR_SCHEMA_VERSION == 1
     assert MAX_SIDECAR_BYTES == 256 * 1024
 

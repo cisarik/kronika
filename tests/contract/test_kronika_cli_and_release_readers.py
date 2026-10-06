@@ -171,13 +171,13 @@ def test_ai_deploy_helper_accepts_either_prefix_alone(
 # ---------------------------------------------------------------------------
 
 
-def test_release_markers_and_manifest_keys_keep_their_writer_spelling(
+def test_release_markers_and_manifest_keys_emit_the_canonical_spelling(
     release_helper: Any,
 ) -> None:
-    assert release_helper.RELEASE_SHA_MARKER == ".framenest-release-sha"
-    assert release_helper.RELEASE_MANIFEST_MARKER == ".framenest-release-manifest.json"
-    assert release_helper.RELEASE_SHA_MANIFEST_KEY == "framenest_release_sha"
-    assert release_helper.make_manifest(
+    assert release_helper.RELEASE_SHA_MARKER == ".kronika-release-sha"
+    assert release_helper.RELEASE_MANIFEST_MARKER == ".kronika-release-manifest.json"
+    assert release_helper.RELEASE_SHA_MANIFEST_KEY == "kronika_release_sha"
+    manifest = release_helper.make_manifest(
         release_sha="0" * 40,
         ap_pin="1" * 40,
         superproject_sha256="a" * 64,
@@ -186,7 +186,13 @@ def test_release_markers_and_manifest_keys_keep_their_writer_spelling(
         capture_runtime_contract_sha256="c" * 64,
         capture_unit_contract_sha256="d" * 64,
         capture_bridge_protocol=release_helper.CAPTURE_BRIDGE_PROTOCOL,
-    )["framenest_release_sha"] == "0" * 40
+    )
+    assert manifest["kronika_release_sha"] == "0" * 40
+    # The historical key stays readable by the central resolver.
+    assert (
+        release_helper.manifest_release_sha({"framenest_release_sha": "0" * 40})
+        == "0" * 40
+    )
 
 
 def test_every_reader_resolves_through_the_accepted_marker_tables(
@@ -268,19 +274,23 @@ def test_release_marker_presence_parser_is_closed(
 
 
 def test_release_read_commands_accept_both_spellings(release_helper: Any) -> None:
-    assert ".framenest-release-sha" in release_helper.cmd_remote_read_release_sha("/opt/x")
+    # The default argument is the current writer spelling.
+    assert ".kronika-release-sha" in release_helper.cmd_remote_read_release_sha("/opt/x")
+    assert ".kronika-release-manifest.json" in release_helper.cmd_remote_read_manifest(
+        "/opt/x"
+    )
+    # The historical spellings stay readable when a reader names them explicitly,
+    # which is exactly what read_release_markers does for every accepted marker.
     assert (
-        ".kronika-release-sha"
-        in release_helper.cmd_remote_read_release_sha("/opt/x", ".kronika-release-sha")
+        ".framenest-release-sha"
+        in release_helper.cmd_remote_read_release_sha(
+            "/opt/x", ".framenest-release-sha"
+        )
     )
     assert (
         ".framenest-release-manifest.json"
-        in release_helper.cmd_remote_read_manifest("/opt/x")
-    )
-    assert (
-        ".kronika-release-manifest.json"
         in release_helper.cmd_remote_read_manifest(
-            "/opt/x", ".kronika-release-manifest.json"
+            "/opt/x", ".framenest-release-manifest.json"
         )
     )
 

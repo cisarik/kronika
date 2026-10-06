@@ -47,7 +47,7 @@ def _state(**overrides: object) -> VisionProbeState:
 
 def test_prompt_and_version_constants_are_pinned() -> None:
     assert VISION_PROBE_PROMPT == "What color is this? Answer with one word."
-    assert VISION_PROBE_PROMPT_VERSION == "framenest-vision-probe-v1"
+    assert VISION_PROBE_PROMPT_VERSION == "kronika-vision-probe-v1"
     assert EXPECTED_COLOR == "red"
     assert VISION_PROBE_STATE_SCHEMA_VERSION == 1
 

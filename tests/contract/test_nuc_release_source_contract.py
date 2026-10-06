@@ -125,7 +125,7 @@ def test_make_manifest_contains_only_public_provenance() -> None:
     )
 
     assert set(manifest) == {
-        "framenest_release_sha",
+        "kronika_release_sha",
         "ap_gitlink",
         "superproject_archive_sha256",
         "ap_archive_sha256",
@@ -134,7 +134,7 @@ def test_make_manifest_contains_only_public_provenance() -> None:
         "capture_unit_contract_sha256",
         "capture_bridge_protocol",
     }
-    assert manifest["framenest_release_sha"] == RELEASE
+    assert manifest["kronika_release_sha"] == RELEASE
     assert manifest["ap_gitlink"] == AP_PIN
 
 

@@ -60,7 +60,7 @@ def test_catalog_projection_export_validate_compare_and_unchanged(
     media_dir.mkdir(parents=True)
     media_file = media_dir / "clip.mp4"
     media_file.write_bytes(b"synthetic-media")
-    sidecar_path = media_dir / "clip.mp4.framenest.json"
+    sidecar_path = media_dir / "clip.mp4.kronika.json"
 
     upgrade_database_to_head(KronikaSettings(database_path=database_path, _env_file=None))
     engine = create_sqlite_engine(database_path)

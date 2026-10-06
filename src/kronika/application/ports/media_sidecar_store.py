@@ -9,10 +9,11 @@ from typing import Protocol
 from kronika.domain.libraries import LibraryRoot
 from kronika.domain.media import MediaRelativePath
 
-SIDECAR_FILENAME_SUFFIX = ".framenest.json"
-#: Accepted read-only filename spelling. ``sidecar_filename`` keeps returning the
-#: current writer spelling until the durable-writer cut adopts the Kronika one.
-COMPATIBLE_SIDECAR_FILENAME_SUFFIX = ".kronika.json"
+SIDECAR_FILENAME_SUFFIX = ".kronika.json"
+#: The filename spelling written before the durable-writer cut. ``sidecar_filename``
+#: returns the writer spelling; ``accepted_sidecar_filenames`` names both, and the
+#: accepted tuple must keep the historical suffix explicitly.
+COMPATIBLE_SIDECAR_FILENAME_SUFFIX = ".framenest.json"
 ACCEPTED_SIDECAR_FILENAME_SUFFIXES = (
     SIDECAR_FILENAME_SUFFIX,
     COMPATIBLE_SIDECAR_FILENAME_SUFFIX,

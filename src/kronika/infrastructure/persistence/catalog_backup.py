@@ -22,12 +22,18 @@ CATALOG_NAME = "catalog.sqlite3"
 FORMAT_VERSION = 1
 SHA256_PATTERN_LENGTH = 64
 MAX_CATALOG_SIZE_BYTES = 16 * 1024 * 1024 * 1024 * 1024
-TEMP_PREFIX = ".framenest-backup-"
+TEMP_PREFIX = ".kronika-backup-"
+#: The staging prefix written before the durable-writer cut. The incomplete-state
+#: recognizers below keep accepting it so abandoned former-spelling staging
+#: directories are still found and cleaned.
+COMPATIBLE_TEMP_PREFIX = ".framenest-backup-"
+ACCEPTED_TEMP_PREFIXES = (TEMP_PREFIX, COMPATIBLE_TEMP_PREFIX)
 EXPECTED_BUNDLE_NAMES = frozenset({MANIFEST_NAME, CATALOG_NAME})
-APPLICATION_NAME = "framenest"
-#: Accepted read-only application names. Only the writer above emits
-#: ``APPLICATION_NAME`` until the durable-writer cut adopts the Kronika spelling.
-COMPATIBLE_APPLICATION_NAME = "kronika"
+APPLICATION_NAME = "kronika"
+#: The manifest application name written before the durable-writer cut. Every
+#: manifest reader keeps accepting it, and the accepted set must name it
+#: explicitly rather than derive it from the writer constant alone.
+COMPATIBLE_APPLICATION_NAME = "framenest"
 ACCEPTED_APPLICATION_NAMES = frozenset({APPLICATION_NAME, COMPATIBLE_APPLICATION_NAME})
 APPLICATION_VERSION_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+!-]{0,79}")
 ALEMBIC_REVISION_PATTERN = re.compile(r"[0-9]{4}")
@@ -456,7 +462,10 @@ def _absolute(path: Path, *, description: str) -> Path:
 
 def _reject_unexpected_bundle_state(bundle: Path) -> None:
     observed_names = {child.name for child in bundle.iterdir()}
-    if any(name.startswith(TEMP_PREFIX) or name.endswith(".tmp") for name in observed_names):
+    if any(
+        name.startswith(ACCEPTED_TEMP_PREFIXES) or name.endswith(".tmp")
+        for name in observed_names
+    ):
         raise BackupError("Backup bundle contains incomplete state.", error_code="INCOMPLETE_BUNDLE")
     if not observed_names.issubset(EXPECTED_BUNDLE_NAMES):
         raise BackupError("Backup bundle contains unexpected state.", error_code="UNEXPECTED_BUNDLE_STATE")
@@ -533,7 +542,11 @@ def _unlink_created_output_file(path: Path) -> None:
 
 
 def _remove_owned_temp_bundle(path: Path) -> None:
-    if not path.name.startswith(TEMP_PREFIX) or path.is_symlink() or not path.exists():
+    if (
+        not path.name.startswith(ACCEPTED_TEMP_PREFIXES)
+        or path.is_symlink()
+        or not path.exists()
+    ):
         return
     try:
         shutil.rmtree(path)

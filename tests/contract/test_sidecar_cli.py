@@ -542,7 +542,7 @@ def test_cli_round_trip_export_validate_compare_and_stale_without_repair(
     tmp_path: Path,
 ) -> None:
     database_path = _seed_catalog(tmp_path)
-    sidecar_path = tmp_path / "library" / "movies" / "clip.mp4.framenest.json"
+    sidecar_path = tmp_path / "library" / "movies" / "clip.mp4.kronika.json"
     tables_before = _table_names(database_path)
     monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
 

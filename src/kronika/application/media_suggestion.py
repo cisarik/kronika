@@ -33,12 +33,12 @@ if TYPE_CHECKING:
     from kronika.application.ports.media_analysis import LocalMediaAnalysisPreparer
     from kronika.application.ports.media_suggestion import MediaSuggestionProvider
 
-PROMPT_VERSION = "framenest-media-suggestion-v4"
-#: The spelling the writer cut will emit. No writer uses it yet; every reader
-#: below accepts it so rows and responses written after that cut stay valid.
-CANONICAL_PROMPT_VERSION = "kronika-media-suggestion-v4"
+PROMPT_VERSION = "kronika-media-suggestion-v4"
+#: The spelling written before the durable-writer cut. Every reader below keeps
+#: accepting it so rows and responses written under it stay valid.
+COMPATIBLE_PROMPT_VERSION = "framenest-media-suggestion-v4"
 ACCEPTED_PROMPT_VERSIONS = accepted_durable_identity(
-    PROMPT_VERSION, CANONICAL_PROMPT_VERSION
+    PROMPT_VERSION, COMPATIBLE_PROMPT_VERSION
 )
 
 INVALID_SUGGESTION_REQUEST_MESSAGE = "Invalid media suggestion request."

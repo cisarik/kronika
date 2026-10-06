@@ -1129,5 +1129,5 @@ def test_default_offdevice_root_constant() -> None:
     )
 
     assert DEFAULT_OFFDEVICE_ROOT == Path("/mnt/framenest-catalog-offdevice")
-    assert MARKER_NAME == ".framenest-catalog-offdevice.json"
+    assert MARKER_NAME == ".kronika-catalog-offdevice.json"
     assert BUNDLES_DIRNAME == "bundles"

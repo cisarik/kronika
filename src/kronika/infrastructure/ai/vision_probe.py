@@ -17,7 +17,10 @@ from kronika.infrastructure.ai.configuration import (
 )
 
 VISION_PROBE_PROMPT = "What color is this? Answer with one word."
-VISION_PROBE_PROMPT_VERSION = "framenest-vision-probe-v1"
+#: Outbound request/response identity for the administrative capability probe.
+#: It is never persisted, so it carries no historical reader obligation and is
+#: switched as branding rather than for compatibility; there is no accepted set.
+VISION_PROBE_PROMPT_VERSION = "kronika-vision-probe-v1"
 VISION_PROBE_FIXTURE_PACKAGE = "kronika.infrastructure.ai.fixtures"
 VISION_PROBE_FIXTURE_NAME = "vision-probe-red-8x8.png"
 VISION_PROBE_STATE_FILENAME = "vision-probe-state.json"

@@ -289,7 +289,7 @@ def _expect_error(exc: BaseException, *, error_code: str) -> None:
 
 
 def test_sidecar_filename_is_complete_media_filename_plus_suffix() -> None:
-    assert sidecar_filename(MediaRelativePath("movies/clip.mp4")) == "clip.mp4.framenest.json"
+    assert sidecar_filename(MediaRelativePath("movies/clip.mp4")) == "clip.mp4.kronika.json"
 
 
 def test_minimal_projection_uses_metadata_timestamps_not_logical_media() -> None:

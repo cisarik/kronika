@@ -46,18 +46,25 @@ from kronika.identity_env import (
 )
 
 DEFAULT_OFFDEVICE_ROOT = Path("/mnt/framenest-catalog-offdevice")
-MARKER_NAME = ".framenest-catalog-offdevice.json"
-COMPATIBLE_MARKER_NAME = ".kronika-catalog-offdevice.json"
-#: Accepted marker filenames, current writer spelling first. Only readers use
-#: the compatible spelling until the writer cut adopts it.
+MARKER_NAME = ".kronika-catalog-offdevice.json"
+#: The marker filename written before the durable-writer cut. Readers keep
+#: accepting it, and the accepted tuple must name it explicitly.
+COMPATIBLE_MARKER_NAME = ".framenest-catalog-offdevice.json"
+#: Accepted marker filenames, current writer spelling first.
 ACCEPTED_MARKER_NAMES = (MARKER_NAME, COMPATIBLE_MARKER_NAME)
 BUNDLES_DIRNAME = "bundles"
-MARKER_PURPOSE = "framenest-catalog-offdevice"
-COMPATIBLE_MARKER_PURPOSE = "kronika-catalog-offdevice"
+MARKER_PURPOSE = "kronika-catalog-offdevice"
+#: The purpose written before the durable-writer cut. Readers keep accepting it.
+COMPATIBLE_MARKER_PURPOSE = "framenest-catalog-offdevice"
 ACCEPTED_MARKER_PURPOSES = frozenset({MARKER_PURPOSE, COMPATIBLE_MARKER_PURPOSE})
 MARKER_SCHEMA_VERSION = 1
 DESTINATION_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
-STAGE_PREFIX = ".framenest-offdevice-stage-"
+STAGE_PREFIX = ".kronika-offdevice-stage-"
+#: The staging prefix written before the durable-writer cut. The cleanup
+#: recognizer keeps accepting it so an abandoned former staging directory is
+#: still identified as owned.
+COMPATIBLE_STAGE_PREFIX = ".framenest-offdevice-stage-"
+ACCEPTED_STAGE_PREFIXES = (STAGE_PREFIX, COMPATIBLE_STAGE_PREFIX)
 OFFDEVICE_STALE_AFTER = timedelta(hours=48)
 OffdeviceReadiness = Literal[
     "disabled",
@@ -592,7 +599,7 @@ def _cleanup_owned_stage(stage: Path, bundles_dir: Path) -> None:
     if not stage.exists() and not stage.is_symlink():
         return
     _assert_contained(stage, bundles_dir)
-    if not stage.name.startswith(STAGE_PREFIX):
+    if not stage.name.startswith(ACCEPTED_STAGE_PREFIXES):
         raise OffdeviceError(
             "Unexpected off-device staging object.",
             error_code="OFFDEVICE_STAGE_UNSAFE",

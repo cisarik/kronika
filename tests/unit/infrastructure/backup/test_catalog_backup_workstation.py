@@ -675,7 +675,7 @@ def test_real_pipe_body_stall_times_out_and_reaps_child(tmp_path: Path) -> None:
         if path.is_dir() and not path.name.startswith(".")
     ]
     assert finals == []
-    stages = [path for path in snapshots.iterdir() if path.name.startswith(".framenest-pull-stage-")]
+    stages = [path for path in snapshots.iterdir() if path.name.startswith(".kronika-pull-stage-")]
     assert stages == []
 
 

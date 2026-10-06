@@ -48,6 +48,8 @@ ALL_MARKER_SPELLINGS = (
 )
 CANONICAL_MANIFEST_MARKER = engine.ACCEPTED_RELEASE_MANIFEST_MARKERS[1]
 CANONICAL_SHA_MARKER = engine.ACCEPTED_RELEASE_SHA_MARKERS[1]
+HISTORICAL_MANIFEST_MARKER = engine.ACCEPTED_RELEASE_MANIFEST_MARKERS[0]
+HISTORICAL_SHA_MARKER = engine.ACCEPTED_RELEASE_SHA_MARKERS[0]
 
 #: A realistic ``systemctl show`` answer for the installed unit, drop-ins
 #: included, as systemd reports the effective configuration.
@@ -607,8 +609,8 @@ def test_cmd_remote_write_markers_uses_stdin_not_nested_quotes(tmp_path: Path) -
         assert "printf %s" not in command
     manifest_script = _sudo_sh_c_script(manifest_cmd)
     sha_script = _sudo_sh_c_script(sha_cmd)
-    manifest_dest = tmp_path / ".framenest-release-manifest.json"
-    sha_dest = tmp_path / ".framenest-release-sha"
+    manifest_dest = tmp_path / engine.RELEASE_MANIFEST_MARKER
+    sha_dest = tmp_path / engine.RELEASE_SHA_MARKER
     assert manifest_script == f"umask 077; cat > {shlex.quote(str(manifest_dest))}"
     assert sha_script == f"umask 077; cat > {shlex.quote(str(sha_dest))}"
     subprocess.run(
@@ -1181,11 +1183,9 @@ def _disagreeing(**overrides: object) -> FakeRunner:
 @pytest.mark.parametrize(
     "markers",
     [
-        pytest.param((engine.RELEASE_MANIFEST_MARKER,), id="old-manifest-only"),
+        pytest.param((HISTORICAL_MANIFEST_MARKER,), id="old-manifest-only"),
         pytest.param((CANONICAL_MANIFEST_MARKER,), id="new-manifest-only"),
-        pytest.param(
-            (engine.RELEASE_SHA_MARKER,), id="old-sha-only"
-        ),
+        pytest.param((HISTORICAL_SHA_MARKER,), id="old-sha-only"),
         pytest.param((CANONICAL_SHA_MARKER,), id="new-sha-only"),
         pytest.param(ALL_MARKER_SPELLINGS, id="both-equal"),
     ],
@@ -1212,7 +1212,7 @@ def test_every_reader_resolves_under_each_marker_matrix_row(
     [
         pytest.param(
             {
-                "markers": (engine.RELEASE_SHA_MARKER, CANONICAL_SHA_MARKER),
+                "markers": (HISTORICAL_SHA_MARKER, CANONICAL_SHA_MARKER),
                 "sha_by_marker": {CANONICAL_SHA_MARKER: "d" * 40},
             },
             id="two-sha-markers-disagree",
@@ -1220,7 +1220,7 @@ def test_every_reader_resolves_under_each_marker_matrix_row(
         pytest.param(
             {
                 "markers": (
-                    engine.RELEASE_MANIFEST_MARKER,
+                    HISTORICAL_MANIFEST_MARKER,
                     CANONICAL_MANIFEST_MARKER,
                 ),
                 "manifest_by_marker": {CANONICAL_MANIFEST_MARKER: "d" * 40},
@@ -1229,8 +1229,8 @@ def test_every_reader_resolves_under_each_marker_matrix_row(
         ),
         pytest.param(
             {
-                "markers": (engine.RELEASE_SHA_MARKER, engine.RELEASE_MANIFEST_MARKER),
-                "sha_by_marker": {engine.RELEASE_SHA_MARKER: "d" * 40},
+                "markers": (HISTORICAL_SHA_MARKER, HISTORICAL_MANIFEST_MARKER),
+                "sha_by_marker": {HISTORICAL_SHA_MARKER: "d" * 40},
             },
             id="sha-marker-disagrees-with-manifest",
         ),
@@ -1261,10 +1261,7 @@ def test_capture_activation_resolves_under_both_marker_spellings(
     from tests.contract import test_kronika_capture_services as capture
 
     for markers in (
-(
-            engine.RELEASE_MANIFEST_MARKER,
-            engine.RELEASE_SHA_MARKER,
-        ),
+        (HISTORICAL_MANIFEST_MARKER, HISTORICAL_SHA_MARKER),
         (CANONICAL_MANIFEST_MARKER, CANONICAL_SHA_MARKER),
         ALL_MARKER_SPELLINGS,
     ):
@@ -1299,10 +1296,8 @@ def test_marker_readers_never_open_a_literal_marker_name() -> None:
         [
             engine.RELEASE_SHA_MARKER,
             engine.RELEASE_MANIFEST_MARKER,
-            engine.RELEASE_SHA_MARKER,
-            engine.RELEASE_MANIFEST_MARKER,
-            CANONICAL_SHA_MARKER,
-            CANONICAL_MANIFEST_MARKER,
+            *engine.ACCEPTED_RELEASE_SHA_MARKERS,
+            *engine.ACCEPTED_RELEASE_MANIFEST_MARKERS,
         ]
     )
 

@@ -107,7 +107,7 @@ def test_capability_and_not_requested_status() -> None:
     assert capability.json() == {
         "automatic_analysis_enabled": False,
         "analysis_definition": "automatic_post_catalog",
-        "result_schema_version": "framenest-media-suggestion-result-v1",
+        "result_schema_version": "kronika-media-suggestion-result-v1",
         "provider_configured": True,
         "provider_id": "nvidia-nim",
         "model_id": "test-model",

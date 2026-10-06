@@ -449,7 +449,7 @@ def test_nvidia_movie_request_reasoning_and_prompt_unchanged() -> None:
     assert body["temperature"] == MOVIE_IDENTIFICATION_TEMPERATURE == 0.6
     assert body["top_p"] == MOVIE_IDENTIFICATION_TOP_P == 0.95
     assert "top_k" not in body
-    assert MOVIE_IDENTIFICATION_PROMPT_VERSION == "framenest-movie-identification-prompt-v2"
+    assert MOVIE_IDENTIFICATION_PROMPT_VERSION == "kronika-movie-identification-prompt-v2"
     images = [
         part for part in body["messages"][0]["content"] if part.get("type") == "image_url"
     ]

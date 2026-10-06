@@ -18,6 +18,7 @@ from collections.abc import Iterator, Mapping
 from typing import Any, Literal
 
 from kronika.infrastructure.persistence.catalog_backup import (
+    ACCEPTED_TEMP_PREFIXES,
     CATALOG_NAME,
     MANIFEST_NAME,
     BackupError,
@@ -1545,7 +1546,10 @@ def _bundle_looks_complete(bundle: Path) -> bool:
         names = {child.name for child in bundle.iterdir()}
     except OSError:
         return False
-    if any(name.startswith(".framenest-backup-") or name.endswith(".tmp") for name in names):
+    if any(
+        name.startswith(ACCEPTED_TEMP_PREFIXES) or name.endswith(".tmp")
+        for name in names
+    ):
         return False
     return names == {MANIFEST_NAME, CATALOG_NAME}
 

@@ -31,10 +31,11 @@ from kronika.domain.media_metadata import (
     validate_creator_attribution_fields,
 )
 
-SIDECAR_FORMAT = "framenest-media-sidecar"
-#: Accepted read-only format spelling. Only the writer above emits
-#: ``SIDECAR_FORMAT`` until the durable-writer cut adopts the Kronika spelling.
-COMPATIBLE_SIDECAR_FORMAT = "kronika-media-sidecar"
+SIDECAR_FORMAT = "kronika-media-sidecar"
+#: The format spelling written before the durable-writer cut. Readers keep
+#: accepting it, and the accepted set must name it explicitly: a literal
+#: ``frozenset`` of only the writer spelling would silently drop it.
+COMPATIBLE_SIDECAR_FORMAT = "framenest-media-sidecar"
 ACCEPTED_SIDECAR_FORMATS = frozenset({SIDECAR_FORMAT, COMPATIBLE_SIDECAR_FORMAT})
 SIDECAR_SCHEMA_VERSION = 1
 MAX_SIDECAR_BYTES = 256 * 1024

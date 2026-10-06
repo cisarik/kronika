@@ -45,20 +45,30 @@ from kronika.infrastructure.persistence.catalog_backup_transfer import (
     rename_noreplace,
 )
 
-MARKER_NAME = ".framenest-workstation-snapshot-store.json"
-COMPATIBLE_MARKER_NAME = ".kronika-workstation-snapshot-store.json"
+MARKER_NAME = ".kronika-workstation-snapshot-store.json"
+#: The marker filename written before the durable-writer cut. Readers keep
+#: accepting it, and the accepted tuple must name it explicitly.
+COMPATIBLE_MARKER_NAME = ".framenest-workstation-snapshot-store.json"
 #: Accepted marker filenames, current writer spelling first.
 ACCEPTED_MARKER_NAMES = (MARKER_NAME, COMPATIBLE_MARKER_NAME)
-MARKER_PURPOSE = "framenest-workstation-snapshot-store"
-COMPATIBLE_MARKER_PURPOSE = "kronika-workstation-snapshot-store"
+MARKER_PURPOSE = "kronika-workstation-snapshot-store"
+#: The purpose written before the durable-writer cut. Readers keep accepting it.
+COMPATIBLE_MARKER_PURPOSE = "framenest-workstation-snapshot-store"
 ACCEPTED_MARKER_PURPOSES = frozenset({MARKER_PURPOSE, COMPATIBLE_MARKER_PURPOSE})
 MARKER_SCHEMA_VERSION = 1
 SNAPSHOTS_DIRNAME = "snapshots"
 RESTORE_VERIFY_DIRNAME = ".restore-verify"
-STAGE_PREFIX = ".framenest-pull-stage-"
+STAGE_PREFIX = ".kronika-pull-stage-"
+#: The staging prefix written before the durable-writer cut. The cleanup
+#: recognizer keeps accepting it so an abandoned former staging directory is
+#: still identified as owned.
+COMPATIBLE_STAGE_PREFIX = ".framenest-pull-stage-"
+ACCEPTED_STAGE_PREFIXES = (STAGE_PREFIX, COMPATIBLE_STAGE_PREFIX)
 SNAPSHOT_NAME = "snapshot.json"
-SNAPSHOT_PURPOSE = "framenest-workstation-catalog-snapshot"
-COMPATIBLE_SNAPSHOT_PURPOSE = "kronika-workstation-catalog-snapshot"
+SNAPSHOT_PURPOSE = "kronika-workstation-catalog-snapshot"
+#: The snapshot purpose written before the durable-writer cut. Readers keep
+#: accepting it.
+COMPATIBLE_SNAPSHOT_PURPOSE = "framenest-workstation-catalog-snapshot"
 ACCEPTED_SNAPSHOT_PURPOSES = frozenset({SNAPSHOT_PURPOSE, COMPATIBLE_SNAPSHOT_PURPOSE})
 BUNDLE_DIRNAME = "bundle"
 STORE_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -75,9 +85,15 @@ FIXED_REMOTE_EXPORT_COMMAND = (
     "/usr/local/libexec/framenest-catalog-export-v1",
 )
 DEFAULT_SSH_EXECUTABLE = "ssh"
-SNAPSHOT_PURPOSE = "framenest-workstation-catalog-snapshot"
 SNAPSHOT_SCHEMA_VERSION = 1
-TRANSFER_PROTOCOL_NAME = "framenest-catalog-backup-export"
+TRANSFER_PROTOCOL_NAME = "kronika-catalog-backup-export"
+#: The transfer-protocol name written before the durable-writer cut. The envelope
+#: reader accepts it, so historical snapshots stay verifiable.
+COMPATIBLE_TRANSFER_PROTOCOL_NAME = "framenest-catalog-backup-export"
+ACCEPTED_TRANSFER_PROTOCOL_NAMES = (
+    TRANSFER_PROTOCOL_NAME,
+    COMPATIBLE_TRANSFER_PROTOCOL_NAME,
+)
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1f\x7f]")
 UNSAFE_TARGET_CHARS = frozenset(' \t\r\n;|&$`<>(){}[]!#"\\\'*?')
 
@@ -934,7 +950,7 @@ def _load_snapshot_envelope(path: Path) -> dict[str, Any]:
             "Workstation snapshot envelope purpose mismatch.",
             error_code="WORKSTATION_SNAPSHOT_ENVELOPE_PURPOSE_MISMATCH",
         )
-    if payload.get("transfer_protocol") != TRANSFER_PROTOCOL_NAME:
+    if payload.get("transfer_protocol") not in ACCEPTED_TRANSFER_PROTOCOL_NAMES:
         raise WorkstationError(
             "Workstation snapshot envelope protocol mismatch.",
             error_code="WORKSTATION_SNAPSHOT_ENVELOPE_PROTOCOL_MISMATCH",
@@ -1092,7 +1108,7 @@ def _cleanup_owned_stage(stage: Path, snapshots_dir: Path) -> None:
     if not stage.exists() and not stage.is_symlink():
         return
     _assert_contained(stage, snapshots_dir)
-    if not stage.name.startswith(STAGE_PREFIX):
+    if not stage.name.startswith(ACCEPTED_STAGE_PREFIXES):
         raise WorkstationError(
             "Unexpected workstation staging object.",
             error_code="WORKSTATION_STAGE_UNSAFE",

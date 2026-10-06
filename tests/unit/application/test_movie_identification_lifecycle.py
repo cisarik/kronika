@@ -385,7 +385,7 @@ def test_provider_unavailable_marks_submission_attempted() -> None:
     assert repository.failed_kwargs["provider_id"] is None
     assert repository.failed_kwargs["model_id"] is None
     assert repository.failed_kwargs["prompt_version"] == (
-        "framenest-movie-identification-prompt-v2"
+        "kronika-movie-identification-prompt-v2"
     )
 
 

@@ -23,7 +23,7 @@ from kronika.domain.media_sidecar import MAX_SIDECAR_BYTES, FrameNestMediaSideca
 
 _OPEN_NOFOLLOW = os.O_RDONLY | os.O_NOFOLLOW
 _DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-_TEMP_PREFIX = ".framenest-sidecar."
+_TEMP_PREFIX = ".kronika-sidecar."
 _TEMP_SUFFIX = ".tmp"
 _PRIVATE_MODE = 0o600
 _INSTALLED_MODE = 0o644

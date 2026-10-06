@@ -2,18 +2,20 @@
 
 Two identities are written into the catalog: the generic media-suggestion result
 schema and the movie-identification result schema, each with a prompt version
-beside it. Both spellings must stay readable, because the writer cut changes the
+beside it. Both spellings must stay readable, because the writer cut changed the
 spelling the writers emit while the rows written before it keep the earlier one.
 
 This module owns the acceptance rule itself so that every reader applies the
 same one:
 
-- an identity is accepted exactly when it is one of the two accepted spellings,
-  so acceptance is symmetric - neither spelling is preferred and neither is a
-  special case;
-- an accepted spelling never implies the other, so a reader cannot widen itself
-  into accepting an unknown identity;
-- no writer is named here. This module changes no writer identity.
+- a writer's current spelling and every retained historical spelling are all
+  accepted, so acceptance is symmetric - the current spelling is not a special
+  case and no historical row is hidden;
+- an accepted spelling never implies another that is not in the set, so a reader
+  cannot widen itself into accepting an unknown identity;
+- the current spelling must differ from every historical spelling, so a cut that
+  changes a writer without restructuring the pair cannot silently collapse the
+  accepted set into one value.
 
 The vision-probe prompt version is deliberately absent: it is a request and
 response identity for an administrative capability probe and is never persisted,
@@ -23,17 +25,25 @@ so it has no historical rows to keep readable.
 from __future__ import annotations
 
 
-def accepted_durable_identity(current: str, canonical: str) -> frozenset[str]:
-    """Return the two accepted spellings of one durable identity.
+def accepted_durable_identity(
+    current: str, historical: str, *retained_historical: str
+) -> frozenset[str]:
+    """Return the accepted spellings of one durable identity.
 
-    The two spellings must differ, so a cut that forgets to change a writer
-    cannot silently collapse the pair into one accepted value.
+    ``current`` is the spelling the writers emit now; every later argument is a
+    historical spelling that was written before the durable-writer cut and must
+    stay readable. The current spelling must differ from every historical
+    spelling, so a cut that forgets to restructure the pair cannot silently
+    collapse the accepted set into one value.
     """
-    if not current or not canonical:
+    spellings = (current, historical, *retained_historical)
+    if any(not spelling for spelling in spellings):
         raise ValueError("a durable identity spelling must not be empty")
-    if current == canonical:
-        raise ValueError("a durable identity needs two distinct spellings")
-    return frozenset({current, canonical})
+    if len(set(spellings)) != len(spellings):
+        raise ValueError(
+            "a durable identity needs a current spelling and distinct historical spellings"
+        )
+    return frozenset(spellings)
 
 
 def is_accepted_durable_identity(value: object, accepted: frozenset[str]) -> bool:

@@ -113,21 +113,23 @@ ANALYSIS_PROFILE_BY_DEFINITION: dict[str, AnalysisProfile] = {
     MOVIE_IDENTIFICATION_ANALYSIS_DEFINITION: AnalysisProfile.MOVIE_IDENTIFICATION,
 }
 
-MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION = "framenest-movie-identification-result-v1"
-MOVIE_IDENTIFICATION_PROMPT_VERSION = "framenest-movie-identification-prompt-v2"
-#: The spellings the writer cut will emit. No writer uses them yet; every reader
-#: accepts them so rows written after that cut stay visible.
-CANONICAL_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION = (
-    "kronika-movie-identification-result-v1"
+MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION = "kronika-movie-identification-result-v1"
+MOVIE_IDENTIFICATION_PROMPT_VERSION = "kronika-movie-identification-prompt-v2"
+#: The spellings written before the durable-writer cut. Every reader keeps
+#: accepting them so rows written under them stay visible.
+COMPATIBLE_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION = (
+    "framenest-movie-identification-result-v1"
 )
-CANONICAL_MOVIE_IDENTIFICATION_PROMPT_VERSION = "kronika-movie-identification-prompt-v2"
+COMPATIBLE_MOVIE_IDENTIFICATION_PROMPT_VERSION = (
+    "framenest-movie-identification-prompt-v2"
+)
 ACCEPTED_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSIONS = accepted_durable_identity(
     MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
-    CANONICAL_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
+    COMPATIBLE_MOVIE_IDENTIFICATION_RESULT_SCHEMA_VERSION,
 )
 ACCEPTED_MOVIE_IDENTIFICATION_PROMPT_VERSIONS = accepted_durable_identity(
     MOVIE_IDENTIFICATION_PROMPT_VERSION,
-    CANONICAL_MOVIE_IDENTIFICATION_PROMPT_VERSION,
+    COMPATIBLE_MOVIE_IDENTIFICATION_PROMPT_VERSION,
 )
 
 # Bounded reasoning budget for movie identification on integrate.api.nvidia.com.
