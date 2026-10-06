@@ -158,6 +158,257 @@ CAPTURE_RUNTIME_CONTRACT = (
 )
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
+# Every exit status this engine can return, so the layout and migration
+# refusals are distinct from transport and gate failures.
+EXIT_LAYOUT = 26
+EXIT_MIGRATION = 27
+
+
+# ---------------------------------------------------------------------------
+# Accepted web host layouts
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class WebLayout:
+    """One accepted effective web-service layout on the host.
+
+    ``key`` names the transition-state axis this layout describes, never a
+    preference. Routine operations select a layout from the host's validated
+    effective service configuration; they never assume one.
+    """
+
+    key: str
+    service: str
+    user: str
+    group: str
+    release_root: str
+    current: str
+    env_file: str
+    state_root: str
+    cache_root: str
+    runtime_root: str
+    socket_path: str
+
+    def release_dir(self, sha: str) -> str:
+        return f"{self.release_root}/{sha}"
+
+    def staging_dir(self, sha: str) -> str:
+        return f"{self.release_root}/{sha}.staging"
+
+
+# The accepted former layout. Its values are the routine host constants, and
+# this cut does not change any of them; cut C6 owns that move. Keeping the data
+# in one object beside the canonical target lets routine operations select a
+# layout instead of assuming this one.
+OLD_WEB_LAYOUT = WebLayout(
+    key="old",
+    service=SERVICE,
+    user=SERVICE_USER,
+    group=SERVICE_GROUP,
+    release_root=RELEASE_ROOT,
+    current=CURRENT,
+    env_file=ENV_FILE,
+    state_root="/var/lib/framenest",
+    cache_root="/var/cache/framenest",
+    runtime_root="/run/framenest",
+    socket_path="/run/framenest/framenest.sock",
+)
+
+# The canonical target layout ADR-0085 names. Cut C4-B prepares it; C6 installs
+# it. Nothing here is active until C6.
+NEW_WEB_LAYOUT = WebLayout(
+    key="new",
+    service="kronika.service",
+    user="kronika",
+    group="kronika",
+    release_root="/opt/kronika/releases",
+    current="/opt/kronika/current",
+    env_file="/etc/kronika/kronika.env",
+    state_root="/var/lib/kronika",
+    cache_root="/var/cache/kronika",
+    runtime_root="/run/kronika",
+    socket_path="/run/kronika/kronika.sock",
+)
+
+WEB_LAYOUTS = (OLD_WEB_LAYOUT, NEW_WEB_LAYOUT)
+
+# The two accepted capture pointers. The capture account, units, state, token,
+# profile, protocol and environment paths are already canonical and
+# deliberately asymmetric with the web identity; only this pointer's location
+# moves, and cut C8-A owns that move.
+OLD_CAPTURE_CURRENT = CAPTURE_CURRENT
+NEW_CAPTURE_CURRENT = "/opt/kronika/capture-current"
+CAPTURE_POINTERS = (
+    ("old", OLD_CAPTURE_CURRENT, OLD_WEB_LAYOUT.release_root),
+    ("new", NEW_CAPTURE_CURRENT, NEW_WEB_LAYOUT.release_root),
+)
+
+
+# ---------------------------------------------------------------------------
+# Identity migration constants (C4-B repository machinery; C6 executes it)
+# ---------------------------------------------------------------------------
+
+MIGRATION_DIRECTORY = "/var/lib/kronika/identity-migration"
+MIGRATION_JOURNAL_PATH = f"{MIGRATION_DIRECTORY}/journal.json"
+MIGRATION_RECOVERY_MANIFEST_PATH = f"{MIGRATION_DIRECTORY}/recovery-manifest.json"
+MIGRATION_LOCK_DIR = "/run/kronika-identity-migration"
+MIGRATION_LOCK_OWNER_PATH = f"{MIGRATION_LOCK_DIR}.owner"
+MIGRATION_PLAN_VERSION = "kronika-identity-migration-plan-v1"
+MIGRATION_RECEIPT_PHASE_KEY = "phase"
+
+# The ordered apply sequence. A failure after every one of these phases must
+# select a recovery branch; the phase after which the new application can
+# admit writes is the cutover boundary.
+MIGRATION_PHASE_QUIESCE = "quiesce"
+MIGRATION_PHASE_VERIFY_CAPTURE = "verify-capture"
+MIGRATION_PHASE_CHECKPOINT = "checkpoint"
+MIGRATION_PHASE_COPY_STATE = "copy-state"
+MIGRATION_PHASE_TRANSFORM_ENVIRONMENT = "transform-environment"
+MIGRATION_PHASE_PRESERVE_ANCILLARY = "preserve-ancillary"
+MIGRATION_PHASE_PREPARE_RELEASE = "prepare-release-environment"
+MIGRATION_PHASE_RENAME_ACCOUNT = "rename-account"
+MIGRATION_PHASE_INSTALL_UNITS = "install-units"
+MIGRATION_PHASE_VERIFY_UNITS = "verify-effective-units"
+MIGRATION_PHASE_START_SERVICE = "start-service"
+MIGRATION_PHASE_REPLACE_INGRESS = "replace-tailscale-handler"
+MIGRATION_PHASE_VERIFY_INGRESS = "verify-ingress"
+MIGRATION_PHASE_RESUME_WRITERS = "resume-writers"
+MIGRATION_PHASES = (
+    MIGRATION_PHASE_QUIESCE,
+    MIGRATION_PHASE_VERIFY_CAPTURE,
+    MIGRATION_PHASE_CHECKPOINT,
+    MIGRATION_PHASE_COPY_STATE,
+    MIGRATION_PHASE_TRANSFORM_ENVIRONMENT,
+    MIGRATION_PHASE_PRESERVE_ANCILLARY,
+    MIGRATION_PHASE_PREPARE_RELEASE,
+    MIGRATION_PHASE_RENAME_ACCOUNT,
+    MIGRATION_PHASE_INSTALL_UNITS,
+    MIGRATION_PHASE_VERIFY_UNITS,
+    MIGRATION_PHASE_START_SERVICE,
+    MIGRATION_PHASE_REPLACE_INGRESS,
+    MIGRATION_PHASE_VERIFY_INGRESS,
+    MIGRATION_PHASE_RESUME_WRITERS,
+)
+# A completed ``start-service`` means the new application is running and may
+# already have admitted writes. Every phase at or after it is post-write on the
+# recovery side, even though the migration itself is not finished.
+MIGRATION_CUTOVER_PHASE = MIGRATION_PHASE_START_SERVICE
+
+# Repository source artifacts the migration installs for the canonical target
+# layout. The mapping is derived from the retention ledger's retired-basename
+# set; entries whose canonical counterpart already exists are listed with
+# ``None`` and are not copied.
+MIGRATION_UNIT_ARTIFACTS = (
+    ("framenest.service", "kronika.service", True),
+    ("framenest-catalog-backup.service", "kronika-catalog-backup.service", False),
+    ("framenest-catalog-backup.timer", "kronika-catalog-backup.timer", False),
+    ("framenest-catalog-offdevice.service", "kronika-catalog-offdevice.service", False),
+    ("framenest-catalog-offdevice.timer", "kronika-catalog-offdevice.timer", False),
+    ("framenest-ai-credential-nvidia-nim.conf", "kronika-ai-credential-nvidia-nim.conf", False),
+    ("framenest-ai-credential-opencode-go.conf", "kronika-ai-credential-opencode-go.conf", False),
+    ("framenest-ai-credential-vercel-ai-gateway.conf", "kronika-ai-credential-vercel-ai-gateway.conf", False),
+    ("framenest-research-credential.conf", "kronika-research-credential.conf", False),
+)
+MIGRATION_ENVIRONMENT_ARTIFACT = ("framenest.env.example", "kronika.env.example")
+MIGRATION_EXPORT_ARTIFACT = (
+    "deploy/ubuntu/framenest-catalog-export-v1",
+    "deploy/ubuntu/kronika-catalog-export-v1",
+)
+# Installed host paths of the export facility, existence-only preflight facts.
+MIGRATION_EXPORT_INSTALLED_CANDIDATES = (
+    "/usr/local/libexec/framenest-catalog-export-v1",
+    "/usr/local/libexec/kronika-catalog-export-v1",
+)
+MIGRATION_SUDO_RULE_CANDIDATES = (
+    "/etc/sudoers.d/framenest-catalog-export-v1",
+    "/etc/sudoers.d/kronika-catalog-export-v1",
+)
+
+# Product-owned host path roots that this migration moves. A value outside
+# these roots is a custom or foreign path and is preserved, not rewritten.
+MIGRATION_OLD_TO_NEW_ROOTS = (
+    ("/var/lib/framenest", "/var/lib/kronika"),
+    ("/var/cache/framenest", "/var/cache/kronika"),
+    ("/run/framenest", "/run/kronika"),
+    ("/etc/framenest", "/etc/kronika"),
+    ("/opt/framenest", "/opt/kronika"),
+)
+# Named frozen residues that must never be renamed, checked before any root
+# mapping. ``/opt/framenest/tooling`` keeps the former spelling by ADR-0085.
+MIGRATION_FROZEN_PATH_PREFIXES = (
+    "/mnt/framenest-catalog-offdevice",
+    "/opt/framenest/tooling",
+)
+# Exact path segments and filenames whose canonical spelling replaces the
+# former one inside a moved root. A value that merely contains the token
+# elsewhere is preserved, not rewritten.
+MIGRATION_SEGMENT_RENAMES = {
+    "framenest": "kronika",
+    "framenest.sock": "kronika.sock",
+    "framenest.env": "kronika.env",
+}
+
+# Environment keys whose value is a filesystem path. Derived by parsing the
+# settings model (``kronika.configuration.KronikaSettings`` path fields), the
+# environment template, and the code that consumes each key outside the model
+# (the catalog backup roots and the AI configuration path).
+IDENTITY_ENVIRONMENT_PATH_SUFFIXES = frozenset(
+    {
+        "DATABASE_PATH",
+        "GALLERY_PREVIEW_CACHE_PATH",
+        "COVER_STORAGE_ROOT",
+        "COVER_THUMBNAIL_CACHE_PATH",
+        "AI_CONFIG_PATH",
+        "CATALOG_BACKUP_ROOT",
+        "CATALOG_RESTORE_VERIFY_ROOT",
+        "CATALOG_BACKUP_OPS_ROOT",
+        "YOUTUBE_ACQUISITION_ROOT",
+        "X_ACQUISITION_ROOT",
+        "UPLOAD_QUARANTINE_ROOT",
+        "RUNTIME_SETTINGS_PATH",
+        "UDS_PATH",
+        "ENV_FILE",
+    }
+)
+
+# Environment keys whose value is opaque: never path-transformed and never
+# inspected beyond presence. Derived from the same three sources.
+IDENTITY_ENVIRONMENT_OPAQUE_SUFFIXES = frozenset(
+    {
+        "HOST",
+        "PORT",
+        "API_KEY",
+        "UPLOAD_PUBLICATION_LIBRARY_ID",
+        "UPLOAD_MAX_TOTAL_BYTES",
+        "UPLOAD_MAX_PATCH_BYTES",
+        "UPLOAD_SESSION_TTL_SECONDS",
+        "UPLOAD_MIN_FREE_SPACE_RESERVE_BYTES",
+        "YOUTUBE_ACQUISITION_MAX_STAGING_BYTES",
+        "YOUTUBE_REQUEST_MAX_ACTIVE_PER_USER",
+        "YOUTUBE_REQUEST_MAX_GLOBAL_ACTIVE",
+        "YOUTUBE_REQUEST_MAX_SUBMITS_PER_HOUR",
+        "YOUTUBE_REQUEST_MAX_FAILED_PER_24H",
+        "YOUTUBE_REQUEST_MAX_PRIVATE_ITEMS",
+        "YOUTUBE_REQUEST_MAX_PRIVATE_BYTES",
+        "X_ACQUISITION_MAX_STAGING_BYTES",
+        "X_REQUEST_MAX_ACTIVE_PER_USER",
+        "X_REQUEST_MAX_GLOBAL_ACTIVE",
+        "X_REQUEST_MAX_SUBMITS_PER_HOUR",
+        "X_REQUEST_MAX_FAILED_PER_24H",
+        "AI_PROVIDER_ID",
+        "AI_MODEL_ID",
+        "INGRESS_MODE",
+        "EXTERNAL_ORIGIN",
+        "COMPANION_EXTENSION_ORIGINS",
+        "IDENTITY_MAP",
+        "LOCAL_OWNER_LOGIN",
+        "AUTOMATIC_MEDIA_ANALYSIS_ENABLED",
+        "AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS",
+        "CATALOG_BACKUP_KEEP_AUTO",
+        "CATALOG_OFFDEVICE_DESTINATION_ID",
+    }
+)
+
 
 class ReleaseError(Exception):
     """Sanitized failure with a stable exit code."""
@@ -246,12 +497,12 @@ def validate_remote_path(value: str, *prefixes: str) -> None:
         raise ReleaseError("unsafe remote path", EXIT_TRANSPORT)
 
 
-def release_dir(sha: str) -> str:
-    return f"{RELEASE_ROOT}/{sha}"
+def release_dir(sha: str, layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+    return layout.release_dir(sha)
 
 
-def staging_dir(sha: str) -> str:
-    return f"{RELEASE_ROOT}/{sha}.staging"
+def staging_dir(sha: str, layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+    return layout.staging_dir(sha)
 
 
 # ---------------------------------------------------------------------------
@@ -424,8 +675,8 @@ def cmd_remote_write_file(path: str, sha256: str) -> str:
     )
 
 
-def cmd_remote_readlink_current() -> str:
-    return f"sudo -n readlink -n {CURRENT}"
+def cmd_remote_readlink_current(layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+    return f"sudo -n readlink -n {layout.current}"
 
 
 def cmd_remote_read_release_sha(path: str, marker: str = RELEASE_SHA_MARKER) -> str:
@@ -484,76 +735,86 @@ def cmd_remote_test_regular_executable(path: str) -> str:
     return f"sudo -n sh -c {shlex.quote(script)}"
 
 
-def cmd_remote_unit_execution_properties() -> str:
+def cmd_remote_unit_execution_properties(service: str = SERVICE) -> str:
     """Effective ``ExecStart`` and ``ExecStartPre``, drop-ins included."""
     properties = " ".join(
         f"--property={name}" for name in UNIT_EXEC_PROPERTIES
     )
-    return f"sudo -n systemctl show {properties} {SERVICE}"
+    return f"sudo -n systemctl show {properties} {service}"
 
 
-def cmd_remote_service_is_active() -> str:
-    return f"sudo -n systemctl is-active {SERVICE}"
+def cmd_remote_service_is_active(service: str = SERVICE) -> str:
+    return f"sudo -n systemctl is-active {service}"
 
 
-def cmd_remote_service_active_state() -> str:
-    return f"sudo -n systemctl show -p ActiveState --value {SERVICE}"
+def cmd_remote_service_active_state(service: str = SERVICE) -> str:
+    return f"sudo -n systemctl show -p ActiveState --value {service}"
 
 
-def cmd_remote_service_result() -> str:
-    return f"sudo -n systemctl show -p Result --value {SERVICE}"
+def cmd_remote_service_result(service: str = SERVICE) -> str:
+    return f"sudo -n systemctl show -p Result --value {service}"
 
 
-def cmd_remote_systemd_working_directory() -> str:
-    return f"sudo -n systemctl show -p WorkingDirectory --value {SERVICE}"
+def cmd_remote_systemd_working_directory(service: str = SERVICE) -> str:
+    return f"sudo -n systemctl show -p WorkingDirectory --value {service}"
 
 
-def cmd_remote_service_fragment_path() -> str:
-    return f"sudo -n systemctl show -p FragmentPath --value {SERVICE}"
+def cmd_remote_service_fragment_path(service: str = SERVICE) -> str:
+    return f"sudo -n systemctl show -p FragmentPath --value {service}"
 
 
-def cmd_remote_restart_service() -> str:
-    return f"sudo -n systemctl restart {SERVICE}"
+def cmd_remote_restart_service(service: str = SERVICE) -> str:
+    return f"sudo -n systemctl restart {service}"
 
 
-def cmd_remote_journal() -> str:
+def cmd_remote_journal(service: str = SERVICE) -> str:
     return (
-        f"sudo -n journalctl -u {SERVICE} -n 40 --no-pager "
+        f"sudo -n journalctl -u {service} -n 40 --no-pager "
         "--output=cat | grep -Ev '^$' || true"
     )
 
 
-def cmd_remote_df_capacity() -> str:
-    return "sudo -n df -Pk /opt/framenest | tail -n 1"
+def cmd_remote_df_capacity(layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+    return f"sudo -n df -Pk {layout.release_root.rsplit('/', 1)[0]} | tail -n 1"
 
 
-def cmd_remote_capture_current(target_path: str) -> str:
+def cmd_remote_capture_current(
+    target_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
     quoted = shlex.quote(target_path)
     return (
         "set -e\n"
-        f"prev=$(sudo -n readlink -n {CURRENT})\n"
+        f"prev=$(sudo -n readlink -n {layout.current})\n"
         + 'test -n "$prev"\n'
         + "sudo -n sh -c 'printf %s \"$1\" > " + quoted + "' sh \"$prev\"\n"
     )
 
 
-def service_account_prefix(release_path: str) -> str:
+def service_account_prefix(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
     return (
-        f"sudo -n -u {SERVICE_USER} --chdir={shlex.quote(release_path)} "
-        f"env FRAMENEST_ENV_FILE={ENV_FILE} "
+        f"sudo -n -u {layout.user} --chdir={shlex.quote(release_path)} "
+        f"env FRAMENEST_ENV_FILE={layout.env_file} "
         f"{shlex.quote(release_path)}/.venv/bin"
     )
 
 
-def cmd_remote_db_status(release_path: str) -> str:
-    return f"{service_account_prefix(release_path)}/framenest-db status"
+def cmd_remote_db_status(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
+    return f"{service_account_prefix(release_path, layout)}/framenest-db status"
 
 
-def cmd_remote_backup_status(release_path: str) -> str:
-    return f"{service_account_prefix(release_path)}/framenest-backup status"
+def cmd_remote_backup_status(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
+    return f"{service_account_prefix(release_path, layout)}/framenest-backup status"
 
 
-def cmd_remote_production_cli(release_path: str, operation: str) -> str:
+def cmd_remote_production_cli(
+    release_path: str, operation: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
     """Run ``framenest-production`` with the unit EnvironmentFile.
 
     ``framenest-production`` calls ``load_settings(env_file=None)`` and therefore
@@ -565,24 +826,30 @@ def cmd_remote_production_cli(release_path: str, operation: str) -> str:
         raise ReleaseError("invalid command", EXIT_USAGE)
     return (
         "sudo -n systemd-run --quiet --pipe --wait --collect "
-        f"--uid={SERVICE_USER} --gid={SERVICE_GROUP} "
+        f"--uid={layout.user} --gid={layout.group} "
         f"--working-directory={shlex.quote(release_path)} "
-        f"--property=EnvironmentFile={shlex.quote(ENV_FILE)} "
+        f"--property=EnvironmentFile={shlex.quote(layout.env_file)} "
         f"{shlex.quote(f'{release_path}/.venv/bin/framenest-production')} "
         f"{operation}"
     )
 
 
-def cmd_remote_check_database_ready(release_path: str) -> str:
-    return cmd_remote_production_cli(release_path, "check-database-ready")
+def cmd_remote_check_database_ready(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
+    return cmd_remote_production_cli(release_path, "check-database-ready", layout)
 
 
-def cmd_remote_check_health(release_path: str) -> str:
-    return cmd_remote_production_cli(release_path, "check-health")
+def cmd_remote_check_health(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
+    return cmd_remote_production_cli(release_path, "check-health", layout)
 
 
-def cmd_remote_run_scheduled_backup(release_path: str) -> str:
-    return f"{service_account_prefix(release_path)}/framenest-backup run-scheduled"
+def cmd_remote_run_scheduled_backup(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
+    return f"{service_account_prefix(release_path, layout)}/framenest-backup run-scheduled"
 
 
 def cmd_remote_prepare_dir(release_path: str) -> str:
@@ -684,19 +951,23 @@ def cmd_remote_rename_staging(staging_path: str, release_path: str) -> str:
     )
 
 
-def cmd_remote_atomic_switch(release_path: str) -> str:
+def cmd_remote_atomic_switch(
+    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
     return (
         "set -e\n"
-        f"sudo -n ln -s {shlex.quote(release_path)} /opt/framenest/current.next\n"
-        f"sudo -n mv -T /opt/framenest/current.next {CURRENT}"
+        f"sudo -n ln -s {shlex.quote(release_path)} {layout.current}.next\n"
+        f"sudo -n mv -T {layout.current}.next {layout.current}"
     )
 
 
-def cmd_remote_atomic_switch_capture(release_path: str) -> str:
+def cmd_remote_atomic_switch_capture(
+    release_path: str, pointer: str = CAPTURE_CURRENT
+) -> str:
     return (
         "set -e\n"
-        f"sudo -n ln -s {shlex.quote(release_path)} /opt/framenest/capture-current.next\n"
-        f"sudo -n mv -T /opt/framenest/capture-current.next {CAPTURE_CURRENT}"
+        f"sudo -n ln -s {shlex.quote(release_path)} {pointer}.next\n"
+        f"sudo -n mv -T {pointer}.next {pointer}"
     )
 
 
@@ -1019,9 +1290,25 @@ def remote_exec(runner: Runner, command: str) -> str:
 # Remote engine private subcommands
 # ---------------------------------------------------------------------------
 
+def accepted_release_roots() -> tuple[str, ...]:
+    """Every accepted release root, so a remote helper can serve both layouts.
+
+    The transferred ``_remote`` helpers run on the host with no transport to
+    select a layout from. Accepting both accepted roots keeps the former layout
+    working and lets the canonical layout work after C6 without teaching the
+    helper a preference. The active constant is read at call time, so a layout
+    constant change in C6 takes effect here without a second edit.
+    """
+    roots: list[str] = []
+    for root in (RELEASE_ROOT, NEW_WEB_LAYOUT.release_root):
+        if root not in roots:
+            roots.append(root)
+    return tuple(roots)
+
+
 def remote_extract(runner: Runner, archive: str, destination: str) -> None:
-    validate_remote_path(archive, REMOTE_DEPLOY_DIR, RELEASE_ROOT)
-    validate_remote_path(destination, RELEASE_ROOT)
+    validate_remote_path(archive, REMOTE_DEPLOY_DIR, *accepted_release_roots())
+    validate_remote_path(destination, *accepted_release_roots())
     try:
         extract_validated_archive(Path(archive), destination)
     except tarfile.TarError as exc:
@@ -1034,8 +1321,8 @@ def relocate_venv_shebangs(staging_path: str, final_path: str) -> None:
     Covers console-script shebangs and editable-install metadata such as
     ``.pth`` and ``direct_url.json``.
     """
-    validate_remote_path(staging_path, RELEASE_ROOT)
-    validate_remote_path(final_path, RELEASE_ROOT)
+    validate_remote_path(staging_path, *accepted_release_roots())
+    validate_remote_path(final_path, *accepted_release_roots())
     if staging_path != f"{final_path}.staging":
         raise ReleaseError("staging path does not match release", EXIT_TRANSPORT)
 
@@ -1229,29 +1516,45 @@ def read_release_markers(
 
 
 def read_current_release(
-    runner: Runner, transport: dict[str, str]
+    runner: Runner, transport: dict[str, str], layout: WebLayout = OLD_WEB_LAYOUT
 ) -> ResolvedReleaseMarkers:
-    raw = ssh(runner, **transport, remote_command=cmd_remote_readlink_current())
+    raw = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_readlink_current(layout),
+    )
     current_path = raw.strip()
-    if not current_path.startswith(RELEASE_ROOT):
+    if not current_path.startswith(layout.release_root):
         raise ReleaseError("current release path is unexpected", EXIT_TRANSPORT)
     return read_release_markers(runner, transport, current_path)
 
 
 def read_optional_release_sha(
-    runner: Runner, transport: dict[str, str], pointer: str
+    runner: Runner,
+    transport: dict[str, str],
+    pointer: str,
+    release_root: str = RELEASE_ROOT,
 ) -> str:
     raw = ssh(
         runner, **transport, remote_command=cmd_remote_read_optional_link(pointer)
     ).strip()
     if raw == "absent":
         return "absent"
-    validate_remote_path(raw, RELEASE_ROOT)
+    validate_remote_path(raw, release_root)
     return read_release_markers(runner, transport, raw).sha
 
 
-def read_backup_readiness(runner: Runner, transport: dict[str, str], release_path: str) -> str:
-    raw = ssh(runner, **transport, remote_command=cmd_remote_backup_status(release_path))
+def read_backup_readiness(
+    runner: Runner,
+    transport: dict[str, str],
+    release_path: str,
+    layout: WebLayout = OLD_WEB_LAYOUT,
+) -> str:
+    raw = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_backup_status(release_path, layout),
+    )
     payload = parse_json_status(raw)
     readiness = payload.get("restore_readiness")
     if not isinstance(readiness, str):
@@ -1260,9 +1563,16 @@ def read_backup_readiness(runner: Runner, transport: dict[str, str], release_pat
 
 
 def read_db_current_revision(
-    runner: Runner, transport: dict[str, str], release_path: str
+    runner: Runner,
+    transport: dict[str, str],
+    release_path: str,
+    layout: WebLayout = OLD_WEB_LAYOUT,
 ) -> str:
-    raw = ssh(runner, **transport, remote_command=cmd_remote_db_status(release_path))
+    raw = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_db_status(release_path, layout),
+    )
     payload = parse_json_status(raw)
     current = payload.get("current_revision")
     if not isinstance(current, str):
@@ -1282,9 +1592,14 @@ def verify_tooling(runner: Runner, transport: dict[str, str]) -> None:
 
 
 def verify_capacity(
-    runner: Runner, transport: dict[str, str], required_bytes: int
+    runner: Runner,
+    transport: dict[str, str],
+    required_bytes: int,
+    layout: WebLayout = OLD_WEB_LAYOUT,
 ) -> None:
-    raw = ssh(runner, **transport, remote_command=cmd_remote_df_capacity()).strip()
+    raw = ssh(
+        runner, **transport, remote_command=cmd_remote_df_capacity(layout)
+    ).strip()
     fields = raw.split()
     if len(fields) < 4:
         raise ReleaseError("capacity check failed", EXIT_CAPACITY)
@@ -1345,7 +1660,9 @@ def unit_executables_from_show(output: str) -> dict[str, tuple[str, ...]]:
     return {name: tuple(values) for name, values in found.items()}
 
 
-def release_scoped_console_script(executable: str) -> str | None:
+def release_scoped_console_script(
+    executable: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str | None:
     """Return the release-relative console script a unit executable names.
 
     Only a release console script under a ``.venv/bin`` directory of the current
@@ -1355,8 +1672,8 @@ def release_scoped_console_script(executable: str) -> str | None:
     effective execution form and is refused rather than skipped.
     """
     for prefix, expects_release_directory in (
-        (CURRENT + "/", False),
-        (RELEASE_ROOT + "/", True),
+        (layout.current + "/", False),
+        (layout.release_root + "/", True),
     ):
         if not executable.startswith(prefix):
             continue
@@ -1378,7 +1695,10 @@ def release_scoped_console_script(executable: str) -> str | None:
 
 
 def verify_unit_executables(
-    runner: Runner, transport: dict[str, str], release_path: str
+    runner: Runner,
+    transport: dict[str, str],
+    release_path: str,
+    layout: WebLayout = OLD_WEB_LAYOUT,
 ) -> tuple[str, ...]:
     """Require every effective unit executable to exist in ``release_path``.
 
@@ -1388,7 +1708,9 @@ def verify_unit_executables(
     the effective configuration for the property.
     """
     output = ssh(
-        runner, **transport, remote_command=cmd_remote_unit_execution_properties()
+        runner,
+        **transport,
+        remote_command=cmd_remote_unit_execution_properties(layout.service),
     )
     resolved = unit_executables_from_show(output)
     if not resolved.get("ExecStart"):
@@ -1398,7 +1720,7 @@ def verify_unit_executables(
     required: set[str] = set()
     for name in UNIT_EXEC_PROPERTIES:
         for executable in resolved.get(name, ()):
-            scoped = release_scoped_console_script(executable)
+            scoped = release_scoped_console_script(executable, layout)
             if scoped is None:
                 raise ReleaseError(
                     "installed unit execution form is not a release console script",
@@ -1407,7 +1729,7 @@ def verify_unit_executables(
             required.add(scoped)
     for relative in sorted(required):
         candidate = f"{release_path}/{relative}"
-        validate_remote_path(candidate, RELEASE_ROOT)
+        validate_remote_path(candidate, layout.release_root)
         try:
             ssh(
                 runner,
@@ -1420,6 +1742,470 @@ def verify_unit_executables(
                 EXIT_UNIT_EXEC_GUARD,
             ) from exc
     return tuple(sorted(required))
+
+
+# ---------------------------------------------------------------------------
+# Effective host layout selection (fail-closed)
+# ---------------------------------------------------------------------------
+
+#: One ``Key=Value`` line of an effective unit property from ``systemctl show``.
+UNIT_PROPERTY_LINE = re.compile(
+    r"^(LoadState|ActiveState|UnitFileState|User|Group|WorkingDirectory|ExecStart)=(.*)$"
+)
+
+#: The systemd active states that mean a candidate may be serving traffic.
+WEB_ACTIVE_STATES = ("active", "activating", "reloading")
+
+
+@dataclass(frozen=True)
+class WebLayoutReading:
+    """One candidate web unit's validated effective configuration."""
+
+    layout: WebLayout
+    load_state: str
+    active_state: str
+    unit_file_state: str
+    user: str
+    group: str
+    working_directory: str
+    executables: tuple[str, ...]
+    unrecognised: tuple[str, ...]
+
+    @property
+    def installed(self) -> bool:
+        return self.load_state not in ("", "not-found")
+
+    @property
+    def active(self) -> bool:
+        return self.active_state in WEB_ACTIVE_STATES
+
+    @property
+    def enabled(self) -> bool:
+        return self.unit_file_state == "enabled"
+
+    @property
+    def recognises_layout(self) -> bool:
+        return not self.unrecognised
+
+
+@dataclass(frozen=True)
+class HostLayoutState:
+    """The selected effective web layout and the capture-pointer axis.
+
+    ``web`` is chosen by :func:`select_web_layout` from validated effective
+    service configuration. ``capture_pointer`` is ``old``, ``new`` or ``none``;
+    a wrong or ambiguous signal fails rather than selecting a wrong tree.
+    """
+
+    web: WebLayout
+    readings: tuple[WebLayoutReading, ...]
+    capture_pointer: str
+    capture_current: str
+    capture_release_root: str
+
+    def signal(self) -> str:
+        for reading in self.readings:
+            if reading.layout.key == self.web.key:
+                return f"web:{reading.layout.service}:{reading.active_state}"
+        return f"web:{self.web.service}:unknown"
+
+
+def cmd_remote_layout_probe(service: str) -> str:
+    """Effective configuration of one candidate web unit, drop-ins included."""
+    properties = (
+        "LoadState",
+        "ActiveState",
+        "UnitFileState",
+        "User",
+        "Group",
+        "WorkingDirectory",
+        "ExecStart",
+    )
+    rendered = " ".join(f"--property={name}" for name in properties)
+    return f"sudo -n systemctl show {rendered} {service}"
+
+
+def _single_property(fields: dict[str, list[str]], name: str) -> str:
+    values = fields.get(name, [])
+    return values[0] if values else ""
+
+
+def parse_web_layout_probe(output: str, layout: WebLayout) -> WebLayoutReading:
+    """Parse and validate one effective unit configuration against ``layout``.
+
+    A candidate loaded with a configuration that does not name this layout's
+    user, group, working directory and ``.venv/bin`` console script is
+    ``unrecognised`` and can never be selected.
+    """
+    fields: dict[str, list[str]] = {
+        name: []
+        for name in (
+            "LoadState",
+            "ActiveState",
+            "UnitFileState",
+            "User",
+            "Group",
+            "WorkingDirectory",
+            "ExecStart",
+        )
+    }
+    for raw in output.splitlines():
+        match = UNIT_PROPERTY_LINE.match(raw.strip())
+        if match is None:
+            continue
+        fields[match.group(1)].append(match.group(2))
+
+    load_state = _single_property(fields, "LoadState")
+    active_state = _single_property(fields, "ActiveState")
+    unit_file_state = _single_property(fields, "UnitFileState")
+    user = _single_property(fields, "User")
+    group = _single_property(fields, "Group")
+    working_directory = _single_property(fields, "WorkingDirectory")
+    executables: list[str] = []
+    for value in fields.get("ExecStart", []):
+        for path in UNIT_EXEC_PATH.findall(value):
+            executables.append(_unescape_unit_text(path))
+
+    reasons: list[str] = []
+    if load_state not in ("", "not-found", "loaded"):
+        reasons.append("effective load state is not a service")
+    if load_state == "loaded":
+        if user != layout.user:
+            reasons.append("effective service user")
+        if group not in ("", layout.group):
+            reasons.append("effective service group")
+        if working_directory != layout.current:
+            reasons.append("effective working directory")
+        if not executables:
+            reasons.append("effective service has no executable command")
+        for executable in executables:
+            if release_scoped_console_script(executable, layout) is None:
+                reasons.append("effective execution form")
+                break
+
+    return WebLayoutReading(
+        layout=layout,
+        load_state=load_state,
+        active_state=active_state,
+        unit_file_state=unit_file_state,
+        user=user,
+        group=group,
+        working_directory=working_directory,
+        executables=tuple(executables),
+        unrecognised=tuple(dict.fromkeys(reasons)),
+    )
+
+
+def select_web_layout(readings: Sequence[WebLayoutReading]) -> WebLayout:
+    """Select the one installed web layout, or fail closed.
+
+    Selection rules, in order:
+
+    - no installed candidate at all fails;
+    - any installed candidate whose effective configuration does not match its
+      own layout identity fails, whatever the other candidate says;
+    - more than one active candidate fails;
+    - exactly one active candidate is selected even when the other candidate is
+      installed and enabled but stopped, because the active service is the tree
+      that is actually serving;
+    - with no active candidate, exactly one installed and enabled candidate is
+      selected, because a failed or stopped service keeps its enablement;
+    - zero or two enabled candidates fail.
+
+    The selector never falls back to a service name, never prefers the old
+    layout, and never guesses from a partial signal.
+    """
+    installed = [reading for reading in readings if reading.installed]
+    if not installed:
+        raise ReleaseError(
+            "no installed web service layout is recognised", EXIT_LAYOUT
+        )
+    unrecognised = [reading for reading in installed if not reading.recognises_layout]
+    if unrecognised:
+        names = ",".join(sorted(reading.layout.service for reading in unrecognised))
+        raise ReleaseError(
+            f"installed web service layout is unrecognised: {names}", EXIT_LAYOUT
+        )
+    active = [reading for reading in installed if reading.active]
+    if len(active) > 1:
+        raise ReleaseError("ambiguous active web service layout", EXIT_LAYOUT)
+    if active:
+        return active[0].layout
+    enabled = [reading for reading in installed if reading.enabled]
+    if len(enabled) > 1:
+        raise ReleaseError("ambiguous installed web service layout", EXIT_LAYOUT)
+    if len(enabled) == 1:
+        return enabled[0].layout
+    raise ReleaseError("no active or enabled web service layout", EXIT_LAYOUT)
+
+
+def resolve_capture_pointer(
+    runner: Runner, transport: dict[str, str]
+) -> tuple[str, str, str]:
+    """Return the capture pointer axis, its path and its release root.
+
+    Both candidate pointers are read. Two live pointers are ambiguous and fail;
+    no pointer is ``none`` and keeps the former pointer path for a future
+    activation.
+    """
+    present: list[tuple[str, str, str, str]] = []
+    for key, pointer, release_root in CAPTURE_POINTERS:
+        target = ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_optional_link(pointer),
+        ).strip()
+        if target != "absent":
+            present.append((key, pointer, release_root, target))
+    if not present:
+        return ("none", OLD_CAPTURE_CURRENT, OLD_WEB_LAYOUT.release_root)
+    if len(present) > 1:
+        raise ReleaseError("ambiguous capture release pointer", EXIT_LAYOUT)
+    key, pointer, release_root, target = present[0]
+    validate_remote_path(target, release_root)
+    return (key, pointer, release_root)
+
+
+def resolve_host_layout(
+    runner: Runner, transport: dict[str, str]
+) -> HostLayoutState:
+    """Resolve the installed web layout and capture-pointer axis.
+
+    Every routine operation begins here, so no operation can silently assume
+    the former service or a moved capture pointer.
+    """
+    readings = tuple(
+        parse_web_layout_probe(
+            ssh(
+                runner,
+                **transport,
+                remote_command=cmd_remote_layout_probe(layout.service),
+            ),
+            layout,
+        )
+        for layout in WEB_LAYOUTS
+    )
+    web = select_web_layout(readings)
+    capture_pointer, capture_current, capture_release_root = resolve_capture_pointer(
+        runner, transport
+    )
+    return HostLayoutState(
+        web=web,
+        readings=readings,
+        capture_pointer=capture_pointer,
+        capture_current=capture_current,
+        capture_release_root=capture_release_root,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Typed environment and path transformation
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class EnvironmentAssignment:
+    """One parsed environment assignment and its typed transformation."""
+
+    key: str
+    suffix: str | None
+    classification: str
+    transformed_key: str
+    value: str
+    transformed_value: str
+
+    @property
+    def changed(self) -> bool:
+        return (
+            self.transformed_key != self.key
+            or self.transformed_value != self.value
+        )
+
+
+@dataclass(frozen=True)
+class EnvironmentTransformation:
+    """A typed, idempotent transformation of one environment file."""
+
+    assignments: tuple[EnvironmentAssignment, ...]
+    text: str
+
+    @property
+    def moved_path_keys(self) -> tuple[str, ...]:
+        return tuple(
+            item.key
+            for item in self.assignments
+            if item.classification == "path" and item.transformed_value != item.value
+        )
+
+    @property
+    def preserved_path_keys(self) -> tuple[str, ...]:
+        return tuple(
+            item.key
+            for item in self.assignments
+            if item.classification == "path" and item.transformed_value == item.value
+        )
+
+    @property
+    def opaque_keys(self) -> tuple[str, ...]:
+        return tuple(
+            item.key for item in self.assignments if item.classification == "opaque"
+        )
+
+    @property
+    def foreign_keys(self) -> tuple[str, ...]:
+        return tuple(
+            item.key for item in self.assignments if item.classification == "foreign"
+        )
+
+    @property
+    def distinct_keys(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(item.key for item in self.assignments))
+
+
+def environment_key_suffix(name: str) -> str | None:
+    for prefix in (IDENTITY_ENVIRONMENT_PREFIX, COMPATIBLE_ENVIRONMENT_PREFIX):
+        if name.startswith(prefix):
+            return name[len(prefix):].upper()
+    return None
+
+
+def classify_environment_key(name: str) -> tuple[str | None, str]:
+    """Classify one environment key as ``path``, ``opaque`` or ``foreign``.
+
+    A key under neither accepted identity prefix is foreign and is preserved
+    verbatim. A key under an accepted prefix with a suffix this engine cannot
+    classify is refused by :func:`transform_environment_text` rather than
+    renamed or silently passed through.
+    """
+    suffix = environment_key_suffix(name)
+    if suffix is None:
+        return None, "foreign"
+    if suffix in IDENTITY_ENVIRONMENT_PATH_SUFFIXES:
+        return suffix, "path"
+    if suffix in IDENTITY_ENVIRONMENT_OPAQUE_SUFFIXES:
+        return suffix, "opaque"
+    return suffix, "unknown"
+
+
+def _split_quotes(value: str) -> tuple[str, str, str]:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[0], value[1:-1], value[-1]
+    return "", value, ""
+
+
+def transform_path_value(value: str) -> str:
+    """Transform one path value under the migrated roots, or preserve it.
+
+    Frozen residues are always preserved. A value outside every migrated root is
+    a custom or foreign path and is preserved. A value already canonical is
+    unchanged, which makes the transformation idempotent. Inside a moved root,
+    only exact path segments named by ``MIGRATION_SEGMENT_RENAMES`` are
+    rewritten; a value that still carries the retired spelling afterwards is
+    refused rather than left on an unmigrated path.
+    """
+    path = value
+    if path == "":
+        return value
+    for frozen in MIGRATION_FROZEN_PATH_PREFIXES:
+        if path == frozen or path.startswith(frozen + "/"):
+            return value
+    moved = False
+    for old_root, new_root in MIGRATION_OLD_TO_NEW_ROOTS:
+        if path == old_root or path.startswith(old_root + "/"):
+            path = new_root + path[len(old_root):]
+            moved = True
+            break
+    if not moved:
+        return value
+    segments = path.split("/")
+    candidate = "/".join(
+        MIGRATION_SEGMENT_RENAMES.get(segment, segment) for segment in segments
+    )
+    if "framenest" in candidate.lower():
+        raise ReleaseError(
+            "path value under a moved root is not classifiable", EXIT_MIGRATION
+        )
+    return candidate
+
+
+def transformed_environment_value(classification: str, value: str) -> str:
+    if classification != "path":
+        return value
+    prefix, inner, suffix = _split_quotes(value)
+    if prefix:
+        return f"{prefix}{transform_path_value(inner)}{suffix}"
+    return transform_path_value(value)
+
+
+def parse_environment_text(text: str) -> tuple[EnvironmentAssignment, ...]:
+    """Parse assignments, failing closed on an unclassified identity key."""
+    assignments: list[EnvironmentAssignment] = []
+    seen: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith(";"):
+            continue
+        if "=" not in line:
+            raise ReleaseError("environment assignment is malformed", EXIT_MIGRATION)
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key or any(character.isspace() for character in key):
+            raise ReleaseError("environment assignment is malformed", EXIT_MIGRATION)
+        suffix, classification = classify_environment_key(key)
+        if classification == "unknown":
+            raise ReleaseError(
+                f"environment key suffix {suffix} is not classified", EXIT_MIGRATION
+            )
+        if key in seen:
+            raise ReleaseError("environment assignment is duplicated", EXIT_MIGRATION)
+        seen.add(key)
+        if suffix is not None:
+            transformed_key = f"{IDENTITY_ENVIRONMENT_PREFIX}{suffix}"
+        else:
+            transformed_key = key
+        assignments.append(
+            EnvironmentAssignment(
+                key=key,
+                suffix=suffix,
+                classification=classification,
+                transformed_key=transformed_key,
+                value=value,
+                transformed_value=transformed_environment_value(
+                    classification, value
+                ),
+            )
+        )
+    return tuple(assignments)
+
+
+def transform_environment_text(text: str) -> EnvironmentTransformation:
+    """Rewrite one environment file with typed keys and typed path values.
+
+    Comments and blank lines are preserved byte-for-byte. Re-running the
+    transformation over its own output changes nothing.
+    """
+    assignments = parse_environment_text(text)
+    by_key = {assignment.key: assignment for assignment in assignments}
+    transformed_lines: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith(";"):
+            transformed_lines.append(raw)
+            continue
+        key = line.partition("=")[0].strip()
+        parsed = by_key[key]
+        transformed_lines.append(
+            f"{parsed.transformed_key}={parsed.transformed_value}"
+        )
+    rendered = "\n".join(transformed_lines)
+    if text.endswith("\n"):
+        rendered += "\n"
+    return EnvironmentTransformation(assignments=assignments, text=rendered)
+
+
+def environment_transformation_is_idempotent(
+    transformation: EnvironmentTransformation,
+) -> bool:
+    return transform_environment_text(transformation.text).text == transformation.text
 
 
 # ---------------------------------------------------------------------------
@@ -1593,6 +2379,1430 @@ def remote_deploy_lock(
 
 
 # ---------------------------------------------------------------------------
+# Identity migration: fixed remote commands
+# ---------------------------------------------------------------------------
+
+def cmd_remote_existence(path: str) -> str:
+    quoted = shlex.quote(path)
+    return (
+        f"if sudo -n test -e {quoted}; then printf %s present; "
+        "else printf %s absent; fi"
+    )
+
+
+def cmd_remote_read_optional_file(path: str) -> str:
+    quoted = shlex.quote(path)
+    return (
+        f"if sudo -n test -e {quoted}; then sudo -n cat {quoted}; "
+        "else printf %s absent; fi"
+    )
+
+
+def cmd_remote_make_directory(path: str, mode: str = "0700") -> str:
+    return (
+        f"sudo -n install -d -o root -g root -m {mode} {shlex.quote(path)}"
+    )
+
+
+def cmd_remote_test_absent_or_fail(path: str) -> str:
+    return f"sudo -n test ! -e {shlex.quote(path)}"
+
+
+def cmd_remote_copy_tree(source: str, destination: str) -> str:
+    """Copy one tree under a moved root; the destination must already exist."""
+    return (
+        "set -e\n"
+        f"sudo -n cp -a {shlex.quote(source)}/. {shlex.quote(destination)}/\n"
+    )
+
+
+def cmd_remote_tree_manifest(path: str) -> str:
+    """Stable relative-path/hash/purpose listing of one tree, for comparison."""
+    script = (
+        f"cd {shlex.quote(path)} && "
+        "find . -type f -print0 | sort -z | xargs -0 -r sha256sum"
+    )
+    return f"sudo -n sh -c {shlex.quote(script)}"
+
+
+def cmd_remote_assert_no_retired_assignments(path: str) -> str:
+    quoted = shlex.quote(path)
+    return (
+        f"if sudo -n grep -Eq '^{COMPATIBLE_ENVIRONMENT_PREFIX}' {quoted}; "
+        "then printf %s retired-assignment-present; "
+        "else printf %s canonical-only; fi"
+    )
+
+
+def cmd_remote_stop_unit(unit: str) -> str:
+    return f"sudo -n systemctl stop {unit}"
+
+
+def cmd_remote_start_unit(unit: str) -> str:
+    return f"sudo -n systemctl start {unit}"
+
+
+def cmd_remote_enable_unit(unit: str) -> str:
+    return f"sudo -n systemctl enable {unit}"
+
+
+def cmd_remote_disable_unit(unit: str) -> str:
+    return f"sudo -n systemctl disable {unit}"
+
+
+def cmd_remote_daemon_reload() -> str:
+    return "sudo -n systemctl daemon-reload"
+
+
+def cmd_remote_unit_enabled_state(unit: str) -> str:
+    return f"sudo -n systemctl is-enabled {unit}"
+
+
+def cmd_remote_list_directory(path: str) -> str:
+    quoted = shlex.quote(path)
+    return (
+        f"if sudo -n test -d {quoted}; then sudo -n ls -1 {quoted}; "
+        "else printf %s absent; fi"
+    )
+
+
+def cmd_remote_account_record() -> str:
+    """UID, GID and home of the former web account, or ``absent``."""
+    return (
+        "record=$(getent passwd framenest || true); "
+        'if [ -z "$record" ]; then printf %s absent; else '
+        "printf '%s %s %s' \"$(id -u framenest)\" \"$(id -g framenest)\" "
+        "\"$(getent passwd framenest | cut -d: -f6)\"; fi"
+    )
+
+
+def cmd_remote_new_account_absent() -> str:
+    return (
+        "if getent passwd kronika >/dev/null || getent group kronika >/dev/null; "
+        "then printf %s present; else printf %s absent; fi"
+    )
+
+
+def cmd_remote_rename_group() -> str:
+    return "sudo -n groupmod -n kronika framenest"
+
+
+def cmd_remote_rename_user(home: str | None) -> str:
+    if home:
+        return (
+            f"sudo -n usermod -l kronika -d {shlex.quote(home)} framenest"
+        )
+    return "sudo -n usermod -l kronika framenest"
+
+
+def cmd_remote_assert_account_renamed(uid: int, gid: int) -> str:
+    return (
+        "set -e\n"
+        "sudo -n getent passwd kronika >/dev/null\n"
+        "sudo -n getent group kronika >/dev/null\n"
+        f"test \"$(id -u kronika)\" = {uid}\n"
+        f"test \"$(id -g kronika)\" = {gid}\n"
+        "! getent passwd framenest >/dev/null\n"
+        "! getent group framenest >/dev/null\n"
+    )
+
+
+def cmd_remote_account_processes_absent(user: str) -> str:
+    return (
+        "count=$(ps -u " + shlex.quote(user) + " -o pid= 2>/dev/null | wc -l); "
+        'printf %s "$count"'
+    )
+
+
+def cmd_remote_tailscale_serve_status() -> str:
+    return "sudo -n tailscale serve status --json"
+
+
+def cmd_remote_tailscale_replace(mount: str, target: str) -> str:
+    if not mount.endswith(":443/"):
+        raise ReleaseError(
+            "ingress handler mount is not the documented default", EXIT_MIGRATION
+        )
+    return f"sudo -n tailscale serve --bg {shlex.quote(target)}"
+
+
+def cmd_remote_validate_sudoers(path: str) -> str:
+    return f"sudo -n visudo -cf {shlex.quote(path)}"
+
+
+def cmd_remote_switch_layout_release(
+    target: str, layout: WebLayout
+) -> str:
+    return (
+        "set -e\n"
+        f"sudo -n ln -s {shlex.quote(target)} {layout.current}.next\n"
+        f"sudo -n mv -T {layout.current}.next {layout.current}"
+    )
+
+
+def cmd_remote_prepare_migration_release(old_release: str, staging: str) -> str:
+    """Copy the retained release into the new staging tree, then drop its venv."""
+    return (
+        "set -e\n"
+        f"sudo -n cp -a {shlex.quote(old_release)}/. {shlex.quote(staging)}/\n"
+        f"sudo -n rm -rf {shlex.quote(staging)}/.venv\n"
+    )
+
+
+def cmd_remote_verify_migration_release(
+    staging: str, final_path: str
+) -> str:
+    """The final release must carry no staging prefix in its venv metadata."""
+    return (
+        "set -e\n"
+        f"test -d {shlex.quote(final_path)}/.venv\n"
+        f"! sudo -n grep -RFq {shlex.quote(staging)} {shlex.quote(final_path)}/.venv\n"
+        f"sudo -n test -x {shlex.quote(final_path)}/.venv/bin/framenest-production\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Identity migration: plan, journal, host and orchestration
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class MigrationObservation:
+    """Sanitized preflight facts about one host."""
+
+    release_sha: str
+    old_layout: WebLayout
+    new_layout: WebLayout
+    environment_text: str
+    copy_sources: tuple[tuple[str, str], ...]
+    installed_units: tuple[str, ...]
+    installed_dropins: tuple[str, ...]
+    credential_sources: tuple[str, ...]
+    export_installed: str | None
+    sudo_rule_installed: str | None
+    account_uid: int
+    account_gid: int
+    account_home: str
+    capture_pointer: str
+    capture_release_sha: str | None
+    tailscale_handler_count: int
+    tailscale_old_handlers: int
+
+
+@dataclass(frozen=True)
+class MigrationPlan:
+    """The exact, validated plan one apply is bound to by its digest."""
+
+    release_sha: str
+    old_layout: WebLayout
+    new_layout: WebLayout
+    environment: EnvironmentTransformation
+    copy_moves: tuple[tuple[str, str], ...]
+    installed_units: tuple[str, ...]
+    installed_dropins: tuple[str, ...]
+    credential_sources: tuple[str, ...]
+    export_installed: str | None
+    sudo_rule_installed: str | None
+    account_uid: int
+    account_gid: int
+    account_home: str
+    capture_pointer: str
+    capture_release_sha: str | None
+    tailscale_handler_count: int
+    tailscale_old_handlers: int
+    plan_digest: str
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "plan_version": MIGRATION_PLAN_VERSION,
+            "release_sha": self.release_sha,
+            "old_layout": self.old_layout.key,
+            "new_layout": self.new_layout.key,
+            "moved_path_keys": list(self.environment.moved_path_keys),
+            "preserved_path_keys": list(self.environment.preserved_path_keys),
+            "opaque_keys": list(self.environment.opaque_keys),
+            "foreign_keys": list(self.environment.foreign_keys),
+            "environment_sha256": hashlib.sha256(
+                self.environment.text.encode("utf-8")
+            ).hexdigest(),
+            "copy_moves": [list(move) for move in self.copy_moves],
+            "installed_units": list(self.installed_units),
+            "installed_dropins": list(self.installed_dropins),
+            "credential_sources": list(self.credential_sources),
+            "export_installed": self.export_installed,
+            "sudo_rule_installed": self.sudo_rule_installed,
+            "account_uid": self.account_uid,
+            "account_gid": self.account_gid,
+            "account_home": self.account_home,
+            "capture_pointer": self.capture_pointer,
+            "capture_release_sha": self.capture_release_sha,
+            "tailscale_handler_count": self.tailscale_handler_count,
+            "tailscale_old_handlers": self.tailscale_old_handlers,
+        }
+
+    def recovery_manifest(self) -> dict[str, object]:
+        """The exact recovery objects one apply may need to restore."""
+        return {
+            "plan_version": MIGRATION_PLAN_VERSION,
+            "plan_digest": self.plan_digest,
+            "release_sha": self.release_sha,
+            "old_layout": self.old_layout.key,
+            "new_layout": self.new_layout.key,
+            "old_user": self.old_layout.user,
+            "new_user": self.new_layout.user,
+            "account_uid": self.account_uid,
+            "account_gid": self.account_gid,
+            "account_home": self.account_home,
+            "copy_moves": [list(move) for move in self.copy_moves],
+            "installed_dropins": list(self.installed_dropins),
+            "credential_sources": list(self.credential_sources),
+            "export_installed": self.export_installed,
+            "sudo_rule_installed": self.sudo_rule_installed,
+            "capture_pointer": self.capture_pointer,
+            "capture_release_sha": self.capture_release_sha,
+        }
+
+
+def migration_plan_digest(payload: Mapping[str, object]) -> str:
+    rendered = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+
+
+def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
+    """Build one validated plan and its digest from preflight observations."""
+    environment = transform_environment_text(observation.environment_text)
+    partial = {
+        "plan_version": MIGRATION_PLAN_VERSION,
+        "release_sha": observation.release_sha,
+        "old_layout": observation.old_layout.key,
+        "new_layout": observation.new_layout.key,
+        "moved_path_keys": list(environment.moved_path_keys),
+        "preserved_path_keys": list(environment.preserved_path_keys),
+        "opaque_keys": list(environment.opaque_keys),
+        "foreign_keys": list(environment.foreign_keys),
+        "environment_sha256": hashlib.sha256(
+            environment.text.encode("utf-8")
+        ).hexdigest(),
+        "copy_moves": [list(move) for move in observation.copy_sources],
+        "installed_units": list(observation.installed_units),
+        "installed_dropins": list(observation.installed_dropins),
+        "credential_sources": list(observation.credential_sources),
+        "export_installed": observation.export_installed,
+        "sudo_rule_installed": observation.sudo_rule_installed,
+        "account_uid": observation.account_uid,
+        "account_gid": observation.account_gid,
+        "account_home": observation.account_home,
+        "capture_pointer": observation.capture_pointer,
+        "capture_release_sha": observation.capture_release_sha,
+        "tailscale_handler_count": observation.tailscale_handler_count,
+        "tailscale_old_handlers": observation.tailscale_old_handlers,
+    }
+    return MigrationPlan(
+        release_sha=observation.release_sha,
+        old_layout=observation.old_layout,
+        new_layout=observation.new_layout,
+        environment=environment,
+        copy_moves=observation.copy_sources,
+        installed_units=observation.installed_units,
+        installed_dropins=observation.installed_dropins,
+        credential_sources=observation.credential_sources,
+        export_installed=observation.export_installed,
+        sudo_rule_installed=observation.sudo_rule_installed,
+        account_uid=observation.account_uid,
+        account_gid=observation.account_gid,
+        account_home=observation.account_home,
+        capture_pointer=observation.capture_pointer,
+        capture_release_sha=observation.capture_release_sha,
+        tailscale_handler_count=observation.tailscale_handler_count,
+        tailscale_old_handlers=observation.tailscale_old_handlers,
+        plan_digest=migration_plan_digest(partial),
+    )
+
+
+def migration_journal_payload(plan: MigrationPlan) -> dict[str, object]:
+    return {
+        "plan_version": MIGRATION_PLAN_VERSION,
+        "plan_digest": plan.plan_digest,
+        "release_sha": plan.release_sha,
+        "old_layout": plan.old_layout.key,
+        "new_layout": plan.new_layout.key,
+        "completed_phases": [],
+        "writes_admitted": False,
+        "outcome": "running",
+    }
+
+
+def migration_is_post_write(completed_phases: Sequence[str]) -> bool:
+    return MIGRATION_CUTOVER_PHASE in completed_phases
+
+
+# ---------------------------------------------------------------------------
+# Identity migration: production host
+# ---------------------------------------------------------------------------
+
+def migration_systemd_dir(engine_path: Path) -> Path:
+    return engine_path.resolve().parent.parent / "systemd"
+
+
+def canonical_unit_name(old_name: str) -> str:
+    for old, new, _required in MIGRATION_UNIT_ARTIFACTS:
+        if old == old_name:
+            return new
+    raise ReleaseError("unknown migration unit", EXIT_MIGRATION)
+
+
+def migration_unit_required(old_name: str) -> bool:
+    for old, _new, required in MIGRATION_UNIT_ARTIFACTS:
+        if old == old_name:
+            return required
+    raise ReleaseError("unknown migration unit", EXIT_MIGRATION)
+
+
+def migration_dropin_directory(layout: WebLayout) -> str:
+    return f"/etc/systemd/system/{layout.service}.d"
+
+
+class RemoteMigrationHost:
+    """Production host adapter for one identity migration apply.
+
+    Every method is a bounded remote command or a local verification of remote
+    output. Nothing in this class runs until a separately authorized apply
+    grant is issued; this repository cut only builds and simulates it.
+    """
+
+    def __init__(
+        self,
+        runner: Runner,
+        transport: dict[str, str],
+        plan: MigrationPlan,
+        *,
+        engine_path: Path,
+        repository_root: Path,
+    ) -> None:
+        self.runner = runner
+        self.transport = transport
+        self.plan = plan
+        self.engine_path = engine_path
+        self.repository_root = repository_root
+
+    # -- journal, manifest, lock ------------------------------------------
+
+    def read_journal(self) -> dict[str, object] | None:
+        raw = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_read_optional_file(MIGRATION_JOURNAL_PATH),
+        ).strip()
+        if raw == "absent":
+            return None
+        return parse_json_status(raw)
+
+    def write_journal(self, payload: dict[str, object]) -> None:
+        self._write_root_file(
+            MIGRATION_JOURNAL_PATH,
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        )
+
+    def write_recovery_manifest(self, payload: dict[str, object]) -> None:
+        self._write_root_file(
+            MIGRATION_RECOVERY_MANIFEST_PATH,
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        )
+
+    def _write_root_file(self, path: str, payload: bytes) -> None:
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_make_directory(
+                str(Path(path).parent), "0700"
+            ),
+        )
+        digest = hashlib.sha256(payload).hexdigest()
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_write_file(path, digest),
+            input_bytes=payload,
+        )
+
+    def acquire_lock(self) -> str:
+        owner = deploy_lock_owner_record()
+        try:
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=f"sudo -n mkdir -m 0700 {MIGRATION_LOCK_DIR}",
+            )
+        except ReleaseError as exc:
+            existing = ssh(
+                self.runner,
+                **self.transport,
+                remote_command=f"sudo -n cat {shlex.quote(MIGRATION_LOCK_OWNER_PATH)}",
+            )
+            reason = classify_deploy_lock_owner(existing, owner)
+            if reason is None:
+                raise ReleaseError(
+                    "existing migration lock owned by another run",
+                    EXIT_EXISTS,
+                ) from exc
+            quarantine = f"{MIGRATION_LOCK_DIR}.reclaimed-{reason}"
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=(
+                    f"sudo -n mv -T {MIGRATION_LOCK_DIR} {shlex.quote(quarantine)}"
+                ),
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=f"sudo -n mkdir -m 0700 {MIGRATION_LOCK_DIR}",
+            )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=(
+                "sudo -n sh -c 'umask 077; cat > "
+                f"{shlex.quote(MIGRATION_LOCK_OWNER_PATH)}'"
+            ),
+            input_bytes=owner.encode("ascii"),
+        )
+        return owner
+
+    def release_lock(self) -> None:
+        for command in (
+            f"sudo -n rm -f {shlex.quote(MIGRATION_LOCK_OWNER_PATH)}",
+            f"sudo -n rmdir {MIGRATION_LOCK_DIR}",
+        ):
+            with contextlib.suppress(ReleaseError):
+                ssh(self.runner, **self.transport, remote_command=command)
+
+    # -- phases ------------------------------------------------------------
+
+    def quiesce(self) -> list[str]:
+        stopped = self.stop_writers()
+        self.assert_no_legacy_writers()
+        self._capture_before = self.capture_snapshot()
+        return stopped
+
+    def stop_writers(self) -> list[str]:
+        stopped: list[str] = []
+        units = [self.plan.old_layout.service]
+        for old_name in self.plan.installed_units:
+            if old_name == "framenest.service":
+                continue
+            units.append(old_name)
+        for unit in units:
+            try:
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_stop_unit(unit),
+                )
+                stopped.append(unit)
+            except ReleaseError as exc:
+                raise ReleaseError(
+                    "could not stop migration writers", EXIT_MIGRATION
+                ) from exc
+        return stopped
+
+    def assert_no_legacy_writers(self) -> None:
+        count = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_account_processes_absent(
+                self.plan.old_layout.user
+            ),
+        ).strip()
+        if count != "0":
+            raise ReleaseError(
+                "a process still runs as the former web account", EXIT_MIGRATION
+            )
+
+    def capture_snapshot(self) -> dict[str, object]:
+        snapshot: dict[str, object] = {
+            "pointer": self.plan.capture_pointer,
+            "release_sha": self.plan.capture_release_sha,
+        }
+        active = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_service_is_active(CAPTURE_RUNNER_SERVICE),
+        ).strip()
+        snapshot["runner_active"] = active == "active"
+        try:
+            snapshot["identity"] = _snapshot_capture_identity(
+                self.runner, self.transport
+            )
+        except ReleaseError:
+            snapshot["identity"] = None
+        return snapshot
+
+    def verify_capture_untouched(self, _before: object = None) -> None:
+        """Prove capture still runs under its own account, untouched.
+
+        No migration phase ever stops or restarts a capture unit; the only
+        assertion here is that a previously active runner is still active.
+        """
+        before = getattr(self, "_capture_before", None)
+        if not isinstance(before, dict):
+            before = self.capture_snapshot()
+        active = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_service_is_active(CAPTURE_RUNNER_SERVICE),
+        ).strip()
+        if before.get("runner_active") and active != "active":
+            raise ReleaseError("capture runner left the active state", EXIT_MIGRATION)
+
+    def create_checkpoint(self) -> str:
+        release_path = self.plan.old_layout.release_dir(self.plan.release_sha)
+        raw = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_run_scheduled_backup(
+                release_path, self.plan.old_layout
+            ),
+        )
+        payload = parse_json_status(raw)
+        if payload.get("state") != "succeeded":
+            raise ReleaseError("quiescent checkpoint failed", EXIT_MIGRATION)
+        return str(payload.get("bundle_id", "present"))
+
+    def copy_state(self) -> list[str]:
+        verified: list[str] = []
+        for source, destination in self.plan.copy_moves:
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_test_absent_or_fail(destination),
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_make_directory(
+                    str(Path(destination).parent), "0755"
+                ),
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_make_directory(destination, "0755"),
+            )
+            before = ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_tree_manifest(source),
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_copy_tree(source, destination),
+            )
+            after = ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_tree_manifest(destination),
+            )
+            if before != after:
+                raise ReleaseError(
+                    "copied state did not verify against its source", EXIT_MIGRATION
+                )
+            verified.append(destination)
+        return verified
+
+    def transform_environment(self) -> dict[str, object]:
+        destination = self.plan.new_layout.env_file
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_make_directory(
+                str(Path(destination).parent), "0755"
+            ),
+        )
+        payload = self.plan.environment.text.encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()
+        # Write beside the destination, verify the canonical-only assertion on
+        # the staged bytes, then move the file into place atomically.
+        pending = f"{destination}.next"
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_write_file(pending, digest),
+            input_bytes=payload,
+        )
+        assertion = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_assert_no_retired_assignments(pending),
+        ).strip()
+        if assertion != "canonical-only":
+            raise ReleaseError(
+                "installed environment still carries retired assignments",
+                EXIT_MIGRATION,
+            )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=(
+                f"sudo -n mv -T {shlex.quote(pending)} {shlex.quote(destination)}"
+            ),
+        )
+        return {
+            "moved_path_keys": list(self.plan.environment.moved_path_keys),
+            "preserved_path_keys": list(self.plan.environment.preserved_path_keys),
+        }
+
+    def preserve_ancillary(self) -> dict[str, object]:
+        """Migrate only the ancillary integrations the host actually has.
+
+        The export launcher and the narrow rule that runs it are copied to their
+        canonical installed names from the installed bytes; a facility that is
+        absent stays absent. Secret values are never read: credential sources
+        are copied as opaque files by the state copy, and this phase only
+        verifies the installed ancillary objects still exist.
+        """
+        for value in (self.plan.export_installed, self.plan.sudo_rule_installed):
+            if value is None:
+                continue
+            existence = ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_existence(value),
+            ).strip()
+            if existence != "present":
+                raise ReleaseError(
+                    "an existing ancillary integration disappeared", EXIT_MIGRATION
+                )
+        if self.plan.export_installed is not None:
+            canonical = canonical_installed_export_path(
+                self.plan.export_installed
+            )
+            if canonical != self.plan.export_installed:
+                payload = (
+                    self.repository_root / MIGRATION_EXPORT_ARTIFACT[1]
+                ).read_bytes()
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_write_file(
+                        canonical, hashlib.sha256(payload).hexdigest()
+                    ),
+                    input_bytes=payload,
+                )
+        if self.plan.sudo_rule_installed is not None:
+            raw = ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_read_optional_file(
+                    self.plan.sudo_rule_installed
+                ),
+            )
+            if raw.strip() != "absent":
+                transformed = transform_unit_dropin_text(raw)
+                canonical = canonical_installed_sudo_rule_path(
+                    self.plan.sudo_rule_installed
+                )
+                if canonical != self.plan.sudo_rule_installed:
+                    payload = transformed.encode("utf-8")
+                    ssh(
+                        self.runner,
+                        **self.transport,
+                        remote_command=cmd_remote_write_file(
+                            canonical, hashlib.sha256(payload).hexdigest()
+                        ),
+                        input_bytes=payload,
+                    )
+                    ssh(
+                        self.runner,
+                        **self.transport,
+                        remote_command=cmd_remote_validate_sudoers(canonical),
+                    )
+        return {
+            "export_installed": self.plan.export_installed,
+            "sudo_rule_installed": self.plan.sudo_rule_installed,
+            "credential_sources": list(self.plan.credential_sources),
+        }
+
+    def prepare_release_environment(self) -> None:
+        target = self.plan.new_layout.release_dir(self.plan.release_sha)
+        staging = self.plan.new_layout.staging_dir(self.plan.release_sha)
+        old_release = self.plan.old_layout.release_dir(self.plan.release_sha)
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_test_absent_or_fail(target),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_test_absent_or_fail(staging),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_make_directory(staging, "0755"),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_prepare_migration_release(old_release, staging),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_write_poetry_toml(staging),
+            input_bytes=POETRY_TOML.encode("utf-8"),
+        )
+        lock_before = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_lock_hash(staging),
+        ).strip()
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_poetry_check_lock(staging),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_poetry_env_use(staging),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_poetry_install(staging),
+        )
+        lock_after = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_lock_hash(staging),
+        ).strip()
+        if lock_before != lock_after:
+            raise ReleaseError("poetry.lock changed during migration", EXIT_MIGRATION)
+        remote_engine = f"{REMOTE_DEPLOY_DIR}/framenest_release.py"
+        engine_bytes = self.engine_path.read_bytes()
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_write_file(
+                remote_engine, hashlib.sha256(engine_bytes).hexdigest()
+            ),
+            input_bytes=engine_bytes,
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_relocate_venv_shebangs(
+                staging, target, remote_engine
+            ),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_verify_migration_release(staging, staging),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_chown_root(staging),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_remove_release_writable_bits(staging),
+        )
+        # The copied release keeps its own declared identity. The migrated tree
+        # is the same release SHA, so its existing manifest bytes and SHA marker
+        # are re-written unchanged; no new archive hashes are invented.
+        old_markers = read_release_markers(self.runner, self.transport, old_release)
+        manifest_cmd, sha_cmd = cmd_remote_write_markers(staging)
+        if old_markers.manifest_raw:
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=manifest_cmd,
+                input_bytes=old_markers.manifest_raw.encode("utf-8"),
+            )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=sha_cmd,
+            input_bytes=(self.plan.release_sha + "\n").encode("utf-8"),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_rename_staging(staging, target),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_verify_migration_release(staging, target),
+        )
+
+    def rename_account(self) -> dict[str, object]:
+        home = (
+            self.plan.new_layout.state_root
+            if self.plan.account_home == self.plan.old_layout.state_root
+            else None
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_rename_group(),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_rename_user(home),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_assert_account_renamed(
+                self.plan.account_uid, self.plan.account_gid
+            ),
+        )
+        return {
+            "uid": self.plan.account_uid,
+            "gid": self.plan.account_gid,
+            "home": home or self.plan.account_home,
+        }
+
+    def install_units(self) -> list[str]:
+        installed: list[str] = []
+        systemd_source = migration_systemd_dir(self.engine_path)
+        for old_name in self.plan.installed_units:
+            new_name = canonical_unit_name(old_name)
+            payload = (systemd_source / new_name).read_bytes()
+            destination = f"/etc/systemd/system/{new_name}"
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_write_file(
+                    destination, hashlib.sha256(payload).hexdigest()
+                ),
+                input_bytes=payload,
+            )
+            installed.append(new_name)
+        for dropin_name in self.plan.installed_dropins:
+            source = f"{migration_dropin_directory(self.plan.old_layout)}/{dropin_name}"
+            raw = ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_read_optional_file(source),
+            )
+            if raw.strip() == "absent":
+                continue
+            transformed = transform_unit_dropin_text(raw)
+            payload = transformed.encode("utf-8")
+            destination = (
+                f"{migration_dropin_directory(self.plan.new_layout)}/{dropin_name}"
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_make_directory(
+                    migration_dropin_directory(self.plan.new_layout), "0755"
+                ),
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_write_file(
+                    destination, hashlib.sha256(payload).hexdigest()
+                ),
+                input_bytes=payload,
+            )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_daemon_reload(),
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_enable_unit(self.plan.new_layout.service),
+        )
+        return installed
+
+    def verify_effective_units(self) -> None:
+        reading = parse_web_layout_probe(
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_layout_probe(
+                    self.plan.new_layout.service
+                ),
+            ),
+            self.plan.new_layout,
+        )
+        if not reading.installed or not reading.recognises_layout:
+            raise ReleaseError(
+                "canonical unit effective configuration is not recognised",
+                EXIT_MIGRATION,
+            )
+
+    def start_service(self) -> None:
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_start_unit(self.plan.new_layout.service),
+        )
+
+    def verify_local_readiness(self) -> None:
+        deadline = time.monotonic() + READINESS_DEADLINE_SECONDS
+        release_path = self.plan.new_layout.release_dir(self.plan.release_sha)
+        while True:
+            try:
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_check_database_ready(
+                        release_path, self.plan.new_layout
+                    ),
+                )
+                return
+            except ReleaseError:
+                if time.monotonic() >= deadline:
+                    raise ReleaseError(
+                        "canonical service did not become ready", EXIT_MIGRATION
+                    ) from None
+                time.sleep(READINESS_POLL_INTERVAL_SECONDS)
+
+    def record_tailscale_state(self) -> dict[str, object]:
+        raw = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_tailscale_serve_status(),
+        )
+        status = parse_tailscale_serve_status(raw)
+        return {
+            "handler_count": status["handler_count"],
+            "old_handlers": status["old_handlers"],
+            "mounts": status["mounts"],
+            "targets": status["targets"],
+        }
+
+    def replace_tailscale_handler(self) -> dict[str, object]:
+        state = self.record_tailscale_state()
+        self._tailscale_state = state
+        handler_count = int(state["handler_count"])
+        old_handlers = list(state["old_handlers"])
+        mounts = list(state["mounts"])
+        targets = list(state["targets"])
+        if handler_count == 0 and not old_handlers:
+            return {"replaced": 0, "handler_count": 0}
+        if len(old_handlers) != 1:
+            raise ReleaseError(
+                "existing ingress handler is not uniquely identifiable",
+                EXIT_MIGRATION,
+            )
+        index = old_handlers[0]
+        if targets[index] != tailscale_unix_target(self.plan.old_layout.socket_path):
+            raise ReleaseError(
+                "existing ingress handler target is unexpected", EXIT_MIGRATION
+            )
+        new_target = tailscale_unix_target(self.plan.new_layout.socket_path)
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_tailscale_replace(mounts[index], new_target),
+        )
+        return {"replaced": 1, "handler_count": handler_count}
+
+    def verify_ingress(self) -> None:
+        release_path = self.plan.new_layout.release_dir(self.plan.release_sha)
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_check_health(release_path, self.plan.new_layout),
+        )
+        if self.plan.tailscale_handler_count == 0:
+            return
+        status = parse_tailscale_serve_status(
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_tailscale_serve_status(),
+            )
+        )
+        socket_path = self.plan.new_layout.socket_path
+        new_forms = {
+            f"unix+http://{socket_path}",
+            f"unix:{socket_path}",
+        }
+        if status["old_handlers"] or not (set(status["targets"]) & new_forms):
+            raise ReleaseError("ingress replacement did not verify", EXIT_MIGRATION)
+
+    def resume_writers(self) -> list[str]:
+        resumed: list[str] = []
+        for old_name in self.plan.installed_units:
+            if not old_name.endswith(".timer"):
+                continue
+            canonical = canonical_unit_name(old_name)
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_enable_unit(canonical),
+            )
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_start_unit(canonical),
+            )
+            resumed.append(canonical)
+        return resumed
+
+    def recover_pre_write(self, journal: dict[str, object]) -> None:
+        """Restore the verified former layout; no new writes exist to keep.
+
+        Every phase before the cutover runs with the former service stopped and
+        the catalog quiescent, so the copied state is a verified copy of the
+        same bytes and the former layout can be restored. The reverse account
+        rename is issued only when the forward rename completed, and it keeps
+        the recorded numeric UID and GID.
+        """
+        stop_layout = self.plan.new_layout
+        for command in (
+            cmd_remote_stop_unit(stop_layout.service),
+            cmd_remote_disable_unit(stop_layout.service),
+        ):
+            with contextlib.suppress(ReleaseError):
+                ssh(self.runner, **self.transport, remote_command=command)
+        completed = list(journal.get("completed_phases", []))
+        if MIGRATION_PHASE_RENAME_ACCOUNT in completed:
+            with contextlib.suppress(ReleaseError):
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command="sudo -n groupmod -n framenest kronika",
+                )
+            with contextlib.suppress(ReleaseError):
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command="sudo -n usermod -l framenest kronika",
+                )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_start_unit(self.plan.old_layout.service),
+        )
+        for old_name in self.plan.installed_units:
+            if not old_name.endswith(".timer"):
+                continue
+            with contextlib.suppress(ReleaseError):
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_enable_unit(old_name),
+                )
+            with contextlib.suppress(ReleaseError):
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_start_unit(old_name),
+                )
+
+    def recover_post_write(self, journal: dict[str, object]) -> None:
+        """Never restore the stale copied state after the new application writes.
+
+        Once the new application has started it may have admitted writes, so the
+        copied catalog is no longer the current state. This branch keeps the new
+        layout and the current state in place and leaves the forward recovery
+        decision to an explicitly authorized grant; it does not copy state back,
+        does not rename the account back, and does not restart capture.
+        """
+        if not migration_is_post_write(list(journal.get("completed_phases", []))):
+            raise ReleaseError(
+                "post-write recovery selected before the cutover phase",
+                EXIT_MIGRATION,
+            )
+
+
+def parse_tailscale_serve_status(raw: str) -> dict[str, object]:
+    """Classify the Serve handler set without exposing host identifiers."""
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ReleaseError("ingress status is unreadable", EXIT_MIGRATION) from exc
+    if not isinstance(payload, dict):
+        raise ReleaseError("ingress status is unreadable", EXIT_MIGRATION)
+    mounts: list[str] = []
+    targets: list[str] = []
+    old_handlers: list[int] = []
+    web = payload.get("Web")
+    if isinstance(web, dict):
+        for mount, block in web.items():
+            handlers = block.get("Handlers") if isinstance(block, dict) else None
+            if not isinstance(handlers, dict):
+                continue
+            for path, handler in handlers.items():
+                proxy = handler.get("Proxy") if isinstance(handler, dict) else None
+                if not isinstance(proxy, str):
+                    continue
+                mounts.append(f"{mount}{path}")
+                targets.append(proxy)
+                if proxy in (
+                    tailscale_unix_target(OLD_WEB_LAYOUT.socket_path),
+                    "unix:" + OLD_WEB_LAYOUT.socket_path,
+                ):
+                    old_handlers.append(len(targets) - 1)
+    return {
+        "handler_count": len(targets),
+        "mounts": mounts,
+        "targets": targets,
+        "old_handlers": old_handlers,
+    }
+
+
+def tailscale_unix_target(socket_path: str) -> str:
+    return f"unix+http://{socket_path}"
+
+
+def transform_unit_dropin_text(text: str) -> str:
+    """Apply the moved-root transformation to path tokens, nothing else.
+
+    Only tokens that carry a moved product root are rewritten. A token that
+    merely contains the retired spelling elsewhere, and every frozen residue,
+    is preserved exactly.
+    """
+    token_pattern = re.compile(r"[^\s\"']*framenest[^\s\"']*", re.IGNORECASE)
+
+    def replace_token(match: re.Match[str]) -> str:
+        token = match.group(0)
+        return transform_path_value(token)
+
+    return token_pattern.sub(replace_token, text)
+
+
+# ---------------------------------------------------------------------------
+# Identity migration: orchestration and recovery
+# ---------------------------------------------------------------------------
+
+def run_migration_apply(
+    host: RemoteMigrationHost, plan: MigrationPlan
+) -> dict[str, object]:
+    """Execute the ordered apply sequence against one host adapter.
+
+    The orchestration itself is host-agnostic: tests drive the same sequence
+    with a simulated host and failure injection. A failure after any phase
+    selects exactly one recovery branch based on whether the cutover phase
+    completed.
+    """
+    journal = migration_journal_payload(plan)
+    host.write_recovery_manifest(plan.recovery_manifest())
+    host.write_journal(journal)
+    host.acquire_lock()
+    try:
+        for phase in MIGRATION_PHASES:
+            getattr(host, _MIGRATION_PHASE_METHODS[phase])()
+            journal["completed_phases"].append(phase)
+            if phase == MIGRATION_CUTOVER_PHASE:
+                journal["writes_admitted"] = True
+            host.write_journal(journal)
+        journal["outcome"] = "completed"
+        host.write_journal(journal)
+        return journal
+    except ReleaseError:
+        journal["outcome"] = "failed"
+        with contextlib.suppress(ReleaseError):
+            host.write_journal(journal)
+        completed = list(journal["completed_phases"])
+        if migration_is_post_write(completed):
+            host.recover_post_write(journal)
+        else:
+            host.recover_pre_write(journal)
+        raise
+    finally:
+        try:
+            host.release_lock()
+        except ReleaseError:
+            if sys.exc_info()[0] is None:
+                raise
+
+
+_MIGRATION_PHASE_METHODS = {
+    MIGRATION_PHASE_QUIESCE: "quiesce",
+    MIGRATION_PHASE_VERIFY_CAPTURE: "verify_capture_untouched",
+    MIGRATION_PHASE_CHECKPOINT: "create_checkpoint",
+    MIGRATION_PHASE_COPY_STATE: "copy_state",
+    MIGRATION_PHASE_TRANSFORM_ENVIRONMENT: "transform_environment",
+    MIGRATION_PHASE_PRESERVE_ANCILLARY: "preserve_ancillary",
+    MIGRATION_PHASE_PREPARE_RELEASE: "prepare_release_environment",
+    MIGRATION_PHASE_RENAME_ACCOUNT: "rename_account",
+    MIGRATION_PHASE_INSTALL_UNITS: "install_units",
+    MIGRATION_PHASE_VERIFY_UNITS: "verify_effective_units",
+    MIGRATION_PHASE_START_SERVICE: "start_service",
+    MIGRATION_PHASE_REPLACE_INGRESS: "replace_tailscale_handler",
+    MIGRATION_PHASE_VERIFY_INGRESS: "verify_ingress",
+    MIGRATION_PHASE_RESUME_WRITERS: "resume_writers",
+}
+
+
+def canonical_installed_export_path(current: str) -> str:
+    for candidate in MIGRATION_EXPORT_INSTALLED_CANDIDATES:
+        if candidate == current:
+            return MIGRATION_EXPORT_INSTALLED_CANDIDATES[-1]
+    return current
+
+
+def canonical_installed_sudo_rule_path(current: str) -> str:
+    for candidate in MIGRATION_SUDO_RULE_CANDIDATES:
+        if candidate == current:
+            return MIGRATION_SUDO_RULE_CANDIDATES[-1]
+    return current
+
+
+def read_migration_observation(
+    runner: Runner,
+    transport: dict[str, str],
+    *,
+    release_sha: str,
+) -> MigrationObservation:
+    """Read one host's migration facts, read-only, reporting filenames only."""
+    state = resolve_host_layout(runner, transport)
+    if state.web.key != "old":
+        raise ReleaseError("identity migration requires the former web layout", EXIT_LAYOUT)
+    old_layout = state.web
+    new_layout = NEW_WEB_LAYOUT
+
+    old_release = old_layout.release_dir(release_sha)
+    if ssh(
+        runner, **transport, remote_command=cmd_remote_existence(old_release)
+    ).strip() != "present":
+        raise ReleaseError("former release tree is absent", EXIT_MIGRATION)
+
+    environment_raw = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_read_optional_file(old_layout.env_file),
+    )
+    if environment_raw.strip() == "absent":
+        raise ReleaseError("former environment file is absent", EXIT_MIGRATION)
+
+    copy_sources: list[tuple[str, str]] = []
+    for old_root, new_root in (
+        (old_layout.state_root, new_layout.state_root),
+        (old_layout.cache_root, new_layout.cache_root),
+        ("/etc/framenest/credentials", "/etc/kronika/credentials"),
+    ):
+        if ssh(
+            runner, **transport, remote_command=cmd_remote_existence(old_root)
+        ).strip() == "present":
+            copy_sources.append((old_root, new_root))
+
+    installed_units: list[str] = []
+    for old_name, _new_name, required in MIGRATION_UNIT_ARTIFACTS:
+        existence = ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_existence(
+                f"/etc/systemd/system/{old_name}"
+            ),
+        ).strip()
+        if existence == "present":
+            installed_units.append(old_name)
+        elif required:
+            raise ReleaseError(
+                "the installed web unit is absent", EXIT_MIGRATION
+            )
+    dropin_listing = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_list_directory(
+            migration_dropin_directory(old_layout)
+        ),
+    ).strip()
+    installed_dropins = tuple(
+        sorted(
+            line
+            for line in dropin_listing.splitlines()
+            if line.endswith(".conf") and "/" not in line
+        )
+    )
+
+    credential_sources: list[str] = []
+    credentials_root = "/etc/framenest/credentials"
+    credentials_listing = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_list_directory(credentials_root),
+    ).strip()
+    if credentials_listing != "absent":
+        credential_sources = [
+            f"{credentials_root}/{line}"
+            for line in credentials_listing.splitlines()
+            if line and "/" not in line
+        ]
+
+    export_installed = None
+    for candidate in MIGRATION_EXPORT_INSTALLED_CANDIDATES:
+        if ssh(
+            runner, **transport, remote_command=cmd_remote_existence(candidate)
+        ).strip() == "present":
+            export_installed = candidate
+            break
+    sudo_rule_installed = None
+    for candidate in MIGRATION_SUDO_RULE_CANDIDATES:
+        if ssh(
+            runner, **transport, remote_command=cmd_remote_existence(candidate)
+        ).strip() == "present":
+            sudo_rule_installed = candidate
+            break
+
+    account_record = ssh(
+        runner, **transport, remote_command=cmd_remote_account_record()
+    ).strip()
+    if account_record == "absent":
+        raise ReleaseError("former web account is absent", EXIT_MIGRATION)
+    fields = account_record.split(" ")
+    if len(fields) != 3 or not fields[0].isdigit() or not fields[1].isdigit():
+        raise ReleaseError("former web account record is unreadable", EXIT_MIGRATION)
+    new_account = ssh(
+        runner, **transport, remote_command=cmd_remote_new_account_absent()
+    ).strip()
+    if new_account != "absent":
+        raise ReleaseError(
+            "canonical web account already exists", EXIT_MIGRATION
+        )
+
+    capture_release_sha: str | None = None
+    if state.capture_current:
+        capture_sha = read_optional_release_sha(
+            runner, transport, state.capture_current, state.capture_release_root
+        )
+        capture_release_sha = None if capture_sha == "absent" else capture_sha
+
+    raw_status = ssh(
+        runner, **transport, remote_command=cmd_remote_tailscale_serve_status()
+    )
+    tailscale = parse_tailscale_serve_status(raw_status)
+
+    return MigrationObservation(
+        release_sha=release_sha,
+        old_layout=old_layout,
+        new_layout=new_layout,
+        environment_text=environment_raw,
+        copy_sources=tuple(copy_sources),
+        installed_units=tuple(installed_units),
+        installed_dropins=installed_dropins,
+        credential_sources=tuple(credential_sources),
+        export_installed=export_installed,
+        sudo_rule_installed=sudo_rule_installed,
+        account_uid=int(fields[0]),
+        account_gid=int(fields[1]),
+        account_home=fields[2],
+        capture_pointer=state.capture_pointer,
+        capture_release_sha=capture_release_sha,
+        tailscale_handler_count=int(tailscale["handler_count"]),
+        tailscale_old_handlers=len(tailscale["old_handlers"]),
+    )
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -1632,6 +3842,29 @@ def _build_parser() -> argparse.ArgumentParser:
     rollback_capture.add_argument("--release", required=True)
     rollback_capture.add_argument("--yes", action="store_true")
     _add_transport_args(rollback_capture)
+
+    migrate = subcommands.add_parser(
+        "migrate-identity",
+        help="Prepare the canonical host identity migration machinery.",
+    )
+    migrate_sub = migrate.add_subparsers(dest="migration_command", required=True)
+    migrate_preflight = migrate_sub.add_parser(
+        "preflight",
+        help="Read-only plan of the identity migration for one release.",
+    )
+    migrate_preflight.add_argument("--release", required=True)
+    _add_transport_args(migrate_preflight)
+    migrate_apply = migrate_sub.add_parser(
+        "apply",
+        help=(
+            "Apply the migration. Requires --yes and the digest of a validated "
+            "preflight."
+        ),
+    )
+    migrate_apply.add_argument("--release", required=True)
+    migrate_apply.add_argument("--yes", action="store_true")
+    migrate_apply.add_argument("--preflight-digest", required=True)
+    _add_transport_args(migrate_apply)
 
     remote = subcommands.add_parser("_remote", help=argparse.SUPPRESS)
     remote_sub = remote.add_subparsers(dest="remote_command", required=True)
@@ -1685,12 +3918,96 @@ def main(
             return _cmd_rollback(args, command_runner)
         if args.command in ("activate-capture", "rollback-capture"):
             return _cmd_capture_transition(args, command_runner)
+        if args.command == "migrate-identity":
+            return _cmd_migrate_identity(args, command_runner)
         if args.command == "_remote":
             return _cmd_remote(args, command_runner)
         raise ReleaseError("invalid command", EXIT_USAGE)
     except ReleaseError as exc:
         print(f"{PROGRAM}: {exc}", file=sys.stderr)
         return exc.exit_code
+
+
+def _cmd_migrate_identity(args: argparse.Namespace, runner: Runner) -> int:
+    if args.migration_command == "preflight":
+        return _cmd_migrate_preflight(args, runner)
+    if args.migration_command == "apply":
+        return _cmd_migrate_apply(args, runner)
+    raise ReleaseError("invalid command", EXIT_USAGE)
+
+
+def _cmd_migrate_preflight(args: argparse.Namespace, runner: Runner) -> int:
+    """Read-only migration plan. Prints no value of any environment assignment."""
+    release_sha = args.release
+    validate_release_sha(release_sha)
+    transport = _resolve_transport(args)
+    observation = read_migration_observation(
+        runner, transport, release_sha=release_sha
+    )
+    plan = build_migration_plan(observation)
+    print("kronika-release migrate-identity preflight")
+    print(f"release: {plan.release_sha}")
+    print(f"old_layout: {plan.old_layout.key}")
+    print(f"new_layout: {plan.new_layout.key}")
+    print(f"plan_digest: {plan.plan_digest}")
+    print(f"copy_moves: {len(plan.copy_moves)}")
+    print(f"installed_units: {','.join(plan.installed_units)}")
+    print(f"installed_dropins: {len(plan.installed_dropins)}")
+    print(f"credential_sources: {len(plan.credential_sources)}")
+    print(f"export_installed: {plan.export_installed or 'absent'}")
+    print(f"sudo_rule_installed: {plan.sudo_rule_installed or 'absent'}")
+    print(f"capture_pointer: {plan.capture_pointer}")
+    print(f"tailscale_handlers: {plan.tailscale_handler_count}")
+    print(f"tailscale_old_handlers: {plan.tailscale_old_handlers}")
+    print(f"moved_path_keys: {','.join(plan.environment.moved_path_keys)}")
+    print(f"preserved_path_keys: {','.join(plan.environment.preserved_path_keys)}")
+    return EXIT_OK
+
+
+def _cmd_migrate_apply(args: argparse.Namespace, runner: Runner) -> int:
+    """Mutating migration. This repository cut never executes this path."""
+    release_sha = args.release
+    validate_release_sha(release_sha)
+    if not args.yes:
+        raise ReleaseError(
+            "migrate-identity apply requires --yes to confirm", EXIT_USAGE
+        )
+    if not args.preflight_digest:
+        raise ReleaseError(
+            "migrate-identity apply requires a validated preflight digest",
+            EXIT_USAGE,
+        )
+    transport = _resolve_transport(args)
+    observation = read_migration_observation(
+        runner, transport, release_sha=release_sha
+    )
+    plan = build_migration_plan(observation)
+    if args.preflight_digest != plan.plan_digest:
+        raise ReleaseError(
+            "preflight digest does not match the current migration plan",
+            EXIT_MIGRATION,
+        )
+    host = RemoteMigrationHost(
+        runner,
+        transport,
+        plan,
+        engine_path=Path(__file__),
+        repository_root=Path(__file__).resolve().parents[2],
+    )
+    existing = host.read_journal()
+    if existing is not None:
+        if existing.get("outcome") == "completed":
+            raise ReleaseError(
+                "identity migration is already recorded complete", EXIT_MIGRATION
+            )
+        raise ReleaseError(
+            "an incomplete migration journal exists; recovery is required first",
+            EXIT_MIGRATION,
+        )
+    journal = run_migration_apply(host, plan)
+    print(f"kronika-release migrate-identity apply complete: {release_sha}")
+    print(f"completed_phases: {','.join(journal['completed_phases'])}")
+    return EXIT_OK
 
 
 def _cmd_remote(args: argparse.Namespace, runner: Runner) -> int:
@@ -1705,14 +4022,23 @@ def _cmd_remote(args: argparse.Namespace, runner: Runner) -> int:
 
 def _cmd_status(args: argparse.Namespace, runner: Runner) -> int:
     transport = _resolve_transport(args)
-    current = read_current_release(runner, transport)
+    state = resolve_host_layout(runner, transport)
+    layout = state.web
+    current = read_current_release(runner, transport, layout)
     current_path = current.path
-    active = ssh(runner, **transport, remote_command=cmd_remote_service_is_active()).strip()
-    db_revision = read_db_current_revision(runner, transport, current_path)
-    backup = read_backup_readiness(runner, transport, current_path)
+    active = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_service_is_active(layout.service),
+    ).strip()
+    db_revision = read_db_current_revision(runner, transport, current_path, layout)
+    backup = read_backup_readiness(runner, transport, current_path, layout)
     web_sha = current.sha
-    capture_sha = read_optional_release_sha(runner, transport, CAPTURE_CURRENT)
+    capture_sha = read_optional_release_sha(
+        runner, transport, state.capture_current, state.capture_release_root
+    )
     print("kronika-release status")
+    print(f"layout: {layout.key}")
     print(f"active_release: {web_sha}")
     print(format_release_pointers(web_sha, capture_sha))
     print(f"release_path: {current_path}")
@@ -1748,14 +4074,17 @@ def _cmd_check(args: argparse.Namespace, runner: Runner) -> int:
         ap_hash = sha256_of_file(ap_archive)
 
     verify_tooling(runner, transport)
-    current = read_current_release(runner, transport)
+    state = resolve_host_layout(runner, transport)
+    layout = state.web
+    current = read_current_release(runner, transport, layout)
     current_path = current.path
-    readiness = read_backup_readiness(runner, transport, current_path)
+    readiness = read_backup_readiness(runner, transport, current_path, layout)
     if readiness != "ready":
         raise ReleaseError("catalog backup is not restore-ready", EXIT_BACKUP_NOT_READY)
 
     print("kronika-release check")
     print(f"release: {release_sha}")
+    print(f"layout: {layout.key}")
     print(f"ap_gitlink: {ap_gitlink}")
     print(f"public_main: {release_sha}")
     print(f"superproject_sha256: {super_hash}")
@@ -1779,6 +4108,9 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
 
     # Re-run all check gates first.
     _cmd_check(args, runner)
+
+    state = resolve_host_layout(runner, transport)
+    layout = state.web
 
     repo_root = resolve_repo_root(runner)
     ap_gitlink = verify_ap_pin(runner, release_sha)
@@ -1804,8 +4136,8 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
         engine_bytes = Path(__file__).read_bytes()
         engine_hash = hashlib.sha256(engine_bytes).hexdigest()
 
-        target = release_dir(release_sha)
-        staging = staging_dir(release_sha)
+        target = release_dir(release_sha, layout)
+        staging = staging_dir(release_sha, layout)
         remote_super = f"{REMOTE_DEPLOY_DIR}/superproject.tar"
         remote_ap = f"{REMOTE_DEPLOY_DIR}/ap.tar"
         remote_engine = f"{REMOTE_DEPLOY_DIR}/framenest_release.py"
@@ -1819,7 +4151,7 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
         ssh(runner, **transport, remote_command=cmd_remote_test_not_exists(staging))
 
         verify_tooling(runner, transport)
-        verify_capacity(runner, transport, super_size + ap_size)
+        verify_capacity(runner, transport, super_size + ap_size, layout)
 
         # Transfer the engine, then the two archives; verify each SHA-256.
         ssh(
@@ -1933,7 +4265,7 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
 
         # Same-schema gate: packaged head must equal the current production revision.
         status_raw = ssh(
-            runner, **transport, remote_command=cmd_remote_db_status(target)
+            runner, **transport, remote_command=cmd_remote_db_status(target, layout)
         )
         db_payload = parse_json_status(status_raw)
         current_revision = db_payload.get("current_revision")
@@ -1943,7 +4275,9 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
 
         # Fresh verified checkpoint before cutover.
         checkpoint = ssh(
-            runner, **transport, remote_command=cmd_remote_run_scheduled_backup(target)
+            runner,
+            **transport,
+            remote_command=cmd_remote_run_scheduled_backup(target, layout),
         )
         checkpoint_payload = parse_json_status(checkpoint)
         if checkpoint_payload.get("state") != "succeeded":
@@ -1953,14 +4287,14 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
         ssh(
             runner,
             **transport,
-            remote_command=cmd_remote_capture_current(remote_prev),
+            remote_command=cmd_remote_capture_current(remote_prev, layout),
         )
 
         # The installed-unit executable guard runs before the pointer switch and
         # before any restart, and outside the rollback-wrapped block, so a
         # release the installed unit cannot start is refused while the running
         # release still serves.
-        unit_executables = verify_unit_executables(runner, transport, target)
+        unit_executables = verify_unit_executables(runner, transport, target, layout)
 
         try:
             # Pre-cutover readiness under the target release.
@@ -1968,7 +4302,7 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
                 ssh(
                     runner,
                     **transport,
-                    remote_command=cmd_remote_check_database_ready(target),
+                    remote_command=cmd_remote_check_database_ready(target, layout),
                 )
             except ReleaseError as exc:
                 raise ReleaseError(
@@ -1978,19 +4312,21 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
                 ssh(
                     runner,
                     **transport,
-                    remote_command=cmd_remote_atomic_switch(target),
+                    remote_command=cmd_remote_atomic_switch(target, layout),
                 )
             except ReleaseError as exc:
                 raise ReleaseError("atomic switch failed", EXIT_READINESS) from exc
             try:
                 ssh(
-                    runner, **transport, remote_command=cmd_remote_restart_service()
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_restart_service(layout.service),
                 )
             except ReleaseError as exc:
                 raise ReleaseError("restart failed", EXIT_READINESS) from exc
-            _verify_cutover(runner, transport, target)
+            _verify_cutover(runner, transport, target, layout)
         except ReleaseError as exc:
-            _rollback(runner, transport, remote_prev)
+            _rollback(runner, transport, remote_prev, layout)
             raise ReleaseError(
                 f"deployment failed; rollback attempted ({exc})", exc.exit_code
             ) from exc
@@ -2005,7 +4341,9 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
         except ReleaseError as exc:
             raise ReleaseError("cleanup failed", EXIT_CLEANUP) from exc
 
-    capture_sha = read_optional_release_sha(runner, transport, CAPTURE_CURRENT)
+    capture_sha = read_optional_release_sha(
+        runner, transport, state.capture_current, state.capture_release_root
+    )
     print(f"kronika-release deploy complete: {release_sha}")
     print(format_release_pointers(release_sha, capture_sha))
     print(lock_report(lock_decision))
@@ -2013,23 +4351,39 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
     return EXIT_OK
 
 
-def _verify_cutover(runner: Runner, transport: dict[str, str], target: str) -> None:
+def _verify_cutover(
+    runner: Runner,
+    transport: dict[str, str],
+    target: str,
+    layout: WebLayout = OLD_WEB_LAYOUT,
+) -> None:
     current_path = ssh(
-        runner, **transport, remote_command=cmd_remote_readlink_current()
+        runner,
+        **transport,
+        remote_command=cmd_remote_readlink_current(layout),
     ).strip()
     if current_path != target:
         raise ReleaseError("cutover failed", EXIT_READINESS)
     working_dir = ssh(
-        runner, **transport, remote_command=cmd_remote_systemd_working_directory()
+        runner,
+        **transport,
+        remote_command=cmd_remote_systemd_working_directory(layout.service),
     ).strip()
-    if working_dir != CURRENT:
+    if working_dir != layout.current:
         raise ReleaseError("service working directory is unexpected", EXIT_READINESS)
-    _wait_ready(runner, transport, target)
-    logs = ssh(runner, **transport, remote_command=cmd_remote_journal())
+    _wait_ready(runner, transport, target, layout)
+    logs = ssh(
+        runner, **transport, remote_command=cmd_remote_journal(layout.service)
+    )
     _assert_logs_sanitized(logs)
 
 
-def _wait_ready(runner: Runner, transport: dict[str, str], target: str) -> None:
+def _wait_ready(
+    runner: Runner,
+    transport: dict[str, str],
+    target: str,
+    layout: WebLayout = OLD_WEB_LAYOUT,
+) -> None:
     """Poll service readiness for deploy and rollback.
 
     Retries transient ``activating``, socket-not-ready, and health-not-ready
@@ -2044,10 +4398,14 @@ def _wait_ready(runner: Runner, transport: dict[str, str], target: str) -> None:
                 "service readiness deadline exceeded", EXIT_READINESS_TIMEOUT
             )
         active = ssh(
-            runner, **transport, remote_command=cmd_remote_service_active_state()
+            runner,
+            **transport,
+            remote_command=cmd_remote_service_active_state(layout.service),
         ).strip()
         result_state = ssh(
-            runner, **transport, remote_command=cmd_remote_service_result()
+            runner,
+            **transport,
+            remote_command=cmd_remote_service_result(layout.service),
         ).strip()
         if active == "failed":
             raise ReleaseError(
@@ -2067,12 +4425,12 @@ def _wait_ready(runner: Runner, transport: dict[str, str], target: str) -> None:
                 ssh(
                     runner,
                     **transport,
-                    remote_command=cmd_remote_check_health(target),
+                    remote_command=cmd_remote_check_health(target, layout),
                 )
                 ssh(
                     runner,
                     **transport,
-                    remote_command=cmd_remote_check_database_ready(target),
+                    remote_command=cmd_remote_check_database_ready(target, layout),
                 )
             except ReleaseError:
                 health_ok = False
@@ -2090,12 +4448,23 @@ def _wait_ready(runner: Runner, transport: dict[str, str], target: str) -> None:
 
 
 def _assert_logs_sanitized(logs: str) -> None:
-    for token in ("/etc/framenest/credentials", "Authorization:", "Bearer ", "BEGIN "):
+    for token in (
+        "/etc/framenest/credentials",
+        "/etc/kronika/credentials",
+        "Authorization:",
+        "Bearer ",
+        "BEGIN ",
+    ):
         if token in logs:
             raise ReleaseError("unsanitized log content", EXIT_SERVICE_TERMINAL)
 
 
-def _rollback(runner: Runner, transport: dict[str, str], previous_path: str) -> None:
+def _rollback(
+    runner: Runner,
+    transport: dict[str, str],
+    previous_path: str,
+    layout: WebLayout = OLD_WEB_LAYOUT,
+) -> None:
     """Restore the previous release, validating it before the pointer moves.
 
     Readiness and the installed-unit executable guard both run ahead of the
@@ -2108,27 +4477,35 @@ def _rollback(runner: Runner, transport: dict[str, str], previous_path: str) -> 
             **transport,
             remote_command=f"sudo -n cat {shlex.quote(previous_path)}",
         ).strip()
-        validate_remote_path(prev, RELEASE_ROOT)
-        verify_unit_executables(runner, transport, prev)
+        validate_remote_path(prev, layout.release_root)
+        verify_unit_executables(runner, transport, prev, layout)
         try:
             ssh(
                 runner,
                 **transport,
-                remote_command=cmd_remote_check_database_ready(prev),
+                remote_command=cmd_remote_check_database_ready(prev, layout),
             )
         except ReleaseError as exc:
             raise ReleaseError(
                 "rollback pre-restart readiness failed", EXIT_ROLLBACK
             ) from exc
         try:
-            ssh(runner, **transport, remote_command=cmd_remote_atomic_switch(prev))
+            ssh(
+                runner,
+                **transport,
+                remote_command=cmd_remote_atomic_switch(prev, layout),
+            )
         except ReleaseError as exc:
             raise ReleaseError("rollback switch failed", EXIT_ROLLBACK) from exc
         try:
-            ssh(runner, **transport, remote_command=cmd_remote_restart_service())
+            ssh(
+                runner,
+                **transport,
+                remote_command=cmd_remote_restart_service(layout.service),
+            )
         except ReleaseError as exc:
             raise ReleaseError("rollback restart failed", EXIT_ROLLBACK) from exc
-        _verify_cutover(runner, transport, prev)
+        _verify_cutover(runner, transport, prev, layout)
     except ReleaseError as exc:
         if exc.exit_code == EXIT_ROLLBACK:
             raise
@@ -2141,8 +4518,10 @@ def _cmd_rollback(args: argparse.Namespace, runner: Runner) -> int:
     if not args.yes:
         raise ReleaseError("rollback requires --yes to confirm", EXIT_USAGE)
     transport = _resolve_transport(args)
+    state = resolve_host_layout(runner, transport)
+    layout = state.web
 
-    target = release_dir(release_sha)
+    target = release_dir(release_sha, layout)
     ssh(runner, **transport, remote_command=cmd_remote_test_exists(target))
     # The installed release must resolve its identity under every accepted
     # marker spelling, and agree with each other when several are present.
@@ -2151,20 +4530,36 @@ def _cmd_rollback(args: argparse.Namespace, runner: Runner) -> int:
         raise ReleaseError("installed release SHA does not match", EXIT_SOURCE_GATE)
     # The installed-unit executable guard runs before the pointer switch and
     # before any restart.
-    unit_executables = verify_unit_executables(runner, transport, target)
+    unit_executables = verify_unit_executables(runner, transport, target, layout)
 
     remote_prev = f"{REMOTE_DEPLOY_DIR}/rollback-previous-release"
     with contextlib.ExitStack() as stack:
         lock_decision = stack.enter_context(remote_deploy_lock(runner, transport))
         try:
-            ssh(runner, **transport, remote_command=cmd_remote_capture_current(remote_prev))
+            ssh(
+                runner,
+                **transport,
+                remote_command=cmd_remote_capture_current(remote_prev, layout),
+            )
             try:
-                ssh(runner, **transport, remote_command=cmd_remote_check_database_ready(target))
-                ssh(runner, **transport, remote_command=cmd_remote_atomic_switch(target))
-                ssh(runner, **transport, remote_command=cmd_remote_restart_service())
-                _verify_cutover(runner, transport, target)
+                ssh(
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_check_database_ready(target, layout),
+                )
+                ssh(
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_atomic_switch(target, layout),
+                )
+                ssh(
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_restart_service(layout.service),
+                )
+                _verify_cutover(runner, transport, target, layout)
             except ReleaseError as exc:
-                _rollback(runner, transport, remote_prev)
+                _rollback(runner, transport, remote_prev, layout)
                 raise ReleaseError(
                     f"rollback target failed; previous release restored ({exc})",
                     exc.exit_code,
@@ -2172,7 +4567,9 @@ def _cmd_rollback(args: argparse.Namespace, runner: Runner) -> int:
         finally:
             ssh(runner, **transport, remote_command=cmd_remote_remove_file(remote_prev))
 
-    capture_sha = read_optional_release_sha(runner, transport, CAPTURE_CURRENT)
+    capture_sha = read_optional_release_sha(
+        runner, transport, state.capture_current, state.capture_release_root
+    )
     print(f"kronika-release rollback complete: {release_sha}")
     print(format_release_pointers(release_sha, capture_sha))
     print(lock_report(lock_decision))
@@ -2263,8 +4660,10 @@ def _cmd_capture_transition(args: argparse.Namespace, runner: Runner) -> int:
     if not args.yes:
         raise ReleaseError("capture transition requires --yes to confirm", EXIT_USAGE)
     transport = _resolve_transport(args)
+    state = resolve_host_layout(runner, transport)
+    layout = state.web
     identity = capture_runtime_identity(runner, release_sha)
-    target = release_dir(release_sha)
+    target = release_dir(release_sha, layout)
 
     ssh(runner, **transport, remote_command=cmd_remote_test_exists(target))
     installed = read_release_markers(runner, transport, target)
@@ -2282,18 +4681,20 @@ def _cmd_capture_transition(args: argparse.Namespace, runner: Runner) -> int:
             raise ReleaseError("capture runtime identity does not match", EXIT_SOURCE_GATE)
 
     web_path = ssh(
-        runner, **transport, remote_command=cmd_remote_readlink_current()
+        runner,
+        **transport,
+        remote_command=cmd_remote_readlink_current(layout),
     ).strip()
-    validate_remote_path(web_path, RELEASE_ROOT)
+    validate_remote_path(web_path, layout.release_root)
     web_sha = read_release_markers(runner, transport, web_path).sha
 
     capture_link = ssh(
         runner,
         **transport,
-        remote_command=cmd_remote_read_optional_link(CAPTURE_CURRENT),
+        remote_command=cmd_remote_read_optional_link(state.capture_current),
     ).strip()
     if capture_link != "absent":
-        validate_remote_path(capture_link, RELEASE_ROOT)
+        validate_remote_path(capture_link, state.capture_release_root)
         current_capture = read_release_markers(
             runner, transport, capture_link
         ).manifest
@@ -2312,7 +4713,13 @@ def _cmd_capture_transition(args: argparse.Namespace, runner: Runner) -> int:
     _drain_capture_work(runner, transport)
     _enforce_capture_brake(runner, transport)
     previous_identity = _snapshot_capture_identity(runner, transport)
-    ssh(runner, **transport, remote_command=cmd_remote_atomic_switch_capture(target))
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_atomic_switch_capture(
+            target, state.capture_current
+        ),
+    )
     try:
         ssh(runner, **transport, remote_command=cmd_remote_restart_capture_runner())
     except ReleaseError as exc:

@@ -1,0 +1,60 @@
+#!/bin/bash
+# Kronika catalog export launcher (repository source for host install).
+#
+# Installed host path (later provisioning only):
+#   /usr/local/libexec/kronika-catalog-export-v1
+#
+# Required installed ownership/mode (later host provisioning):
+#   owner root:root
+#   mode 0755 (executable; not writable by operator or kronika)
+#   parent directory root-controlled
+#
+# Contract:
+#   - zero accepted arguments (explicit rejection otherwise)
+#   - umask 077
+#   - stdin unused (closed)
+#   - stdout reserved exclusively for protocol-v1 export bytes
+#   - stderr reserved for bounded sanitized diagnostics
+#   - fixed absolute Kronika export CLI path
+#   - no caller-provided command, release path, or environment inheritance
+#   - does not embed workstation paths, credentials, or operator usernames
+#
+# Run-as identity is kronika via a narrow sudoers rule; this launcher must
+# not be invoked as root for product export.
+
+set -eu
+
+umask 077
+
+if [ "$#" -ne 0 ]; then
+  printf '%s\n' "kronika-catalog-export-v1 rejects all arguments." >&2
+  exit 2
+fi
+
+# Close stdin; protocol bytes use stdout only.
+exec </dev/null
+
+readonly KRONIKA_BACKUP_BIN="/opt/kronika/current/.venv/bin/kronika-backup"
+readonly KRONIKA_WORKDIR="/opt/kronika/current"
+
+if [ ! -x "${KRONIKA_BACKUP_BIN}" ]; then
+  printf '%s\n' "Kronika export executable is unavailable." >&2
+  exit 1
+fi
+
+# Minimal root-controlled environment only. Production path defaults match the
+# accepted catalog-backup roots; secrets and operator environment are not
+# inherited. NOSETENV sudoers must prevent caller environment injection.
+export PATH="/usr/bin:/bin"
+export PYTHONUNBUFFERED=1
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+export HOME="/var/lib/kronika"
+export KRONIKA_DATABASE_PATH="/var/lib/kronika/catalog.sqlite3"
+export KRONIKA_CATALOG_BACKUP_ROOT="/var/lib/kronika/catalog-backups"
+export KRONIKA_CATALOG_RESTORE_VERIFY_ROOT="/var/lib/kronika/catalog-restore-verify"
+export KRONIKA_CATALOG_BACKUP_OPS_ROOT="/var/lib/kronika/catalog-backup-ops"
+
+cd "${KRONIKA_WORKDIR}"
+
+exec "${KRONIKA_BACKUP_BIN}" export-latest

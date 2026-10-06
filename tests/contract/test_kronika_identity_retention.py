@@ -246,8 +246,20 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # occurrence in the whole file was a `src/framenest` path that now names the
     # moved package directory. It is a whole-file consequence of that one path
     # literal, not a content-only rename, and no path was added to any tree.
-    "tests": 184,
-    "deploy": 20,
+    #
+    # KSI-IMPL-C4B added two files to `deploy` and one file to `tests`, and
+    # moved nothing else. The `deploy` additions are the canonical
+    # counterparts of the two retired artifacts whose content carries a named
+    # frozen residue: `kronika-catalog-offdevice.service` and
+    # `kronika.env.example` both keep `/mnt/framenest-catalog-offdevice`
+    # exactly as written. The other nine canonical artifacts added by this cut
+    # carry no retired spelling in any case, so they correctly stay out of
+    # this content set. The `tests` addition is the new
+    # `contract/test_kronika_identity_migration.py`, which pins the former
+    # layout, the former environment keys and the frozen mount in order to
+    # prove the typed transformation. No existing file left this set.
+    "tests": 185,
+    "deploy": 22,
     "scripts": 7,
     "docs": 88,
     "extension": 8,
@@ -443,8 +455,26 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `test_nuc_release_source_contract.py` -3 (its literal marker paths became
     # resolved markers), and `test_kronika_capture_services.py` -8 (the capture
     # activation runner resolves markers through the shared resolver).
-    "tests": 1871,
-    "deploy": 201,
+    #
+    # KSI-IMPL-C4B moved `deploy` by +45 and `tests` by +127, and nothing else.
+    #
+    # `deploy` +45, per path: `kronika_release.py` +42 (the accepted layout
+    # table, the canonical target layout, the migration constants and unit
+    # artifact table, the typed path classes, and the migration command
+    # builders), `kronika-catalog-offdevice.service` +2 and
+    # `kronika.env.example` +1, both the named frozen mount only. The other
+    # nine canonical artifacts carry no retired spelling and contribute zero.
+    #
+    # `tests` +135, per path: the new
+    # `test_kronika_identity_migration.py` +120 (its former layout readings,
+    # the sample environment, the frozen mount, the production-host phase
+    # command assertions and the recovery assertions),
+    # `test_nuc_release_remote_contract.py` +8 (the two effective layout probe
+    # answers and the canonical capture-pointer branch), and
+    # `test_kronika_capture_services.py` +7 (the same layout probe answers for
+    # the capture activation harness).
+    "tests": 2006,
+    "deploy": 246,
     "scripts": 86,
     "docs": 1216,
     "extension": 145,
@@ -540,6 +570,8 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "deploy/systemd/kronika-capture-bridge.service",
         "deploy/systemd/kronika-capture-runner.service",
         "deploy/systemd/kronika-capture.env.example",
+        "deploy/systemd/kronika-catalog-offdevice.service",
+        "deploy/systemd/kronika.env.example",
         "deploy/ubuntu/README.md",
         "deploy/ubuntu/fn-production-env-deploy",
         "deploy/ubuntu/framenest-catalog-export-v1",
@@ -875,6 +907,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_direct_reader_routing.py",
         "tests/contract/test_kronika_durable_artifact_readers.py",
         "tests/contract/test_kronika_identity_dual_read.py",
+        "tests/contract/test_kronika_identity_migration.py",
         "tests/contract/test_kronika_mutation_header.py",
         "tests/contract/test_kronika_product_string_agreement.py",
         "tests/contract/test_kronika_settings_parity.py",
@@ -1051,9 +1084,18 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # exchanging one declaration of the compatible prefix (-1 and +1) plus the
 # canonical gate declaring it (+1), `test_nuc_release_docs.py` naming it (+1)
 # and `test_operator_network_scripts.py` composing both prefixes as data (+3).
-ENV_PREFIX_TOKEN_COUNT = 628
-ENV_PREFIX_DISTINCT_NAME_COUNT = 101
-ENV_PREFIX_BARE_SPELLING_COUNT = 26
+#
+# KSI-IMPL-C4B moved the token count by +27 and all of it is one file: the new
+# `contract/test_kronika_identity_migration.py` names every typed path key in
+# its synthetic environment fixture. Two of those names are distinct and new
+# (`FRAMENEST_FUTURE_UNKNOWN_KEY` and `FRAMENEST_UPLOAD_QUARANTINE_ROOT`), so
+# the distinct count is +2. Its three bare spellings are the `FRAMENEST_`
+# prefix checks, so the bare count is +3. The masked capture installation and
+# the new remote-contract probe answers add no environment tokens, and the
+# engine's two declarations are unchanged.
+ENV_PREFIX_TOKEN_COUNT = 655
+ENV_PREFIX_DISTINCT_NAME_COUNT = 103
+ENV_PREFIX_BARE_SPELLING_COUNT = 29
 
 MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C2 kept every occurrence that existed before it and added 14:
@@ -1078,17 +1120,32 @@ MUTATION_HEADER_FILE_COUNT = 30
 # installed-unit executable guard and the deploy-lock quarantine paths, and the
 # capture and reader suites each lost 2 because their marker literals became
 # resolved marker names.
+#
+# KSI-IMPL-C4B is a content-additive cut and every literal moved upward:
+# `/opt/framenest` +13, `/etc/framenest` +7, `/var/lib/framenest` +15,
+# `/var/cache/framenest` +8 and the frozen mount +10. The causes are the new
+# migration section of the engine (the accepted layout table, the plan and
+# observation constants, and the command builders), the two layout-probe
+# answers added to the existing test fakes, and the new migration test file,
+# which necessarily fixtures the former layout, the former state and cache
+# roots, the former environment file and one credential source path. The
+# frozen mount +10 is the two new canonical artifacts that name it (2 + 1) and
+# seven occurrences in the new test file. No existing literal was rewritten.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 210,
-    "/etc/framenest": 76,
-    "/var/lib/framenest": 94,
-    "/var/cache/framenest": 21,
-    "/mnt/framenest-catalog-offdevice": 13,
+    "/opt/framenest": 223,
+    "/etc/framenest": 83,
+    "/var/lib/framenest": 109,
+    "/var/cache/framenest": 29,
+    "/mnt/framenest-catalog-offdevice": 23,
 }
 
+# KSI-IMPL-C4B moved each of these by +3: one `User=framenest` and
+# `Group=framenest` pair in each of the two effective-layout probe answers
+# added to the existing test fakes, plus one negative assertion in the new
+# migration test file that the canonical units do not carry either line.
 UNIT_ACCOUNT_OCCURRENCE_COUNT = {
-    "User=framenest": 5,
-    "Group=framenest": 5,
+    "User=framenest": 8,
+    "Group=framenest": 8,
 }
 
 # KSI-IMPL-C2 moved this by +15: -2 where the service worker stopped spelling the

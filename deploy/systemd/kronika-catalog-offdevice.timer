@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Kronika off-device catalog backup copy and restore verification
+Documentation=https://github.com/cisarik/kronika
+Requires=kronika-catalog-offdevice.service
+
+[Timer]
+OnCalendar=*-*-* 04:17:00 UTC
+Persistent=yes
+RandomizedDelaySec=900
+AccuracySec=1min
+Unit=kronika-catalog-offdevice.service
+
+[Install]
+WantedBy=timers.target

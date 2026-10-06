@@ -101,6 +101,26 @@ def _target_manifest(**overrides: str) -> str:
     return json.dumps(payload)
 
 
+OLD_LAYOUT_SHOW = (
+    "LoadState=loaded\n"
+    "ActiveState=active\n"
+    "UnitFileState=enabled\n"
+    "User=framenest\n"
+    "Group=framenest\n"
+    "WorkingDirectory=/opt/framenest/current\n"
+    "ExecStart={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
+    "argv[]=/opt/framenest/current/.venv/bin/framenest-production serve ; "
+    "ignore_errors=no ; start_time=[not set] ; stop_time=[not set] ; pid=0 ; "
+    "code=(null) ; status=0/0 }"
+)
+NEW_LAYOUT_SHOW = (
+    "LoadState=not-found\n"
+    "ActiveState=inactive\n"
+    "UnitFileState=not-found\n"
+    "User=\nGroup=\nWorkingDirectory=\nExecStart="
+)
+
+
 class CaptureRunner:
     def __init__(
         self,
@@ -130,6 +150,10 @@ class CaptureRunner:
         raise AssertionError(combined)
 
     def _ssh(self, combined: str) -> str:
+        if "systemctl show --property=LoadState" in combined:
+            if "kronika.service" in combined:
+                return NEW_LAYOUT_SHOW
+            return OLD_LAYOUT_SHOW
         if "kronika-capture-work-gate" in combined:
             if not self.blocked:
                 return "blocked=none"
@@ -142,6 +166,8 @@ class CaptureRunner:
             return self.readiness
         if "test -L /opt/framenest/capture-current" in combined:
             return self.capture_link
+        if "test -L /opt/kronika/capture-current" in combined:
+            return "absent"
         if "readlink -n /opt/framenest/current" in combined:
             return PREV_PATH
         if "then echo manifest" in combined or "then echo sha" in combined:

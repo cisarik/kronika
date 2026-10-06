@@ -62,6 +62,32 @@ DEFAULT_UNIT_SHOW = (
     "stop_time=[not set] ; pid=0 ; code=(null) ; status=0/0 }"
 )
 
+#: Effective layout probes for the two candidate web units. The default fake
+#: host is in the former layout; the canonical unit does not exist yet.
+DEFAULT_LAYOUT_SHOWS = {
+    "framenest.service": (
+        "LoadState=loaded\n"
+        "ActiveState=active\n"
+        "UnitFileState=enabled\n"
+        "User=framenest\n"
+        "Group=framenest\n"
+        "WorkingDirectory=/opt/framenest/current\n"
+        "ExecStart={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
+        "argv[]=/opt/framenest/current/.venv/bin/framenest-production serve ; "
+        "ignore_errors=no ; start_time=[not set] ; stop_time=[not set] ; pid=0 ; "
+        "code=(null) ; status=0/0 }"
+    ),
+    "kronika.service": (
+        "LoadState=not-found\n"
+        "ActiveState=inactive\n"
+        "UnitFileState=not-found\n"
+        "User=\n"
+        "Group=\n"
+        "WorkingDirectory=\n"
+        "ExecStart="
+    ),
+}
+
 #: Marker-presence, SHA-marker and manifest reads carry the marker name last, so
 #: one pattern resolves every spelling rather than one literal per spelling.
 SHA_MARKER_READ = re.compile(r"cat (/[^ ]+)/(\.\S+-release-sha)$")
@@ -104,6 +130,10 @@ class FakeRunner:
         self.manifest_by_marker: dict[str, str] = {}
         #: What ``systemctl show`` returns for the effective unit properties.
         self.unit_show: str | None = DEFAULT_UNIT_SHOW
+        #: Effective layout probe answers per candidate service.
+        self.layout_shows: dict[str, str] = dict(DEFAULT_LAYOUT_SHOWS)
+        #: What the canonical capture pointer reports, if probed.
+        self.new_capture_link = "absent"
         #: Console scripts the target release is missing.
         self.missing_executables: frozenset[str] = frozenset()
         #: Symlinks standing where a console script must be.
@@ -220,6 +250,11 @@ class FakeRunner:
             return ""
         if "/run/framenest-release-deploy.reclaimed-" in combined and "rm -rf" in combined:
             return ""
+        if "systemctl show --property=LoadState" in combined:
+            for service, payload in self.layout_shows.items():
+                if service in combined:
+                    return payload
+            raise AssertionError(f"unexpected layout probe: {combined}")
         if "systemctl show --property=ExecStart" in combined:
             if self.unit_show is None:
                 raise engine.ReleaseError("no such unit", engine.EXIT_TRANSPORT)
@@ -295,6 +330,8 @@ class FakeRunner:
             return '{"operation":"run-scheduled","state":"succeeded","bundle_id":"b1"}'
         if "test -L /opt/framenest/capture-current" in combined:
             return "absent"
+        if "test -L /opt/kronika/capture-current" in combined:
+            return self.new_capture_link
         if "readlink -n /opt/framenest/current" in combined:
             return self.current
         if "previous-release" in combined and "printf" in combined:

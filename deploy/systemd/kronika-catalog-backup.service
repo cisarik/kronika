@@ -1,0 +1,37 @@
+[Unit]
+Description=Kronika automated catalog backup and restore verification
+Documentation=https://github.com/cisarik/kronika
+After=local-fs.target
+RequiresMountsFor=/var/lib/kronika
+
+[Service]
+Type=oneshot
+User=kronika
+Group=kronika
+WorkingDirectory=/opt/kronika/current
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/kronika/kronika.env
+ExecStart=/opt/kronika/current/.venv/bin/kronika-backup run-scheduled
+Nice=10
+TimeoutStartSec=30min
+KillMode=mixed
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+StateDirectory=kronika
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

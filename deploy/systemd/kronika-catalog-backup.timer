@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Kronika catalog backup and restore verification
+Documentation=https://github.com/cisarik/kronika
+Requires=kronika-catalog-backup.service
+
+[Timer]
+OnCalendar=*-*-* 03:17:00 UTC
+Persistent=yes
+RandomizedDelaySec=900
+AccuracySec=1min
+Unit=kronika-catalog-backup.service
+
+[Install]
+WantedBy=timers.target
