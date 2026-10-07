@@ -248,11 +248,14 @@ CAPTURE_POINTERS = (
 # Identity migration constants (C4-B repository machinery; C6 executes it)
 # ---------------------------------------------------------------------------
 
-MIGRATION_DIRECTORY = "/var/lib/kronika/identity-migration"
+# Migration control state is root-only and deliberately outside every state
+# root the plan copies. A path below `/var/lib/kronika` made the state-copy
+# destination exist before `copy_state` required it absent, so the journal is a
+# sibling of the canonical state root rather than a child of it.
+MIGRATION_DIRECTORY = "/var/lib/kronika-identity-migration"
 MIGRATION_JOURNAL_PATH = f"{MIGRATION_DIRECTORY}/journal.json"
 MIGRATION_RECOVERY_MANIFEST_PATH = f"{MIGRATION_DIRECTORY}/recovery-manifest.json"
-MIGRATION_LOCK_DIR = "/run/kronika-identity-migration"
-MIGRATION_LOCK_OWNER_PATH = f"{MIGRATION_LOCK_DIR}.owner"
+MIGRATION_JOURNAL_VERSION = 2
 MIGRATION_PLAN_VERSION = "kronika-identity-migration-plan-v1"
 MIGRATION_RECEIPT_PHASE_KEY = "phase"
 
@@ -675,6 +678,22 @@ def cmd_remote_write_file(path: str, sha256: str) -> str:
     )
 
 
+def cmd_remote_write_file_atomic(path: str, sha256: str) -> str:
+    """Write beside the destination, verify it, then rename it into place.
+
+    An interruption leaves the previous file intact instead of a partial one.
+    """
+    quoted = shlex.quote(path)
+    pending = shlex.quote(f"{path}.next")
+    return (
+        "set -e\n"
+        f"sudo -n sh -c 'umask 077; cat > {pending}'\n"
+        f"test \"$(sudo -n sha256sum {pending} | cut -d' ' -f1)\" = "
+        f"{shlex.quote(sha256)}\n"
+        f"sudo -n mv -T {pending} {quoted}\n"
+    )
+
+
 def cmd_remote_readlink_current(layout: WebLayout = OLD_WEB_LAYOUT) -> str:
     return f"sudo -n readlink -n {layout.current}"
 
@@ -978,7 +997,8 @@ def cmd_remote_restart_capture_runner() -> str:
 def cmd_remote_read_optional_link(path: str) -> str:
     quoted = shlex.quote(path)
     return (
-        f"if sudo -n test -L {quoted}; then sudo -n readlink -n {quoted}; "
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; "
+        f"elif sudo -n test -L {quoted}; then sudo -n readlink -n {quoted}; "
         "else printf %s absent; fi"
     )
 
@@ -1538,6 +1558,8 @@ def read_optional_release_sha(
     raw = ssh(
         runner, **transport, remote_command=cmd_remote_read_optional_link(pointer)
     ).strip()
+    if raw == "query-failed":
+        raise ReleaseError("release pointer state is unverifiable", EXIT_LAYOUT)
     if raw == "absent":
         return "absent"
     validate_remote_path(raw, release_root)
@@ -1955,6 +1977,10 @@ def resolve_capture_pointer(
             **transport,
             remote_command=cmd_remote_read_optional_link(pointer),
         ).strip()
+        if target == "query-failed":
+            raise ReleaseError(
+                "capture release pointer state is unverifiable", EXIT_LAYOUT
+            )
         if target != "absent":
             present.append((key, pointer, release_root, target))
     if not present:
@@ -2383,9 +2409,15 @@ def remote_deploy_lock(
 # ---------------------------------------------------------------------------
 
 def cmd_remote_existence(path: str) -> str:
+    """``present``, ``absent`` or ``query-failed`` for one path.
+
+    ``sudo -n true`` separates "the privileged query itself failed" from "the
+    object does not exist", so a failed query is never read as absence.
+    """
     quoted = shlex.quote(path)
     return (
-        f"if sudo -n test -e {quoted}; then printf %s present; "
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; "
+        f"elif sudo -n test -e {quoted}; then printf %s present; "
         "else printf %s absent; fi"
     )
 
@@ -2393,7 +2425,8 @@ def cmd_remote_existence(path: str) -> str:
 def cmd_remote_read_optional_file(path: str) -> str:
     quoted = shlex.quote(path)
     return (
-        f"if sudo -n test -e {quoted}; then sudo -n cat {quoted}; "
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; "
+        f"elif sudo -n test -e {quoted}; then sudo -n cat {quoted}; "
         "else printf %s absent; fi"
     )
 
@@ -2408,6 +2441,26 @@ def cmd_remote_test_absent_or_fail(path: str) -> str:
     return f"sudo -n test ! -e {shlex.quote(path)}"
 
 
+def cmd_remote_directory_state(path: str) -> str:
+    """Classify a copy destination without touching it.
+
+    Returns ``absent``, ``empty``, ``populated``, ``not-a-directory`` or
+    ``query-failed``. A populated unexpected destination is refused by the
+    caller rather than overwritten.
+    """
+    quoted = shlex.quote(path)
+    script = (
+        f"if [ ! -e {quoted} ]; then printf %s absent; "
+        f"elif [ ! -d {quoted} ]; then printf %s not-a-directory; "
+        f"elif [ -z \"$(ls -A {quoted} 2>/dev/null)\" ]; then printf %s empty; "
+        "else printf %s populated; fi"
+    )
+    return (
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; "
+        f"else sudo -n sh -c {shlex.quote(script)}; fi"
+    )
+
+
 def cmd_remote_copy_tree(source: str, destination: str) -> str:
     """Copy one tree under a moved root; the destination must already exist."""
     return (
@@ -2417,10 +2470,26 @@ def cmd_remote_copy_tree(source: str, destination: str) -> str:
 
 
 def cmd_remote_tree_manifest(path: str) -> str:
-    """Stable relative-path/hash/purpose listing of one tree, for comparison."""
+    """Stable per-entry type, target, mode, ownership and content manifest.
+
+    Every entry reports its relative path, file type, permission bits and
+    owner/group; regular files add their content hash and symlinks add their
+    target. Two trees with equal manifests are equal in all five dimensions.
+    """
     script = (
-        f"cd {shlex.quote(path)} && "
-        "find . -type f -print0 | sort -z | xargs -0 -r sha256sum"
+        f"cd {shlex.quote(path)}\n"
+        "find . -mindepth 1 -print0 | LC_ALL=C sort -z | "
+        "while IFS= read -r -d '' entry; do "
+        "meta=$(stat -c '%U:%G:%a' \"$entry\"); "
+        "if [ -L \"$entry\" ]; then "
+        "printf '%s|symlink|%s|%s\\n' \"$entry\" \"$(readlink \"$entry\")\" \"$meta\"; "
+        "elif [ -d \"$entry\" ]; then "
+        "printf '%s|dir|-|%s\\n' \"$entry\" \"$meta\"; "
+        "elif [ -f \"$entry\" ]; then "
+        "printf '%s|file|%s|%s\\n' \"$entry\" \"$(sha256sum \"$entry\" | cut -d' ' -f1)\" \"$meta\"; "
+        "else "
+        "printf '%s|other|-|%s\\n' \"$entry\" \"$meta\"; "
+        "fi; done"
     )
     return f"sudo -n sh -c {shlex.quote(script)}"
 
@@ -2454,14 +2523,30 @@ def cmd_remote_daemon_reload() -> str:
     return "sudo -n systemctl daemon-reload"
 
 
-def cmd_remote_unit_enabled_state(unit: str) -> str:
-    return f"sudo -n systemctl is-enabled {unit}"
+def cmd_remote_unit_state(unit: str) -> str:
+    """Observed load, enablement and activity of one installed unit.
+
+    ``query-failed`` means the privileged query itself failed; an absent unit
+    reports an empty or ``not-found`` load state instead.
+    """
+    quoted = shlex.quote(unit)
+    return (
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; exit 0; fi\n"
+        f"load=$(sudo -n systemctl show -p LoadState --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        f"enabled=$(sudo -n systemctl show -p UnitFileState --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        f"active=$(sudo -n systemctl show -p ActiveState --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        "printf 'load=%s enabled=%s active=%s' \"$load\" \"$enabled\" \"$active\""
+    )
 
 
 def cmd_remote_list_directory(path: str) -> str:
     quoted = shlex.quote(path)
     return (
-        f"if sudo -n test -d {quoted}; then sudo -n ls -1 {quoted}; "
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; "
+        f"elif sudo -n test -d {quoted}; then sudo -n ls -1 {quoted}; "
         "else printf %s absent; fi"
     )
 
@@ -2508,9 +2593,17 @@ def cmd_remote_assert_account_renamed(uid: int, gid: int) -> str:
 
 
 def cmd_remote_account_processes_absent(user: str) -> str:
+    """Process count for one account, or ``query-failed``.
+
+    A failing ``ps`` (unknown account, broken query) must not be read as the
+    successful absence of processes.
+    """
+    quoted = shlex.quote(user)
     return (
-        "count=$(ps -u " + shlex.quote(user) + " -o pid= 2>/dev/null | wc -l); "
-        'printf %s "$count"'
+        f"if ! ps -u {quoted} -o pid= >/dev/null 2>&1; then "
+        "printf %s query-failed; "
+        f"else count=$(ps -u {quoted} -o pid= 2>/dev/null | wc -l); "
+        'printf %s "$count"; fi'
     )
 
 
@@ -2528,16 +2621,6 @@ def cmd_remote_tailscale_replace(mount: str, target: str) -> str:
 
 def cmd_remote_validate_sudoers(path: str) -> str:
     return f"sudo -n visudo -cf {shlex.quote(path)}"
-
-
-def cmd_remote_switch_layout_release(
-    target: str, layout: WebLayout
-) -> str:
-    return (
-        "set -e\n"
-        f"sudo -n ln -s {shlex.quote(target)} {layout.current}.next\n"
-        f"sudo -n mv -T {layout.current}.next {layout.current}"
-    )
 
 
 def cmd_remote_prepare_migration_release(old_release: str, staging: str) -> str:
@@ -2721,11 +2804,15 @@ def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
 def migration_journal_payload(plan: MigrationPlan) -> dict[str, object]:
     return {
         "plan_version": MIGRATION_PLAN_VERSION,
+        "journal_version": MIGRATION_JOURNAL_VERSION,
         "plan_digest": plan.plan_digest,
         "release_sha": plan.release_sha,
         "old_layout": plan.old_layout.key,
         "new_layout": plan.new_layout.key,
         "completed_phases": [],
+        "current_phase": None,
+        "substeps": {},
+        "writes_possible": False,
         "writes_admitted": False,
         "outcome": "running",
     }
@@ -2733,6 +2820,65 @@ def migration_journal_payload(plan: MigrationPlan) -> dict[str, object]:
 
 def migration_is_post_write(completed_phases: Sequence[str]) -> bool:
     return MIGRATION_CUTOVER_PHASE in completed_phases
+
+
+def migration_writes_possible(journal: Mapping[str, object]) -> bool:
+    """Whether the new application may already have admitted writes.
+
+    Recovery selection reads the durable ``writes_possible`` boundary recorded
+    before the new service was started. The completed-phase list is a fallback
+    for older journals, never the primary signal.
+    """
+    if journal.get("writes_possible") or journal.get("writes_admitted"):
+        return True
+    return migration_is_post_write(list(journal.get("completed_phases", [])))
+
+
+def migration_control_conflicts(
+    control_directory: str, copy_moves: Sequence[tuple[str, str]]
+) -> tuple[str, ...]:
+    """Copy roots that overlap the control directory, derived from the plan.
+
+    The control directory must be outside every copy source and destination, in
+    both containment directions: inside a destination would make the
+    destination exist before the copy, and containing one would create it while
+    writing control state.
+    """
+    control = control_directory.rstrip("/")
+    conflicts: list[str] = []
+    for source, destination in copy_moves:
+        for root in (source, destination):
+            normalized = root.rstrip("/")
+            if not normalized:
+                continue
+            if (
+                control == normalized
+                or control.startswith(normalized + "/")
+                or normalized.startswith(control + "/")
+            ):
+                conflicts.append(normalized)
+    return tuple(dict.fromkeys(conflicts))
+
+
+def parse_remote_unit_state(raw: str) -> dict[str, object]:
+    """Classify one unit-state answer without reading a failed query as absent."""
+    text = raw.strip()
+    if text == "query-failed":
+        raise ReleaseError("unit state query failed", EXIT_MIGRATION)
+    fields: dict[str, str] = {}
+    for item in text.split():
+        key, separator, value = item.partition("=")
+        if separator:
+            fields[key] = value
+    load_state = fields.get("load", "")
+    if load_state in ("", "not-found"):
+        return {"installed": False, "load": load_state, "enabled": "", "active": ""}
+    return {
+        "installed": True,
+        "load": load_state,
+        "enabled": fields.get("enabled", ""),
+        "active": fields.get("active", ""),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2747,13 +2893,6 @@ def canonical_unit_name(old_name: str) -> str:
     for old, new, _required in MIGRATION_UNIT_ARTIFACTS:
         if old == old_name:
             return new
-    raise ReleaseError("unknown migration unit", EXIT_MIGRATION)
-
-
-def migration_unit_required(old_name: str) -> bool:
-    for old, _new, required in MIGRATION_UNIT_ARTIFACTS:
-        if old == old_name:
-            return required
     raise ReleaseError("unknown migration unit", EXIT_MIGRATION)
 
 
@@ -2783,26 +2922,55 @@ class RemoteMigrationHost:
         self.plan = plan
         self.engine_path = engine_path
         self.repository_root = repository_root
+        self._active_journal: dict[str, object] | None = None
+        self._lock_decision: DeployLockDecision | None = None
 
     # -- journal, manifest, lock ------------------------------------------
 
+    def bind_journal(self, journal: dict[str, object]) -> None:
+        """Attach the live journal so substep outcomes persist durably."""
+        self._active_journal = journal
+
+    def _persist_substep(self, name: str, value: object) -> None:
+        if self._active_journal is None:
+            return
+        substeps = self._active_journal.setdefault("substeps", {})
+        if isinstance(substeps, dict):
+            substeps[name] = value
+        self.write_journal(self._active_journal)
+
+    def _assert_control_location(self) -> None:
+        conflicts = migration_control_conflicts(
+            MIGRATION_DIRECTORY, self.plan.copy_moves
+        )
+        if conflicts:
+            raise ReleaseError(
+                "identity migration control state overlaps copied state roots",
+                EXIT_MIGRATION,
+            )
+
     def read_journal(self) -> dict[str, object] | None:
+        self._assert_control_location()
         raw = ssh(
             self.runner,
             **self.transport,
             remote_command=cmd_remote_read_optional_file(MIGRATION_JOURNAL_PATH),
         ).strip()
+        if raw == "query-failed":
+            raise ReleaseError("migration journal state is unverifiable", EXIT_MIGRATION)
         if raw == "absent":
             return None
         return parse_json_status(raw)
 
     def write_journal(self, payload: dict[str, object]) -> None:
+        self._assert_control_location()
         self._write_root_file(
             MIGRATION_JOURNAL_PATH,
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
         )
 
     def write_recovery_manifest(self, payload: dict[str, object]) -> None:
+        self._assert_control_location()
         self._write_root_file(
             MIGRATION_RECOVERY_MANIFEST_PATH,
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
@@ -2820,65 +2988,64 @@ class RemoteMigrationHost:
         ssh(
             self.runner,
             **self.transport,
-            remote_command=cmd_remote_write_file(path, digest),
+            remote_command=cmd_remote_write_file_atomic(path, digest),
             input_bytes=payload,
         )
 
     def acquire_lock(self) -> str:
-        owner = deploy_lock_owner_record()
-        try:
-            ssh(
-                self.runner,
-                **self.transport,
-                remote_command=f"sudo -n mkdir -m 0700 {MIGRATION_LOCK_DIR}",
-            )
-        except ReleaseError as exc:
-            existing = ssh(
-                self.runner,
-                **self.transport,
-                remote_command=f"sudo -n cat {shlex.quote(MIGRATION_LOCK_OWNER_PATH)}",
-            )
-            reason = classify_deploy_lock_owner(existing, owner)
-            if reason is None:
-                raise ReleaseError(
-                    "existing migration lock owned by another run",
-                    EXIT_EXISTS,
-                ) from exc
-            quarantine = f"{MIGRATION_LOCK_DIR}.reclaimed-{reason}"
-            ssh(
-                self.runner,
-                **self.transport,
-                remote_command=(
-                    f"sudo -n mv -T {MIGRATION_LOCK_DIR} {shlex.quote(quarantine)}"
-                ),
-            )
-            ssh(
-                self.runner,
-                **self.transport,
-                remote_command=f"sudo -n mkdir -m 0700 {MIGRATION_LOCK_DIR}",
-            )
-        ssh(
-            self.runner,
-            **self.transport,
-            remote_command=(
-                "sudo -n sh -c 'umask 077; cat > "
-                f"{shlex.quote(MIGRATION_LOCK_OWNER_PATH)}'"
-            ),
-            input_bytes=owner.encode("ascii"),
+        """Take the one routine deployment exclusion, shared with deploy/rollback."""
+        decision = acquire_deploy_lock(
+            self.runner, self.transport, deploy_lock_owner_record()
         )
-        return owner
+        self._lock_decision = decision
+        return decision.outcome
 
     def release_lock(self) -> None:
-        for command in (
-            f"sudo -n rm -f {shlex.quote(MIGRATION_LOCK_OWNER_PATH)}",
-            f"sudo -n rmdir {MIGRATION_LOCK_DIR}",
-        ):
-            with contextlib.suppress(ReleaseError):
-                ssh(self.runner, **self.transport, remote_command=command)
+        decision = self._lock_decision
+        if decision is None:
+            return
+        self._lock_decision = None
+        # The remote helper this apply wrote into the routine deploy scratch
+        # directory is this run's exact owned file; removing it lets the shared
+        # lock directory be released cleanly. The shared exclusion guarantees no
+        # concurrent routine deploy owns that path.
+        with contextlib.suppress(ReleaseError):
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_remove_file(
+                    f"{REMOTE_DEPLOY_DIR}/framenest_release.py"
+                ),
+            )
+        release_deploy_lock(self.runner, self.transport, decision)
 
     # -- phases ------------------------------------------------------------
 
+    def observe_writer_state(self) -> dict[str, dict[str, object]]:
+        """Record observed writer unit installation, enablement and activity."""
+        units: list[str] = []
+        for unit in (self.plan.old_layout.service, *self.plan.installed_units):
+            if unit not in units:
+                units.append(unit)
+        observed: dict[str, dict[str, object]] = {}
+        for unit in units:
+            state = parse_remote_unit_state(
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_unit_state(unit),
+                )
+            )
+            if not state["installed"]:
+                raise ReleaseError(
+                    "an observed migration writer unit is absent", EXIT_MIGRATION
+                )
+            observed[unit] = state
+        self._persist_substep("observed_units", observed)
+        return observed
+
     def quiesce(self) -> list[str]:
+        self.observe_writer_state()
         stopped = self.stop_writers()
         self.assert_no_legacy_writers()
         self._capture_before = self.capture_snapshot()
@@ -2888,7 +3055,7 @@ class RemoteMigrationHost:
         stopped: list[str] = []
         units = [self.plan.old_layout.service]
         for old_name in self.plan.installed_units:
-            if old_name == "framenest.service":
+            if old_name == self.plan.old_layout.service:
                 continue
             units.append(old_name)
         for unit in units:
@@ -2898,11 +3065,12 @@ class RemoteMigrationHost:
                     **self.transport,
                     remote_command=cmd_remote_stop_unit(unit),
                 )
-                stopped.append(unit)
             except ReleaseError as exc:
                 raise ReleaseError(
                     "could not stop migration writers", EXIT_MIGRATION
                 ) from exc
+            stopped.append(unit)
+            self._persist_substep("writers_stopped", list(stopped))
         return stopped
 
     def assert_no_legacy_writers(self) -> None:
@@ -2913,6 +3081,10 @@ class RemoteMigrationHost:
                 self.plan.old_layout.user
             ),
         ).strip()
+        if count == "query-failed":
+            raise ReleaseError(
+                "former web account process state is unverifiable", EXIT_MIGRATION
+            )
         if count != "0":
             raise ReleaseError(
                 "a process still runs as the former web account", EXIT_MIGRATION
@@ -2971,11 +3143,20 @@ class RemoteMigrationHost:
     def copy_state(self) -> list[str]:
         verified: list[str] = []
         for source, destination in self.plan.copy_moves:
-            ssh(
+            state = ssh(
                 self.runner,
                 **self.transport,
-                remote_command=cmd_remote_test_absent_or_fail(destination),
-            )
+                remote_command=cmd_remote_directory_state(destination),
+            ).strip()
+            if state == "query-failed":
+                raise ReleaseError(
+                    "copy destination state is unverifiable", EXIT_MIGRATION
+                )
+            if state != "absent":
+                raise ReleaseError(
+                    "copy destination is not absent; refusing to overwrite",
+                    EXIT_MIGRATION,
+                )
             ssh(
                 self.runner,
                 **self.transport,
@@ -3064,11 +3245,14 @@ class RemoteMigrationHost:
         for value in (self.plan.export_installed, self.plan.sudo_rule_installed):
             if value is None:
                 continue
-            existence = ssh(
-                self.runner,
-                **self.transport,
-                remote_command=cmd_remote_existence(value),
-            ).strip()
+            existence = _require_query_result(
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_existence(value),
+                ),
+                f"ancillary integration {value}",
+            )
             if existence != "present":
                 raise ReleaseError(
                     "an existing ancillary integration disappeared", EXIT_MIGRATION
@@ -3090,14 +3274,17 @@ class RemoteMigrationHost:
                     input_bytes=payload,
                 )
         if self.plan.sudo_rule_installed is not None:
-            raw = ssh(
-                self.runner,
-                **self.transport,
-                remote_command=cmd_remote_read_optional_file(
-                    self.plan.sudo_rule_installed
+            raw = _require_query_result(
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_read_optional_file(
+                        self.plan.sudo_rule_installed
+                    ),
                 ),
+                "installed sudo rule",
             )
-            if raw.strip() != "absent":
+            if raw != "absent":
                 transformed = transform_unit_dropin_text(raw)
                 canonical = canonical_installed_sudo_rule_path(
                     self.plan.sudo_rule_installed
@@ -3247,16 +3434,21 @@ class RemoteMigrationHost:
             if self.plan.account_home == self.plan.old_layout.state_root
             else None
         )
+        # Intent is persisted before each rename command so a partially executed
+        # rename is still reversible: the record means "may already have run".
+        self._persist_substep("group_renamed", True)
         ssh(
             self.runner,
             **self.transport,
             remote_command=cmd_remote_rename_group(),
         )
+        self._persist_substep("user_renamed", True)
         ssh(
             self.runner,
             **self.transport,
             remote_command=cmd_remote_rename_user(home),
         )
+        self._persist_substep("account_home", home or self.plan.account_home)
         ssh(
             self.runner,
             **self.transport,
@@ -3288,12 +3480,15 @@ class RemoteMigrationHost:
             installed.append(new_name)
         for dropin_name in self.plan.installed_dropins:
             source = f"{migration_dropin_directory(self.plan.old_layout)}/{dropin_name}"
-            raw = ssh(
-                self.runner,
-                **self.transport,
-                remote_command=cmd_remote_read_optional_file(source),
+            raw = _require_query_result(
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_read_optional_file(source),
+                ),
+                f"installed drop-in {dropin_name}",
             )
-            if raw.strip() == "absent":
+            if raw == "absent":
                 continue
             transformed = transform_unit_dropin_text(raw)
             payload = transformed.encode("utf-8")
@@ -3456,13 +3651,14 @@ class RemoteMigrationHost:
         return resumed
 
     def recover_pre_write(self, journal: dict[str, object]) -> None:
-        """Restore the verified former layout; no new writes exist to keep.
+        """Restore the observed former layout; no new writes exist to keep.
 
         Every phase before the cutover runs with the former service stopped and
         the catalog quiescent, so the copied state is a verified copy of the
-        same bytes and the former layout can be restored. The reverse account
-        rename is issued only when the forward rename completed, and it keeps
-        the recorded numeric UID and GID.
+        same bytes and the former layout can be restored. The reverse rename is
+        driven by the durable substep record, so a partially executed rename is
+        reversed too, and the observed unit enablement and activity are restored
+        rather than re-enabled unconditionally.
         """
         stop_layout = self.plan.new_layout
         for command in (
@@ -3471,25 +3667,51 @@ class RemoteMigrationHost:
         ):
             with contextlib.suppress(ReleaseError):
                 ssh(self.runner, **self.transport, remote_command=command)
+        substeps = journal.get("substeps")
+        if not isinstance(substeps, dict):
+            substeps = {}
         completed = list(journal.get("completed_phases", []))
-        if MIGRATION_PHASE_RENAME_ACCOUNT in completed:
+        legacy = not substeps
+        rename_phase_done = MIGRATION_PHASE_RENAME_ACCOUNT in completed
+        group_renamed = bool(substeps.get("group_renamed")) or (
+            legacy and rename_phase_done
+        )
+        user_renamed = bool(substeps.get("user_renamed")) or (
+            legacy and rename_phase_done
+        )
+        if group_renamed:
             with contextlib.suppress(ReleaseError):
                 ssh(
                     self.runner,
                     **self.transport,
                     remote_command="sudo -n groupmod -n framenest kronika",
                 )
+        if user_renamed:
+            if self.plan.account_home == self.plan.old_layout.state_root:
+                reverse_user = (
+                    "sudo -n usermod -l framenest -d "
+                    f"{shlex.quote(self.plan.account_home)} kronika"
+                )
+            else:
+                reverse_user = "sudo -n usermod -l framenest kronika"
             with contextlib.suppress(ReleaseError):
                 ssh(
                     self.runner,
                     **self.transport,
-                    remote_command="sudo -n usermod -l framenest kronika",
+                    remote_command=reverse_user,
                 )
-        ssh(
-            self.runner,
-            **self.transport,
-            remote_command=cmd_remote_start_unit(self.plan.old_layout.service),
-        )
+        observed = substeps.get("observed_units")
+        if isinstance(observed, dict) and observed:
+            self._restore_observed_units(observed)
+            return
+        # Legacy journals carry no observed unit state; restore the former
+        # service and every installed timer as the previous contract did.
+        with contextlib.suppress(ReleaseError):
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_start_unit(self.plan.old_layout.service),
+            )
         for old_name in self.plan.installed_units:
             if not old_name.endswith(".timer"):
                 continue
@@ -3506,6 +3728,35 @@ class RemoteMigrationHost:
                     remote_command=cmd_remote_start_unit(old_name),
                 )
 
+    def _restore_observed_units(
+        self, observed: Mapping[str, object]
+    ) -> None:
+        for unit, raw_state in observed.items():
+            if not isinstance(raw_state, dict) or not raw_state.get("installed"):
+                continue
+            enabled = raw_state.get("enabled")
+            if enabled in ("enabled", "enabled-runtime"):
+                with contextlib.suppress(ReleaseError):
+                    ssh(
+                        self.runner,
+                        **self.transport,
+                        remote_command=cmd_remote_enable_unit(unit),
+                    )
+            elif enabled in ("disabled", "masked", "masked-runtime"):
+                with contextlib.suppress(ReleaseError):
+                    ssh(
+                        self.runner,
+                        **self.transport,
+                        remote_command=cmd_remote_disable_unit(unit),
+                    )
+            if raw_state.get("active") in WEB_ACTIVE_STATES:
+                with contextlib.suppress(ReleaseError):
+                    ssh(
+                        self.runner,
+                        **self.transport,
+                        remote_command=cmd_remote_start_unit(unit),
+                    )
+
     def recover_post_write(self, journal: dict[str, object]) -> None:
         """Never restore the stale copied state after the new application writes.
 
@@ -3513,11 +3764,12 @@ class RemoteMigrationHost:
         copied catalog is no longer the current state. This branch keeps the new
         layout and the current state in place and leaves the forward recovery
         decision to an explicitly authorized grant; it does not copy state back,
-        does not rename the account back, and does not restart capture.
+        does not rename the account back, and does not restart capture. The
+        durable ``writes_possible`` boundary is what selects this branch.
         """
-        if not migration_is_post_write(list(journal.get("completed_phases", []))):
+        if not migration_writes_possible(journal):
             raise ReleaseError(
-                "post-write recovery selected before the cutover phase",
+                "post-write recovery selected without a durable writes boundary",
                 EXIT_MIGRATION,
             )
 
@@ -3588,18 +3840,42 @@ def run_migration_apply(
     """Execute the ordered apply sequence against one host adapter.
 
     The orchestration itself is host-agnostic: tests drive the same sequence
-    with a simulated host and failure injection. A failure after any phase
-    selects exactly one recovery branch based on whether the cutover phase
-    completed.
+    with a simulated host and failure injection. The routine deployment
+    exclusion is taken before any control state is written; an existing
+    incomplete journal is preserved and refuses a fresh apply. Each phase
+    records its intent before it runs and its completion only after it
+    succeeded, and the conservative ``writes_possible`` boundary is persisted
+    before the new service is started, so recovery never infers the write
+    boundary from a completed-phase list alone.
     """
     journal = migration_journal_payload(plan)
-    host.write_recovery_manifest(plan.recovery_manifest())
-    host.write_journal(journal)
     host.acquire_lock()
     try:
+        existing = host.read_journal()
+        if existing is not None:
+            raise ReleaseError(
+                "an existing identity migration journal is preserved; "
+                "explicit recovery is required first",
+                EXIT_MIGRATION,
+            )
+        host.write_recovery_manifest(plan.recovery_manifest())
+        host.write_journal(journal)
+    except ReleaseError:
+        with contextlib.suppress(ReleaseError):
+            host.release_lock()
+        raise
+    bind = getattr(host, "bind_journal", None)
+    if callable(bind):
+        bind(journal)
+    try:
         for phase in MIGRATION_PHASES:
+            if phase == MIGRATION_CUTOVER_PHASE:
+                journal["writes_possible"] = True
+            journal["current_phase"] = phase
+            host.write_journal(journal)
             getattr(host, _MIGRATION_PHASE_METHODS[phase])()
             journal["completed_phases"].append(phase)
+            journal["current_phase"] = None
             if phase == MIGRATION_CUTOVER_PHASE:
                 journal["writes_admitted"] = True
             host.write_journal(journal)
@@ -3610,8 +3886,7 @@ def run_migration_apply(
         journal["outcome"] = "failed"
         with contextlib.suppress(ReleaseError):
             host.write_journal(journal)
-        completed = list(journal["completed_phases"])
-        if migration_is_post_write(completed):
+        if migration_writes_possible(journal):
             host.recover_post_write(journal)
         else:
             host.recover_pre_write(journal)
@@ -3656,6 +3931,14 @@ def canonical_installed_sudo_rule_path(current: str) -> str:
     return current
 
 
+def _require_query_result(raw: str, context: str) -> str:
+    """Refuse a privileged query failure instead of reading it as absence."""
+    text = raw.strip()
+    if text == "query-failed":
+        raise ReleaseError(f"{context} could not be queried", EXIT_MIGRATION)
+    return text
+
+
 def read_migration_observation(
     runner: Runner,
     transport: dict[str, str],
@@ -3670,17 +3953,22 @@ def read_migration_observation(
     new_layout = NEW_WEB_LAYOUT
 
     old_release = old_layout.release_dir(release_sha)
-    if ssh(
-        runner, **transport, remote_command=cmd_remote_existence(old_release)
-    ).strip() != "present":
+    existence = _require_query_result(
+        ssh(runner, **transport, remote_command=cmd_remote_existence(old_release)),
+        "former release tree",
+    )
+    if existence != "present":
         raise ReleaseError("former release tree is absent", EXIT_MIGRATION)
 
-    environment_raw = ssh(
-        runner,
-        **transport,
-        remote_command=cmd_remote_read_optional_file(old_layout.env_file),
+    environment_raw = _require_query_result(
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_optional_file(old_layout.env_file),
+        ),
+        "former environment file",
     )
-    if environment_raw.strip() == "absent":
+    if environment_raw == "absent":
         raise ReleaseError("former environment file is absent", EXIT_MIGRATION)
 
     copy_sources: list[tuple[str, str]] = []
@@ -3689,33 +3977,41 @@ def read_migration_observation(
         (old_layout.cache_root, new_layout.cache_root),
         ("/etc/framenest/credentials", "/etc/kronika/credentials"),
     ):
-        if ssh(
-            runner, **transport, remote_command=cmd_remote_existence(old_root)
-        ).strip() == "present":
+        existence = _require_query_result(
+            ssh(runner, **transport, remote_command=cmd_remote_existence(old_root)),
+            f"state root {old_root}",
+        )
+        if existence == "present":
             copy_sources.append((old_root, new_root))
 
     installed_units: list[str] = []
     for old_name, _new_name, required in MIGRATION_UNIT_ARTIFACTS:
-        existence = ssh(
-            runner,
-            **transport,
-            remote_command=cmd_remote_existence(
-                f"/etc/systemd/system/{old_name}"
+        existence = _require_query_result(
+            ssh(
+                runner,
+                **transport,
+                remote_command=cmd_remote_existence(
+                    f"/etc/systemd/system/{old_name}"
+                ),
             ),
-        ).strip()
+            f"installed unit {old_name}",
+        )
         if existence == "present":
             installed_units.append(old_name)
         elif required:
             raise ReleaseError(
                 "the installed web unit is absent", EXIT_MIGRATION
             )
-    dropin_listing = ssh(
-        runner,
-        **transport,
-        remote_command=cmd_remote_list_directory(
-            migration_dropin_directory(old_layout)
+    dropin_listing = _require_query_result(
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_list_directory(
+                migration_dropin_directory(old_layout)
+            ),
         ),
-    ).strip()
+        "installed drop-in directory",
+    )
     installed_dropins = tuple(
         sorted(
             line
@@ -3726,11 +4022,14 @@ def read_migration_observation(
 
     credential_sources: list[str] = []
     credentials_root = "/etc/framenest/credentials"
-    credentials_listing = ssh(
-        runner,
-        **transport,
-        remote_command=cmd_remote_list_directory(credentials_root),
-    ).strip()
+    credentials_listing = _require_query_result(
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_list_directory(credentials_root),
+        ),
+        "credential source directory",
+    )
     if credentials_listing != "absent":
         credential_sources = [
             f"{credentials_root}/{line}"
@@ -3740,16 +4039,20 @@ def read_migration_observation(
 
     export_installed = None
     for candidate in MIGRATION_EXPORT_INSTALLED_CANDIDATES:
-        if ssh(
-            runner, **transport, remote_command=cmd_remote_existence(candidate)
-        ).strip() == "present":
+        existence = _require_query_result(
+            ssh(runner, **transport, remote_command=cmd_remote_existence(candidate)),
+            f"export facility {candidate}",
+        )
+        if existence == "present":
             export_installed = candidate
             break
     sudo_rule_installed = None
     for candidate in MIGRATION_SUDO_RULE_CANDIDATES:
-        if ssh(
-            runner, **transport, remote_command=cmd_remote_existence(candidate)
-        ).strip() == "present":
+        existence = _require_query_result(
+            ssh(runner, **transport, remote_command=cmd_remote_existence(candidate)),
+            f"sudo rule {candidate}",
+        )
+        if existence == "present":
             sudo_rule_installed = candidate
             break
 
@@ -4693,6 +4996,8 @@ def _cmd_capture_transition(args: argparse.Namespace, runner: Runner) -> int:
         **transport,
         remote_command=cmd_remote_read_optional_link(state.capture_current),
     ).strip()
+    if capture_link == "query-failed":
+        raise ReleaseError("capture release pointer state is unverifiable", EXIT_LAYOUT)
     if capture_link != "absent":
         validate_remote_path(capture_link, state.capture_release_root)
         current_capture = read_release_markers(

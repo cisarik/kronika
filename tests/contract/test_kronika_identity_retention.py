@@ -529,12 +529,32 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # test_catalog_backup_workstation.py`, `unit/infrastructure/filesystem/
     # test_media_sidecar_store.py` and `unit/infrastructure/media_analysis/
     # test_movie_contact_sheet_selection.py`. Sum -24; net +2.
-    "tests": 2008,
+    #
+    # KSI-IMPL-C6P1 moved `tests` by +41 and `deploy` by +1, and nothing else.
+    #
+    # `deploy` +1, one file: `kronika_release.py` adds three retired spellings
+    # and removes two, for +1 net. Added: the exact owned helper path
+    # `{REMOTE_DEPLOY_DIR}/framenest_release.py` that the shared-lock release
+    # removes, and the two conditional reverse-rename forms
+    # (`usermod -l framenest -d ...` / `usermod -l framenest kronika`) that
+    # replace the single unconditional reverse command. Removed: the
+    # `"framenest.service"` literal skip in `stop_writers`, now the layout's own
+    # service name, and the single old reverse command.
+    #
+    # `tests` +41, one file: `test_kronika_identity_migration.py` adds 42 and
+    # removes one. The additions are the C6-P1 stateful production-adapter
+    # boundary and its matrix: the former account/group/state-root fixtures, the
+    # three writer unit names with their enablement and activity, the reverse
+    # rename assertions, the shared-exclusion concurrency assertions, the
+    # durable-boundary recovery-selection assertions and the observed-schedule
+    # restoration assertions. The one removal is the legacy reverse-rename
+    # assertion, which now pins the `-d /var/lib/framenest` form.
+    "tests": 2049,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
     # historical release tree still resolves.
-    "deploy": 243,
+    "deploy": 244,
     "scripts": 86,
     "docs": 1216,
     "extension": 145,
@@ -1201,11 +1221,20 @@ MUTATION_HEADER_FILE_COUNT = 30
 # roots, the former environment file and one credential source path. The
 # frozen mount +10 is the two new canonical artifacts that name it (2 + 1) and
 # seven occurrences in the new test file. No existing literal was rewritten.
+#
+# KSI-IMPL-C6P1 moved `/var/lib/framenest` by +11 and
+# `/var/cache/framenest` by +2, and moved no other host literal. All of it is
+# the new C6-P1 stateful boundary in `test_kronika_identity_migration.py`:
+# eleven former state-root fixtures and assertions (the copied catalog tree,
+# the account home, the link target, the observed-home reverse rename and the
+# conflict plan) and two former cache-root fixtures. The engine adds no host
+# literal; the moved journal path is the new sibling
+# `/var/lib/kronika-identity-migration`.
 HOST_PATH_OCCURRENCE_COUNT = {
     "/opt/framenest": 223,
     "/etc/framenest": 83,
-    "/var/lib/framenest": 109,
-    "/var/cache/framenest": 29,
+    "/var/lib/framenest": 120,
+    "/var/cache/framenest": 31,
     "/mnt/framenest-catalog-offdevice": 23,
 }
 

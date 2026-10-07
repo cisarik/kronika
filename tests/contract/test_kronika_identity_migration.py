@@ -617,6 +617,10 @@ class SimulatedMigrationHost:
         self.journals: list[dict[str, object]] = []
         self.recovery_manifest: dict[str, object] | None = None
         self.journal: dict[str, object] | None = None
+        self.existing_journal: dict[str, object] | None = None
+        self.fail_journal_once_after: str | None = None
+        self._journal_failure_spent = False
+        self.call_log: list[str] = []
         self.locked = False
         self.account = {"name": "framenest", "uid": plan.account_uid, "gid": plan.account_gid}
         self.useradd_calls = 0
@@ -647,21 +651,41 @@ class SimulatedMigrationHost:
     # -- non-phase methods ------------------------------------------------
 
     def write_journal(self, payload: dict[str, object]) -> None:
+        self.call_log.append("write_journal")
+        if (
+            self.fail_journal_once_after is not None
+            and not self._journal_failure_spent
+            and payload.get("outcome") == "running"
+            and list(payload.get("completed_phases", []))[-1:]
+            == [self.fail_journal_once_after]
+        ):
+            self._journal_failure_spent = True
+            raise engine.ReleaseError(
+                "simulated journal write failure", engine.EXIT_MIGRATION
+            )
         self.journal = copy.deepcopy(payload)
         self.journals.append(copy.deepcopy(payload))
 
+    def read_journal(self) -> dict[str, object] | None:
+        self.call_log.append("read_journal")
+        return self.existing_journal
+
     def write_recovery_manifest(self, payload: dict[str, object]) -> None:
+        self.call_log.append("write_recovery_manifest")
         self.recovery_manifest = copy.deepcopy(payload)
 
     def acquire_lock(self) -> str:
+        self.call_log.append("acquire_lock")
         self.locked = True
         return "simulated-owner"
 
     def release_lock(self) -> None:
+        self.call_log.append("release_lock")
         self.locked = False
 
     def recover_pre_write(self, journal: dict[str, object]) -> None:
-        assert not engine.migration_is_post_write(list(journal["completed_phases"]))
+        self.call_log.append("recover_pre_write")
+        assert not engine.migration_writes_possible(journal)
         self.recovered = "pre-write"
         self.account["name"] = "framenest"
         self.account_count = 1
@@ -670,7 +694,8 @@ class SimulatedMigrationHost:
         self.stale_state_restored = False
 
     def recover_post_write(self, journal: dict[str, object]) -> None:
-        assert engine.migration_is_post_write(list(journal["completed_phases"]))
+        self.call_log.append("recover_post_write")
+        assert engine.migration_writes_possible(journal)
         self.recovered = "post-write"
         self.forward_recovery_required = True
         self.stale_state_restored = False
@@ -683,6 +708,7 @@ class SimulatedMigrationHost:
             raise AttributeError(name)
 
         def phase_method():
+            self.call_log.append(name)
             if self.fail_phase == name:
                 raise engine.ReleaseError(
                     "simulated phase failure", engine.EXIT_MIGRATION
@@ -775,7 +801,7 @@ def test_failure_injection_after_every_phase(
     completed = list(engine.MIGRATION_PHASES[:fail_index])
     assert host.journals[-1]["completed_phases"] == completed
     assert host.journals[-1]["outcome"] == "failed"
-    post_write = engine.migration_is_post_write(completed)
+    post_write = engine.migration_writes_possible(host.journals[-1])
     assert host.recovered == ("post-write" if post_write else "pre-write")
 
     # UID/GID survive every branch, exactly one account exists, and no phase
@@ -1163,6 +1189,8 @@ def test_production_copy_state_verifies_before_it_continues() -> None:
     def runner(argv, input_bytes):
         combined = " ".join(argv)
         calls.append(combined)
+        if "not-a-directory" in combined:
+            return "absent"
         if "find ." in combined:
             if "/var/cache/framenest" in combined:
                 return "manifest-cache-source"
@@ -1181,6 +1209,8 @@ def test_production_copy_state_verifies_before_it_continues() -> None:
 def test_production_copy_state_accepts_a_matching_manifest() -> None:
     def runner(argv, input_bytes):
         combined = " ".join(argv)
+        if "not-a-directory" in combined:
+            return "absent"
         if "find ." in combined:
             if "/var/cache/kronika" in combined:
                 return "cache-manifest"
@@ -1310,7 +1340,7 @@ def test_production_pre_write_recovery_restores_the_old_layout_and_writers() -> 
     )
     transcript = "\n".join(calls)
     assert "groupmod -n framenest kronika" in transcript
-    assert "usermod -l framenest kronika" in transcript
+    assert "usermod -l framenest -d /var/lib/framenest kronika" in transcript
     assert "start framenest.service" in transcript
     assert "start framenest-catalog-backup.timer" in transcript
     assert "disable kronika.service" in transcript
@@ -1471,3 +1501,831 @@ def test_canonical_artifacts_are_never_installed_by_routine_commands(
         assert "groupmod" not in transcript
         assert "usermod" not in transcript
         assert "tailscale serve --bg" not in transcript
+
+
+# ---------------------------------------------------------------------------
+# C6-P1: stateful production-adapter boundary
+# ---------------------------------------------------------------------------
+
+
+class RemoteBoundary:
+    """A stateful in-memory model of the remote filesystem and unit manager.
+
+    It executes the exact production command builders and mutates its own state,
+    so a production ``RemoteMigrationHost`` method sees the effects of the
+    commands it issued. Unknown commands raise instead of succeeding, so a test
+    cannot pass vacuously.
+    """
+
+    def __init__(self) -> None:
+        self.paths: dict[str, dict[str, object]] = {}
+        self.calls: list[str] = []
+        self.privilege_ok = True
+        self.ps_query_ok = True
+        self.process_counts: dict[str, int] = {}
+        self.users: dict[str, dict[str, object]] = {
+            "framenest": {"uid": 1001, "gid": 1001, "home": "/var/lib/framenest"}
+        }
+        self.groups: dict[str, dict[str, object]] = {"framenest": {"gid": 1001}}
+        self.units: dict[str, dict[str, object]] = {}
+        self.fail_atomic_write = False
+        self.fail_atomic_rename = False
+        self.fail_groupmod = False
+
+    # -- state helpers ----------------------------------------------------
+
+    def _ensure_parents(self, path: str) -> None:
+        parent = str(Path(path).parent)
+        while parent not in ("", "/") and parent not in self.paths:
+            grand = str(Path(parent).parent)
+            self.paths[parent] = {
+                "kind": "dir",
+                "mode": 0o755,
+                "owner": "root",
+                "group": "root",
+            }
+            parent = grand
+
+    def add_dir(
+        self, path: str, mode: int = 0o755, owner: str = "root", group: str = "root"
+    ) -> None:
+        self._ensure_parents(path)
+        self.paths[path] = {"kind": "dir", "mode": mode, "owner": owner, "group": group}
+
+    def add_file(
+        self,
+        path: str,
+        data: bytes,
+        mode: int = 0o644,
+        owner: str = "root",
+        group: str = "root",
+    ) -> None:
+        self._ensure_parents(path)
+        self.paths[path] = {
+            "kind": "file",
+            "data": data,
+            "mode": mode,
+            "owner": owner,
+            "group": group,
+        }
+
+    def add_link(
+        self, path: str, target: str, owner: str = "root", group: str = "root"
+    ) -> None:
+        self._ensure_parents(path)
+        self.paths[path] = {
+            "kind": "link",
+            "target": target,
+            "mode": 0o777,
+            "owner": owner,
+            "group": group,
+        }
+
+    def exists(self, path: str) -> bool:
+        return path in self.paths
+
+    def children(self, path: str) -> list[str]:
+        prefix = path.rstrip("/") + "/"
+        return sorted(
+            entry[len(prefix):]
+            for entry in self.paths
+            if entry.startswith(prefix) and "/" not in entry[len(prefix):]
+        )
+
+    def _require(self, path: str) -> dict[str, object]:
+        if path not in self.paths:
+            raise engine.ReleaseError(f"no such path: {path}", engine.EXIT_TRANSPORT)
+        return self.paths[path]
+
+    def remove(self, path: str) -> None:
+        if path in self.paths:
+            del self.paths[path]
+            parent = str(Path(path).parent)
+            while (
+                parent not in ("", "/")
+                and parent in self.paths
+                and not self.children(parent)
+            ):
+                del self.paths[parent]
+                parent = str(Path(parent).parent)
+
+    def remove_tree(self, path: str) -> None:
+        prefix = path.rstrip("/") + "/"
+        for entry in [
+            entry
+            for entry in self.paths
+            if entry == path or entry.startswith(prefix)
+        ]:
+            del self.paths[entry]
+
+    def move(self, source: str, destination: str) -> None:
+        self._require(source)
+        prefix = source.rstrip("/") + "/"
+        entries = {
+            entry: self.paths[entry]
+            for entry in list(self.paths)
+            if entry == source or entry.startswith(prefix)
+        }
+        for entry in entries:
+            del self.paths[entry]
+        self._ensure_parents(destination)
+        if destination in self.paths:
+            del self.paths[destination]
+        for entry, value in entries.items():
+            self.paths[destination + entry[len(source):]] = value
+
+    def copy_tree(self, source: str, destination: str) -> None:
+        self._require(source)
+        self.add_dir(destination)
+        prefix = source.rstrip("/") + "/"
+        for entry in sorted(e for e in self.paths if e.startswith(prefix)):
+            target = f"{destination}/{entry[len(prefix):]}"
+            self._ensure_parents(target)
+            self.paths[target] = dict(self.paths[entry])
+
+    def manifest(self, path: str) -> str:
+        self._require(path)
+        prefix = path.rstrip("/") + "/"
+        lines: list[str] = []
+        for entry in sorted(e for e in self.paths if e.startswith(prefix)):
+            relative = "./" + entry[len(prefix):]
+            value = self.paths[entry]
+            meta = f"{value['owner']}:{value['group']}:{int(value['mode']):04o}"
+            if value["kind"] == "link":
+                lines.append(f"{relative}|symlink|{value['target']}|{meta}")
+            elif value["kind"] == "dir":
+                lines.append(f"{relative}|dir|-|{meta}")
+            elif value["kind"] == "file":
+                digest = hashlib.sha256(value["data"]).hexdigest()  # type: ignore[arg-type]
+                lines.append(f"{relative}|file|{digest}|{meta}")
+            else:
+                lines.append(f"{relative}|other|-|{meta}")
+        return "\n".join(lines)
+
+    # -- command execution ------------------------------------------------
+
+    def __call__(self, argv, input_bytes):
+        combined = " ".join(argv)
+        self.calls.append(combined)
+        return self._dispatch(combined, input_bytes)
+
+    @staticmethod
+    def _unquote(token: str) -> str:
+        return token.strip().strip("'")
+
+    def _dispatch(self, combined: str, input_bytes) -> str:
+        if "sudo -n mkdir -m 0700 " in combined:
+            path = combined.split("sudo -n mkdir -m 0700 ", 1)[1].strip()
+            if self.exists(path):
+                raise engine.ReleaseError("exists", engine.EXIT_EXISTS)
+            self.add_dir(path, mode=0o700)
+            return ""
+        if "rm -rf " in combined:
+            self.remove_tree(self._unquote(combined.split("rm -rf ", 1)[1]))
+            return ""
+        if "sudo -n rmdir " in combined:
+            path = combined.split("sudo -n rmdir ", 1)[1].strip()
+            if not self.exists(path) or self.paths[path]["kind"] != "dir":
+                raise engine.ReleaseError("no such directory", engine.EXIT_TRANSPORT)
+            if self.children(path):
+                raise engine.ReleaseError("directory not empty", engine.EXIT_TRANSPORT)
+            self.remove(path)
+            return ""
+        if "sudo -n rm -f " in combined:
+            self.remove(self._unquote(combined.split("rm -f ", 1)[1]))
+            return ""
+        if "install -d -o root -g root -m " in combined:
+            mode_text, path = combined.split(
+                "install -d -o root -g root -m ", 1
+            )[1].split(" ", 1)
+            self.add_dir(self._unquote(path), mode=int(mode_text, 8))
+            return ""
+        if "cat > " in combined:
+            path = self._unquote(combined.split("cat > ", 1)[1].split("\n", 1)[0])
+            if path.endswith(".next") and self.fail_atomic_write:
+                raise engine.ReleaseError("interrupted write", engine.EXIT_TRANSPORT)
+            payload = input_bytes or b""
+            self.add_file(path, payload, mode=0o600)
+            expected = re.findall(r"[0-9a-f]{64}", combined)
+            if expected and hashlib.sha256(payload).hexdigest() != expected[-1]:
+                raise engine.ReleaseError("digest mismatch", engine.EXIT_TRANSPORT)
+            if "mv -T " in combined:
+                source, destination = combined.split("mv -T ", 1)[1].split(" ", 1)
+                source = self._unquote(source)
+                destination = self._unquote(destination)
+                if self.fail_atomic_rename and source.endswith(".next"):
+                    raise engine.ReleaseError(
+                        "interrupted rename", engine.EXIT_TRANSPORT
+                    )
+                self.move(source, destination)
+            return ""
+        if "mv -T " in combined:
+            source, destination = combined.split("mv -T ", 1)[1].split(" ", 1)
+            source = self._unquote(source)
+            destination = self._unquote(destination)
+            if self.fail_atomic_rename and source.endswith(".next"):
+                raise engine.ReleaseError("interrupted rename", engine.EXIT_TRANSPORT)
+            self.move(source, destination)
+            return ""
+        if "test ! -e " in combined:
+            path = self._unquote(combined.split("test ! -e ", 1)[1])
+            if self.exists(path):
+                raise engine.ReleaseError("path exists", engine.EXIT_TRANSPORT)
+            return ""
+        if "not-a-directory" in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            match = re.search(r"\[ ! -e (\S+) \]", combined)
+            assert match is not None, combined
+            path = match.group(1)
+            if not self.exists(path):
+                return "absent"
+            if self.paths[path]["kind"] != "dir":
+                return "not-a-directory"
+            return "empty" if not self.children(path) else "populated"
+        if "sudo -n cat " in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            path = self._unquote(combined.split("sudo -n cat ", 1)[1].split(";", 1)[0])
+            if not self.exists(path):
+                return "absent"
+            return self._require(path)["data"].decode("utf-8")  # type: ignore[union-attr]
+        if "test -e " in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            path = self._unquote(combined.split("test -e ", 1)[1].split(";", 1)[0])
+            return "present" if self.exists(path) else "absent"
+        if "ls -1 " in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            path = self._unquote(combined.split("ls -1 ", 1)[1].split(";", 1)[0])
+            if not self.exists(path) or self.paths[path]["kind"] != "dir":
+                return "absent"
+            return "\n".join(self.children(path))
+        if "test -L " in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            path = self._unquote(combined.split("test -L ", 1)[1].split(";", 1)[0])
+            if not self.exists(path) or self.paths[path]["kind"] != "link":
+                return "absent"
+            return str(self.paths[path]["target"])
+        if "load=%s" in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            match = re.search(
+                r"systemctl show -p LoadState --value (\S+)", combined
+            )
+            assert match is not None, combined
+            unit = self._unquote(match.group(1))
+            if unit not in self.units:
+                return "query-failed"
+            state = self.units[unit]
+            return (
+                f"load={state['load']} enabled={state['enabled']} "
+                f"active={state['active']}"
+            )
+        if "find ." in combined:
+            match = re.search(r"cd (\S+)", combined)
+            assert match is not None, combined
+            return self.manifest(self._unquote(match.group(1)))
+        if "cp -a " in combined:
+            source, destination = combined.split("cp -a ", 1)[1].split(" ", 1)
+            source = self._unquote(source).rstrip("/")
+            if source.endswith("/."):
+                source = source[:-2]
+            self.copy_tree(source, self._unquote(destination).rstrip("/"))
+            return ""
+        if "groupmod -n " in combined:
+            _command, rest = combined.split("groupmod -n ", 1)
+            new_name, old_name = rest.split()[:2]
+            if self.fail_groupmod:
+                raise engine.ReleaseError("groupmod failed", engine.EXIT_MIGRATION)
+            if old_name not in self.groups:
+                raise engine.ReleaseError("no such group", engine.EXIT_TRANSPORT)
+            self.groups[new_name] = self.groups.pop(old_name)
+            return ""
+        if "usermod -l " in combined:
+            _command, rest = combined.split("usermod -l ", 1)
+            tokens = rest.split()
+            new_name = tokens[0]
+            old_name = tokens[-1]
+            home = tokens[tokens.index("-d") + 1] if "-d" in tokens else None
+            if old_name not in self.users:
+                raise engine.ReleaseError("no such user", engine.EXIT_TRANSPORT)
+            record = self.users.pop(old_name)
+            if home is not None:
+                record["home"] = home
+            self.users[new_name] = record
+            return ""
+        if "systemctl " in combined:
+            return self._dispatch_systemctl(combined)
+        if "ps -u " in combined:
+            user = self._unquote(combined.split("ps -u ", 1)[1].split()[0])
+            if "printf %s query-failed" in combined:
+                if not self.ps_query_ok or user not in self.users:
+                    return "query-failed"
+            return str(self.process_counts.get(user, 0))
+        raise AssertionError(f"unhandled remote command: {combined}")
+
+    def _dispatch_systemctl(self, combined: str) -> str:
+        if "daemon-reload" in combined:
+            return ""
+        if "is-active" in combined:
+            unit = combined.split()[-1]
+            if unit not in self.units:
+                raise engine.ReleaseError("unit not found", engine.EXIT_TRANSPORT)
+            return str(self.units[unit]["active"])
+        if "show -p ActiveState --value" in combined:
+            unit = combined.split()[-1]
+            if unit not in self.units:
+                raise engine.ReleaseError("unit not found", engine.EXIT_TRANSPORT)
+            return str(self.units[unit]["active"])
+        if "show -p Result --value" in combined:
+            return "success"
+        for action, field, value in (
+            ("stop", "active", "inactive"),
+            ("start", "active", "active"),
+            ("enable", "enabled", "enabled"),
+            ("disable", "enabled", "disabled"),
+        ):
+            if f"systemctl {action} " in combined:
+                unit = combined.split()[-1]
+                if unit not in self.units:
+                    raise engine.ReleaseError("unit not found", engine.EXIT_TRANSPORT)
+                self.units[unit][field] = value
+                return ""
+        raise AssertionError(f"unhandled systemctl command: {combined}")
+
+
+def _boundary_host(boundary: RemoteBoundary) -> engine.RemoteMigrationHost:
+    return engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        _plan(),
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+
+
+def _populate_state_sources(boundary: RemoteBoundary) -> None:
+    boundary.add_dir("/var/lib/framenest")
+    boundary.add_file(
+        "/var/lib/framenest/catalog.sqlite3",
+        b"catalog-bytes",
+        mode=0o640,
+        owner="framenest",
+        group="framenest",
+    )
+    boundary.add_link("/var/lib/framenest/current", "/var/lib/framenest/catalog.sqlite3")
+    boundary.add_dir("/var/cache/framenest")
+    boundary.add_file("/var/cache/framenest/preview.bin", b"preview-bytes")
+
+
+def test_production_control_state_does_not_block_the_state_copy() -> None:
+    """The journal must not make a state-copy destination exist.
+
+    At the baseline this fails inside ``copy_state`` because writing the journal
+    created ``/var/lib/kronika``, which the copy requires absent.
+    """
+    plan = _plan()
+    boundary = RemoteBoundary()
+    _populate_state_sources(boundary)
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    host.write_recovery_manifest(plan.recovery_manifest())
+    host.write_journal(engine.migration_journal_payload(plan))
+    host.acquire_lock()
+    try:
+        copied = host.copy_state()
+    finally:
+        host.release_lock()
+    assert copied == ["/var/lib/kronika", "/var/cache/kronika"]
+    control = engine.MIGRATION_DIRECTORY.rstrip("/")
+    for _source, destination in plan.copy_moves:
+        normalized = destination.rstrip("/")
+        assert control != normalized
+        assert not control.startswith(normalized + "/")
+        assert not normalized.startswith(control + "/")
+
+
+def test_orchestration_acquires_the_exclusion_before_writing_control_state() -> None:
+    """Control state is written only while the routine exclusion is held."""
+    plan = _plan()
+    host = SimulatedMigrationHost(plan)
+    engine.run_migration_apply(host, plan)
+    assert host.call_log.index("acquire_lock") < host.call_log.index(
+        "write_recovery_manifest"
+    )
+    assert host.call_log.index("acquire_lock") < host.call_log.index("write_journal")
+
+
+def test_migration_control_directory_is_outside_every_plan_destination() -> None:
+    plan = _plan()
+    assert engine.migration_control_conflicts(
+        engine.MIGRATION_DIRECTORY, plan.copy_moves
+    ) == ()
+    control = engine.MIGRATION_DIRECTORY.rstrip("/")
+    for _source, destination in plan.copy_moves:
+        normalized = destination.rstrip("/")
+        assert control != normalized
+        assert not control.startswith(normalized + "/")
+        assert not normalized.startswith(control + "/")
+
+
+def test_control_location_guard_refuses_a_destination_that_contains_it() -> None:
+    observation = _observation()
+    conflicting = engine.MigrationObservation(
+        **{
+            **observation.__dict__,
+            "copy_sources": (
+                ("/var/lib/framenest", engine.MIGRATION_DIRECTORY),
+            ),
+        }
+    )
+    plan = engine.build_migration_plan(conflicting)
+    boundary = RemoteBoundary()
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    assert engine.migration_control_conflicts(
+        engine.MIGRATION_DIRECTORY, plan.copy_moves
+    ) == (engine.MIGRATION_DIRECTORY,)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.write_journal(engine.migration_journal_payload(plan))
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert boundary.calls == []
+
+
+def test_production_exclusion_is_shared_with_routine_deploy_and_rollback() -> None:
+    plan = _plan()
+    boundary = RemoteBoundary()
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    host.acquire_lock()
+    try:
+        second = engine.RemoteMigrationHost(
+            boundary,
+            {"target": "nuc", "user": "op", "identity": "identity"},
+            plan,
+            engine_path=ENGINE_PATH,
+            repository_root=REPOSITORY_ROOT,
+        )
+        with pytest.raises(engine.ReleaseError) as exc:
+            second.acquire_lock()
+        assert exc.value.exit_code == engine.EXIT_EXISTS
+        with pytest.raises(engine.ReleaseError) as routine_exc:
+            engine.acquire_deploy_lock(
+                boundary,
+                {"target": "nuc", "user": "op", "identity": "identity"},
+                engine.deploy_lock_owner_record(),
+            )
+        assert routine_exc.value.exit_code == engine.EXIT_EXISTS
+        assert not boundary.exists(engine.MIGRATION_JOURNAL_PATH)
+    finally:
+        host.release_lock()
+    # The exclusion is free again once the first run released it.
+    decision = engine.acquire_deploy_lock(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        engine.deploy_lock_owner_record(),
+    )
+    engine.release_deploy_lock(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        decision,
+    )
+
+
+def test_orchestration_refuses_and_preserves_an_existing_journal() -> None:
+    plan = _plan()
+    host = SimulatedMigrationHost(plan)
+    host.existing_journal = {"outcome": "failed", "completed_phases": ["quiesce"]}
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.run_migration_apply(host, plan)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert host.journals == []
+    assert host.locked is False
+    assert "write_journal" not in host.call_log
+    assert "write_recovery_manifest" not in host.call_log
+
+
+def test_production_journal_write_interruption_preserves_the_previous_journal() -> None:
+    plan = _plan()
+    boundary = RemoteBoundary()
+    host = _boundary_host(boundary)
+    first = engine.migration_journal_payload(plan)
+    host.write_journal(first)
+    interrupted = dict(first)
+    interrupted["current_phase"] = engine.MIGRATION_PHASE_QUIESCE
+
+    boundary.fail_atomic_write = True
+    with pytest.raises(engine.ReleaseError):
+        host.write_journal(interrupted)
+    boundary.fail_atomic_write = False
+    assert host.read_journal() == first
+
+    boundary.fail_atomic_rename = True
+    with pytest.raises(engine.ReleaseError):
+        host.write_journal(interrupted)
+    boundary.fail_atomic_rename = False
+    assert host.read_journal() == first
+
+
+def test_production_journal_read_refuses_a_failed_query() -> None:
+    boundary = RemoteBoundary()
+    boundary.privilege_ok = False
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.read_journal()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_production_copy_state_refuses_a_populated_destination() -> None:
+    boundary = RemoteBoundary()
+    _populate_state_sources(boundary)
+    boundary.add_file("/var/lib/kronika/unrelated.txt", b"keep-me")
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.copy_state()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "not absent" in str(exc.value)
+    assert boundary.paths["/var/lib/kronika/unrelated.txt"]["data"] == b"keep-me"
+    assert all("cp -a" not in call for call in boundary.calls)
+    assert all("rm " not in call for call in boundary.calls)
+
+
+def test_production_copy_state_refuses_a_destination_with_a_failed_query() -> None:
+    boundary = RemoteBoundary()
+    _populate_state_sources(boundary)
+    boundary.privilege_ok = False
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.copy_state()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "unverifiable" in str(exc.value)
+    assert all("cp -a" not in call for call in boundary.calls)
+
+
+def _writer_units() -> dict[str, dict[str, object]]:
+    return {
+        "framenest.service": {
+            "installed": True,
+            "load": "loaded",
+            "enabled": "enabled",
+            "active": "active",
+        },
+        "framenest-catalog-backup.service": {
+            "installed": True,
+            "load": "loaded",
+            "enabled": "static",
+            "active": "inactive",
+        },
+        "framenest-catalog-backup.timer": {
+            "installed": True,
+            "load": "loaded",
+            "enabled": "disabled",
+            "active": "inactive",
+        },
+    }
+
+
+def test_production_observe_writer_state_records_installation_and_schedule() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    journal = engine.migration_journal_payload(_plan())
+    host.bind_journal(journal)
+    observed = host.observe_writer_state()
+    assert observed["framenest-catalog-backup.timer"] == {
+        "installed": True,
+        "load": "loaded",
+        "enabled": "disabled",
+        "active": "inactive",
+    }
+    assert journal["substeps"]["observed_units"] == observed
+
+
+def test_production_observe_writer_state_refuses_a_failed_query() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    boundary.privilege_ok = False
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.observe_writer_state()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "query failed" in str(exc.value)
+
+
+def test_production_observe_writer_state_refuses_an_absent_unit() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    boundary.units["framenest-catalog-backup.timer"] = {
+        "load": "not-found",
+        "enabled": "",
+        "active": "",
+    }
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.observe_writer_state()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "absent" in str(exc.value)
+
+
+def test_production_writer_process_query_is_not_read_as_absence() -> None:
+    boundary = RemoteBoundary()
+    host = _boundary_host(boundary)
+
+    boundary.ps_query_ok = False
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.assert_no_legacy_writers()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+    boundary.ps_query_ok = True
+    boundary.process_counts["framenest"] = 2
+    with pytest.raises(engine.ReleaseError):
+        host.assert_no_legacy_writers()
+
+    boundary.process_counts["framenest"] = 0
+    host.assert_no_legacy_writers()
+
+
+def test_production_pre_write_recovery_reverses_a_partial_rename() -> None:
+    boundary = RemoteBoundary()
+    boundary.groups = {"kronika": {"gid": 1001}}
+    boundary.users = {
+        "framenest": {"uid": 1001, "gid": 1001, "home": "/var/lib/framenest"}
+    }
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    journal = {
+        "completed_phases": list(engine.MIGRATION_PHASES[:8]),
+        "substeps": {
+            "group_renamed": True,
+            "writers_stopped": ["framenest.service"],
+            "observed_units": {
+                unit: dict(state) for unit, state in _writer_units().items()
+            },
+        },
+    }
+    host.recover_pre_write(journal)
+    transcript = "\n".join(boundary.calls)
+    assert "groupmod -n framenest kronika" in transcript
+    assert "usermod -l" not in transcript
+    assert "systemctl start framenest.service" in transcript
+    assert "systemctl enable framenest-catalog-backup.timer" not in transcript
+    assert "systemctl start framenest-catalog-backup.timer" not in transcript
+    assert set(boundary.groups) == {"framenest"}
+    assert set(boundary.users) == {"framenest"}
+
+
+def test_production_pre_write_recovery_restores_the_observed_home() -> None:
+    boundary = RemoteBoundary()
+    boundary.groups = {"kronika": {"gid": 1001}}
+    boundary.users = {
+        "kronika": {"uid": 1001, "gid": 1001, "home": "/var/lib/kronika"}
+    }
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    journal = {
+        "completed_phases": list(engine.MIGRATION_PHASES[:8]),
+        "substeps": {
+            "group_renamed": True,
+            "user_renamed": True,
+            "account_home": "/var/lib/kronika",
+            "observed_units": {
+                unit: dict(state) for unit, state in _writer_units().items()
+            },
+        },
+    }
+    host.recover_pre_write(journal)
+    transcript = "\n".join(boundary.calls)
+    assert "groupmod -n framenest kronika" in transcript
+    assert "usermod -l framenest -d /var/lib/framenest kronika" in transcript
+    assert boundary.users["framenest"]["home"] == "/var/lib/framenest"
+
+
+def test_orchestration_startup_ack_failure_selects_post_write_recovery() -> None:
+    plan = _plan()
+    host = SimulatedMigrationHost(plan)
+    host.fail_journal_once_after = engine.MIGRATION_PHASE_START_SERVICE
+    with pytest.raises(engine.ReleaseError):
+        engine.run_migration_apply(host, plan)
+    assert host.recovered == "post-write"
+    assert host.stale_state_restored is False
+    assert host.forward_recovery_required is True
+    assert host.account["name"] == "kronika"
+    failed = host.journals[-1]
+    assert failed["writes_possible"] is True
+    assert failed["writes_admitted"] is True
+    assert failed["outcome"] == "failed"
+
+
+def test_orchestration_pre_cutover_ack_failure_selects_pre_write_recovery() -> None:
+    plan = _plan()
+    host = SimulatedMigrationHost(plan)
+    host.fail_journal_once_after = engine.MIGRATION_PHASE_VERIFY_UNITS
+    with pytest.raises(engine.ReleaseError):
+        engine.run_migration_apply(host, plan)
+    assert host.recovered == "pre-write"
+    assert host.old_layout_restored is True
+    assert host.journals[-1]["writes_possible"] is False
+
+
+def test_start_service_entry_selects_post_write_without_a_completed_phase() -> None:
+    """The durable boundary selects recovery even when no phase completed.
+
+    Entering the start-service phase persists ``writes_possible`` first, so a
+    crash inside that phase selects post-write recovery from the durable record,
+    not from inference over a completed-phase list.
+    """
+    plan = _plan()
+    host = SimulatedMigrationHost(plan, fail_phase="start_service")
+    with pytest.raises(engine.ReleaseError):
+        engine.run_migration_apply(host, plan)
+    assert host.recovered == "post-write"
+    failed = host.journals[-1]
+    assert failed["writes_possible"] is True
+    assert engine.MIGRATION_PHASE_START_SERVICE not in failed["completed_phases"]
+    assert host.stale_state_restored is False
+
+
+def test_production_partial_rename_is_recorded_and_reversible() -> None:
+    """A rename interrupted between group and user is reversed from substeps."""
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    journal = engine.migration_journal_payload(_plan())
+    host.bind_journal(journal)
+    boundary.fail_groupmod = True
+    with pytest.raises(engine.ReleaseError):
+        host.rename_account()
+    assert journal["substeps"]["group_renamed"] is True
+    assert "user_renamed" not in journal["substeps"]
+
+    boundary.fail_groupmod = False
+    host.recover_pre_write(journal)
+    transcript = "\n".join(boundary.calls)
+    assert "groupmod -n framenest kronika" in transcript
+    assert "usermod -l" not in transcript
+
+
+def test_writes_possible_reads_the_durable_boundary_first() -> None:
+    assert engine.migration_writes_possible({"writes_possible": True}) is True
+    assert engine.migration_writes_possible({"writes_admitted": True}) is True
+    assert (
+        engine.migration_writes_possible(
+            {"completed_phases": [engine.MIGRATION_CUTOVER_PHASE]}
+        )
+        is True
+    )
+    assert engine.migration_writes_possible({"completed_phases": []}) is False
+
+
+def test_production_post_write_recovery_preserves_current_state() -> None:
+    boundary = RemoteBoundary()
+    _populate_state_sources(boundary)
+    host = _boundary_host(boundary)
+    before = {path: dict(value) for path, value in boundary.paths.items()}
+    host.recover_post_write(
+        {"writes_possible": True, "completed_phases": [], "substeps": {}}
+    )
+    assert boundary.paths == before
+    assert boundary.calls == []
+
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.recover_post_write({"completed_phases": [], "substeps": {}})
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert boundary.calls == []
+
+
+def test_production_pre_write_recovery_falls_back_for_a_legacy_journal() -> None:
+    boundary = RemoteBoundary()
+    boundary.groups = {"kronika": {"gid": 1001}}
+    boundary.users = {
+        "kronika": {"uid": 1001, "gid": 1001, "home": "/var/lib/kronika"}
+    }
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    host.recover_pre_write(
+        {"completed_phases": list(engine.MIGRATION_PHASES[:8])}
+    )
+    transcript = "\n".join(boundary.calls)
+    assert "groupmod -n framenest kronika" in transcript
+    assert "usermod -l framenest -d /var/lib/framenest kronika" in transcript
+    assert "systemctl start framenest.service" in transcript
+    assert "systemctl enable framenest-catalog-backup.timer" in transcript
+    assert "systemctl start framenest-catalog-backup.timer" in transcript
