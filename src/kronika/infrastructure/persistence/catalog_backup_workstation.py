@@ -84,6 +84,24 @@ FIXED_REMOTE_EXPORT_COMMAND = (
     "--",
     "/usr/local/libexec/framenest-catalog-export-v1",
 )
+#: Temporary explicit workstation compatibility selection. Each key selects one
+#: fixed remote command tuple; the caller selects a key and can never supply an
+#: arbitrary remote command. ``old`` is the default while the former layout is
+#: still served; the authorized operator invocation switches to ``new`` during
+#: the identity migration window and canonical operation becomes the default
+#: when this selection is removed.
+REMOTE_LAYOUT_COMMANDS: Mapping[str, tuple[str, ...]] = {
+    "old": FIXED_REMOTE_EXPORT_COMMAND,
+    "new": (
+        "sudo",
+        "-n",
+        "-u",
+        "kronika",
+        "--",
+        "/usr/local/libexec/kronika-catalog-export-v1",
+    ),
+}
+DEFAULT_REMOTE_LAYOUT = "old"
 DEFAULT_SSH_EXECUTABLE = "ssh"
 SNAPSHOT_SCHEMA_VERSION = 1
 TRANSFER_PROTOCOL_NAME = "kronika-catalog-backup-export"
@@ -372,6 +390,7 @@ def pull_workstation_snapshot(
     ssh_executable: str = DEFAULT_SSH_EXECUTABLE,
     connect_timeout_seconds: int = 30,
     transfer_timeout_seconds: int = 30 * 60,
+    remote_layout: str = DEFAULT_REMOTE_LAYOUT,
     hooks: WorkstationOsHooks | None = None,
     popen: Callable[..., subprocess.Popen[bytes]] | None = None,
     now: datetime | None = None,
@@ -391,6 +410,7 @@ def pull_workstation_snapshot(
         ssh_executable=ssh_executable,
         ssh_port=ssh_port,
         connect_timeout_seconds=connect_timeout_seconds,
+        remote_layout=remote_layout,
     )
     launcher = popen or subprocess.Popen
     process: subprocess.Popen[bytes] | None = None
@@ -762,12 +782,28 @@ def validate_ssh_target(raw: str) -> str:
     return raw
 
 
+def resolve_remote_layout_command(remote_layout: str) -> tuple[str, ...]:
+    """Select one fixed remote export command tuple by layout key.
+
+    An unknown key is refused before any process is started, so the temporary
+    workstation selection can never execute an arbitrary command.
+    """
+    command = REMOTE_LAYOUT_COMMANDS.get(remote_layout)
+    if command is None:
+        raise WorkstationError(
+            "Workstation remote layout is invalid.",
+            error_code="WORKSTATION_REMOTE_LAYOUT_INVALID",
+        )
+    return command
+
+
 def build_ssh_argv(
     *,
     target: str,
     ssh_executable: str = DEFAULT_SSH_EXECUTABLE,
     ssh_port: int | None = None,
     connect_timeout_seconds: int = 30,
+    remote_layout: str = DEFAULT_REMOTE_LAYOUT,
 ) -> list[str]:
     """Build argv for system OpenSSH with a fixed remote export command."""
     if not isinstance(ssh_executable, str) or not ssh_executable or ssh_executable.startswith("-"):
@@ -817,7 +853,7 @@ def build_ssh_argv(
     if ssh_port is not None:
         argv.extend(["-p", str(ssh_port)])
     argv.append(target)
-    argv.extend(FIXED_REMOTE_EXPORT_COMMAND)
+    argv.extend(resolve_remote_layout_command(remote_layout))
     return argv
 
 

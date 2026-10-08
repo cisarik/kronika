@@ -530,6 +530,25 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # test_media_sidecar_store.py` and `unit/infrastructure/media_analysis/
     # test_movie_contact_sheet_selection.py`. Sum -24; net +2.
     #
+    # KSI-IMPL-C6P2 moved `tests` by +75 and `deploy` by +6, and nothing else.
+    #
+    # `deploy` +6, one file: `kronika_release.py` adds nine retired spellings
+    # and removes three. The nine are the structural transformation guards that
+    # name the token they classify: `User`/`Group`, `LoadCredential`,
+    # `ExecStart`, the structured `path=` form and the sudoers run-as and
+    # command checks each test for the retired spelling; the three removals are
+    # the old routine-scratch helper paths and the old token-replacement regex
+    # that the structural parser replaces. The engine adds no host literal.
+    #
+    # `tests` +75: `test_kronika_identity_migration.py` +74 and
+    # `test_recovery_cli.py` +1. The migration additions are the new fixtures
+    # and acceptance tests for the exact-state binding, the vendor drop-in and
+    # unit observations, the structural systemd and sudoers forms, the
+    # installed-mode evidence, the pointer guard and switch, readiness, the
+    # scheduling preservation and the capture-identity comparison; the one
+    # recovery addition pins the retained-tuple compatibility of the temporary
+    # workstation layout selection. No test file was added or removed.
+    #
     # KSI-IMPL-C6P1 moved `tests` by +41 and `deploy` by +1, and nothing else.
     #
     # `deploy` +1, one file: `kronika_release.py` adds three retired spellings
@@ -549,12 +568,23 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # durable-boundary recovery-selection assertions and the observed-schedule
     # restoration assertions. The one removal is the legacy reverse-rename
     # assertion, which now pins the `-d /var/lib/framenest` form.
-    "tests": 2049,
+    #
+    # KSI-IMPL-C6P2 moved `tests` by +93 (2049 -> 2142): +92 in
+    # `test_kronika_identity_migration.py` for the exact-state binding,
+    # vendor-installation, non-unit-artifact, structural-transformation,
+    # installed-mode, pointer, readiness, scheduling, capture-identity,
+    # literal-membership and pure-guard tests and their fixtures, and +1 in
+    # `test_recovery_cli.py` for the retained-tuple compatibility pin.
+    "tests": 2142,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
     # historical release tree still resolves.
-    "deploy": 244,
+    #
+    # KSI-IMPL-C6P2 moved `deploy` by +6 (244 -> 250): `kronika_release.py`
+    # adds the nine structural-transformation token guards and removes the
+    # routine-scratch helper paths and the old token-replacement regex.
+    "deploy": 250,
     "scripts": 86,
     "docs": 1216,
     "extension": 145,
@@ -1230,21 +1260,35 @@ MUTATION_HEADER_FILE_COUNT = 30
 # conflict plan) and two former cache-root fixtures. The engine adds no host
 # literal; the moved journal path is the new sibling
 # `/var/lib/kronika-identity-migration`.
+#
+# KSI-IMPL-C6P2 moved `/opt/framenest` by +3 (223 -> 226),
+# `/etc/framenest` by +3 (83 -> 86), `/var/lib/framenest` by +1 (120 -> 121)
+# and the frozen mount by +2 (23 -> 25), and moved `/var/cache/framenest`
+# nothing. Every movement is in `test_kronika_identity_migration.py`'s new
+# fixtures and assertions: the former environment file, drop-in directory,
+# credential source and sudo-rule paths, the writer unit fragments, the
+# observed-home conflict plans and the mount comment/assertion fixtures. The
+# engine adds no host literal; the structural transformer names only the
+# generic token.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 223,
-    "/etc/framenest": 83,
-    "/var/lib/framenest": 120,
+    "/opt/framenest": 226,
+    "/etc/framenest": 86,
+    "/var/lib/framenest": 121,
     "/var/cache/framenest": 31,
-    "/mnt/framenest-catalog-offdevice": 23,
+    "/mnt/framenest-catalog-offdevice": 25,
 }
 
 # KSI-IMPL-C4B moved each of these by +3: one `User=framenest` and
 # `Group=framenest` pair in each of the two effective-layout probe answers
 # added to the existing test fakes, plus one negative assertion in the new
 # migration test file that the canonical units do not carry either line.
+#
+# KSI-IMPL-C6P2 moved each by +1 (8 -> 9): the new structural systemd
+# transformation fixture in `test_kronika_identity_migration.py` names both
+# the retired `User=framenest` and `Group=framenest` directives it rewrites.
 UNIT_ACCOUNT_OCCURRENCE_COUNT = {
-    "User=framenest": 8,
-    "Group=framenest": 8,
+    "User=framenest": 9,
+    "Group=framenest": 9,
 }
 
 # KSI-IMPL-C2 moved this by +15: -2 where the service worker stopped spelling the

@@ -103,9 +103,22 @@ REMOTE_DEPLOY_LOCK_RECLAIM_STALE_SECONDS = 60
 READINESS_DEADLINE_SECONDS = 30
 READINESS_POLL_INTERVAL_SECONDS = 1
 
+# Migration-owned remote scratch area. The identity migration prepares this
+# directory itself and writes its private remote engine helper there, so the
+# routine deployment scratch directory stays exactly the artefact set the
+# runbook publishes and the two operations cannot overwrite each other's
+# helpers. The shared routine exclusion still serializes both operations.
+MIGRATION_SCRATCH_DIRECTORY = "/run/kronika-identity-migration"
+MIGRATION_REMOTE_ENGINE = f"{MIGRATION_SCRATCH_DIRECTORY}/kronika_release.py"
+
 # Effective unit properties the installed-unit executable guard reads. Drop-ins
 # are part of the effective configuration systemd reports for these properties.
 UNIT_EXEC_PROPERTIES = ("ExecStart", "ExecStartPre")
+
+# Suffixes systemd loads as units. A tracked artifact with another suffix is a
+# configuration file, not a unit: it is observed by file existence, copied to
+# its canonical name, and never stopped, started or scheduled.
+SYSTEMD_UNIT_SUFFIXES = (".service", ".timer", ".socket", ".target")
 
 POETRY_TOML = "[virtualenvs]\nin-project = true\n"
 
@@ -272,6 +285,7 @@ MIGRATION_PHASE_PREPARE_RELEASE = "prepare-release-environment"
 MIGRATION_PHASE_RENAME_ACCOUNT = "rename-account"
 MIGRATION_PHASE_INSTALL_UNITS = "install-units"
 MIGRATION_PHASE_VERIFY_UNITS = "verify-effective-units"
+MIGRATION_PHASE_SWITCH_CURRENT = "switch-current"
 MIGRATION_PHASE_START_SERVICE = "start-service"
 MIGRATION_PHASE_REPLACE_INGRESS = "replace-tailscale-handler"
 MIGRATION_PHASE_VERIFY_INGRESS = "verify-ingress"
@@ -287,6 +301,7 @@ MIGRATION_PHASES = (
     MIGRATION_PHASE_RENAME_ACCOUNT,
     MIGRATION_PHASE_INSTALL_UNITS,
     MIGRATION_PHASE_VERIFY_UNITS,
+    MIGRATION_PHASE_SWITCH_CURRENT,
     MIGRATION_PHASE_START_SERVICE,
     MIGRATION_PHASE_REPLACE_INGRESS,
     MIGRATION_PHASE_VERIFY_INGRESS,
@@ -2623,6 +2638,56 @@ def cmd_remote_validate_sudoers(path: str) -> str:
     return f"sudo -n visudo -cf {shlex.quote(path)}"
 
 
+def cmd_remote_rmdir(path: str) -> str:
+    """Remove one empty directory only; never a tree."""
+    return f"sudo -n rmdir {shlex.quote(path)}"
+
+
+def cmd_remote_unit_effective_state(unit: str) -> str:
+    """Observed effective fragment, drop-ins, enablement and activity.
+
+    ``DropInPaths`` is reported as one ``dropin=<path>`` line per effective
+    drop-in, so an installation outside the guessed ``/etc`` filename is still
+    observed exactly as systemd loaded it. ``query-failed`` means the
+    privileged query itself failed; an absent unit reports an empty or
+    ``not-found`` load state instead.
+    """
+    quoted = shlex.quote(unit)
+    return (
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; exit 0; fi\n"
+        f"load=$(sudo -n systemctl show -p LoadState --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        f"fragment=$(sudo -n systemctl show -p FragmentPath --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        f"dropins=$(sudo -n systemctl show -p DropInPaths --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        f"enabled=$(sudo -n systemctl show -p UnitFileState --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        f"active=$(sudo -n systemctl show -p ActiveState --value {quoted} "
+        "2>/dev/null) || { printf %s query-failed; exit 0; }\n"
+        "printf 'load=%s\\nfragment=%s\\nenabled=%s\\nactive=%s\\n' "
+        "\"$load\" \"$fragment\" \"$enabled\" \"$active\"\n"
+        "for dropin in $dropins; do printf 'dropin=%s\\n' \"$dropin\"; done"
+    )
+
+
+def cmd_remote_root_file_evidence(path: str) -> str:
+    """Owner, group, mode and content hash of one installed root file.
+
+    The classification distinguishes an absent object, an unsafe object (a
+    symlink or non-regular file) and a failed privileged query, so none of them
+    is ever read as a mismatch of a file that is actually installed.
+    """
+    quoted = shlex.quote(path)
+    return (
+        "if ! sudo -n true 2>/dev/null; then printf %s query-failed; "
+        f"elif [ ! -e {quoted} ]; then printf %s absent; "
+        f"elif [ -L {quoted} ] || [ ! -f {quoted} ]; then printf %s unsafe; "
+        f"else printf '%s %s' \"$(sudo -n stat -c '%U:%G:%a' {quoted})\" "
+        f"\"$(sudo -n sha256sum {quoted} | cut -d' ' -f1)\"; fi"
+    )
+
+
 def cmd_remote_prepare_migration_release(old_release: str, staging: str) -> str:
     """Copy the retained release into the new staging tree, then drop its venv."""
     return (
@@ -2649,6 +2714,39 @@ def cmd_remote_verify_migration_release(
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class ObservedUnit:
+    """One effective unit installation, wherever its fragment is installed."""
+
+    name: str
+    installed: bool
+    load: str
+    fragment_path: str
+    dropin_paths: tuple[str, ...]
+    enabled: str
+    active: str
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "installed": self.installed,
+            "load": self.load,
+            "fragment_path": self.fragment_path,
+            "dropin_paths": list(self.dropin_paths),
+            "enabled": self.enabled,
+            "active": self.active,
+        }
+
+
+@dataclass(frozen=True)
+class DropinInstallation:
+    """One observed drop-in and the transformed bytes the plan is bound to."""
+
+    unit: str
+    source: str
+    text: str
+
+
+@dataclass(frozen=True)
 class MigrationObservation:
     """Sanitized preflight facts about one host."""
 
@@ -2658,17 +2756,22 @@ class MigrationObservation:
     environment_text: str
     copy_sources: tuple[tuple[str, str], ...]
     installed_units: tuple[str, ...]
-    installed_dropins: tuple[str, ...]
+    unit_observations: tuple[ObservedUnit, ...]
+    dropin_installations: tuple[DropinInstallation, ...]
     credential_sources: tuple[str, ...]
     export_installed: str | None
     sudo_rule_installed: str | None
+    sudo_rule_text: str | None
     account_uid: int
     account_gid: int
     account_home: str
+    current_release_sha: str
     capture_pointer: str
     capture_release_sha: str | None
     tailscale_handler_count: int
     tailscale_old_handlers: int
+    artifact_identity: tuple[tuple[str, str], ...]
+    required_scripts: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -2681,17 +2784,22 @@ class MigrationPlan:
     environment: EnvironmentTransformation
     copy_moves: tuple[tuple[str, str], ...]
     installed_units: tuple[str, ...]
-    installed_dropins: tuple[str, ...]
+    unit_observations: tuple[ObservedUnit, ...]
+    dropin_installations: tuple[DropinInstallation, ...]
     credential_sources: tuple[str, ...]
     export_installed: str | None
     sudo_rule_installed: str | None
+    sudo_rule_text: str | None
     account_uid: int
     account_gid: int
     account_home: str
+    current_release_sha: str
     capture_pointer: str
     capture_release_sha: str | None
     tailscale_handler_count: int
     tailscale_old_handlers: int
+    artifact_identity: tuple[tuple[str, str], ...]
+    required_scripts: tuple[str, ...]
     plan_digest: str
 
     def payload(self) -> dict[str, object]:
@@ -2709,17 +2817,37 @@ class MigrationPlan:
             ).hexdigest(),
             "copy_moves": [list(move) for move in self.copy_moves],
             "installed_units": list(self.installed_units),
-            "installed_dropins": list(self.installed_dropins),
+            "unit_observations": [
+                observation.payload() for observation in self.unit_observations
+            ],
+            "dropin_installations": [
+                {
+                    "unit": installation.unit,
+                    "source": installation.source,
+                    "sha256": hashlib.sha256(
+                        installation.text.encode("utf-8")
+                    ).hexdigest(),
+                }
+                for installation in self.dropin_installations
+            ],
             "credential_sources": list(self.credential_sources),
             "export_installed": self.export_installed,
             "sudo_rule_installed": self.sudo_rule_installed,
+            "sudo_rule_sha256": (
+                hashlib.sha256(self.sudo_rule_text.encode("utf-8")).hexdigest()
+                if self.sudo_rule_text is not None
+                else None
+            ),
             "account_uid": self.account_uid,
             "account_gid": self.account_gid,
             "account_home": self.account_home,
+            "current_release_sha": self.current_release_sha,
             "capture_pointer": self.capture_pointer,
             "capture_release_sha": self.capture_release_sha,
             "tailscale_handler_count": self.tailscale_handler_count,
             "tailscale_old_handlers": self.tailscale_old_handlers,
+            "artifact_identity": [list(pair) for pair in self.artifact_identity],
+            "required_scripts": list(self.required_scripts),
         }
 
     def recovery_manifest(self) -> dict[str, object]:
@@ -2735,8 +2863,9 @@ class MigrationPlan:
             "account_uid": self.account_uid,
             "account_gid": self.account_gid,
             "account_home": self.account_home,
+            "current_release_sha": self.current_release_sha,
             "copy_moves": [list(move) for move in self.copy_moves],
-            "installed_dropins": list(self.installed_dropins),
+            "installed_units": list(self.installed_units),
             "credential_sources": list(self.credential_sources),
             "export_installed": self.export_installed,
             "sudo_rule_installed": self.sudo_rule_installed,
@@ -2767,17 +2896,40 @@ def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
         ).hexdigest(),
         "copy_moves": [list(move) for move in observation.copy_sources],
         "installed_units": list(observation.installed_units),
-        "installed_dropins": list(observation.installed_dropins),
+        "unit_observations": [
+            observation_unit.payload()
+            for observation_unit in observation.unit_observations
+        ],
+        "dropin_installations": [
+            {
+                "unit": installation.unit,
+                "source": installation.source,
+                "sha256": hashlib.sha256(
+                    installation.text.encode("utf-8")
+                ).hexdigest(),
+            }
+            for installation in observation.dropin_installations
+        ],
         "credential_sources": list(observation.credential_sources),
         "export_installed": observation.export_installed,
         "sudo_rule_installed": observation.sudo_rule_installed,
+        "sudo_rule_sha256": (
+            hashlib.sha256(observation.sudo_rule_text.encode("utf-8")).hexdigest()
+            if observation.sudo_rule_text is not None
+            else None
+        ),
         "account_uid": observation.account_uid,
         "account_gid": observation.account_gid,
         "account_home": observation.account_home,
+        "current_release_sha": observation.current_release_sha,
         "capture_pointer": observation.capture_pointer,
         "capture_release_sha": observation.capture_release_sha,
         "tailscale_handler_count": observation.tailscale_handler_count,
         "tailscale_old_handlers": observation.tailscale_old_handlers,
+        "artifact_identity": [
+            list(pair) for pair in observation.artifact_identity
+        ],
+        "required_scripts": list(observation.required_scripts),
     }
     return MigrationPlan(
         release_sha=observation.release_sha,
@@ -2786,17 +2938,22 @@ def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
         environment=environment,
         copy_moves=observation.copy_sources,
         installed_units=observation.installed_units,
-        installed_dropins=observation.installed_dropins,
+        unit_observations=observation.unit_observations,
+        dropin_installations=observation.dropin_installations,
         credential_sources=observation.credential_sources,
         export_installed=observation.export_installed,
         sudo_rule_installed=observation.sudo_rule_installed,
+        sudo_rule_text=observation.sudo_rule_text,
         account_uid=observation.account_uid,
         account_gid=observation.account_gid,
         account_home=observation.account_home,
+        current_release_sha=observation.current_release_sha,
         capture_pointer=observation.capture_pointer,
         capture_release_sha=observation.capture_release_sha,
         tailscale_handler_count=observation.tailscale_handler_count,
         tailscale_old_handlers=observation.tailscale_old_handlers,
+        artifact_identity=observation.artifact_identity,
+        required_scripts=observation.required_scripts,
         plan_digest=migration_plan_digest(partial),
     )
 
@@ -2881,6 +3038,39 @@ def parse_remote_unit_state(raw: str) -> dict[str, object]:
     }
 
 
+def parse_effective_unit_state(raw: str, name: str) -> ObservedUnit:
+    """Parse one effective fragment/drop-in/enablement/activity answer.
+
+    A failed privileged query is refused instead of being read as an absent
+    unit, and every reported drop-in path is preserved exactly as systemd
+    loaded it, including installations outside ``/etc/systemd/system``.
+    """
+    text = raw.strip()
+    if text == "query-failed":
+        raise ReleaseError("unit state query failed", EXIT_MIGRATION)
+    fields: dict[str, str] = {}
+    dropins: list[str] = []
+    for line in text.splitlines():
+        key, separator, value = line.partition("=")
+        if not separator:
+            continue
+        if key == "dropin":
+            dropins.append(value)
+        else:
+            fields[key] = value
+    load_state = fields.get("load", "")
+    installed = load_state not in ("", "not-found")
+    return ObservedUnit(
+        name=name,
+        installed=installed,
+        load=load_state,
+        fragment_path=fields.get("fragment", "") if installed else "",
+        dropin_paths=tuple(dropins) if installed else (),
+        enabled=fields.get("enabled", "") if installed else "",
+        active=fields.get("active", "") if installed else "",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Identity migration: production host
 # ---------------------------------------------------------------------------
@@ -2894,10 +3084,6 @@ def canonical_unit_name(old_name: str) -> str:
         if old == old_name:
             return new
     raise ReleaseError("unknown migration unit", EXIT_MIGRATION)
-
-
-def migration_dropin_directory(layout: WebLayout) -> str:
-    return f"/etc/systemd/system/{layout.service}.d"
 
 
 class RemoteMigrationHost:
@@ -3005,17 +3191,21 @@ class RemoteMigrationHost:
         if decision is None:
             return
         self._lock_decision = None
-        # The remote helper this apply wrote into the routine deploy scratch
-        # directory is this run's exact owned file; removing it lets the shared
-        # lock directory be released cleanly. The shared exclusion guarantees no
-        # concurrent routine deploy owns that path.
+        # The remote helper this apply wrote into its own prepared scratch area
+        # is this run's exact owned file; removing it and the now-empty scratch
+        # directory keeps the host clean. The shared exclusion guarantees no
+        # concurrent run owns that path, so the cleanup is still exact.
         with contextlib.suppress(ReleaseError):
             ssh(
                 self.runner,
                 **self.transport,
-                remote_command=cmd_remote_remove_file(
-                    f"{REMOTE_DEPLOY_DIR}/framenest_release.py"
-                ),
+                remote_command=cmd_remote_remove_file(MIGRATION_REMOTE_ENGINE),
+            )
+        with contextlib.suppress(ReleaseError):
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_rmdir(MIGRATION_SCRATCH_DIRECTORY),
             )
         release_deploy_lock(self.runner, self.transport, decision)
 
@@ -3025,6 +3215,8 @@ class RemoteMigrationHost:
         """Record observed writer unit installation, enablement and activity."""
         units: list[str] = []
         for unit in (self.plan.old_layout.service, *self.plan.installed_units):
+            if not unit.endswith(SYSTEMD_UNIT_SUFFIXES):
+                continue
             if unit not in units:
                 units.append(unit)
         observed: dict[str, dict[str, object]] = {}
@@ -3052,12 +3244,25 @@ class RemoteMigrationHost:
         return stopped
 
     def stop_writers(self) -> list[str]:
+        """Stop admission, then timers, then their jobs.
+
+        The web service stops first so no new work is admitted. Timers stop
+        before the services they trigger, so no new job is scheduled while the
+        running job is being drained.
+        """
         stopped: list[str] = []
-        units = [self.plan.old_layout.service]
+        timers: list[str] = []
+        services: list[str] = []
         for old_name in self.plan.installed_units:
             if old_name == self.plan.old_layout.service:
                 continue
-            units.append(old_name)
+            if not old_name.endswith(SYSTEMD_UNIT_SUFFIXES):
+                continue
+            if old_name.endswith(".timer"):
+                timers.append(old_name)
+            else:
+                services.append(old_name)
+        units = [self.plan.old_layout.service, *timers, *services]
         for unit in units:
             try:
                 ssh(
@@ -3112,19 +3317,21 @@ class RemoteMigrationHost:
     def verify_capture_untouched(self, _before: object = None) -> None:
         """Prove capture still runs under its own account, untouched.
 
-        No migration phase ever stops or restarts a capture unit; the only
-        assertion here is that a previously active runner is still active.
+        No migration phase ever stops or restarts a capture unit. The runner
+        must keep its active state and a fresh private runtime identity snapshot
+        taken here must equal the snapshot taken before the writers were
+        quiesced; a changed identity means the migration is not capture-neutral.
         """
         before = getattr(self, "_capture_before", None)
         if not isinstance(before, dict):
             before = self.capture_snapshot()
-        active = ssh(
-            self.runner,
-            **self.transport,
-            remote_command=cmd_remote_service_is_active(CAPTURE_RUNNER_SERVICE),
-        ).strip()
-        if before.get("runner_active") and active != "active":
+        after = self.capture_snapshot()
+        if before.get("runner_active") and not after.get("runner_active"):
             raise ReleaseError("capture runner left the active state", EXIT_MIGRATION)
+        if before.get("identity") != after.get("identity"):
+            raise ReleaseError(
+                "capture runtime identity changed during migration", EXIT_MIGRATION
+            )
 
     def create_checkpoint(self) -> str:
         release_path = self.plan.old_layout.release_dir(self.plan.release_sha)
@@ -3265,50 +3472,90 @@ class RemoteMigrationHost:
                 payload = (
                     self.repository_root / MIGRATION_EXPORT_ARTIFACT[1]
                 ).read_bytes()
-                ssh(
-                    self.runner,
-                    **self.transport,
-                    remote_command=cmd_remote_write_file(
-                        canonical, hashlib.sha256(payload).hexdigest()
-                    ),
-                    input_bytes=payload,
-                )
+                self._install_root_file(canonical, payload, "0755")
+            else:
+                self._validate_root_file(canonical, "0755")
         if self.plan.sudo_rule_installed is not None:
-            raw = _require_query_result(
-                ssh(
-                    self.runner,
-                    **self.transport,
-                    remote_command=cmd_remote_read_optional_file(
-                        self.plan.sudo_rule_installed
-                    ),
-                ),
-                "installed sudo rule",
-            )
-            if raw != "absent":
-                transformed = transform_unit_dropin_text(raw)
-                canonical = canonical_installed_sudo_rule_path(
-                    self.plan.sudo_rule_installed
+            if self.plan.sudo_rule_text is None:
+                raise ReleaseError(
+                    "installed sudo rule was not transformed at preflight",
+                    EXIT_MIGRATION,
                 )
-                if canonical != self.plan.sudo_rule_installed:
-                    payload = transformed.encode("utf-8")
-                    ssh(
-                        self.runner,
-                        **self.transport,
-                        remote_command=cmd_remote_write_file(
-                            canonical, hashlib.sha256(payload).hexdigest()
-                        ),
-                        input_bytes=payload,
-                    )
-                    ssh(
-                        self.runner,
-                        **self.transport,
-                        remote_command=cmd_remote_validate_sudoers(canonical),
-                    )
+            canonical = canonical_installed_sudo_rule_path(
+                self.plan.sudo_rule_installed
+            )
+            if canonical != self.plan.sudo_rule_installed:
+                self._install_root_file(
+                    canonical, self.plan.sudo_rule_text.encode("utf-8"), "0440"
+                )
+            else:
+                self._validate_root_file(canonical, "0440")
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_validate_sudoers(canonical),
+            )
         return {
             "export_installed": self.plan.export_installed,
             "sudo_rule_installed": self.plan.sudo_rule_installed,
             "credential_sources": list(self.plan.credential_sources),
         }
+
+    @staticmethod
+    def _root_file_mode_octal(mode: str) -> str:
+        return format(int(mode, 8), "o")
+
+    def _root_file_evidence(
+        self, path: str, context: str
+    ) -> tuple[str, str]:
+        evidence = _require_query_result(
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_root_file_evidence(path),
+            ),
+            context,
+        )
+        fields = evidence.split(" ")
+        if len(fields) != 2 or ":" not in fields[0]:
+            raise ReleaseError(f"{context} evidence is malformed", EXIT_MIGRATION)
+        return fields[0], fields[1]
+
+    def _validate_root_file(self, path: str, mode: str) -> None:
+        owner, _digest = self._root_file_evidence(path, f"root file {path}")
+        expected_owner = f"root:root:{self._root_file_mode_octal(mode)}"
+        if owner != expected_owner:
+            raise ReleaseError(
+                "installed ancillary file ownership or mode is unexpected",
+                EXIT_MIGRATION,
+            )
+
+    def _install_root_file(self, path: str, payload: bytes, mode: str) -> None:
+        digest = hashlib.sha256(payload).hexdigest()
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_write_file_atomic(path, digest),
+            input_bytes=payload,
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=f"sudo -n chown root:root {shlex.quote(path)}",
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=f"sudo -n chmod {mode} {shlex.quote(path)}",
+        )
+        owner, installed_digest = self._root_file_evidence(
+            path, f"installed root file {path}"
+        )
+        expected_owner = f"root:root:{self._root_file_mode_octal(mode)}"
+        if owner != expected_owner or installed_digest != digest:
+            raise ReleaseError(
+                "installed ancillary file did not verify", EXIT_MIGRATION
+            )
 
     def prepare_release_environment(self) -> None:
         target = self.plan.new_layout.release_dir(self.plan.release_sha)
@@ -3323,6 +3570,14 @@ class RemoteMigrationHost:
             self.runner,
             **self.transport,
             remote_command=cmd_remote_test_absent_or_fail(staging),
+        )
+        # The migration prepares its own root-only scratch area before it
+        # uploads the remote engine helper there; it never writes into the
+        # routine deployment scratch directory.
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_make_directory(MIGRATION_SCRATCH_DIRECTORY, "0700"),
         )
         ssh(
             self.runner,
@@ -3340,11 +3595,17 @@ class RemoteMigrationHost:
             remote_command=cmd_remote_write_poetry_toml(staging),
             input_bytes=POETRY_TOML.encode("utf-8"),
         )
+        committed_lock = dict(self.plan.artifact_identity).get("poetry.lock", "")
         lock_before = ssh(
             self.runner,
             **self.transport,
             remote_command=cmd_remote_lock_hash(staging),
         ).strip()
+        if lock_before.split()[:1] != [committed_lock]:
+            raise ReleaseError(
+                "prepared release lock differs from the committed lock",
+                EXIT_MIGRATION,
+            )
         ssh(
             self.runner,
             **self.transport,
@@ -3367,7 +3628,7 @@ class RemoteMigrationHost:
         ).strip()
         if lock_before != lock_after:
             raise ReleaseError("poetry.lock changed during migration", EXIT_MIGRATION)
-        remote_engine = f"{REMOTE_DEPLOY_DIR}/framenest_release.py"
+        remote_engine = MIGRATION_REMOTE_ENGINE
         engine_bytes = self.engine_path.read_bytes()
         ssh(
             self.runner,
@@ -3427,6 +3688,31 @@ class RemoteMigrationHost:
             **self.transport,
             remote_command=cmd_remote_verify_migration_release(staging, target),
         )
+        # Validate the final executable paths of the console scripts the
+        # installed canonical units will execute, not only the retained
+        # database tooling.
+        for relative in self.plan.required_scripts:
+            candidate = f"{target}/{relative}"
+            validate_remote_path(candidate, self.plan.new_layout.release_root)
+            try:
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_test_regular_executable(candidate),
+                )
+            except ReleaseError as exc:
+                raise ReleaseError(
+                    "a prepared release console script is not executable",
+                    EXIT_MIGRATION,
+                ) from exc
+        # The retained old release is read-only source material: prove it is
+        # byte-unchanged after preparation.
+        retained = read_release_markers(self.runner, self.transport, old_release)
+        if retained.sha != old_markers.sha or retained.manifest_raw != old_markers.manifest_raw:
+            raise ReleaseError(
+                "the retained old release changed during preparation",
+                EXIT_MIGRATION,
+            )
 
     def rename_account(self) -> dict[str, object]:
         home = (
@@ -3478,30 +3764,19 @@ class RemoteMigrationHost:
                 input_bytes=payload,
             )
             installed.append(new_name)
-        for dropin_name in self.plan.installed_dropins:
-            source = f"{migration_dropin_directory(self.plan.old_layout)}/{dropin_name}"
-            raw = _require_query_result(
+        created_directories: set[str] = set()
+        for installation in self.plan.dropin_installations:
+            new_unit = canonical_unit_name(installation.unit)
+            directory = f"/etc/systemd/system/{new_unit}.d"
+            if directory not in created_directories:
                 ssh(
                     self.runner,
                     **self.transport,
-                    remote_command=cmd_remote_read_optional_file(source),
-                ),
-                f"installed drop-in {dropin_name}",
-            )
-            if raw == "absent":
-                continue
-            transformed = transform_unit_dropin_text(raw)
-            payload = transformed.encode("utf-8")
-            destination = (
-                f"{migration_dropin_directory(self.plan.new_layout)}/{dropin_name}"
-            )
-            ssh(
-                self.runner,
-                **self.transport,
-                remote_command=cmd_remote_make_directory(
-                    migration_dropin_directory(self.plan.new_layout), "0755"
-                ),
-            )
+                    remote_command=cmd_remote_make_directory(directory, "0755"),
+                )
+                created_directories.add(directory)
+            destination = f"{directory}/{Path(installation.source).name}"
+            payload = installation.text.encode("utf-8")
             ssh(
                 self.runner,
                 **self.transport,
@@ -3520,6 +3795,18 @@ class RemoteMigrationHost:
             **self.transport,
             remote_command=cmd_remote_enable_unit(self.plan.new_layout.service),
         )
+        # Obsolete autostart links are disabled at cutover, before the
+        # canonical pointer is switched and before the new service starts, so
+        # the former units cannot come back on their own.
+        disabled: list[str] = []
+        for old_name in self.plan.installed_units:
+            ssh(
+                self.runner,
+                **self.transport,
+                remote_command=cmd_remote_disable_unit(old_name),
+            )
+            disabled.append(old_name)
+        self._persist_substep("old_units_disabled", disabled)
         return installed
 
     def verify_effective_units(self) -> None:
@@ -3539,12 +3826,41 @@ class RemoteMigrationHost:
                 EXIT_MIGRATION,
             )
 
+    def switch_current(self) -> None:
+        """Guard the installed executables, then switch the canonical pointer.
+
+        The installed-executable guard runs first against the prepared release;
+        only then is ``/opt/kronika/current`` atomically created and switched,
+        and the link is read back before the service is allowed to start.
+        """
+        target = self.plan.new_layout.release_dir(self.plan.release_sha)
+        required = verify_unit_executables(
+            self.runner, self.transport, target, self.plan.new_layout
+        )
+        self._persist_substep("verified_unit_executables", list(required))
+        self._persist_substep("current_pointer_switched", True)
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_atomic_switch(target, self.plan.new_layout),
+        )
+        linked = ssh(
+            self.runner,
+            **self.transport,
+            remote_command=cmd_remote_readlink_current(self.plan.new_layout),
+        ).strip()
+        if linked != target:
+            raise ReleaseError(
+                "canonical current pointer did not switch", EXIT_MIGRATION
+            )
+
     def start_service(self) -> None:
         ssh(
             self.runner,
             **self.transport,
             remote_command=cmd_remote_start_unit(self.plan.new_layout.service),
         )
+        self.verify_local_readiness()
 
     def verify_local_readiness(self) -> None:
         deadline = time.monotonic() + READINESS_DEADLINE_SECONDS
@@ -3631,23 +3947,56 @@ class RemoteMigrationHost:
         if status["old_handlers"] or not (set(status["targets"]) & new_forms):
             raise ReleaseError("ingress replacement did not verify", EXIT_MIGRATION)
 
+    def _observed_writer_units(self) -> dict[str, dict[str, object]]:
+        """Observed writer state from the durable journal, or the plan."""
+        journal = self._active_journal
+        if isinstance(journal, dict):
+            substeps = journal.get("substeps")
+            if isinstance(substeps, dict):
+                observed = substeps.get("observed_units")
+                if isinstance(observed, dict) and observed:
+                    return observed
+        return {
+            observation.name: {
+                "installed": observation.installed,
+                "load": observation.load,
+                "enabled": observation.enabled,
+                "active": observation.active,
+            }
+            for observation in self.plan.unit_observations
+        }
+
     def resume_writers(self) -> list[str]:
+        """Restore only the previously intended canonical scheduling.
+
+        A timer that was observed enabled is enabled, and a timer that was
+        observed active is started; a timer that was observed disabled and
+        inactive stays that way, and a unit that was absent stays absent.
+        """
+        observed = self._observed_writer_units()
         resumed: list[str] = []
         for old_name in self.plan.installed_units:
             if not old_name.endswith(".timer"):
                 continue
+            state = observed.get(old_name)
+            if not isinstance(state, dict) or not state.get("installed"):
+                continue
             canonical = canonical_unit_name(old_name)
-            ssh(
-                self.runner,
-                **self.transport,
-                remote_command=cmd_remote_enable_unit(canonical),
-            )
-            ssh(
-                self.runner,
-                **self.transport,
-                remote_command=cmd_remote_start_unit(canonical),
-            )
-            resumed.append(canonical)
+            if state.get("enabled") in ("enabled", "enabled-runtime"):
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_enable_unit(canonical),
+                )
+                resumed.append(canonical)
+            if state.get("active") in WEB_ACTIVE_STATES:
+                ssh(
+                    self.runner,
+                    **self.transport,
+                    remote_command=cmd_remote_start_unit(canonical),
+                )
+                if canonical not in resumed:
+                    resumed.append(canonical)
         return resumed
 
     def recover_pre_write(self, journal: dict[str, object]) -> None:
@@ -3672,6 +4021,21 @@ class RemoteMigrationHost:
             substeps = {}
         completed = list(journal.get("completed_phases", []))
         legacy = not substeps
+        # A switched canonical pointer is this run's own creation; removing it
+        # (and any staging link left by an interrupted switch) restores the
+        # observed "pointer absent" state. The removal is exact and uses
+        # ``rm -f``, which cannot touch a directory.
+        if substeps.get("current_pointer_switched"):
+            for pointer in (
+                stop_layout.current,
+                stop_layout.current + ".next",
+            ):
+                with contextlib.suppress(ReleaseError):
+                    ssh(
+                        self.runner,
+                        **self.transport,
+                        remote_command=cmd_remote_remove_file(pointer),
+                    )
         rename_phase_done = MIGRATION_PHASE_RENAME_ACCOUNT in completed
         group_renamed = bool(substeps.get("group_renamed")) or (
             legacy and rename_phase_done
@@ -3814,20 +4178,305 @@ def tailscale_unix_target(socket_path: str) -> str:
     return f"unix+http://{socket_path}"
 
 
+# ---------------------------------------------------------------------------
+# Structural systemd drop-in and sudoers transformation (pure)
+# ---------------------------------------------------------------------------
+
+#: One ``Key=Value`` directive line of a unit or drop-in.
+SYSTEMD_DIRECTIVE_LINE = re.compile(
+    r"^(?P<indent>[ \t]*)(?P<key>[A-Za-z][A-Za-z0-9]*)=(?P<value>.*)$"
+)
+#: One section header line, for example ``[Service]``.
+SYSTEMD_SECTION_LINE = re.compile(r"^[ \t]*\[[A-Za-z][A-Za-z0-9]*\][ \t]*$")
+#: Directives whose value is one executable command.
+SYSTEMD_EXEC_DIRECTIVES = frozenset(
+    {
+        "ExecStart",
+        "ExecStartPre",
+        "ExecStartPost",
+        "ExecReload",
+        "ExecStop",
+        "ExecStopPost",
+    }
+)
+#: Directives whose value is one or more filesystem paths.
+SYSTEMD_PATH_DIRECTIVES = frozenset(
+    {
+        "WorkingDirectory",
+        "EnvironmentFile",
+        "ReadWritePaths",
+        "ReadOnlyPaths",
+        "InaccessiblePaths",
+    }
+)
+SYSTEMD_IDENTITY_DIRECTIVES = frozenset({"User", "Group"})
+#: systemd command-line prefix characters that may precede the executable.
+SYSTEMD_EXEC_PREFIXES = "-+!@"
+SYSTEMD_EXEC_TOKEN = re.compile(
+    r"^(?P<prefix>[-+!@]*)(?P<path>(?:\\.|[^\s\\])+)", re.DOTALL
+)
+
+#: One sudoers rule line: principal, host list, then the command specification.
+SUDOERS_RULE_LINE = re.compile(
+    r"^(?P<principal>\S+)[ \t]+(?P<hosts>[^=\s]+)[ \t]*=[ \t]*(?P<spec>.+)$"
+)
+SUDOERS_TAG = re.compile(r"[A-Z_]+:")
+
+
+def _systemd_transform_value(key: str, value: str) -> str:
+    """Transform one supported directive value, or refuse the form."""
+    if key in SYSTEMD_IDENTITY_DIRECTIVES:
+        candidate = value.strip()
+        if candidate.lower() == "framenest":
+            return "kronika"
+        if "framenest" in candidate.lower():
+            raise ReleaseError(
+                f"unit directive {key} identity is not classifiable",
+                EXIT_MIGRATION,
+            )
+        return value
+    if key == "LoadCredential":
+        identifier, separator, path = value.partition(":")
+        if not separator or not identifier or not path:
+            raise ReleaseError(
+                "LoadCredential directive is not identifier:path",
+                EXIT_MIGRATION,
+            )
+        if any(character.isspace() for character in identifier):
+            raise ReleaseError(
+                "LoadCredential directive is not identifier:path",
+                EXIT_MIGRATION,
+            )
+        transformed = transform_path_value(path)
+        if transformed == path and "framenest" in path.lower():
+            raise ReleaseError(
+                "LoadCredential path is not classifiable", EXIT_MIGRATION
+            )
+        return f"{identifier}:{transformed}"
+    if key in SYSTEMD_EXEC_DIRECTIVES:
+        command = value.strip()
+        if command.startswith("{"):
+            match = UNIT_EXEC_PATH.search(command)
+            if match is None:
+                raise ReleaseError(
+                    f"unit directive {key} revision is not classifiable",
+                    EXIT_MIGRATION,
+                )
+            original = _unescape_unit_text(match.group(1))
+            if not original.startswith("/"):
+                raise ReleaseError(
+                    f"unit directive {key} path is not absolute", EXIT_MIGRATION
+                )
+            transformed = transform_path_value(original)
+            if transformed == original and "framenest" in original.lower():
+                raise ReleaseError(
+                    f"unit directive {key} path is not classifiable",
+                    EXIT_MIGRATION,
+                )
+            return command.replace(match.group(1), transformed, 1)
+        match = SYSTEMD_EXEC_TOKEN.match(command)
+        if match is None:
+            raise ReleaseError(
+                f"unit directive {key} is not classifiable", EXIT_MIGRATION
+            )
+        if not match.group("path").startswith("/"):
+            raise ReleaseError(
+                f"unit directive {key} path is not absolute", EXIT_MIGRATION
+            )
+        transformed = transform_path_value(match.group("path"))
+        if transformed == match.group("path") and "framenest" in command.lower():
+            raise ReleaseError(
+                f"unit directive {key} path is not classifiable", EXIT_MIGRATION
+            )
+        return match.group("prefix") + transformed + command[match.end():]
+    if key in SYSTEMD_PATH_DIRECTIVES:
+        tokens = value.split()
+        if not tokens:
+            raise ReleaseError(
+                f"unit directive {key} has no path", EXIT_MIGRATION
+            )
+        transformed_tokens: list[str] = []
+        for token in tokens:
+            prefix = ""
+            body = token
+            if body.startswith("-"):
+                prefix, body = "-", body[1:]
+            if not body.startswith("/"):
+                raise ReleaseError(
+                    f"unit directive {key} path is not absolute", EXIT_MIGRATION
+                )
+            transformed = transform_path_value(body)
+            if transformed == body and "framenest" in body.lower():
+                raise ReleaseError(
+                    f"unit directive {key} path is not classifiable", EXIT_MIGRATION
+                )
+            transformed_tokens.append(prefix + transformed)
+        return " ".join(transformed_tokens)
+    raise ReleaseError(
+        f"unit directive {key} is not supported", EXIT_MIGRATION
+    )
+
+
 def transform_unit_dropin_text(text: str) -> str:
-    """Apply the moved-root transformation to path tokens, nothing else.
+    """Rewrite one unit or drop-in using supported systemd directive forms.
 
-    Only tokens that carry a moved product root are rewritten. A token that
-    merely contains the retired spelling elsewhere, and every frozen residue,
-    is preserved exactly.
+    Section headers, comments and blank lines are preserved byte-for-byte. Each
+    supported directive is parsed structurally: ``User``/``Group`` identities,
+    ``LoadCredential`` identifier and path pairs, executable paths and path
+    lists. An unknown or malformed directive form raises instead of passing the
+    retired spelling through, so an unsupported installation stops preflight
+    rather than being transformed silently.
     """
-    token_pattern = re.compile(r"[^\s\"']*framenest[^\s\"']*", re.IGNORECASE)
+    transformed_lines: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith(";"):
+            transformed_lines.append(raw)
+            continue
+        if SYSTEMD_SECTION_LINE.match(raw):
+            transformed_lines.append(raw)
+            continue
+        match = SYSTEMD_DIRECTIVE_LINE.match(raw)
+        if match is None:
+            raise ReleaseError("unit directive is not supported", EXIT_MIGRATION)
+        if match.group("value").rstrip().endswith("\\"):
+            raise ReleaseError(
+                "continued unit directive is not supported", EXIT_MIGRATION
+            )
+        transformed = _systemd_transform_value(
+            match.group("key"), match.group("value")
+        )
+        transformed_lines.append(
+            f"{match.group('indent')}{match.group('key')}={transformed}"
+        )
+    rendered = "\n".join(transformed_lines)
+    if text.endswith("\n"):
+        rendered += "\n"
+    return rendered
 
-    def replace_token(match: re.Match[str]) -> str:
-        token = match.group(0)
-        return transform_path_value(token)
 
-    return token_pattern.sub(replace_token, text)
+def _transform_sudoers_identity(identity: str) -> str:
+    parts = identity.split(":", 1)
+    transformed: list[str] = []
+    for part in parts:
+        candidate = part.strip()
+        if candidate.lower() == "framenest":
+            transformed.append("kronika")
+        elif "framenest" in candidate.lower():
+            raise ReleaseError(
+                "sudo rule run-as identity is not classifiable", EXIT_MIGRATION
+            )
+        else:
+            transformed.append(part)
+    return ":".join(transformed)
+
+
+def _transform_sudoers_command(command: str, export_installed: str | None) -> str:
+    if export_installed is not None and command == export_installed:
+        return canonical_installed_export_path(export_installed)
+    transformed = transform_path_value(command)
+    if transformed == command and "framenest" in command.lower():
+        raise ReleaseError(
+            "sudo rule command path is not classifiable", EXIT_MIGRATION
+        )
+    return transformed
+
+
+def transform_sudoers_text(
+    text: str, *, export_installed: str | None = None
+) -> str:
+    """Rewrite the narrow installed export rule using structurally parsed fields.
+
+    Comment lines are preserved. Each rule line is parsed into principal, host
+    list, optional run-as list, optional tag list and command; the run-as
+    identity is renamed, the command path is moved to its canonical installed
+    name when it is the observed export facility, and every unknown form raises
+    so preflight stops rather than leaving a retired path behind.
+    """
+    transformed_lines: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            transformed_lines.append(raw)
+            continue
+        match = SUDOERS_RULE_LINE.match(stripped)
+        if match is None:
+            raise ReleaseError("sudo rule line is not supported", EXIT_MIGRATION)
+        rest = match.group("spec").lstrip()
+        runas: str | None = None
+        if rest.startswith("("):
+            closing = rest.find(")")
+            if closing < 0:
+                raise ReleaseError(
+                    "sudo rule run-as section is malformed", EXIT_MIGRATION
+                )
+            runas = rest[1:closing]
+            rest = rest[closing + 1 :].lstrip()
+        tags: list[str] = []
+        while True:
+            tag = SUDOERS_TAG.match(rest)
+            if tag is None:
+                break
+            tags.append(tag.group(0))
+            rest = rest[tag.end() :].lstrip()
+        if not rest.startswith("/"):
+            raise ReleaseError(
+                "sudo rule command is not an absolute path", EXIT_MIGRATION
+            )
+        command, _separator, arguments = rest.partition(" ")
+        transformed_runas = (
+            f"({_transform_sudoers_identity(runas)}) " if runas is not None else ""
+        )
+        transformed_command = _transform_sudoers_command(command, export_installed)
+        tag_text = (" ".join(tags) + " ") if tags else ""
+        rebuilt = (
+            f"{match.group('principal')} {match.group('hosts')}="
+            f"{transformed_runas}{tag_text}{transformed_command}"
+        )
+        if arguments.strip():
+            rebuilt += f" {arguments.strip()}"
+        transformed_lines.append(rebuilt)
+    rendered = "\n".join(transformed_lines)
+    if text.endswith("\n"):
+        rendered += "\n"
+    return rendered
+
+
+def migration_required_console_scripts(
+    systemd_source: Path, layout: WebLayout = NEW_WEB_LAYOUT
+) -> tuple[str, ...]:
+    """Release-relative console scripts the canonical units will execute.
+
+    Parsed from the canonical service artifacts this migration installs, so the
+    prepared release is validated against the exact executables the installed
+    units name rather than against a hard-coded script list.
+    """
+    required: set[str] = set()
+    for _old_name, new_name, _required in MIGRATION_UNIT_ARTIFACTS:
+        if not new_name.endswith(".service"):
+            continue
+        text = (systemd_source / new_name).read_text(encoding="utf-8")
+        for raw in text.splitlines():
+            match = SYSTEMD_DIRECTIVE_LINE.match(raw)
+            if match is None or match.group("key") not in SYSTEMD_EXEC_DIRECTIVES:
+                continue
+            value = match.group("value").strip()
+            executable_match = SYSTEMD_EXEC_TOKEN.match(value)
+            if executable_match is None:
+                raise ReleaseError(
+                    "canonical unit execution form is not a release console script",
+                    EXIT_MIGRATION,
+                )
+            scoped = release_scoped_console_script(
+                transform_path_value(executable_match.group("path")), layout
+            )
+            if scoped is None:
+                raise ReleaseError(
+                    "canonical unit execution form is not a release console script",
+                    EXIT_MIGRATION,
+                )
+            required.add(scoped)
+    return tuple(sorted(required))
 
 
 # ---------------------------------------------------------------------------
@@ -3910,6 +4559,7 @@ _MIGRATION_PHASE_METHODS = {
     MIGRATION_PHASE_RENAME_ACCOUNT: "rename_account",
     MIGRATION_PHASE_INSTALL_UNITS: "install_units",
     MIGRATION_PHASE_VERIFY_UNITS: "verify_effective_units",
+    MIGRATION_PHASE_SWITCH_CURRENT: "switch_current",
     MIGRATION_PHASE_START_SERVICE: "start_service",
     MIGRATION_PHASE_REPLACE_INGRESS: "replace_tailscale_handler",
     MIGRATION_PHASE_VERIFY_INGRESS: "verify_ingress",
@@ -3939,13 +4589,51 @@ def _require_query_result(raw: str, context: str) -> str:
     return text
 
 
+def required_current_release_sha(
+    runner: Runner, transport: dict[str, str], layout: WebLayout
+) -> str:
+    """Resolve the served release through the current pointer, or refuse.
+
+    A missing pointer is a migration refusal, not a transport error, and a
+    failed privileged query is never read as absence.
+    """
+    raw = _require_query_result(
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_optional_link(layout.current),
+        ),
+        "current release pointer",
+    )
+    if raw == "absent":
+        raise ReleaseError("current release pointer is absent", EXIT_MIGRATION)
+    validate_remote_path(raw, layout.release_root)
+    return read_release_markers(runner, transport, raw).sha
+
+
 def read_migration_observation(
     runner: Runner,
     transport: dict[str, str],
     *,
     release_sha: str,
+    repository_root: Path | None = None,
+    engine_path: Path | None = None,
 ) -> MigrationObservation:
-    """Read one host's migration facts, read-only, reporting filenames only."""
+    """Read one host's migration facts, read-only, reporting filenames only.
+
+    The observation binds the exact served release, the effective unit
+    fragments, drop-ins, enablement and activity, each observed drop-in's
+    transformed bytes, the installed sudo rule's transformed bytes and the
+    source artifact identity of the engine and every artifact the migration
+    installs. An unsupported directive or sudo form stops the preflight here
+    rather than being transformed silently during apply.
+    """
+    repository = (
+        Path(repository_root)
+        if repository_root is not None
+        else Path(__file__).resolve().parents[2]
+    )
+    engine = Path(engine_path) if engine_path is not None else Path(__file__)
     state = resolve_host_layout(runner, transport)
     if state.web.key != "old":
         raise ReleaseError("identity migration requires the former web layout", EXIT_LAYOUT)
@@ -3959,6 +4647,26 @@ def read_migration_observation(
     )
     if existence != "present":
         raise ReleaseError("former release tree is absent", EXIT_MIGRATION)
+
+    current_release_sha = required_current_release_sha(
+        runner, transport, old_layout
+    )
+    if current_release_sha != release_sha:
+        raise ReleaseError(
+            "current release does not equal the migration release", EXIT_MIGRATION
+        )
+    new_current = _require_query_result(
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_optional_link(new_layout.current),
+        ),
+        "canonical current pointer",
+    )
+    if new_current != "absent":
+        raise ReleaseError(
+            "canonical current pointer already exists", EXIT_MIGRATION
+        )
 
     environment_raw = _require_query_result(
         ssh(
@@ -3984,41 +4692,72 @@ def read_migration_observation(
         if existence == "present":
             copy_sources.append((old_root, new_root))
 
+    unit_observations: list[ObservedUnit] = []
     installed_units: list[str] = []
     for old_name, _new_name, required in MIGRATION_UNIT_ARTIFACTS:
-        existence = _require_query_result(
-            ssh(
-                runner,
-                **transport,
-                remote_command=cmd_remote_existence(
-                    f"/etc/systemd/system/{old_name}"
+        if old_name.endswith(SYSTEMD_UNIT_SUFFIXES):
+            observed = parse_effective_unit_state(
+                ssh(
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_unit_effective_state(old_name),
                 ),
-            ),
-            f"installed unit {old_name}",
-        )
-        if existence == "present":
+                old_name,
+            )
+        else:
+            existence = _require_query_result(
+                ssh(
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_existence(
+                        f"/etc/systemd/system/{old_name}"
+                    ),
+                ),
+                f"installed artifact {old_name}",
+            )
+            installed = existence == "present"
+            observed = ObservedUnit(
+                name=old_name,
+                installed=installed,
+                load="loaded" if installed else "",
+                fragment_path=(
+                    f"/etc/systemd/system/{old_name}" if installed else ""
+                ),
+                dropin_paths=(),
+                enabled="",
+                active="",
+            )
+        unit_observations.append(observed)
+        if observed.installed:
             installed_units.append(old_name)
         elif required:
             raise ReleaseError(
                 "the installed web unit is absent", EXIT_MIGRATION
             )
-    dropin_listing = _require_query_result(
-        ssh(
-            runner,
-            **transport,
-            remote_command=cmd_remote_list_directory(
-                migration_dropin_directory(old_layout)
-            ),
-        ),
-        "installed drop-in directory",
-    )
-    installed_dropins = tuple(
-        sorted(
-            line
-            for line in dropin_listing.splitlines()
-            if line.endswith(".conf") and "/" not in line
-        )
-    )
+    dropin_installations: list[DropinInstallation] = []
+    for observed in unit_observations:
+        if not observed.installed:
+            continue
+        for source in observed.dropin_paths:
+            raw = _require_query_result(
+                ssh(
+                    runner,
+                    **transport,
+                    remote_command=cmd_remote_read_optional_file(source),
+                ),
+                f"installed drop-in {source}",
+            )
+            if raw == "absent":
+                raise ReleaseError(
+                    "an observed drop-in is absent", EXIT_MIGRATION
+                )
+            dropin_installations.append(
+                DropinInstallation(
+                    unit=observed.name,
+                    source=source,
+                    text=transform_unit_dropin_text(raw),
+                )
+            )
 
     credential_sources: list[str] = []
     credentials_root = "/etc/framenest/credentials"
@@ -4055,6 +4794,21 @@ def read_migration_observation(
         if existence == "present":
             sudo_rule_installed = candidate
             break
+    sudo_rule_text: str | None = None
+    if sudo_rule_installed is not None:
+        raw_sudo_rule = _require_query_result(
+            ssh(
+                runner,
+                **transport,
+                remote_command=cmd_remote_read_optional_file(sudo_rule_installed),
+            ),
+            "installed sudo rule",
+        )
+        if raw_sudo_rule == "absent":
+            raise ReleaseError("installed sudo rule is absent", EXIT_MIGRATION)
+        sudo_rule_text = transform_sudoers_text(
+            raw_sudo_rule, export_installed=export_installed
+        )
 
     account_record = ssh(
         runner, **transport, remote_command=cmd_remote_account_record()
@@ -4084,6 +4838,24 @@ def read_migration_observation(
     )
     tailscale = parse_tailscale_serve_status(raw_status)
 
+    artifact_identity: list[tuple[str, str]] = []
+    for _old_name, new_name, _required in MIGRATION_UNIT_ARTIFACTS:
+        relative = f"deploy/systemd/{new_name}"
+        artifact_identity.append((relative, sha256_of_file(repository / relative)))
+    export_relative = MIGRATION_EXPORT_ARTIFACT[1]
+    artifact_identity.append(
+        (export_relative, sha256_of_file(repository / export_relative))
+    )
+    lock_relative = "poetry.lock"
+    artifact_identity.append(
+        (lock_relative, sha256_of_file(repository / lock_relative))
+    )
+    engine_relative = "deploy/ubuntu/kronika_release.py"
+    artifact_identity.append((engine_relative, sha256_of_file(engine)))
+    required_scripts = migration_required_console_scripts(
+        migration_systemd_dir(engine), new_layout
+    )
+
     return MigrationObservation(
         release_sha=release_sha,
         old_layout=old_layout,
@@ -4091,17 +4863,22 @@ def read_migration_observation(
         environment_text=environment_raw,
         copy_sources=tuple(copy_sources),
         installed_units=tuple(installed_units),
-        installed_dropins=installed_dropins,
+        unit_observations=tuple(unit_observations),
+        dropin_installations=tuple(dropin_installations),
         credential_sources=tuple(credential_sources),
         export_installed=export_installed,
         sudo_rule_installed=sudo_rule_installed,
+        sudo_rule_text=sudo_rule_text,
         account_uid=int(fields[0]),
         account_gid=int(fields[1]),
         account_home=fields[2],
+        current_release_sha=current_release_sha,
         capture_pointer=state.capture_pointer,
         capture_release_sha=capture_release_sha,
         tailscale_handler_count=int(tailscale["handler_count"]),
         tailscale_old_handlers=len(tailscale["old_handlers"]),
+        artifact_identity=tuple(sorted(artifact_identity)),
+        required_scripts=required_scripts,
     )
 
 
@@ -4250,18 +5027,21 @@ def _cmd_migrate_preflight(args: argparse.Namespace, runner: Runner) -> int:
     plan = build_migration_plan(observation)
     print("kronika-release migrate-identity preflight")
     print(f"release: {plan.release_sha}")
+    print(f"current_release: {plan.current_release_sha}")
     print(f"old_layout: {plan.old_layout.key}")
     print(f"new_layout: {plan.new_layout.key}")
     print(f"plan_digest: {plan.plan_digest}")
     print(f"copy_moves: {len(plan.copy_moves)}")
     print(f"installed_units: {','.join(plan.installed_units)}")
-    print(f"installed_dropins: {len(plan.installed_dropins)}")
+    print(f"observed_units: {len(plan.unit_observations)}")
+    print(f"installed_dropins: {len(plan.dropin_installations)}")
     print(f"credential_sources: {len(plan.credential_sources)}")
     print(f"export_installed: {plan.export_installed or 'absent'}")
     print(f"sudo_rule_installed: {plan.sudo_rule_installed or 'absent'}")
     print(f"capture_pointer: {plan.capture_pointer}")
     print(f"tailscale_handlers: {plan.tailscale_handler_count}")
     print(f"tailscale_old_handlers: {plan.tailscale_old_handlers}")
+    print(f"required_scripts: {','.join(plan.required_scripts)}")
     print(f"moved_path_keys: {','.join(plan.environment.moved_path_keys)}")
     print(f"preserved_path_keys: {','.join(plan.environment.preserved_path_keys)}")
     return EXIT_OK

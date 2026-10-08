@@ -10,13 +10,16 @@ in-memory simulated host with failure injection.
 
 from __future__ import annotations
 
+import argparse
 import copy
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import socket
+import subprocess
 import sys
 import time
 
@@ -575,6 +578,80 @@ def test_resolve_host_layout_selects_each_state_and_fails_closed() -> None:
 # ---------------------------------------------------------------------------
 
 
+SAMPLE_DROPIN_RAW = (
+    "[Service]\n"
+    "LoadCredential=NVIDIA_API_KEY:/etc/framenest/credentials/NVIDIA_API_KEY\n"
+)
+SAMPLE_DROPIN_TRANSFORMED = (
+    "[Service]\n"
+    "LoadCredential=NVIDIA_API_KEY:/etc/kronika/credentials/NVIDIA_API_KEY"
+)
+SAMPLE_SUDO_RULE = (
+    "<operator> ALL=(framenest) NOPASSWD:NOSETENV: "
+    "/usr/local/libexec/framenest-catalog-export-v1 \"\"\n"
+)
+SAMPLE_SUDO_RULE_TRANSFORMED = (
+    "<operator> ALL=(kronika) NOPASSWD:NOSETENV: "
+    "/usr/local/libexec/kronika-catalog-export-v1 \"\"\n"
+)
+
+
+def _unit_observations() -> tuple[engine.ObservedUnit, ...]:
+    return (
+        engine.ObservedUnit(
+            name="framenest.service",
+            installed=True,
+            load="loaded",
+            fragment_path="/etc/systemd/system/framenest.service",
+            dropin_paths=(
+                "/etc/systemd/system/framenest.service.d/20-ai-credential.conf",
+            ),
+            enabled="enabled",
+            active="active",
+        ),
+        engine.ObservedUnit(
+            name="framenest-catalog-backup.service",
+            installed=True,
+            load="loaded",
+            fragment_path="/etc/systemd/system/framenest-catalog-backup.service",
+            dropin_paths=(),
+            enabled="static",
+            active="inactive",
+        ),
+        engine.ObservedUnit(
+            name="framenest-catalog-backup.timer",
+            installed=True,
+            load="loaded",
+            fragment_path="/etc/systemd/system/framenest-catalog-backup.timer",
+            dropin_paths=(),
+            enabled="disabled",
+            active="inactive",
+        ),
+    )
+
+
+def _dropin_installations() -> tuple[engine.DropinInstallation, ...]:
+    return (
+        engine.DropinInstallation(
+            unit="framenest.service",
+            source=(
+                "/etc/systemd/system/framenest.service.d/20-ai-credential.conf"
+            ),
+            text=SAMPLE_DROPIN_TRANSFORMED,
+        ),
+    )
+
+
+def _artifact_identity() -> tuple[tuple[str, str], ...]:
+    lock_digest = engine.sha256_of_file(REPOSITORY_ROOT / "poetry.lock")
+    return (
+        ("deploy/systemd/kronika.service", "a" * 64),
+        ("deploy/ubuntu/kronika-catalog-export-v1", "b" * 64),
+        ("deploy/ubuntu/kronika_release.py", "c" * 64),
+        ("poetry.lock", lock_digest),
+    )
+
+
 def _observation(capture_pointer: str = "old") -> engine.MigrationObservation:
     return engine.MigrationObservation(
         release_sha=RELEASE,
@@ -590,17 +667,25 @@ def _observation(capture_pointer: str = "old") -> engine.MigrationObservation:
             "framenest-catalog-backup.service",
             "framenest-catalog-backup.timer",
         ),
-        installed_dropins=("20-ai-credential.conf",),
+        unit_observations=_unit_observations(),
+        dropin_installations=_dropin_installations(),
         credential_sources=("/etc/framenest/credentials/NVIDIA_API_KEY",),
         export_installed="/usr/local/libexec/framenest-catalog-export-v1",
         sudo_rule_installed=None,
+        sudo_rule_text=None,
         account_uid=1001,
         account_gid=1001,
         account_home="/var/lib/framenest",
+        current_release_sha=RELEASE,
         capture_pointer=capture_pointer,
         capture_release_sha=None,
         tailscale_handler_count=1,
         tailscale_old_handlers=1,
+        artifact_identity=_artifact_identity(),
+        required_scripts=(
+            ".venv/bin/kronika-backup",
+            ".venv/bin/kronika-production",
+        ),
     )
 
 
@@ -748,7 +833,12 @@ class SimulatedMigrationHost:
             self.installed_units = True
         elif name == "verify_effective_units":
             self.effective_ok = True
+        elif name == "switch_current":
+            self.pointer_switched = True
         elif name == "start_service":
+            assert getattr(self, "pointer_switched", False), (
+                "the service must not start before the pointer switch"
+            )
             self.service_state = "kronika"
             self.writes_admitted = True
         elif name == "replace_tailscale_handler":
@@ -1069,16 +1159,71 @@ FRAMENEST_EXTERNAL_ORIGIN=https://node.tailnet.ts.net
 """
 
 
+def _effective_unit_answer(unit: str) -> str:
+    states = {
+        "framenest.service": (
+            "load=loaded\nfragment=/etc/systemd/system/framenest.service\n"
+            "enabled=enabled\nactive=active\n"
+            "dropin=/etc/systemd/system/framenest.service.d/20-ai-credential.conf\n"
+        ),
+        "framenest-catalog-backup.service": (
+            "load=loaded\n"
+            "fragment=/etc/systemd/system/framenest-catalog-backup.service\n"
+            "enabled=static\nactive=inactive\n"
+        ),
+        "framenest-catalog-backup.timer": (
+            "load=loaded\n"
+            "fragment=/etc/systemd/system/framenest-catalog-backup.timer\n"
+            "enabled=disabled\nactive=inactive\n"
+        ),
+    }
+    return states.get(
+        unit, "load=not-found\nfragment=\nenabled=\nactive=\n"
+    )
+
+
+def _release_manifest_json(release_sha: str) -> str:
+    return json.dumps(
+        engine.make_manifest(
+            release_sha=release_sha,
+            ap_pin="b" * 40,
+            superproject_sha256="e" * 64,
+            ap_archive_sha256="f" * 64,
+            capture_code_tree="d" * 40,
+            capture_runtime_contract_sha256="1" * 64,
+            capture_unit_contract_sha256="2" * 64,
+            capture_bridge_protocol="1",
+        )
+    )
+
+
 class ReadOnlyPreflightRunner:
     def __init__(self) -> None:
         self.calls: list[str] = []
         self.credential_listing = "NVIDIA_API_KEY\nOPENCODE_API_KEY\n"
+        self.current_pointer = OLD_RELEASE
+        self.new_current_pointer = "absent"
+        self.current_release_sha = RELEASE
+        self.current_release_manifest: str | None = None
+        self.unit_answers: dict[str, str] | None = None
+        self.non_unit_artifacts_present = False
+        self.dropin_raw = SAMPLE_DROPIN_RAW
+        self.sudo_rule_raw = SAMPLE_SUDO_RULE
 
     def __call__(self, argv, input_bytes):
         combined = " ".join(argv)
         self.calls.append(combined)
         for token in MUTATION_TOKENS:
             assert token not in combined, f"preflight issued a mutation: {combined}"
+        if "dropin=%s" in combined:
+            match = re.search(r"systemctl show -p LoadState --value (\S+)", combined)
+            assert match is not None, combined
+            unit = match.group(1).strip("'")
+            if self.unit_answers is not None:
+                return self.unit_answers.get(
+                    unit, "load=not-found\nfragment=\nenabled=\nactive=\n"
+                )
+            return _effective_unit_answer(unit)
         if "systemctl show --property=LoadState" in combined:
             if "kronika.service" in combined:
                 return _probe_answer(
@@ -1088,11 +1233,30 @@ class ReadOnlyPreflightRunner:
                     unit_file_state="not-found",
                 )
             return _probe_answer(engine.OLD_WEB_LAYOUT)
+        if "then echo manifest" in combined or "then echo sha" in combined:
+            return (
+                f"manifest {engine.RELEASE_MANIFEST_MARKER}\n"
+                f"sha {engine.RELEASE_SHA_MARKER}"
+            )
+        if f"/{engine.RELEASE_MANIFEST_MARKER}" in combined and "cat " in combined:
+            if self.current_release_manifest is not None:
+                return self.current_release_manifest
+            return _release_manifest_json(RELEASE)
+        if f"/{engine.RELEASE_SHA_MARKER}" in combined and "cat " in combined:
+            return self.current_release_sha
+        if "test -L /opt/framenest/current" in combined:
+            return self.current_pointer
+        if "test -L /opt/kronika/current" in combined:
+            return self.new_current_pointer
         if "test -L /opt/framenest/capture-current" in combined:
             return "absent"
         if "test -L /opt/kronika/capture-current" in combined:
             return "absent"
-        if "cat" in combined and engine.OLD_WEB_LAYOUT.env_file in combined:
+        if "sudo -n cat " in combined and "sudoers.d" in combined:
+            return self.sudo_rule_raw
+        if "sudo -n cat " in combined and (".service.d/" in combined):
+            return self.dropin_raw
+        if "sudo -n cat " in combined and engine.OLD_WEB_LAYOUT.env_file in combined:
             return READONLY_ENVIRONMENT
         if "ls -1" in combined and "credentials" in combined:
             return self.credential_listing
@@ -1100,6 +1264,8 @@ class ReadOnlyPreflightRunner:
             return "absent"
         if "test -e" in combined and "/usr/local/libexec" in combined:
             return "present"
+        if "test -e" in combined and "/etc/systemd/system/" in combined:
+            return "present" if self.non_unit_artifacts_present else "absent"
         if "test -e" in combined:
             return "present"
         if "getent passwd framenest" in combined:
@@ -1285,43 +1451,36 @@ def test_production_install_units_installs_only_discovered_artifacts() -> None:
 
 
 def test_production_prepare_release_environment_builds_at_the_new_path() -> None:
-    calls: list[str] = []
-    manifest_payload = json.dumps(
-        engine.make_manifest(
-            release_sha=RELEASE,
-            ap_pin="b" * 40,
-            superproject_sha256="e" * 64,
-            ap_archive_sha256="f" * 64,
-            capture_code_tree="d" * 40,
-            capture_runtime_contract_sha256="1" * 64,
-            capture_unit_contract_sha256="2" * 64,
-            capture_bridge_protocol="1",
-        )
-    )
+    """The production preparation is driven over the stateful boundary.
 
-    def runner(argv, input_bytes):
-        combined = " ".join(argv)
-        calls.append(combined)
-        if "then echo manifest" in combined or "then echo sha" in combined:
-            return (
-                f"manifest {engine.RELEASE_MANIFEST_MARKER}\n"
-                f"sha {engine.RELEASE_SHA_MARKER}"
-            )
-        if f"/{engine.RELEASE_MANIFEST_MARKER}" in combined and "cat " in combined:
-            return manifest_payload
-        if f"/{engine.RELEASE_SHA_MARKER}" in combined and "cat " in combined:
-            return RELEASE
-        return ""
-
-    host = _production_host(runner)
+    Effects, not transcript substrings alone: the owned scratch area exists,
+    the helper lives there and not in the routine deploy scratch directory, the
+    release exists at its final path with executable console scripts, staging
+    is gone and the retained old release is byte-unchanged.
+    """
+    boundary = RemoteBoundary()
+    _populate_old_release(boundary)
+    host = _boundary_host(boundary)
     host.prepare_release_environment()
-    transcript = "\n".join(calls)
+
+    assert boundary.exists(engine.MIGRATION_SCRATCH_DIRECTORY)
+    assert boundary.paths[engine.MIGRATION_SCRATCH_DIRECTORY]["mode"] == 0o700
+    assert boundary.exists(engine.MIGRATION_REMOTE_ENGINE)
+    assert not boundary.exists(f"{engine.REMOTE_DEPLOY_DIR}/kronika_release.py")
+    assert not boundary.exists(f"{engine.REMOTE_DEPLOY_DIR}/framenest_release.py")
+    assert boundary.exists(NEW_RELEASE)
+    assert not boundary.exists(f"{NEW_RELEASE}.staging")
+    for relative in (".venv/bin/kronika-production", ".venv/bin/kronika-backup"):
+        value = boundary.paths[f"{NEW_RELEASE}/{relative}"]
+        assert int(value["mode"]) & 0o111
+    assert boundary.paths[f"{OLD_RELEASE}/marker.txt"]["data"] == b"old-release-bytes\n"
+
+    transcript = "\n".join(boundary.calls)
     assert f"cp -a {OLD_RELEASE}/. {NEW_RELEASE}.staging/" in transcript
     assert f"rm -rf {NEW_RELEASE}.staging/.venv" in transcript
     assert f"--staging {NEW_RELEASE}.staging" in transcript
     assert f"--final {NEW_RELEASE}" in transcript
     assert f"mv {NEW_RELEASE}.staging {NEW_RELEASE}" in transcript
-    assert f"test -d {NEW_RELEASE}/.venv" in transcript
     relocate_index = transcript.index("_remote-relocate-venv-shebangs")
     rename_index = transcript.index(f"mv {NEW_RELEASE}.staging {NEW_RELEASE}")
     assert relocate_index < rename_index
@@ -1357,7 +1516,11 @@ def test_production_post_write_recovery_never_restores_stale_state() -> None:
         return ""
 
     host = _production_host(runner)
-    completed = list(engine.MIGRATION_PHASES[:11])
+    completed = list(
+        engine.MIGRATION_PHASES[
+            : engine.MIGRATION_PHASES.index(engine.MIGRATION_PHASE_START_SERVICE) + 1
+        ]
+    )
     assert engine.migration_is_post_write(completed)
     host.recover_post_write({"completed_phases": completed})
     transcript = "\n".join(calls)
@@ -1482,9 +1645,16 @@ def test_engine_and_routine_builders_never_emit_migrate_identity() -> None:
 def test_migration_phases_are_ordered_and_complete() -> None:
     assert engine.MIGRATION_PHASES[0] == engine.MIGRATION_PHASE_QUIESCE
     assert engine.MIGRATION_PHASES[-1] == engine.MIGRATION_PHASE_RESUME_WRITERS
-    assert len(engine.MIGRATION_PHASES) == 14
+    assert len(engine.MIGRATION_PHASES) == 15
     assert set(engine._MIGRATION_PHASE_METHODS) == set(engine.MIGRATION_PHASES)
     assert engine.MIGRATION_CUTOVER_PHASE == engine.MIGRATION_PHASE_START_SERVICE
+    # The pointer switch is before the cutover, and the cutover is start-service.
+    assert engine.MIGRATION_PHASES.index(engine.MIGRATION_PHASE_SWITCH_CURRENT) < (
+        engine.MIGRATION_PHASES.index(engine.MIGRATION_PHASE_START_SERVICE)
+    )
+    assert engine.MIGRATION_PHASES.index(engine.MIGRATION_PHASE_SWITCH_CURRENT) > (
+        engine.MIGRATION_PHASES.index(engine.MIGRATION_PHASE_VERIFY_UNITS)
+    )
 
 
 def test_canonical_artifacts_are_never_installed_by_routine_commands(
@@ -1531,6 +1701,10 @@ class RemoteBoundary:
         self.fail_atomic_write = False
         self.fail_atomic_rename = False
         self.fail_groupmod = False
+        self.fail_readiness = False
+        self.fail_required_script = False
+        self.tamper_old_release = False
+        self.capture_identities: list[str] = []
 
     # -- state helpers ----------------------------------------------------
 
@@ -1662,6 +1836,198 @@ class RemoteBoundary:
                 lines.append(f"{relative}|other|-|{meta}")
         return "\n".join(lines)
 
+    # -- unit-file effects -------------------------------------------------
+
+    SYSTEMD_UNIT_SUFFIXES = (".service", ".timer", ".socket", ".target")
+
+    def _unit_record(self, unit: str) -> dict[str, object] | None:
+        record = self.units.get(unit)
+        if record is None:
+            return None
+        record.setdefault("installed", True)
+        record.setdefault("load", "loaded")
+        record.setdefault("enabled", "disabled")
+        record.setdefault("active", "inactive")
+        record.setdefault("fragment", f"/etc/systemd/system/{unit}")
+        record.setdefault("dropins", [])
+        return record
+
+    def _register_unit_file(self, path: str) -> None:
+        name = Path(path).name
+        if not name.endswith(self.SYSTEMD_UNIT_SUFFIXES):
+            return
+        record = self.units.setdefault(name, {})
+        record.update(
+            {
+                "installed": True,
+                "load": "loaded",
+                "enabled": record.get("enabled", "disabled"),
+                "active": record.get("active", "inactive"),
+                "fragment": path,
+                "dropins": record.get("dropins", []),
+            }
+        )
+
+    def _register_dropin(self, path: str) -> None:
+        directory = Path(path).parent.name
+        if not directory.endswith(".d"):
+            return
+        unit = directory[: -len(".d")]
+        record = self._unit_record(unit)
+        if record is None:
+            return
+        dropins = record.setdefault("dropins", [])
+        if isinstance(dropins, list) and path not in dropins:
+            dropins.append(path)
+
+    def _unit_file_text(self, unit: str) -> str:
+        record = self._unit_record(unit)
+        if record is None:
+            return ""
+        fragment = record.get("fragment")
+        if not isinstance(fragment, str):
+            return ""
+        value = self.paths.get(fragment)
+        if value is None or value.get("kind") != "file":
+            return ""
+        data = value.get("data")
+        if isinstance(data, bytes):
+            return data.decode("utf-8")
+        return ""
+
+    @staticmethod
+    def _unit_property(text: str, name: str, default: str = "") -> str:
+        for raw in text.splitlines():
+            key, separator, value = raw.partition("=")
+            if separator and key.strip() == name:
+                return value.strip()
+        return default
+
+    def _render_exec_lines(self, unit: str) -> str:
+        text = self._unit_file_text(unit)
+        lines: list[str] = []
+        for raw in text.splitlines():
+            key, separator, value = raw.partition("=")
+            if separator and key in ("ExecStart", "ExecStartPre"):
+                first = value.strip().split()[0] if value.strip() else ""
+                lines.append(f"{key}={{ path={first} ; }}")
+        return "\n".join(lines)
+
+    def _render_layout_probe(self, unit: str, record: dict[str, object]) -> str:
+        text = self._unit_file_text(unit)
+        return (
+            f"LoadState={record.get('load', 'loaded')}\n"
+            f"ActiveState={record.get('active', 'inactive')}\n"
+            f"UnitFileState={record.get('enabled', 'disabled')}\n"
+            f"User={self._unit_property(text, 'User')}\n"
+            f"Group={self._unit_property(text, 'Group')}\n"
+            f"WorkingDirectory={self._unit_property(text, 'WorkingDirectory')}\n"
+            + self._render_exec_lines(unit)
+            + "\n"
+        )
+
+    def _seed_prepared_venv(self, staging: str) -> None:
+        """Model the effect of the frozen-tooling install in the staging tree."""
+        bindir = f"{staging}/.venv/bin"
+        for name in (
+            "kronika-production",
+            "kronika-backup",
+            "framenest-production",
+            "framenest-db",
+            "framenest-backup",
+        ):
+            mode = 0o644 if (self.fail_required_script and name == "kronika-production") else 0o755
+            self.add_file(
+                f"{bindir}/{name}",
+                f"#!{staging}/.venv/bin/python\nprint('{name}')\n".encode("utf-8"),
+                mode=mode,
+            )
+        self.add_file(
+            f"{staging}/.venv/lib/site-packages/editable.pth",
+            f"{staging}/src\n".encode("utf-8"),
+        )
+
+    def _relocate_venv(self, staging: str, final: str) -> None:
+        venv = f"{staging}/.venv"
+        prefix = venv.rstrip("/") + "/"
+        files = [
+            path
+            for path in self.paths
+            if path.startswith(prefix) and self.paths[path]["kind"] == "file"
+        ]
+        if not files:
+            raise engine.ReleaseError("release venv is missing", engine.EXIT_POETRY)
+        rewritten = 0
+        for path in files:
+            value = self.paths[path]
+            data = value["data"]
+            assert isinstance(data, bytes)
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            if staging not in text:
+                continue
+            value["data"] = text.replace(staging, final).encode("utf-8")
+            rewritten += 1
+        if rewritten == 0:
+            raise engine.ReleaseError(
+                "venv staging paths were not relocated", engine.EXIT_POETRY
+            )
+        for name in ("framenest-db", "framenest-backup"):
+            script = f"{venv}/bin/{name}"
+            value = self.paths.get(script)
+            if value is None or value["kind"] != "file":
+                raise engine.ReleaseError(
+                    "required console script is missing", engine.EXIT_POETRY
+                )
+            data = value["data"]
+            assert isinstance(data, bytes)
+            content = data.decode("utf-8")
+            if ".staging" in content:
+                raise engine.ReleaseError(
+                    "console script still names staging path", engine.EXIT_POETRY
+                )
+            if not content.startswith(f"#!{final}/.venv/bin/python"):
+                raise engine.ReleaseError(
+                    "console script does not name release interpreter",
+                    engine.EXIT_POETRY,
+                )
+        for path in files:
+            if path.endswith(".pth") or path.endswith("direct_url.json"):
+                data = self.paths[path]["data"]
+                assert isinstance(data, bytes)
+                if ".staging" in data.decode("utf-8"):
+                    raise engine.ReleaseError(
+                        "editable install metadata still names staging path",
+                        engine.EXIT_POETRY,
+                    )
+
+    def _verify_migration_release(self, staging: str, final: str) -> None:
+        venv = f"{final}/.venv"
+        if venv not in self.paths or self.paths[venv]["kind"] != "dir":
+            raise engine.ReleaseError("release venv is missing", engine.EXIT_POETRY)
+        prefix = venv.rstrip("/") + "/"
+        for path, value in self.paths.items():
+            if not path.startswith(prefix) or value["kind"] != "file":
+                continue
+            data = value["data"]
+            assert isinstance(data, bytes)
+            if staging in data.decode("utf-8"):
+                raise engine.ReleaseError(
+                    "venv staging paths were not relocated", engine.EXIT_POETRY
+                )
+        script = f"{venv}/bin/framenest-production"
+        value = self.paths.get(script)
+        if value is None or value["kind"] != "file":
+            raise engine.ReleaseError(
+                "required console script is missing", engine.EXIT_POETRY
+            )
+        if not (int(value["mode"]) & 0o111):
+            raise engine.ReleaseError(
+                "required console script is not executable", engine.EXIT_POETRY
+            )
+
     # -- command execution ------------------------------------------------
 
     def __call__(self, argv, input_bytes):
@@ -1679,6 +2045,46 @@ class RemoteBoundary:
             if self.exists(path):
                 raise engine.ReleaseError("exists", engine.EXIT_EXISTS)
             self.add_dir(path, mode=0o700)
+            return ""
+        if "ln -s " in combined:
+            rest = combined.split("ln -s ", 1)[1]
+            link_target, rest = rest.split(None, 1)
+            link_path, _separator, remainder = rest.partition("\n")
+            self.add_link(
+                self._unquote(link_path), self._unquote(link_target)
+            )
+            if "mv -T " in remainder:
+                source, destination = remainder.split("mv -T ", 1)[1].split(" ", 1)
+                self.move(self._unquote(source), self._unquote(destination))
+            return ""
+        if "readlink -n " in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            path = self._unquote(combined.split("readlink -n ", 1)[1])
+            value = self.paths.get(path)
+            if value is None or value["kind"] != "link":
+                return ""
+            return str(value["target"])
+        if "visudo -cf " in combined:
+            return ""
+        if "systemd-run" in combined:
+            if self.fail_readiness:
+                raise engine.ReleaseError("readiness failed", engine.EXIT_TRANSPORT)
+            return ""
+        if "kronika-capture-identity-snapshot" in combined:
+            if not self.capture_identities:
+                return '["00000000-0000-4000-8000-000000000000", null]'
+            return self.capture_identities.pop(0)
+        if "cp -a " in combined:
+            _command, rest = combined.split("cp -a ", 1)
+            source, rest = rest.split(None, 1)
+            destination, _separator, remainder = rest.partition("\n")
+            source = self._unquote(source).rstrip("/")
+            if source.endswith("/."):
+                source = source[:-2]
+            self.copy_tree(source, self._unquote(destination).rstrip("/"))
+            if "rm -rf " in remainder:
+                self.remove_tree(self._unquote(remainder.split("rm -rf ", 1)[1]))
             return ""
         if "rm -rf " in combined:
             self.remove_tree(self._unquote(combined.split("rm -rf ", 1)[1]))
@@ -1706,6 +2112,8 @@ class RemoteBoundary:
                 raise engine.ReleaseError("interrupted write", engine.EXIT_TRANSPORT)
             payload = input_bytes or b""
             self.add_file(path, payload, mode=0o600)
+            self._register_unit_file(path)
+            self._register_dropin(path)
             expected = re.findall(r"[0-9a-f]{64}", combined)
             if expected and hashlib.sha256(payload).hexdigest() != expected[-1]:
                 raise engine.ReleaseError("digest mismatch", engine.EXIT_TRANSPORT)
@@ -1727,6 +2135,86 @@ class RemoteBoundary:
                 raise engine.ReleaseError("interrupted rename", engine.EXIT_TRANSPORT)
             self.move(source, destination)
             return ""
+        if "_remote-relocate-venv-shebangs" in combined:
+            match = re.search(r"--staging (\S+) --final (\S+)", combined)
+            assert match is not None, combined
+            self._relocate_venv(
+                self._unquote(match.group(1)), self._unquote(match.group(2))
+            )
+            return ""
+        if "grep -RFq " in combined:
+            match = re.search(r"grep -RFq (\S+) (\S+)/\.venv", combined)
+            assert match is not None, combined
+            self._verify_migration_release(
+                self._unquote(match.group(1)), self._unquote(match.group(2))
+            )
+            return ""
+        if "install --only main" in combined:
+            match = re.search(r"--directory (\S+)", combined)
+            assert match is not None, combined
+            self._seed_prepared_venv(self._unquote(match.group(1)))
+            return ""
+        if "check --lock" in combined or "env use" in combined:
+            return ""
+        if "sudo -n mv " in combined:
+            source, destination = combined.split("sudo -n mv ", 1)[1].split(" ", 1)
+            self.move(self._unquote(source), self._unquote(destination))
+            if self.tamper_old_release:
+                tampered = "d" * 40
+                self.paths[f"{OLD_RELEASE}/{engine.RELEASE_SHA_MARKER}"]["data"] = (
+                    tampered + "\n"
+                ).encode("utf-8")
+                self.paths[f"{OLD_RELEASE}/{engine.RELEASE_MANIFEST_MARKER}"][
+                    "data"
+                ] = _release_manifest_json(tampered).encode("utf-8")
+            return ""
+        if "chown -R root:root " in combined:
+            path = self._unquote(combined.split("chown -R root:root ", 1)[1])
+            prefix = path.rstrip("/") + "/"
+            for entry, value in self.paths.items():
+                if entry == path or entry.startswith(prefix):
+                    value["owner"] = "root"
+                    value["group"] = "root"
+            return ""
+        if "chown root:root " in combined:
+            path = self._unquote(combined.split("chown root:root ", 1)[1])
+            self._require(path)["owner"] = "root"
+            self._require(path)["group"] = "root"
+            return ""
+        if "chmod -R a-w " in combined:
+            path = self._unquote(combined.split("chmod -R a-w ", 1)[1])
+            prefix = path.rstrip("/") + "/"
+            for entry, value in self.paths.items():
+                if entry == path or entry.startswith(prefix):
+                    value["mode"] = int(value["mode"]) & ~0o222
+            return ""
+        if "sudo -n chmod " in combined:
+            mode_text, path = combined.split("sudo -n chmod ", 1)[1].split(" ", 1)
+            self._require(self._unquote(path))["mode"] = int(mode_text, 8)
+            return ""
+        if "stat -c '%U:%G:%a'" in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            match = re.search(r"stat -c '%U:%G:%a' ([^)\s]+)", combined)
+            assert match is not None, combined
+            path = self._unquote(match.group(1))
+            if not self.exists(path):
+                return "absent"
+            value = self.paths[path]
+            if value["kind"] != "file":
+                return "unsafe"
+            assert isinstance(value["data"], bytes)
+            digest = hashlib.sha256(value["data"]).hexdigest()
+            return f"{value['owner']}:{value['group']}:{int(value['mode']):o} {digest}"
+        if "sha256sum " in combined and "$entry" not in combined:
+            path = self._unquote(combined.split("sha256sum ", 1)[1].split("|")[0])
+            if not self.exists(path):
+                raise engine.ReleaseError(
+                    f"no such file: {path}", engine.EXIT_TRANSPORT
+                )
+            value = self._require(path)
+            assert isinstance(value["data"], bytes)
+            return f"{hashlib.sha256(value['data']).hexdigest()}  {path}"
         if "test ! -e " in combined:
             path = self._unquote(combined.split("test ! -e ", 1)[1])
             if self.exists(path):
@@ -1743,6 +2231,17 @@ class RemoteBoundary:
             if self.paths[path]["kind"] != "dir":
                 return "not-a-directory"
             return "empty" if not self.children(path) else "populated"
+        if "then echo manifest" in combined or "then echo sha" in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            entries: list[str] = []
+            for candidate in re.findall(r"test -e ([^;]+);", combined):
+                path = self._unquote(candidate)
+                if self.exists(path):
+                    name = Path(path).name
+                    kind = "manifest" if name.endswith(".json") else "sha"
+                    entries.append(f"{kind} {name}")
+            return "\n".join(entries)
         if "sudo -n cat " in combined:
             if not self.privilege_ok:
                 return "query-failed"
@@ -1750,6 +2249,20 @@ class RemoteBoundary:
             if not self.exists(path):
                 return "absent"
             return self._require(path)["data"].decode("utf-8")  # type: ignore[union-attr]
+        if "test -f " in combined and "-a ! -L" in combined:
+            match = re.search(r"test -f (\S+) -a ! -L", combined)
+            assert match is not None, combined
+            path = self._unquote(match.group(1))
+            value = self.paths.get(path)
+            if value is None or value["kind"] != "file":
+                raise engine.ReleaseError(
+                    "regular executable is missing", engine.EXIT_TRANSPORT
+                )
+            if not (int(value["mode"]) & 0o111):
+                raise engine.ReleaseError(
+                    "regular executable is not executable", engine.EXIT_TRANSPORT
+                )
+            return ""
         if "test -e " in combined:
             if not self.privilege_ok:
                 return "query-failed"
@@ -1769,6 +2282,28 @@ class RemoteBoundary:
             if not self.exists(path) or self.paths[path]["kind"] != "link":
                 return "absent"
             return str(self.paths[path]["target"])
+        if "dropin=%s" in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            match = re.search(
+                r"systemctl show -p LoadState --value (\S+)", combined
+            )
+            assert match is not None, combined
+            unit = self._unquote(match.group(1))
+            record = self._unit_record(unit)
+            if record is None:
+                return "load=not-found\nfragment=\nenabled=\nactive=\n"
+            lines = [
+                f"load={record['load']}",
+                f"fragment={record['fragment']}",
+                f"enabled={record['enabled']}",
+                f"active={record['active']}",
+            ]
+            dropins = record.get("dropins", [])
+            assert isinstance(dropins, list)
+            for dropin in dropins:
+                lines.append(f"dropin={dropin}")
+            return "\n".join(lines) + "\n"
         if "load=%s" in combined:
             if not self.privilege_ok:
                 return "query-failed"
@@ -1788,13 +2323,6 @@ class RemoteBoundary:
             match = re.search(r"cd (\S+)", combined)
             assert match is not None, combined
             return self.manifest(self._unquote(match.group(1)))
-        if "cp -a " in combined:
-            source, destination = combined.split("cp -a ", 1)[1].split(" ", 1)
-            source = self._unquote(source).rstrip("/")
-            if source.endswith("/."):
-                source = source[:-2]
-            self.copy_tree(source, self._unquote(destination).rstrip("/"))
-            return ""
         if "groupmod -n " in combined:
             _command, rest = combined.split("groupmod -n ", 1)
             new_name, old_name = rest.split()[:2]
@@ -1830,6 +2358,21 @@ class RemoteBoundary:
     def _dispatch_systemctl(self, combined: str) -> str:
         if "daemon-reload" in combined:
             return ""
+        if "show --property=ExecStart" in combined:
+            unit = combined.split()[-1]
+            if self._unit_record(unit) is None:
+                raise engine.ReleaseError("unit not found", engine.EXIT_TRANSPORT)
+            return self._render_exec_lines(unit)
+        if "show --property=LoadState" in combined:
+            unit = combined.split()[-1]
+            record = self._unit_record(unit)
+            if record is None:
+                return (
+                    "LoadState=not-found\nActiveState=inactive\n"
+                    "UnitFileState=not-found\nUser=\nGroup=\n"
+                    "WorkingDirectory=\nExecStart=\n"
+                )
+            return self._render_layout_probe(unit, record)
         if "is-active" in combined:
             unit = combined.split()[-1]
             if unit not in self.units:
@@ -1879,6 +2422,25 @@ def _populate_state_sources(boundary: RemoteBoundary) -> None:
     boundary.add_link("/var/lib/framenest/current", "/var/lib/framenest/catalog.sqlite3")
     boundary.add_dir("/var/cache/framenest")
     boundary.add_file("/var/cache/framenest/preview.bin", b"preview-bytes")
+
+
+def _populate_old_release(boundary: RemoteBoundary) -> None:
+    boundary.add_dir(OLD_RELEASE)
+    boundary.add_file(f"{OLD_RELEASE}/marker.txt", b"old-release-bytes\n")
+    boundary.add_file(
+        f"{OLD_RELEASE}/{engine.RELEASE_MANIFEST_MARKER}",
+        _release_manifest_json(RELEASE).encode("utf-8"),
+    )
+    boundary.add_file(
+        f"{OLD_RELEASE}/{engine.RELEASE_SHA_MARKER}",
+        (RELEASE + "\n").encode("utf-8"),
+    )
+    boundary.add_file(
+        f"{OLD_RELEASE}/poetry.lock",
+        (REPOSITORY_ROOT / "poetry.lock").read_bytes(),
+    )
+    boundary.add_dir(f"{OLD_RELEASE}/.venv")
+    boundary.add_file(f"{OLD_RELEASE}/.venv/stale.txt", b"old-venv-byte\n")
 
 
 def test_production_control_state_does_not_block_the_state_copy() -> None:
@@ -2329,3 +2891,808 @@ def test_production_pre_write_recovery_falls_back_for_a_legacy_journal() -> None
     assert "systemctl start framenest.service" in transcript
     assert "systemctl enable framenest-catalog-backup.timer" in transcript
     assert "systemctl start framenest-catalog-backup.timer" in transcript
+
+
+# ---------------------------------------------------------------------------
+# C6-P2: exact-state binding, structural transformation, activation order
+# ---------------------------------------------------------------------------
+
+
+def _observation_with(**overrides: object) -> engine.MigrationObservation:
+    base = _observation()
+    return engine.MigrationObservation(**{**base.__dict__, **overrides})
+
+
+def _plan_with(**overrides: object) -> engine.MigrationPlan:
+    return engine.build_migration_plan(_observation_with(**overrides))
+
+
+def _apply_args(preflight_digest: str = "0" * 64) -> argparse.Namespace:
+    return argparse.Namespace(
+        release=RELEASE,
+        yes=True,
+        preflight_digest=preflight_digest,
+        target="nuc",
+        user="op",
+        identity="identity",
+        migration_command="apply",
+    )
+
+
+def test_preflight_refuses_a_missing_or_unverifiable_current_pointer() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    missing = ReadOnlyPreflightRunner()
+    missing.current_pointer = "absent"
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(missing, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "absent" in str(exc.value)
+
+    failing = ReadOnlyPreflightRunner()
+    failing.current_pointer = "query-failed"
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(failing, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_preflight_refuses_a_current_release_that_is_not_the_migration_release() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.current_pointer = f"/opt/framenest/releases/{'b' * 40}"
+    runner.current_release_manifest = _release_manifest_json("b" * 40)
+    runner.current_release_sha = "b" * 40
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "does not equal" in str(exc.value)
+
+
+def test_preflight_refuses_a_present_canonical_current_pointer() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.new_current_pointer = OLD_RELEASE
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "already exists" in str(exc.value)
+
+
+def test_preflight_refuses_an_unknown_dropin_directive() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.dropin_raw = "[Service]\nEnvironment=FOO=bar\n"
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "Environment" in str(exc.value)
+
+
+def test_preflight_refuses_an_unknown_sudo_form() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.sudo_rule_raw = "Defaults env_reset\n"
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_preflight_refuses_an_observed_dropin_that_disappeared() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.dropin_raw = "absent"
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_preflight_observes_vendor_installed_units_and_dropins() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.unit_answers = {
+        "framenest.service": (
+            "load=loaded\nfragment=/usr/lib/systemd/system/framenest.service\n"
+            "enabled=enabled\nactive=active\n"
+            "dropin=/usr/lib/systemd/system/framenest.service.d/10-vendor.conf\n"
+        ),
+        "framenest-catalog-backup.service": (
+            "load=not-found\nfragment=\nenabled=\nactive=\n"
+        ),
+        "framenest-catalog-backup.timer": (
+            "load=not-found\nfragment=\nenabled=\nactive=\n"
+        ),
+    }
+    observation = engine.read_migration_observation(
+        runner, transport, release_sha=RELEASE
+    )
+    assert observation.installed_units == ("framenest.service",)
+    service = observation.unit_observations[0]
+    assert service.fragment_path == "/usr/lib/systemd/system/framenest.service"
+    assert service.enabled == "enabled" and service.active == "active"
+    assert observation.dropin_installations[0].source == (
+        "/usr/lib/systemd/system/framenest.service.d/10-vendor.conf"
+    )
+    assert observation.dropin_installations[0].text == SAMPLE_DROPIN_TRANSFORMED
+    plan = engine.build_migration_plan(observation)
+    # Absent optional integrations stay absent, and the digest carries the
+    # observed enablement and activity.
+    assert plan.installed_units == ("framenest.service",)
+    assert plan.payload()["unit_observations"][0]["enabled"] == "enabled"
+
+
+def test_apply_rejects_intervening_drift_before_mutation() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner_a = ReadOnlyPreflightRunner()
+    digest = engine.build_migration_plan(
+        engine.read_migration_observation(runner_a, transport, release_sha=RELEASE)
+    ).plan_digest
+
+    runner_b = ReadOnlyPreflightRunner()
+    runner_b.unit_answers = {
+        "framenest.service": (
+            "load=loaded\nfragment=/etc/systemd/system/framenest.service\n"
+            "enabled=disabled\nactive=inactive\n"
+            "dropin=/etc/systemd/system/framenest.service.d/20-ai-credential.conf\n"
+        ),
+        "framenest-catalog-backup.service": (
+            "load=loaded\nfragment=/etc/systemd/system/framenest-catalog-backup.service\n"
+            "enabled=static\nactive=inactive\n"
+        ),
+        "framenest-catalog-backup.timer": (
+            "load=loaded\nfragment=/etc/systemd/system/framenest-catalog-backup.timer\n"
+            "enabled=disabled\nactive=inactive\n"
+        ),
+    }
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine._cmd_migrate_apply(_apply_args(digest), runner_b)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "digest" in str(exc.value)
+    assert all("tailscale serve --bg" not in call for call in runner_b.calls)
+    assert all("groupmod" not in call for call in runner_b.calls)
+    assert all("usermod" not in call for call in runner_b.calls)
+
+
+def test_plan_digest_binds_effective_units_current_release_and_artifacts() -> None:
+    base = _plan()
+    changed_unit = _plan_with(
+        unit_observations=(
+            engine.ObservedUnit(
+                name="framenest.service",
+                installed=True,
+                load="loaded",
+                fragment_path="/etc/systemd/system/framenest.service",
+                dropin_paths=(
+                    "/etc/systemd/system/framenest.service.d/20-ai-credential.conf",
+                ),
+                enabled="enabled",
+                active="inactive",
+            ),
+            *_unit_observations()[1:],
+        )
+    )
+    changed_current = _plan_with(current_release_sha="c" * 40)
+    changed_artifact = _plan_with(
+        artifact_identity=(
+            ("deploy/ubuntu/kronika_release.py", "d" * 64),
+            ("poetry.lock", "e" * 64),
+        )
+    )
+    changed_dropin = _plan_with(
+        dropin_installations=(
+            engine.DropinInstallation(
+                unit="framenest.service",
+                source=(
+                    "/etc/systemd/system/framenest.service.d/20-ai-credential.conf"
+                ),
+                text="[Service]\n",
+            ),
+        )
+    )
+    digests = {
+        base.plan_digest,
+        changed_unit.plan_digest,
+        changed_current.plan_digest,
+        changed_artifact.plan_digest,
+        changed_dropin.plan_digest,
+    }
+    assert len(digests) == 5
+
+
+def test_structural_dropin_transformation_handles_supported_directives() -> None:
+    text = (
+        "[Service]\n"
+        "User=framenest\n"
+        "Group=framenest\n"
+        "ExecStart=/opt/framenest/current/.venv/bin/kronika-production serve\n"
+        "LoadCredential=NVIDIA_API_KEY:/etc/framenest/credentials/NVIDIA_API_KEY\n"
+        "EnvironmentFile=-/etc/framenest/framenest.env\n"
+        "WorkingDirectory=/var/lib/framenest\n"
+        "# comment names /mnt/framenest-catalog-offdevice stays\n"
+    )
+    transformed = engine.transform_unit_dropin_text(text)
+    assert "User=kronika" in transformed
+    assert "Group=kronika" in transformed
+    assert (
+        "ExecStart=/opt/kronika/current/.venv/bin/kronika-production serve"
+        in transformed
+    )
+    assert (
+        "LoadCredential=NVIDIA_API_KEY:/etc/kronika/credentials/NVIDIA_API_KEY"
+        in transformed
+    )
+    assert "EnvironmentFile=-/etc/kronika/kronika.env" in transformed
+    assert "WorkingDirectory=/var/lib/kronika" in transformed
+    assert "# comment names /mnt/framenest-catalog-offdevice stays" in transformed
+    assert engine.transform_unit_dropin_text(transformed) == transformed
+
+
+def test_structural_dropin_transformation_refuses_unknown_forms() -> None:
+    for text in (
+        "[Service]\nEnvironment=FOO=bar\n",
+        "[Service]\nLoadCredential=just-an-identifier\n",
+        "[Service]\nExecStart=relative-command serve\n",
+        "[Service]\nUnknownDirective=value\n",
+        "not a directive\n",
+        "[Service]\nExecStart=/opt/kronika/current/x \\\n  continued\n",
+    ):
+        with pytest.raises(engine.ReleaseError) as exc:
+            engine.transform_unit_dropin_text(text)
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_structural_sudoers_transformation_moves_runas_and_command() -> None:
+    transformed = engine.transform_sudoers_text(
+        SAMPLE_SUDO_RULE,
+        export_installed="/usr/local/libexec/framenest-catalog-export-v1",
+    )
+    assert "ALL=(kronika)" in transformed
+    assert "/usr/local/libexec/kronika-catalog-export-v1" in transformed
+    assert "framenest" not in transformed
+    assert transformed.endswith('""\n')
+
+
+def test_structural_sudoers_transformation_refuses_unknown_forms() -> None:
+    for text in (
+        "Defaults env_reset\n",
+        "operator ALL=(framenest) relative-command\n",
+        "operator ALL=(framenest) NOPASSWD: /usr/local/libexec/framenest-unknown\n",
+    ):
+        with pytest.raises(engine.ReleaseError) as exc:
+            engine.transform_sudoers_text(text)
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_migration_required_console_scripts_are_derived_from_canonical_units() -> None:
+    required = engine.migration_required_console_scripts(
+        SYSTEMD, engine.NEW_WEB_LAYOUT
+    )
+    assert required == (
+        ".venv/bin/kronika-backup",
+        ".venv/bin/kronika-production",
+    )
+    assert engine.release_scoped_console_script(
+        "/usr/bin/python3", engine.NEW_WEB_LAYOUT
+    ) is None
+    assert engine.release_scoped_console_script(
+        "/opt/kronika/current/not-a-venv/kronika-production",
+        engine.NEW_WEB_LAYOUT,
+    ) is None
+
+
+def test_production_install_units_disables_obsolete_autostart_links() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    host.install_units()
+    assert boundary.units["kronika.service"]["enabled"] == "enabled"
+    assert boundary.units["framenest.service"]["enabled"] == "disabled"
+    assert boundary.units["framenest-catalog-backup.timer"]["enabled"] == "disabled"
+    dropin = boundary.paths[
+        "/etc/systemd/system/kronika.service.d/20-ai-credential.conf"
+    ]
+    assert dropin["data"] == SAMPLE_DROPIN_TRANSFORMED.encode("utf-8")
+
+
+def _seed_target_release(
+    boundary: RemoteBoundary, *, executable: bool = True
+) -> None:
+    for name in ("kronika-production", "kronika-backup"):
+        boundary.add_file(
+            f"{NEW_RELEASE}/.venv/bin/{name}",
+            b"#!/bin/sh\nexit 0\n",
+            mode=0o755 if executable else 0o644,
+        )
+
+
+def test_production_switch_current_guards_then_switches_before_start() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    _seed_target_release(boundary)
+    plan = _plan()
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    journal = engine.migration_journal_payload(plan)
+    host.bind_journal(journal)
+    host.install_units()
+    host.switch_current()
+    link = boundary.paths["/opt/kronika/current"]
+    assert link["kind"] == "link"
+    assert link["target"] == NEW_RELEASE
+    assert journal["substeps"]["current_pointer_switched"] is True
+    guard_index = next(
+        index
+        for index, call in enumerate(boundary.calls)
+        if "show --property=ExecStart" in call
+    )
+    switch_index = next(
+        index for index, call in enumerate(boundary.calls) if "ln -s " in call
+    )
+    assert guard_index < switch_index
+
+
+def test_production_switch_current_refuses_without_executable_scripts() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    _seed_target_release(boundary, executable=False)
+    host = _boundary_host(boundary)
+    host.install_units()
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.switch_current()
+    assert exc.value.exit_code == engine.EXIT_UNIT_EXEC_GUARD
+    assert not boundary.exists("/opt/kronika/current")
+    assert all("ln -s " not in call for call in boundary.calls)
+    assert all("systemctl start kronika.service" not in call for call in boundary.calls)
+
+
+def test_production_start_service_verifies_local_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    host.install_units()
+    host.start_service()
+    assert any("systemd-run" in call for call in boundary.calls)
+
+    monkeypatch.setattr(engine, "READINESS_DEADLINE_SECONDS", 0)
+    boundary.fail_readiness = True
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.start_service()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_production_ancillary_installs_root_owned_modes() -> None:
+    plan = _plan_with(
+        export_installed="/usr/local/libexec/framenest-catalog-export-v1",
+        sudo_rule_installed="/etc/sudoers.d/framenest-catalog-export-v1",
+        sudo_rule_text=SAMPLE_SUDO_RULE_TRANSFORMED,
+    )
+    boundary = RemoteBoundary()
+    boundary.add_file(
+        "/usr/local/libexec/framenest-catalog-export-v1", b"old-launcher", mode=0o755
+    )
+    boundary.add_file(
+        "/etc/sudoers.d/framenest-catalog-export-v1",
+        SAMPLE_SUDO_RULE.encode("utf-8"),
+        mode=0o440,
+    )
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    host.preserve_ancillary()
+    launcher = boundary.paths["/usr/local/libexec/kronika-catalog-export-v1"]
+    assert launcher["mode"] == 0o755
+    assert launcher["owner"] == "root" and launcher["group"] == "root"
+    assert launcher["data"] == (
+        REPOSITORY_ROOT / engine.MIGRATION_EXPORT_ARTIFACT[1]
+    ).read_bytes()
+    sudoers = boundary.paths["/etc/sudoers.d/kronika-catalog-export-v1"]
+    assert sudoers["mode"] == 0o440
+    assert sudoers["data"] == SAMPLE_SUDO_RULE_TRANSFORMED.encode("utf-8")
+    assert any("visudo -cf" in call for call in boundary.calls)
+
+    absent = _plan_with(export_installed=None, sudo_rule_installed=None)
+    empty_boundary = RemoteBoundary()
+    empty_host = engine.RemoteMigrationHost(
+        empty_boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        absent,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    empty_host.preserve_ancillary()
+    assert empty_boundary.calls == []
+
+
+def test_production_ancillary_refuses_a_wrong_installed_mode() -> None:
+    plan = _plan_with(
+        export_installed="/usr/local/libexec/kronika-catalog-export-v1",
+        sudo_rule_installed=None,
+        sudo_rule_text=None,
+    )
+    boundary = RemoteBoundary()
+    boundary.add_file(
+        "/usr/local/libexec/kronika-catalog-export-v1", b"launcher", mode=0o600
+    )
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.preserve_ancillary()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_production_capture_identity_change_is_detected() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    boundary.units["kronika-capture-runner.service"] = {
+        "installed": True,
+        "load": "loaded",
+        "enabled": "enabled",
+        "active": "active",
+    }
+    host = _boundary_host(boundary)
+    host._capture_before = {
+        "pointer": "old",
+        "release_sha": None,
+        "runner_active": True,
+        "identity": ("11111111-1111-4111-8111-111111111111", None),
+    }
+    boundary.capture_identities = [
+        '["11111111-1111-4111-8111-111111111111", null]'
+    ]
+    host.verify_capture_untouched()
+
+    boundary.capture_identities = [
+        '["22222222-2222-4222-8222-222222222222", null]'
+    ]
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.verify_capture_untouched()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "identity changed" in str(exc.value)
+
+
+def test_production_verify_ingress_fails_after_a_failed_edit() -> None:
+    def runner(argv, input_bytes):
+        combined = " ".join(argv)
+        if "tailscale serve status --json" in combined:
+            return TAILSCALE_TWO_HANDLERS
+        if "systemd-run" in combined:
+            return ""
+        if "tailscale serve --bg" in combined:
+            return ""
+        raise AssertionError(combined)
+
+    host = _production_host(runner)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.verify_ingress()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_orchestration_ingress_failure_after_a_healthy_start_selects_post_write() -> None:
+    plan = _plan()
+    host = SimulatedMigrationHost(plan, fail_phase="replace_tailscale_handler")
+    with pytest.raises(engine.ReleaseError):
+        engine.run_migration_apply(host, plan)
+    assert host.recovered == "post-write"
+    assert host.writes_admitted is True
+    assert host.stale_state_restored is False
+    assert host.forward_recovery_required is True
+
+
+def _observed_writer_units(
+    *, timer_enabled: str, timer_active: str
+) -> dict[str, dict[str, object]]:
+    observed = {
+        unit: dict(state) for unit, state in _writer_units().items()
+    }
+    observed["framenest-catalog-backup.timer"]["enabled"] = timer_enabled
+    observed["framenest-catalog-backup.timer"]["active"] = timer_active
+    return observed
+
+
+@pytest.mark.parametrize(
+    ("timer_enabled", "timer_active", "expected_enabled", "expected_active"),
+    (
+        ("enabled", "active", "enabled", "active"),
+        ("disabled", "inactive", "disabled", "inactive"),
+    ),
+)
+def test_production_resume_writers_restores_only_observed_scheduling(
+    timer_enabled: str, timer_active: str, expected_enabled: str, expected_active: str
+) -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    plan = _plan()
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    journal = engine.migration_journal_payload(plan)
+    journal["substeps"]["observed_units"] = _observed_writer_units(
+        timer_enabled=timer_enabled, timer_active=timer_active
+    )
+    host.bind_journal(journal)
+    host.install_units()
+    host.resume_writers()
+    timer = boundary.units["kronika-catalog-backup.timer"]
+    assert timer["enabled"] == expected_enabled
+    assert timer["active"] == expected_active
+
+
+def test_production_recover_pre_write_removes_a_switched_pointer() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    boundary.add_link("/opt/kronika/current", NEW_RELEASE)
+    boundary.add_link("/opt/kronika/current.next", NEW_RELEASE)
+    host = _boundary_host(boundary)
+    journal = engine.migration_journal_payload(_plan())
+    journal["substeps"] = {
+        "current_pointer_switched": True,
+        "observed_units": _observed_writer_units(
+            timer_enabled="disabled", timer_active="inactive"
+        ),
+    }
+    host.recover_pre_write(journal)
+    assert not boundary.exists("/opt/kronika/current")
+    assert not boundary.exists("/opt/kronika/current.next")
+
+
+def test_production_prepare_release_refuses_a_tampered_committed_lock() -> None:
+    boundary = RemoteBoundary()
+    _populate_old_release(boundary)
+    boundary.paths[f"{OLD_RELEASE}/poetry.lock"]["data"] = b"tampered-lock\n"
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.prepare_release_environment()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "committed lock" in str(exc.value)
+
+
+def test_prepared_release_console_scripts_execute_in_an_isolated_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Executable behavior, not transcript substrings alone.
+
+    The fixture mirrors what preparation produces: a staging release whose
+    console scripts name the staging interpreter, then relocation to the final
+    path. Each prepared console script is executed as a program afterwards.
+    """
+    releases = tmp_path / "releases"
+    monkeypatch.setattr(engine, "RELEASE_ROOT", str(releases))
+    staging = releases / f"{RELEASE}.staging"
+    final = releases / RELEASE
+    venv_bin = staging / ".venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    os.symlink(sys.executable, venv_bin / "python")
+    scripts = {
+        "framenest-db": "prepared-db-ok",
+        "framenest-backup": "prepared-backup-ok",
+        "kronika-production": "prepared-production-ok",
+        "kronika-backup": "prepared-backup-ok",
+    }
+    for name, message in scripts.items():
+        script = venv_bin / name
+        script.write_text(
+            f"#!{staging}/.venv/bin/python\nprint({message!r})\n",
+            encoding="utf-8",
+        )
+        script.chmod(0o755)
+    site = staging / ".venv" / "lib" / "site-packages"
+    site.mkdir(parents=True)
+    (site / "editable.pth").write_text(f"{staging}/src\n", encoding="utf-8")
+
+    engine.relocate_venv_shebangs(str(staging), str(final))
+    staging.rename(final)
+
+    executed: dict[str, str] = {}
+    for name in scripts:
+        script = final / ".venv" / "bin" / name
+        result = subprocess.run(
+            [str(script)],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        executed[name] = result.stdout.strip()
+    assert executed == scripts
+    assert "framenest" not in (final / ".venv" / "bin" / "kronika-production").read_text(
+        encoding="utf-8"
+    ).lower()
+
+
+def test_production_lock_release_cleans_the_owned_scratch_area() -> None:
+    boundary = RemoteBoundary()
+    _populate_old_release(boundary)
+    host = _boundary_host(boundary)
+    host.acquire_lock()
+    host.prepare_release_environment()
+    assert boundary.exists(engine.MIGRATION_SCRATCH_DIRECTORY)
+    assert boundary.exists(engine.MIGRATION_REMOTE_ENGINE)
+    host.release_lock()
+    assert not boundary.exists(engine.MIGRATION_REMOTE_ENGINE)
+    assert not boundary.exists(engine.MIGRATION_SCRATCH_DIRECTORY)
+    assert not boundary.exists(engine.REMOTE_DEPLOY_DIR)
+
+
+def test_production_prepare_detects_a_changed_retained_release() -> None:
+    boundary = RemoteBoundary()
+    _populate_old_release(boundary)
+    boundary.tamper_old_release = True
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.prepare_release_environment()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "retained old release changed" in str(exc.value)
+
+
+def test_production_prepare_refuses_a_non_executable_console_script() -> None:
+    boundary = RemoteBoundary()
+    _populate_old_release(boundary)
+    boundary.fail_required_script = True
+    host = _boundary_host(boundary)
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.prepare_release_environment()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "console script is not executable" in str(exc.value)
+
+
+def test_production_stop_writers_stops_timers_before_their_jobs() -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    stopped = host.stop_writers()
+    assert stopped == [
+        "framenest.service",
+        "framenest-catalog-backup.timer",
+        "framenest-catalog-backup.service",
+    ]
+    timer_index = next(
+        index
+        for index, call in enumerate(boundary.calls)
+        if "stop framenest-catalog-backup.timer" in call
+    )
+    job_index = next(
+        index
+        for index, call in enumerate(boundary.calls)
+        if "stop framenest-catalog-backup.service" in call
+    )
+    assert timer_index < job_index
+
+
+def test_migration_unit_artifacts_exact_membership() -> None:
+    """The installer table is explicit literal data, not derived membership."""
+    assert engine.MIGRATION_UNIT_ARTIFACTS == (
+        ("framenest.service", "kronika.service", True),
+        ("framenest-catalog-backup.service", "kronika-catalog-backup.service", False),
+        ("framenest-catalog-backup.timer", "kronika-catalog-backup.timer", False),
+        (
+            "framenest-catalog-offdevice.service",
+            "kronika-catalog-offdevice.service",
+            False,
+        ),
+        (
+            "framenest-catalog-offdevice.timer",
+            "kronika-catalog-offdevice.timer",
+            False,
+        ),
+        (
+            "framenest-ai-credential-nvidia-nim.conf",
+            "kronika-ai-credential-nvidia-nim.conf",
+            False,
+        ),
+        (
+            "framenest-ai-credential-opencode-go.conf",
+            "kronika-ai-credential-opencode-go.conf",
+            False,
+        ),
+        (
+            "framenest-ai-credential-vercel-ai-gateway.conf",
+            "kronika-ai-credential-vercel-ai-gateway.conf",
+            False,
+        ),
+        (
+            "framenest-research-credential.conf",
+            "kronika-research-credential.conf",
+            False,
+        ),
+    )
+    assert engine.MIGRATION_ENVIRONMENT_ARTIFACT == (
+        "framenest.env.example",
+        "kronika.env.example",
+    )
+    assert engine.MIGRATION_EXPORT_ARTIFACT == (
+        "deploy/ubuntu/framenest-catalog-export-v1",
+        "deploy/ubuntu/kronika-catalog-export-v1",
+    )
+
+
+def test_preflight_observes_non_unit_artifacts_by_existence_and_never_stops_them() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.non_unit_artifacts_present = True
+    observation = engine.read_migration_observation(
+        runner, transport, release_sha=RELEASE
+    )
+    artifact = "framenest-ai-credential-nvidia-nim.conf"
+    assert artifact in observation.installed_units
+    artifact_observation = next(
+        unit for unit in observation.unit_observations if unit.name == artifact
+    )
+    assert artifact_observation.installed
+    assert artifact_observation.active == ""
+    assert artifact_observation.enabled == ""
+
+    plan = engine.build_migration_plan(observation)
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = engine.RemoteMigrationHost(
+        boundary,
+        {"target": "nuc", "user": "op", "identity": "identity"},
+        plan,
+        engine_path=ENGINE_PATH,
+        repository_root=REPOSITORY_ROOT,
+    )
+    stopped = host.stop_writers()
+    assert artifact not in stopped
+    assert all("credential" not in call for call in boundary.calls)
+    observed = host.observe_writer_state()
+    assert artifact not in observed
+
+
+def test_new_pure_guards_refuse_absent_and_foreign_inputs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.parse_effective_unit_state("query-failed", "x")
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+    absent = engine.parse_effective_unit_state(
+        "load=not-found\nfragment=\nenabled=\nactive=\n", "x"
+    )
+    assert not absent.installed
+    assert absent.fragment_path == "" and absent.dropin_paths == ()
+
+    vendor = engine.parse_effective_unit_state(
+        "load=loaded\nfragment=/usr/lib/systemd/system/x.service\n"
+        "enabled=enabled\nactive=active\n"
+        "dropin=/usr/lib/systemd/system/x.service.d/10.conf\n",
+        "x",
+    )
+    assert vendor.fragment_path == "/usr/lib/systemd/system/x.service"
+    assert vendor.dropin_paths == ("/usr/lib/systemd/system/x.service.d/10.conf",)
+
+    preserved = engine.transform_sudoers_text(
+        "operator ALL=(root) NOPASSWD: /usr/bin/systemctl\n"
+    )
+    assert preserved == "operator ALL=(root) NOPASSWD: /usr/bin/systemctl\n"
+
+    systemd = tmp_path / "systemd"
+    systemd.mkdir()
+    (systemd / "kronika.service").write_text(
+        "[Service]\nExecStart=/usr/bin/python3 serve\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        engine,
+        "MIGRATION_UNIT_ARTIFACTS",
+        (("framenest.service", "kronika.service", True),),
+    )
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.migration_required_console_scripts(systemd, engine.NEW_WEB_LAYOUT)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION

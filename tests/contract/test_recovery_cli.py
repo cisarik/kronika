@@ -138,3 +138,92 @@ def test_root_launcher_exposes_recovery_route() -> None:
     assert "recovery_controller" in launcher
     assert "case recovery" in launcher
     assert "export-latest" in launcher
+
+
+def test_pull_remote_layout_selection_is_fixed_and_explicit() -> None:
+    """The temporary selection chooses one fixed tuple and nothing else."""
+    from kronika.infrastructure.persistence.catalog_backup_workstation import (
+        FIXED_REMOTE_EXPORT_COMMAND,
+        REMOTE_LAYOUT_COMMANDS,
+        WorkstationError,
+        build_ssh_argv,
+        resolve_remote_layout_command,
+    )
+
+    old_argv = build_ssh_argv(target="nuc-alias")
+    assert old_argv[-len(FIXED_REMOTE_EXPORT_COMMAND):] == list(
+        FIXED_REMOTE_EXPORT_COMMAND
+    )
+    new_command = REMOTE_LAYOUT_COMMANDS["new"]
+    new_argv = build_ssh_argv(target="nuc-alias", remote_layout="new")
+    assert new_argv[-len(new_command):] == list(new_command)
+    assert new_argv[-1] == "/usr/local/libexec/kronika-catalog-export-v1"
+    assert "kronika" in new_command
+    assert "framenest" not in " ".join(new_command)
+
+    assert resolve_remote_layout_command("old") == FIXED_REMOTE_EXPORT_COMMAND
+    for rejected in ("anything", "", "; rm -rf /", "old new", "OLD"):
+        with pytest.raises(WorkstationError) as exc:
+            resolve_remote_layout_command(rejected)
+        assert exc.value.error_code == "WORKSTATION_REMOTE_LAYOUT_INVALID"
+
+
+def test_pull_parser_accepts_only_the_two_fixed_layout_choices() -> None:
+    from kronika.adapters.cli import recovery
+
+    parser = recovery._build_parser()
+    base = [
+        "pull",
+        "--store-root",
+        "/store",
+        "--mount-root",
+        "/mnt",
+        "--expected-store-id",
+        "0" * 32,
+        "--ssh-target",
+        "nuc",
+    ]
+    assert parser.parse_args(base).remote_layout == "old"
+    assert parser.parse_args([*base, "--remote-layout", "new"]).remote_layout == "new"
+    with pytest.raises(recovery._UsageError):
+        parser.parse_args([*base, "--remote-layout", "anything"])
+
+
+def test_recovery_pull_passes_the_selected_fixed_layout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from kronika.adapters.cli import recovery
+
+    captured: dict[str, object] = {}
+
+    def fake_pull(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            bundle_id="bundle",
+            catalog_size_bytes=1,
+            catalog_sha256="a" * 64,
+            alembic_revision="0035",
+            reused_existing=False,
+            semantic={},
+        )
+
+    monkeypatch.setattr(recovery, "pull_workstation_snapshot", fake_pull)
+    result = recovery.main(
+        [
+            "pull",
+            "--store-root",
+            "/store",
+            "--mount-root",
+            "/mnt",
+            "--expected-store-id",
+            "0" * 32,
+            "--ssh-target",
+            "nuc",
+            "--remote-layout",
+            "new",
+        ]
+    )
+    assert result == 0
+    assert captured["remote_layout"] == "new"
