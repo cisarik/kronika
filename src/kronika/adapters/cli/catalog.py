@@ -76,6 +76,20 @@ from kronika.infrastructure.media_analysis import LocalMediaAnalysisAdapter
 from kronika.infrastructure.persistence.device_repository import SqliteDeviceRepository
 from kronika.infrastructure.persistence.engine import create_sqlite_engine, dispose_engine
 from kronika.infrastructure.persistence.errors import FrameNestPersistenceError
+from kronika.infrastructure.persistence.identity_labels import (
+    IdentityLabelsAmbiguousCandidateError,
+    IdentityLabelsCatalogBusyError,
+    IdentityLabelsError,
+    IdentityLabelsReceiptExistsError,
+    IdentityLabelsReceiptInvalidError,
+    IdentityLabelsReceiptNotFoundError,
+    IdentityLabelsSelectionNotApprovedError,
+    IdentityLabelsStaleReceiptError,
+    IdentityLabelsVerificationError,
+    apply_identity_labels,
+    check_identity_labels,
+    rollback_identity_labels,
+)
 from kronika.infrastructure.persistence.library_repository import SqliteLibraryRepository
 from kronika.infrastructure.persistence.migrations import inspect_database_migration_status
 
@@ -117,10 +131,106 @@ SUGGESTION_PROVIDER_AUTH_CODE = "FRAMENEST_MEDIA_SUGGESTION_PROVIDER_AUTH_REJECT
 SUGGESTION_PROVIDER_AUTH_MESSAGE = "Media suggestion provider authentication was rejected."
 SUGGESTION_PROVIDER_INVALID_RESPONSE_CODE = "FRAMENEST_MEDIA_SUGGESTION_PROVIDER_INVALID_RESPONSE"
 SUGGESTION_PROVIDER_INVALID_RESPONSE_MESSAGE = "Media suggestion provider response was invalid."
+IDENTITY_LABELS_CONFIRMATION_REQUIRED_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_CONFIRMATION_REQUIRED"
+IDENTITY_LABELS_CONFIRMATION_REQUIRED_MESSAGE = "Identity label maintenance confirmation is required."
+IDENTITY_LABELS_RECEIPT_NOT_FOUND_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_NOT_FOUND"
+IDENTITY_LABELS_RECEIPT_NOT_FOUND_MESSAGE = "Identity label receipt not found."
+IDENTITY_LABELS_RECEIPT_INVALID_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_INVALID"
+IDENTITY_LABELS_RECEIPT_INVALID_MESSAGE = "Identity label receipt is not valid."
+IDENTITY_LABELS_RECEIPT_EXISTS_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_EXISTS"
+IDENTITY_LABELS_RECEIPT_EXISTS_MESSAGE = "An identity label receipt already exists."
+IDENTITY_LABELS_STALE_RECEIPT_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
+IDENTITY_LABELS_STALE_RECEIPT_MESSAGE = "Identity label receipt does not match the catalog."
+IDENTITY_LABELS_AMBIGUOUS_CANDIDATE_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_AMBIGUOUS_CANDIDATE"
+IDENTITY_LABELS_AMBIGUOUS_CANDIDATE_MESSAGE = "Identity label candidates are ambiguous."
+IDENTITY_LABELS_SELECTION_NOT_APPROVED_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_SELECTION_NOT_APPROVED"
+IDENTITY_LABELS_SELECTION_NOT_APPROVED_MESSAGE = "Identity label selection is not approved."
+IDENTITY_LABELS_VERIFICATION_FAILED_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_VERIFICATION_FAILED"
+IDENTITY_LABELS_VERIFICATION_FAILED_MESSAGE = "Identity label verification failed."
+IDENTITY_LABELS_CATALOG_BUSY_CODE = "FRAMENEST_CATALOG_IDENTITY_LABELS_CATALOG_BUSY"
+IDENTITY_LABELS_CATALOG_BUSY_MESSAGE = "Catalog is busy; retry during a stopped-writers window."
 
 
 class _UsageError(Exception):
     pass
+
+
+class _IdentityLabelsCommandError(Exception):
+    def __init__(self, *, error_code: str, message: str, exit_status: int) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
+        self.exit_status = exit_status
+
+
+_IDENTITY_LABELS_ERROR_MAPPING: tuple[
+    tuple[type[Exception], str, str, int], ...
+] = (
+    (
+        IdentityLabelsReceiptNotFoundError,
+        IDENTITY_LABELS_RECEIPT_NOT_FOUND_CODE,
+        IDENTITY_LABELS_RECEIPT_NOT_FOUND_MESSAGE,
+        3,
+    ),
+    (
+        IdentityLabelsReceiptInvalidError,
+        IDENTITY_LABELS_RECEIPT_INVALID_CODE,
+        IDENTITY_LABELS_RECEIPT_INVALID_MESSAGE,
+        2,
+    ),
+    (
+        IdentityLabelsReceiptExistsError,
+        IDENTITY_LABELS_RECEIPT_EXISTS_CODE,
+        IDENTITY_LABELS_RECEIPT_EXISTS_MESSAGE,
+        5,
+    ),
+    (
+        IdentityLabelsStaleReceiptError,
+        IDENTITY_LABELS_STALE_RECEIPT_CODE,
+        IDENTITY_LABELS_STALE_RECEIPT_MESSAGE,
+        5,
+    ),
+    (
+        IdentityLabelsAmbiguousCandidateError,
+        IDENTITY_LABELS_AMBIGUOUS_CANDIDATE_CODE,
+        IDENTITY_LABELS_AMBIGUOUS_CANDIDATE_MESSAGE,
+        5,
+    ),
+    (
+        IdentityLabelsSelectionNotApprovedError,
+        IDENTITY_LABELS_SELECTION_NOT_APPROVED_CODE,
+        IDENTITY_LABELS_SELECTION_NOT_APPROVED_MESSAGE,
+        2,
+    ),
+    (
+        IdentityLabelsVerificationError,
+        IDENTITY_LABELS_VERIFICATION_FAILED_CODE,
+        IDENTITY_LABELS_VERIFICATION_FAILED_MESSAGE,
+        1,
+    ),
+    (
+        IdentityLabelsCatalogBusyError,
+        IDENTITY_LABELS_CATALOG_BUSY_CODE,
+        IDENTITY_LABELS_CATALOG_BUSY_MESSAGE,
+        6,
+    ),
+)
+
+
+def _identity_labels_call(callback: Callable[[], Any]) -> Any:
+    try:
+        return callback()
+    except IdentityLabelsError as exc:
+        for error_type, error_code, message, exit_status in (
+            _IDENTITY_LABELS_ERROR_MAPPING
+        ):
+            if isinstance(exc, error_type):
+                raise _IdentityLabelsCommandError(
+                    error_code=error_code,
+                    message=message,
+                    exit_status=exit_status,
+                ) from None
+        raise
 
 
 class _InvalidInputError(Exception):
@@ -344,6 +454,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             message=SUGGESTION_PROVIDER_INVALID_RESPONSE_MESSAGE,
         )
         return 7
+    except _IdentityLabelsCommandError as exc:
+        _write_error(
+            operation=operation,
+            error_code=exc.error_code,
+            message=exc.message,
+        )
+        return exc.exit_status
     except IdentityEnvironmentConfigurationError as exc:
         _write_error(
             operation=operation,
@@ -424,16 +541,42 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="confirm_cloud_upload",
     )
 
+    identity_labels = resources.add_parser("identity-labels")
+    identity_labels_commands = identity_labels.add_subparsers(
+        dest="operation",
+        required=True,
+    )
+    identity_labels_commands.add_parser("check")
+    identity_labels_apply = identity_labels_commands.add_parser("apply")
+    identity_labels_apply.add_argument("--yes", action="store_true", dest="confirmed")
+    identity_labels_apply.add_argument(
+        "--include-libraries",
+        action="store_true",
+        dest="include_libraries",
+    )
+    identity_labels_rollback = identity_labels_commands.add_parser("rollback")
+    identity_labels_rollback.add_argument(
+        "--yes",
+        action="store_true",
+        dest="confirmed",
+    )
+    identity_labels_rollback.add_argument(
+        "--include-libraries",
+        action="store_true",
+        dest="include_libraries",
+    )
+
     return parser
 
 
 def _operation_name(args: argparse.Namespace) -> str:
     resource = getattr(args, "resource", None)
     operation = getattr(args, "operation", None)
-    if resource not in {"device", "library"} or operation is None:
+    if resource not in {"device", "library", "identity-labels"} or operation is None:
         return "unknown"
+    normalized_resource = str(resource).replace("-", "_")
     normalized_operation = str(operation).replace("-", "_")
-    return f"{resource}.{normalized_operation}"
+    return f"{normalized_resource}.{normalized_operation}"
 
 
 def _dispatch(args: argparse.Namespace, settings: KronikaSettings) -> dict[str, Any]:
@@ -441,6 +584,8 @@ def _dispatch(args: argparse.Namespace, settings: KronikaSettings) -> dict[str, 
         return _dispatch_device(args, settings)
     if args.resource == "library":
         return _dispatch_library(args, settings)
+    if args.resource == "identity-labels":
+        return _dispatch_identity_labels(args, settings)
     raise _UsageError(INVALID_INPUT_MESSAGE)
 
 
@@ -506,6 +651,107 @@ def _dispatch_library(args: argparse.Namespace, settings: KronikaSettings) -> di
             model_id=model_id,
         )
     raise _UsageError(INVALID_INPUT_MESSAGE)
+
+
+def _dispatch_identity_labels(
+    args: argparse.Namespace,
+    settings: KronikaSettings,
+) -> dict[str, Any]:
+    if args.operation == "check":
+        return _with_identity_labels_check(settings)
+    if args.operation == "apply":
+        _require_identity_labels_confirmation(args.confirmed)
+        return _with_identity_labels_apply(
+            settings,
+            include_libraries=args.include_libraries,
+        )
+    if args.operation == "rollback":
+        _require_identity_labels_confirmation(args.confirmed)
+        return _with_identity_labels_rollback(
+            settings,
+            include_libraries=args.include_libraries,
+        )
+    raise _UsageError(INVALID_INPUT_MESSAGE)
+
+
+def _require_identity_labels_confirmation(confirmed: bool) -> None:
+    if not confirmed:
+        raise _IdentityLabelsCommandError(
+            error_code=IDENTITY_LABELS_CONFIRMATION_REQUIRED_CODE,
+            message=IDENTITY_LABELS_CONFIRMATION_REQUIRED_MESSAGE,
+            exit_status=2,
+        )
+
+
+def _identity_labels_ready_status(settings: KronikaSettings) -> Any:
+    status = inspect_database_migration_status(settings)
+    if status.state != "at_head" or status.current_revision is None:
+        raise _NotReadyError()
+    return status
+
+
+def _with_identity_labels_check(settings: KronikaSettings) -> dict[str, Any]:
+    _identity_labels_ready_status(settings)
+    result = _identity_labels_call(
+        lambda: check_identity_labels(settings.database_path)
+    )
+    return {
+        "device_candidate_count": result.device_candidate_count,
+        "device_candidate_present": result.device_candidate_count == 1,
+        "library_candidate_count": result.library_candidate_count,
+        "library_brand_present": result.library_candidate_count > 0,
+        "receipt_digest": result.receipt_digest,
+    }
+
+
+def _with_identity_labels_apply(
+    settings: KronikaSettings,
+    *,
+    include_libraries: bool,
+) -> dict[str, Any]:
+    status = _identity_labels_ready_status(settings)
+    result = _identity_labels_call(
+        lambda: apply_identity_labels(
+            settings.database_path,
+            include_libraries=include_libraries,
+            expected_revision=status.head_revision,
+        )
+    )
+    return {
+        "device_updated": result.device_changed,
+        "libraries_updated": result.libraries_changed,
+        "device_transition_verified": result.device_verified,
+        "libraries_transition_verified": result.libraries_verified,
+        "foreign_keys_valid": result.foreign_keys_valid,
+        "schema_revision_at_head": result.schema_revision_at_head,
+        "selected_retired_labels_remaining": result.selected_labels_remaining,
+        "receipt_digest": result.receipt_digest,
+    }
+
+
+def _with_identity_labels_rollback(
+    settings: KronikaSettings,
+    *,
+    include_libraries: bool,
+) -> dict[str, Any]:
+    status = _identity_labels_ready_status(settings)
+    result = _identity_labels_call(
+        lambda: rollback_identity_labels(
+            settings.database_path,
+            include_libraries=include_libraries,
+            expected_revision=status.head_revision,
+        )
+    )
+    return {
+        "device_restored": result.device_changed,
+        "libraries_restored": result.libraries_changed,
+        "device_restoration_verified": result.device_verified,
+        "libraries_restoration_verified": result.libraries_verified,
+        "foreign_keys_valid": result.foreign_keys_valid,
+        "schema_revision_at_head": result.schema_revision_at_head,
+        "selected_canonical_labels_remaining": result.selected_labels_remaining,
+        "receipt_digest": result.receipt_digest,
+    }
 
 
 def _parse_device_id(value: str) -> DeviceId:

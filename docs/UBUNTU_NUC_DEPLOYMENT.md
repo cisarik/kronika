@@ -1369,6 +1369,64 @@ Stop conditions:
 - The observed Serve login differs from the intended admin identity.
 - A normal login user can open the application socket.
 
+## Catalog Identity-Label Maintenance (Non-Routine; Stopped Writers)
+
+This section is a bounded maintenance procedure for correcting operator-typed
+catalog display labels. It is not part of routine `kronika-release` updates and
+is not a general device or library editing surface. Complete it only under its
+own authorization and only while every catalog writer is stopped.
+
+The installed command is `kronika-catalog identity-labels` with exactly three
+operations:
+
+```text
+kronika-catalog identity-labels check
+kronika-catalog identity-labels apply --yes [--include-libraries]
+kronika-catalog identity-labels rollback --yes [--include-libraries]
+```
+
+`check` is read-only for the catalog. It resolves the device whose stored
+display name is exactly `FrameNest NUC` and reports only sanitized values:
+whether exactly one expected device candidate exists, how many devices carry
+the retired label, and how many library display names contain the retired
+brand. It never prints identifiers, library names, media paths or SQL. It
+writes one private selection receipt beside the catalog at
+`/var/lib/framenest/catalog.sqlite3.identity-labels-receipt.json`, mode `0600`,
+holding the exact selected rows and the inverse values needed for rollback, and
+prints only that receipt's digest. An existing receipt is never overwritten:
+a second `check` stops until the operator removes an obsolete receipt.
+
+Run every operation as the catalog owner: the private-catalog check compares
+the catalog's ownership with the invoking account and fails closed for any
+other account.
+
+Procedure:
+
+1. Stop and drain every catalog writer, including the web service and every
+   catalog timer or oneshot. Confirm that no writer remains.
+2. Run `check` and review only the sanitized result. If more than one device
+   carries the retired label, stop and resolve the ambiguity first.
+3. Create and verify a consistent catalog checkpoint through the installed
+   backup implementation.
+4. Run `apply --yes`. Add `--include-libraries` only when the authorization
+   names library rows; without it, libraries are never changed. The command
+   refuses a stale receipt, an ambiguous candidate set, a missing confirmation
+   and a busy catalog, and it changes nothing unless every compare-and-set
+   condition holds inside one transaction.
+5. Read back the command's sanitized assertions: the label transition, valid
+   foreign keys and the unchanged schema revision. `device list` is not
+   sufficient evidence and prints identifiers.
+6. Retain the private receipt until rollback is no longer required. Do not
+   delete it while a rollback remains possible.
+7. Run `rollback --yes [--include-libraries]` to restore the exact prior labels
+   by inverse compare-and-set. It refuses a receipt whose recorded state no
+   longer matches the catalog.
+
+Never restore an old whole-catalog backup merely to undo a display label. The
+command only changes the selected `display_name` values: no row is deleted or
+re-registered, no identifier, root or relationship changes, and no schema
+revision is applied.
+
 ## Not Implemented By This Runbook
 
 - Real deployment acceptance of the automated catalog-backup timer on a host.

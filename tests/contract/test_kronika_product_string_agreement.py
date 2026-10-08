@@ -174,9 +174,9 @@ def measured_product_strings() -> dict[tuple[str, str, str, int], str]:
 
 
 MEASURED = measured_product_strings()
-OCCURRENCE_COUNT = 53
+OCCURRENCE_COUNT = 55
 
-IN_SCOPE_OCCURRENCE_COUNT = 51
+IN_SCOPE_OCCURRENCE_COUNT = 53
 EXCLUDED_PROMPT_OCCURRENCE_COUNT = 2
 
 EXPECTED: dict[tuple[str, str, str, int], str] = {
@@ -235,6 +235,11 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     ("src/kronika/infrastructure/persistence/cli.py", "main", "Constant", 0): "Kronika configuration could not be loaded.",
     ("src/kronika/infrastructure/persistence/cli.py", "_build_parser", "Constant", 0): "Upgrade the Kronika database to head.",
     ("src/kronika/infrastructure/persistence/cli.py", "_build_parser", "Constant", 1): "Inspect the Kronika database revision.",
+    # src/kronika/infrastructure/persistence/identity_labels.py
+    # The bounded label-maintenance command's two canonical runtime literals:
+    # the new NUC device display label and the replacement brand substring.
+    ("src/kronika/infrastructure/persistence/identity_labels.py", "<module>", "Constant", 0): "Kronika NUC",
+    ("src/kronika/infrastructure/persistence/identity_labels.py", "<module>", "Constant", 1): "Kronika",
     # src/kronika/infrastructure/runtime/development.py
     ("src/kronika/infrastructure/runtime/development.py", "start", "JoinedStr", 0): "Kronika is already running at {self.url}",
     ("src/kronika/infrastructure/runtime/development.py", "start", "Constant", 1): "Kronika did not become healthy in time.",

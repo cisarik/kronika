@@ -129,6 +129,19 @@ def test_catalog_help_succeeds(tmp_path: Path) -> None:
     assert "device" in result.stdout
 
 
+def test_catalog_help_lists_the_identity_labels_resource(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [str(_require_catalog_console_script()), "--help"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=8.0,
+    )
+    assert result.returncode == 0
+    assert "identity-labels" in result.stdout
+
+
 def test_invalid_usage_returns_exit_2_with_sanitized_json(tmp_path: Path) -> None:
     database_path = tmp_path / "catalog.sqlite3"
     rejected_id = "NOT-A-VALID-ID"

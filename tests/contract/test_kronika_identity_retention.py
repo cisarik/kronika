@@ -220,7 +220,15 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # carry no retired spelling at all, so they leave this set. Every other
     # switched writer file retains the former spelling as a named historical
     # constant and stays.
-    "src": 184,
+    #
+    # KSI-IMPL-CDATAP moved `src` by +1 and `tests` by +1, and nothing else.
+    # Both additions are new files that contain a retired spelling by design:
+    # the bounded maintenance module `infrastructure/persistence/
+    # identity_labels.py` holds the retired device-label constant, and its
+    # contract test `contract/test_catalog_identity_labels.py` fixtures that
+    # stored value. No existing file left either content set, because no path
+    # was renamed and no retired spelling was retired by this cut.
+    "src": 185,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -279,7 +287,10 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # prompt version. The new `contract/
     # test_kronika_durable_writer_identities.py` enters with the retired
     # spellings it pins as historical. Net -2.
-    "tests": 183,
+    #
+    # KSI-IMPL-CDATAP moved `tests` by +1 (the same content-set paragraph in the
+    # `src`-side comment above names the one entering path).
+    "tests": 184,
     "deploy": 22,
     "scripts": 7,
     "docs": 88,
@@ -454,7 +465,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # module moved its retired literal from the writer constant to the retained
     # historical constant, one for one, and the canonical values it now emits
     # carry no retired spelling, so those files are unmoved.
-    "src": 1690,
+    #
+    # KSI-IMPL-CDATAP moved `src` by +13 (1690 -> 1703). The new
+    # `infrastructure/persistence/identity_labels.py` adds 4: the stored
+    # `FrameNest NUC` label constant, the `FrameNest` brand constant, and the
+    # two `FrameNestIdentityError` references at its import and its identity
+    # validation. `adapters/cli/catalog.py` adds 9: one for each of the nine
+    # `FRAMENEST_CATALOG_IDENTITY_LABELS_*` error-code string values. The
+    # constant names carry no prefix and the mapping tuple references them by
+    # name, so they add nothing. No other `src` file moved.
+    "src": 1703,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -584,7 +604,17 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `test_nuc_release_docs.py` add six and remove four, and the updated
     # schema-continuation pin in `test_nuc_operator_runbook.py` removes the
     # four residual literal-path assertions, for +2, +10 and -4.
-    "tests": 2150,
+    #
+    # KSI-IMPL-CDATAP moved `tests` by +28 (2150 -> 2178), all of it the new
+    # `contract/test_catalog_identity_labels.py`: its synthetic `FrameNest NUC`
+    # fixtures, the lowercase `framenest` case-sensitivity fixture and
+    # `framenest-development` default-path absence fixture, the `RETIRED_BRAND`
+    # check, the `FRAMENEST_DATABASE_PATH`, `FRAMENEST_ENV_FILE` and
+    # `FRAMENEST_API_KEY` environment names, and its
+    # `FRAMENEST_CATALOG_IDENTITY_LABELS_*`, `FRAMENEST_CATALOG_NOT_READY` and
+    # `FRAMENEST_CATALOG_COMMAND_FAILED` error-code assertions. The two edited
+    # existing test files add no retired token.
+    "tests": 2178,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -603,7 +633,12 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # two replaced schema/lock bullets are removed. No host-path literal, no
     # capitalized spelling, no environment token and no unit-account line
     # moved; the corrected annex introduces no permanent schema pair.
-    "docs": 1229,
+    #
+    # KSI-IMPL-CDATAP moved `docs` by +2 (1229 -> 1231): the new runbook
+    # maintenance section names the stored `FrameNest NUC` label once and the
+    # private receipt beneath the retired `/var/lib/framenest` catalog root
+    # once. No environment token moves in `docs`.
+    "docs": 1231,
     "extension": 145,
 }
 
@@ -683,6 +718,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # test_media_sidecar_roundtrip.py` lost its only retired spelling when its
 # writer-output path became canonical. Every other switched module keeps the
 # former spelling as a named historical constant and stays.
+#
+# KSI-IMPL-CDATAP added exactly two paths and removed none. Both are new files
+# that name the retired device label because the bounded maintenance command
+# resolves the stored `FrameNest NUC` value and its contract test fixtures it:
+# `src/kronika/infrastructure/persistence/identity_labels.py` (the retired and
+# canonical device-label constants and the retired brand) and
+# `tests/contract/test_catalog_identity_labels.py` (the synthetic fixtures and
+# assertions that pin them). The command's other retired spellings are the new
+# error-code values in the already-tracked `adapters/cli/catalog.py`, so no
+# other path enters or leaves this set.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -982,6 +1027,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/infrastructure/persistence/device_repository.py",
         "src/kronika/infrastructure/persistence/engine.py",
         "src/kronika/infrastructure/persistence/errors.py",
+        "src/kronika/infrastructure/persistence/identity_labels.py",
         "src/kronika/infrastructure/persistence/library_repository.py",
         "src/kronika/infrastructure/persistence/media_analysis_run_repository.py",
         "src/kronika/infrastructure/persistence/media_attribution_repository.py",
@@ -1031,6 +1077,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_backup_cli.py",
         "tests/contract/test_catalog_backup_timer.py",
         "tests/contract/test_catalog_cli.py",
+        "tests/contract/test_catalog_identity_labels.py",
         "tests/contract/test_catalog_offdevice_timer.py",
         "tests/contract/test_chatgpt_page_packaging.py",
         "tests/contract/test_companion_review_api.py",
@@ -1230,8 +1277,20 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # prefix checks, so the bare count is +3. The masked capture installation and
 # the new remote-contract probe answers add no environment tokens, and the
 # engine's two declarations are unchanged.
-ENV_PREFIX_TOKEN_COUNT = 655
-ENV_PREFIX_DISTINCT_NAME_COUNT = 103
+#
+# KSI-IMPL-CDATAP moved the token count by +33 (655 -> 688) and the distinct
+# name count by +9 (103 -> 112), and moved the bare count nothing. The +9
+# distinct names are the nine new `FRAMENEST_CATALOG_IDENTITY_LABELS_*`
+# command error codes. Their token count is +33: nine values in
+# `adapters/cli/catalog.py` and twenty-four references in the new
+# `contract/test_catalog_identity_labels.py` (the nine error codes, the
+# existing `FRAMENEST_CATALOG_NOT_READY` and `FRAMENEST_CATALOG_COMMAND_FAILED`
+# assertions, `FRAMENEST_DATABASE_PATH`, `FRAMENEST_ENV_FILE` and
+# `FRAMENEST_API_KEY`). No `FRAMENEST_` environment name was added, removed or
+# respelled; the command reads `FRAMENEST_DATABASE_PATH` exactly as every
+# catalog command already does, so the bare count is unmoved.
+ENV_PREFIX_TOKEN_COUNT = 688
+ENV_PREFIX_DISTINCT_NAME_COUNT = 112
 ENV_PREFIX_BARE_SPELLING_COUNT = 29
 
 MUTATION_HEADER = "X-FrameNest-Request"
@@ -1287,10 +1346,15 @@ MUTATION_HEADER_FILE_COUNT = 30
 # observed-home conflict plans and the mount comment/assertion fixtures. The
 # engine adds no host literal; the structural transformer names only the
 # generic token.
+#
+# KSI-IMPL-CDATAP moved `/var/lib/framenest` by +1 (121 -> 122) and moved no
+# other host literal. The single occurrence is the documented private receipt
+# path beneath the current catalog root in the new runbook maintenance section;
+# the command and its tests name no host path.
 HOST_PATH_OCCURRENCE_COUNT = {
     "/opt/framenest": 226,
     "/etc/framenest": 86,
-    "/var/lib/framenest": 121,
+    "/var/lib/framenest": 122,
     "/var/cache/framenest": 31,
     "/mnt/framenest-catalog-offdevice": 25,
 }
@@ -1395,8 +1459,16 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # (`FrameNestMediaSuggestionError`, `FrameNestMovieIdentificationError` and
 # `FrameNestIdentityError`) where they are the objects under test. No product
 # message, class name or module name changed.
-CAPITALIZED_OCCURRENCE_COUNT = 2748
-CAPITALIZED_FILE_COUNT = 394
+#
+# KSI-IMPL-CDATAP moved the occurrences by +6 (2748 -> 2754) and the files by
+# +2 (394 -> 396), and moved nothing else. The new maintenance module adds four
+# occurrences (the stored `FrameNest NUC` label, the `FrameNest` brand, and its
+# `FrameNestIdentityError` import and handler), the new contract test adds one
+# (the sentinel library display name), and the runbook section adds one (the
+# stored label literal). Both new files enter this count, which is the file
+# movement.
+CAPITALIZED_OCCURRENCE_COUNT = 2754
+CAPITALIZED_FILE_COUNT = 396
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

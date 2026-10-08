@@ -398,6 +398,22 @@ def test_runbook_documents_environmentfile_production_cli_and_bounded_readiness(
     assert "30 seconds" in text
 
 
+def test_runbook_documents_the_bounded_identity_label_maintenance_window() -> None:
+    text = _text(RUNBOOK_PATH)
+    assert "Catalog Identity-Label Maintenance (Non-Routine; Stopped Writers)" in text
+    assert "kronika-catalog identity-labels check" in text
+    assert "kronika-catalog identity-labels apply --yes" in text
+    assert "kronika-catalog identity-labels rollback --yes" in text
+    assert "--include-libraries" in text
+    assert "catalog.sqlite3.identity-labels-receipt.json" in text
+    assert "mode `0600`" in text
+    flattened = " ".join(text.split())
+    assert "Run every operation as the catalog owner" in flattened
+    assert "device list` is not sufficient evidence" in flattened
+    assert "Never restore an old whole-catalog backup" in flattened
+    assert "no schema revision is applied" in flattened
+
+
 def test_runbook_and_deploy_readme_document_capture_activation() -> None:
     runbook = _text(RUNBOOK_PATH)
     deploy = _text(DEPLOY_README_PATH)
