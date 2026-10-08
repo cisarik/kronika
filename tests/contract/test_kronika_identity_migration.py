@@ -1704,6 +1704,7 @@ class RemoteBoundary:
         self.fail_readiness = False
         self.fail_required_script = False
         self.tamper_old_release = False
+        self.backup_state = "succeeded"
         self.capture_identities: list[str] = []
 
     # -- state helpers ----------------------------------------------------
@@ -2067,6 +2068,16 @@ class RemoteBoundary:
             return str(value["target"])
         if "visudo -cf " in combined:
             return ""
+        if "framenest-backup run-scheduled" in combined:
+            if not self.privilege_ok:
+                return "query-failed"
+            return json.dumps(
+                {
+                    "operation": "run-scheduled",
+                    "state": self.backup_state,
+                    "bundle_id": "b1",
+                }
+            )
         if "systemd-run" in combined:
             if self.fail_readiness:
                 raise engine.ReleaseError("readiness failed", engine.EXIT_TRANSPORT)
@@ -3574,6 +3585,111 @@ def test_production_stop_writers_stops_timers_before_their_jobs() -> None:
         if "stop framenest-catalog-backup.service" in call
     )
     assert timer_index < job_index
+
+
+def test_production_quiesce_stops_admission_then_timers_then_jobs() -> None:
+    """The production composite executes the whole ordered admission drain.
+
+    The composite must observe writer state, stop admission first, stop each
+    timer before the job service it triggers, prove no legacy writer process
+    remains, and take the before-writers capture snapshot last.
+    """
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    boundary.units["kronika-capture-runner.service"] = {
+        "installed": True,
+        "load": "loaded",
+        "enabled": "enabled",
+        "active": "active",
+    }
+    host = _boundary_host(boundary)
+    journal = engine.migration_journal_payload(_plan())
+    host.bind_journal(journal)
+
+    stopped = host.quiesce()
+
+    assert stopped == [
+        "framenest.service",
+        "framenest-catalog-backup.timer",
+        "framenest-catalog-backup.service",
+    ]
+    assert journal["substeps"]["observed_units"]["framenest.service"] == {
+        "installed": True,
+        "load": "loaded",
+        "enabled": "enabled",
+        "active": "active",
+    }
+    order = {
+        "observe": next(
+            index
+            for index, call in enumerate(boundary.calls)
+            if "load=%s" in call and "framenest.service" in call
+        ),
+        "admission": next(
+            index
+            for index, call in enumerate(boundary.calls)
+            if "stop framenest.service" in call
+        ),
+        "timer": next(
+            index
+            for index, call in enumerate(boundary.calls)
+            if "stop framenest-catalog-backup.timer" in call
+        ),
+        "job": next(
+            index
+            for index, call in enumerate(boundary.calls)
+            if "stop framenest-catalog-backup.service" in call
+        ),
+        "capture": next(
+            index
+            for index, call in enumerate(boundary.calls)
+            if "kronika-capture-identity-snapshot" in call
+        ),
+    }
+    assert (
+        order["observe"]
+        < order["admission"]
+        < order["timer"]
+        < order["job"]
+        < order["capture"]
+    )
+    assert host._capture_before["runner_active"] is True
+
+
+def test_production_create_checkpoint_returns_the_bundle_and_refuses_non_success() -> None:
+    """The production checkpoint reads the scheduled backup result, and a
+    non-success state is a migration refusal rather than a success."""
+    boundary = RemoteBoundary()
+    host = _boundary_host(boundary)
+
+    assert host.create_checkpoint() == "b1"
+    assert any(
+        "framenest-backup run-scheduled" in call for call in boundary.calls
+    )
+
+    boundary.backup_state = "failed"
+    boundary.calls.clear()
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.create_checkpoint()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "quiescent checkpoint failed" in str(exc.value)
+
+
+def test_production_verify_effective_units_accepts_installed_and_refuses_absent() -> None:
+    """The production effective-unit verification recognises the installed
+    canonical unit and refuses a host that does not carry it."""
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    host = _boundary_host(boundary)
+    host.install_units()
+    host.verify_effective_units()
+
+    absent = RemoteBoundary()
+    absent_host = _boundary_host(absent)
+    with pytest.raises(engine.ReleaseError) as exc:
+        absent_host.verify_effective_units()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert "not recognised" in str(exc.value)
 
 
 def test_migration_unit_artifacts_exact_membership() -> None:

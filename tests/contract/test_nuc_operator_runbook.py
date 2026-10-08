@@ -150,12 +150,9 @@ def test_runbook_schema_jump_continuation_uses_target_release_tree() -> None:
 
     assert "exits exactly 13" in text
     assert "migration-required" in text
-    assert "current_revision=0032" in text
-    assert "head_revision=0033" in text
-    assert "current_revision=head_revision=0033" in text
-    assert "/run/framenest-release-deploy/ap.tar" in text
-    assert "/run/framenest-release-deploy/framenest_release.py" in text
-    assert "/run/framenest-release-deploy/superproject.tar" in text
+    assert "current_revision=<C>" in text
+    assert "head_revision=<H>" in text
+    assert "current_revision=head_revision=<H>" in text
     assert "rollback --release <T> --yes" in text
     assert "sudo -K" in text
     flattened = " ".join(text.split())

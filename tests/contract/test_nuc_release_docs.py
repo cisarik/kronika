@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
+import os
+import re
+import socket
 import stat
 from pathlib import Path
+
+from tests.contract import test_nuc_release_remote_contract as _remote_contract
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_PATH = REPOSITORY_ROOT / "AGENTS.md"
@@ -31,9 +37,28 @@ CPYTHON_PATH = (
     "/opt/framenest/tooling/python/cpython-3.13.14-linux-x86_64-gnu/bin/python3.13"
 )
 
+#: The documentation pins are cross-checked against the real engine, so a
+#: renamed lock path, artifact or reclaim reason fails here instead of going
+#: stale in the runbook. The engine instance is the one the remote-contract
+#: suite already loaded from the canonical path.
+_ENGINE = _remote_contract.engine
+
 
 def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _a_dead_pid() -> int:
+    """Return a pid that is certainly not running on this workstation."""
+
+    for candidate in range(4_000_000, 4_000_050):
+        try:
+            os.kill(candidate, 0)
+        except ProcessLookupError:
+            return candidate
+        except PermissionError:  # pragma: no cover - not reachable in practice
+            continue
+    raise AssertionError("no certainly-unused pid found")  # pragma: no cover
 
 
 def test_agents_documents_canonical_entry_point() -> None:
@@ -146,16 +171,157 @@ def test_runbook_documents_exit_13_schema_jump_continuation() -> None:
     assert "`migration-required`" in text
     assert "/opt/framenest/releases/<T>" in text
     assert ".framenest-release-sha" in text
-    assert "current_revision=0032" in text
-    assert "head_revision=0033" in text
-    assert "current_revision=head_revision=0033" in text
-    assert "/run/framenest-release-deploy/ap.tar" in text
-    assert "/run/framenest-release-deploy/framenest_release.py" in text
-    assert "/run/framenest-release-deploy/superproject.tar" in text
+    # The schema pair is derived from the observed status, never a permanent
+    # example: the stale 0032 -> 0033 literals must not survive in the annex.
+    assert "current_revision=<C>" in text
+    assert "head_revision=<H>" in text
+    assert "current_revision=head_revision=<H>" in text
+    assert "current_revision=0032" not in text
+    assert "head_revision=0033" not in text
+    assert "current_revision=head_revision=0033" not in text
+    assert "`0033`" not in text
     assert "rollback --release <T> --yes" in text
     assert "sudo -K" in text
     assert "/opt/framenest/current/.venv/bin/framenest-db migrate" not in text
     assert "/opt/framenest/releases/<T>/.venv/bin/framenest-db migrate" in text
+
+
+def test_runbook_lock_lifecycle_matches_the_engine() -> None:
+    """Every documented lock object, reason and path is engine-derived."""
+    text = _text(RUNBOOK_PATH)
+    engine = _ENGINE
+
+    assert engine.REMOTE_DEPLOY_DIR in text
+    assert engine.REMOTE_DEPLOY_LOCK_OWNER_PATH in text
+
+    # The lock creation is deliberately non-recursive: no `-p` flag.
+    mkdir_command = engine.cmd_remote_mkdir_deploy_dir()
+    assert " -p " not in mkdir_command
+    assert f"mkdir -m 0700 {engine.REMOTE_DEPLOY_DIR}" in mkdir_command
+    assert mkdir_command in text
+
+    # The deploy-phase artifact inventory is parsed from the production
+    # method, so a renamed or added artifact cannot hide behind stale prose.
+    deploy_artifacts = set(
+        re.findall(
+            r"\{REMOTE_DEPLOY_DIR\}/([A-Za-z0-9_.-]+)",
+            inspect.getsource(engine._cmd_deploy),
+        )
+    )
+    assert deploy_artifacts == {
+        "superproject.tar",
+        "ap.tar",
+        "framenest_release.py",
+        "previous-release",
+    }
+    rollback_artifacts = set(
+        re.findall(
+            r"\{REMOTE_DEPLOY_DIR\}/([A-Za-z0-9_.-]+)",
+            inspect.getsource(engine._cmd_rollback),
+        )
+    )
+    assert rollback_artifacts == {"rollback-previous-release"}
+    for name in sorted(deploy_artifacts | rollback_artifacts):
+        assert f"{engine.REMOTE_DEPLOY_DIR}/{name}" in text
+
+    # Reclaim reasons and quarantine naming are derived by exercising the
+    # production classifier rather than hardcoded in this test.
+    own = engine.deploy_lock_owner_record()
+    assert engine.classify_deploy_lock_owner(own, own) == "own-identity"
+    abandoned = f"{'a' * 32} {_a_dead_pid()} 1 {socket.gethostname()}"
+    assert engine.classify_deploy_lock_owner(abandoned, own) == "abandoned-owner"
+    for reason in ("own-identity", "abandoned-owner"):
+        assert f"{engine.REMOTE_DEPLOY_DIR}.reclaimed-{reason}" in text
+    assert f"{engine.REMOTE_DEPLOY_LOCK_RECLAIM_STALE_SECONDS} seconds" in text
+
+    # The identity migration's own paths are documented as non-routine, and
+    # no routine command block is documented as invoking it.
+    assert engine.MIGRATION_DIRECTORY in text
+    assert engine.MIGRATION_SCRATCH_DIRECTORY in text
+    assert engine.MIGRATION_JOURNAL_PATH in text
+    for entry in ("framenest-release", "kronika-release"):
+        assert f"{entry} migrate-identity" not in text
+
+
+def test_runbook_recovery_is_exact_object_not_recursive() -> None:
+    text = _text(RUNBOOK_PATH)
+    flattened = " ".join(text.split())
+    assert "rm -rf" not in text
+    assert "recursive" in text
+    assert "wildcard" in text
+    assert (
+        "Unexpected names, extra files, or a missing expected file stop the "
+        "run."
+    ) in flattened
+    assert "`rmdir` must succeed on an empty directory. If it fails, stop" in text
+
+
+def test_engine_exit_13_residue_is_the_documented_three_artifacts() -> None:
+    """The engine, on a host with a non-empty lock directory, leaves exactly
+    the pre-schema-gate residue and its owner record in place.
+
+    The real release path cannot remove a populated lock directory: its
+    ``rmdir`` fails, the cleanup error is suppressed while the primary
+    ``migration-required`` failure propagates, and the owner-record removal is
+    never reached. The runbook recovery names exactly this residue.
+    """
+    engine = _ENGINE
+    remote = _remote_contract
+
+    class _NonEmptyRmdir(remote.FakeRunner):
+        def _ssh_respond(self, combined, input_bytes):
+            if f"rmdir {engine.REMOTE_DEPLOY_DIR}" in combined:
+                raise engine.ReleaseError("directory not empty", engine.EXIT_TRANSPORT)
+            if "framenest-db status" in combined:
+                return (
+                    '{"operation":"status","state":"behind",'
+                    '"current_revision":"0026","head_revision":"0031"}'
+                )
+            return super()._ssh_respond(combined, input_bytes)
+
+    runner = _NonEmptyRmdir()
+    result = engine.main(remote._args("deploy"), runner=runner)
+
+    assert result == engine.EXIT_MIGRATION_REQUIRED
+    commands = remote._ssh_combined(runner)
+    for name in ("ap.tar", "framenest_release.py", "superproject.tar"):
+        assert f"cat > {engine.REMOTE_DEPLOY_DIR}/{name}" in commands
+    assert "previous-release" not in commands
+    assert runner.locked is True
+    assert f"rm -f {engine.REMOTE_DEPLOY_LOCK_OWNER_PATH}" not in commands
+
+
+def test_engine_post_checkpoint_residue_adds_the_documented_previous_release() -> None:
+    """A failure after the checkpoint leaves the fourth documented artifact."""
+    engine = _ENGINE
+    remote = _remote_contract
+
+    class _PostSwitchFailure(remote.FakeRunner):
+        def __init__(self) -> None:
+            super().__init__()
+            self._journal_failures = 0
+
+        def _ssh_respond(self, combined, input_bytes):
+            if f"rmdir {engine.REMOTE_DEPLOY_DIR}" in combined:
+                raise engine.ReleaseError("directory not empty", engine.EXIT_TRANSPORT)
+            if "journalctl -u framenest.service" in combined:
+                self._journal_failures += 1
+                if self._journal_failures == 1:
+                    raise engine.ReleaseError("terminal", engine.EXIT_SERVICE_TERMINAL)
+            return super()._ssh_respond(combined, input_bytes)
+
+    runner = _PostSwitchFailure()
+    result = engine.main(remote._args("deploy"), runner=runner)
+
+    assert result == engine.EXIT_SERVICE_TERMINAL
+    commands = remote._ssh_combined(runner)
+    assert f"{engine.REMOTE_DEPLOY_DIR}/previous-release" in commands
+    assert runner.locked is True
+    # The interrupted cleanup never removes any transferred artifact and never
+    # reaches the owner-record removal.
+    for name in ("ap.tar", "framenest_release.py", "superproject.tar", "previous-release"):
+        assert f"rm -f {engine.REMOTE_DEPLOY_DIR}/{name}" not in commands
+    assert f"rm -f {engine.REMOTE_DEPLOY_LOCK_OWNER_PATH}" not in commands
 
 
 def test_engine_and_entry_point_are_committed_together() -> None:

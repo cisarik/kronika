@@ -575,7 +575,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # installed-mode, pointer, readiness, scheduling, capture-identity,
     # literal-membership and pure-guard tests and their fixtures, and +1 in
     # `test_recovery_cli.py` for the retained-tuple compatibility pin.
-    "tests": 2142,
+    #
+    # KSI-C-RUNBOOK moved `tests` by +8 (2142 -> 2150). The three new
+    # production composite tests in `test_kronika_identity_migration.py` add
+    # ten occurrences (the writer unit names in the quiesce order test, the
+    # checkpoint command, the observed-unit assertion and the ordering
+    # probes), the three new engine-derived lock tests in
+    # `test_nuc_release_docs.py` add six and remove four, and the updated
+    # schema-continuation pin in `test_nuc_operator_runbook.py` removes the
+    # four residual literal-path assertions, for +2, +10 and -4.
+    "tests": 2150,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -586,7 +595,15 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # routine-scratch helper paths and the old token-replacement regex.
     "deploy": 250,
     "scripts": 86,
-    "docs": 1216,
+    # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
+    # corrected runbook adds fifteen occurrences and removes two: the new
+    # shared-release-lock section names the lock directory, the `.owner`
+    # record, every deploy/rollback artifact path, both reclaim reasons, both
+    # quarantine paths and the non-recursive lock creation command, and the
+    # two replaced schema/lock bullets are removed. No host-path literal, no
+    # capitalized spelling, no environment token and no unit-account line
+    # moved; the corrected annex introduces no permanent schema pair.
+    "docs": 1229,
     "extension": 145,
 }
 

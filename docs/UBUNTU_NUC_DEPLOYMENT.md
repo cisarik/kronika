@@ -883,6 +883,66 @@ Evidence:
 - Target-tree migration command result and post-migration status.
 - Final `framenest-release status` after cutover.
 
+### Shared Release Lock Recovery
+
+Every routine mutating operation (`deploy` and `rollback`) holds one shared
+remote release lock before it transfers or mutates anything. The lock is the
+remote directory `/run/framenest-release-deploy`; its owner record is the
+sibling file `/run/framenest-release-deploy.owner`. The owner record carries
+only this run's identity - a nonce, its process id, its start time and the
+workstation host name - and no secret.
+
+The lock directory is created with a non-recursive command; there is no `-p`:
+
+```text
+sudo -n mkdir -m 0700 /run/framenest-release-deploy
+```
+
+The deploy phase can create these exact objects in that directory:
+`/run/framenest-release-deploy/ap.tar`,
+`/run/framenest-release-deploy/framenest_release.py`, and
+`/run/framenest-release-deploy/superproject.tar` before the schema gate, and
+`/run/framenest-release-deploy/previous-release` after a successful
+checkpoint. `rollback` records
+`/run/framenest-release-deploy/rollback-previous-release` in the same
+directory. After a completed operation, the engine removes each exact
+transferred file, removes the empty lock directory, and then removes the
+owner record. An interrupted cleanup can
+leave the directory, its contents, or the owner record behind, and a stale
+lock can recur; no run may assume the lock is absent.
+
+When the lock directory already exists, the engine reads the owner record and
+reclaims the lock only in these cases. A reclaim moves the abandoned directory
+aside with one atomic rename to the quarantine path named by the reason,
+creates a fresh lock directory, and removes the quarantine path after the
+operation:
+
+| Existing lock | Engine decision | Quarantine |
+|---|---|---|
+| Owner record names this exact run | reclaim, reason `own-identity` | `/run/framenest-release-deploy.reclaimed-own-identity` |
+| Record written on this workstation, at least 60 seconds old, recorded process no longer alive | reclaim, reason `abandoned-owner` | `/run/framenest-release-deploy.reclaimed-abandoned-owner` |
+| Live owner, foreign host, unreadable or absent owner record, or a failed reclaim rename | refuse; stop the run | none |
+
+Three recovery cases:
+
+1. **Live lock owner.** Precondition: the owner record parses, names this
+   workstation, and its recorded process is alive, or the record is younger
+   than the reclaim bound. Another run owns the lock. Stop; do not remove,
+   move, reclaim or inspect-delete the lock directory, its contents or its
+   owner record.
+2. **Proven stale or ownerless residue.** Precondition: no live owner is
+   proven, and the residue is either a record whose age exceeds the reclaim
+   bound with no live process, or an ownerless directory with no readable
+   record. Inspect the exact phase, ownership and contents before any
+   authorized recovery. An ownerless lock is never reclaimed automatically,
+   so it always stops for explicit inspection. Recover only exact named
+   objects from the inventory above; never use a wildcard, a recursive delete
+   or a parent-directory delete.
+3. **`migration-required` (exit 13).** Precondition: a fresh `deploy --yes`
+   stopped exactly at the schema gate and left the pre-schema-gate residue of
+   `ap.tar`, `framenest_release.py` and `superproject.tar` (no
+   `previous-release` yet). Continue with the annex below.
+
 ### Annex: Schema-jump continuation after `migration-required` (exit 13)
 
 This annex is the documented continuation when `deploy --yes` stops because
@@ -891,8 +951,18 @@ add a fifth public command. The helper remains migration-free. `<T>` is the
 exact public `main` SHA already accepted by
 `framenest-release check --release <T>`.
 
-Expected current transition, subject to a fresh `status` and `check` at
-execution: live catalog revision `0032` to packaged head `0033`.
+The continuation is schema-generic; no revision pair in this document is a
+current expectation. Read the pair from the fresh `status` and `check` you ran
+before the stop and from the target tree in step 2:
+
+- `<C>` is the observed live catalog revision the running release reports
+  (`database_revision` in `status`, and `current_revision` of the deployed
+  tree).
+- `<H>` is the observed packaged target head the target release reports
+  (`head_revision` in step 2).
+- Exit 13 guarantees `<C>` and `<H>` differ at the stop.
+- Step 4 must end at `current_revision=head_revision=<H>` for that same
+  observed `<H>`. Any other pair stops the run.
 
 1. **Stop at exit 13.** `deploy --yes` exits exactly 13 (`migration-required`)
    AFTER atomically publishing `/opt/framenest/releases/<T>` and BEFORE
@@ -924,14 +994,20 @@ Required evidence:
   old release.
 - Target `.framenest-release-sha` equals `<T>`.
 - Target `.venv/bin/framenest-db` is executable.
-- Target-tree `framenest-db status` shows `current_revision=0032` and
-  `head_revision=0033`.
+- Target-tree `framenest-db status` shows the recorded live revision
+  `current_revision=<C>` and the packaged target head `head_revision=<H>`.
 - `/run/framenest-release-deploy` contains only the known pre-schema-gate
-  artifacts `ap.tar`, `framenest_release.py`, and `superproject.tar`.
-  Unexpected names, extra files, or a missing expected file stop the run.
+  artifacts `ap.tar`, `framenest_release.py`, and `superproject.tar`. A
+  failure after the checkpoint can instead leave a fourth artifact,
+  `previous-release`, and the owner record; inspect the exact contents before
+  recovery. Unexpected names, extra files, or a missing expected file stop the
+  run.
 
-3. **Remove only those lock artifacts, then the empty lock directory.** Do not
-   use recursive delete. Unexpected contents stop the run.
+3. **Remove only the exact residual lock artifacts, then the empty lock
+   directory, then the owner record.** Do not use wildcard, recursive, or
+   parent-directory deletion. Remove each named object separately, directory
+   before owner record, so an interruption never leaves an ownerless directory
+   that automatic reclamation refuses. Unexpected contents stop the run.
 
 ```text
 # [NUC / bash]
@@ -939,10 +1015,13 @@ sudo rm -f /run/framenest-release-deploy/ap.tar
 sudo rm -f /run/framenest-release-deploy/framenest_release.py
 sudo rm -f /run/framenest-release-deploy/superproject.tar
 sudo rmdir /run/framenest-release-deploy
+sudo rm -f /run/framenest-release-deploy.owner
 #------------------------------------------------------
 ```
 
-`rmdir` must succeed on an empty directory. If it fails, stop.
+`rmdir` must succeed on an empty directory. If it fails, stop: the engine's
+own lock release could not complete either, and it preserves the primary
+`migration-required` failure while suppressing that cleanup error.
 
 4. **Migrate from the new release tree**, never from `/opt/framenest/current`,
    under the operator command execution contract:
@@ -958,8 +1037,8 @@ sudo -u framenest --chdir=/opt/framenest/releases/<T> \
 #------------------------------------------------------
 ```
 
-Post-migration status must show `current_revision=head_revision=0033`. Any
-other revision stops the run.
+Post-migration status must show `current_revision=head_revision=<H>` for the
+observed target head `<H>`. Any other revision stops the run.
 
 5. **Complete cutover** through the documented switch to an already-complete
    target tree:
@@ -972,7 +1051,8 @@ Here `rollback` is the supported cutover onto `/opt/framenest/releases/<T>`
 after the target tree is schema-complete. It is not an improvised downgrade.
 
 6. **Final `status`.** Require exact SHA `<T>`, active `framenest.service`,
-   catalog schema `0033`, and backup restore-readiness `ready`.
+   catalog schema equal to the recorded target head `<H>`, and backup
+   restore-readiness `ready`.
 
 7. **Terminal privilege release.** After final `status`, the Cooperator
    invalidates the sudo timestamp:
@@ -987,6 +1067,35 @@ If the session is lost first, privilege release is unknown, not assumed.
 
 A post-migration cutover failure requires explicit triage. Never improvise a
 downgrade or catalog restore.
+
+### Identity Migration (Non-Routine; Not This Continuation)
+
+The continuation above migrates the catalog schema only. The separate host
+identity migration subcommand (`migrate-identity`) is a non-routine
+operation. No routine `deploy`, `rollback`, `check`, `status` or capture
+command invokes it, and this annex never invokes it. It shares the routine
+release lock above and uses its own prepared remote scratch area and root-only
+control state:
+
+```text
+Remote engine helper scratch: /run/kronika-identity-migration
+Root-only control state:      /var/lib/kronika-identity-migration
+Journal:                      /var/lib/kronika-identity-migration/journal.json
+Recovery manifest:            /var/lib/kronika-identity-migration/recovery-manifest.json
+```
+
+Neither path belongs to the routine lock directory, and routine cleanup never
+touches either.
+
+If the identity migration fails before the new service starts, its automatic
+pre-write recovery restores the observed account, group, home and
+unit/scheduler state, but it deliberately leaves the copied canonical state,
+the installed canonical unit files and the installed ancillary files in
+place. A retry is refused until a separately authorized explicit recovery.
+That residue is by design; an operator must not expect a clean slate after a
+failed pre-write attempt. After the recorded writes boundary, forward
+recovery is a separate authorized decision and never restores stale copied
+state.
 
 ## 6. Readiness Verification
 
