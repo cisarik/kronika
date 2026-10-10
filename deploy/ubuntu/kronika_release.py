@@ -4223,6 +4223,35 @@ SUDOERS_RULE_LINE = re.compile(
 SUDOERS_TAG = re.compile(r"[A-Z_]+:")
 
 
+def classify_unit_path_token(token: str) -> str:
+    """Classify one unit-directive path token under the identity transition.
+
+    ``transform_path_value`` preserves every token outside the moved roots, so
+    a directive guard cannot tell a deliberate custom path from an incomplete
+    rename by a substring test. This one classification makes that distinction
+    explicit, in this order:
+
+    * ``"frozen"``: a residue in ``MIGRATION_FROZEN_PATH_PREFIXES``, preserved;
+    * ``"moved"``: equal to or under a moved root, so the ordinary
+      transformation applies and refuses a leftover retired spelling;
+    * ``"near-miss"``: starts with a moved root's exact text but is neither
+      equal to it nor under it with a path separator, so it is an incomplete
+      rename and refuses;
+    * ``"foreign"``: any other path, a deliberate custom path, preserved even
+      when it carries the retired spelling.
+    """
+    for frozen in MIGRATION_FROZEN_PATH_PREFIXES:
+        if token == frozen or token.startswith(frozen + "/"):
+            return "frozen"
+    for old_root, _new_root in MIGRATION_OLD_TO_NEW_ROOTS:
+        if token == old_root or token.startswith(old_root + "/"):
+            return "moved"
+    for old_root, _new_root in MIGRATION_OLD_TO_NEW_ROOTS:
+        if token.startswith(old_root):
+            return "near-miss"
+    return "foreign"
+
+
 def _systemd_transform_value(key: str, value: str) -> str:
     """Transform one supported directive value, or refuse the form."""
     if key in SYSTEMD_IDENTITY_DIRECTIVES:
@@ -4247,12 +4276,14 @@ def _systemd_transform_value(key: str, value: str) -> str:
                 "LoadCredential directive is not identifier:path",
                 EXIT_MIGRATION,
             )
-        transformed = transform_path_value(path)
-        if transformed == path and "framenest" in path.lower():
+        classification = classify_unit_path_token(path)
+        if classification == "near-miss":
             raise ReleaseError(
                 "LoadCredential path is not classifiable", EXIT_MIGRATION
             )
-        return f"{identifier}:{transformed}"
+        if classification == "moved":
+            path = transform_path_value(path)
+        return f"{identifier}:{path}"
     if key in SYSTEMD_EXEC_DIRECTIVES:
         command = value.strip()
         if command.startswith("{"):
@@ -4267,28 +4298,33 @@ def _systemd_transform_value(key: str, value: str) -> str:
                 raise ReleaseError(
                     f"unit directive {key} path is not absolute", EXIT_MIGRATION
                 )
-            transformed = transform_path_value(original)
-            if transformed == original and "framenest" in original.lower():
+            classification = classify_unit_path_token(original)
+            if classification == "near-miss":
                 raise ReleaseError(
                     f"unit directive {key} path is not classifiable",
                     EXIT_MIGRATION,
                 )
-            return command.replace(match.group(1), transformed, 1)
+            if classification == "moved":
+                original = transform_path_value(original)
+            return command.replace(match.group(1), original, 1)
         match = SYSTEMD_EXEC_TOKEN.match(command)
         if match is None:
             raise ReleaseError(
                 f"unit directive {key} is not classifiable", EXIT_MIGRATION
             )
-        if not match.group("path").startswith("/"):
+        path = match.group("path")
+        if not path.startswith("/"):
             raise ReleaseError(
                 f"unit directive {key} path is not absolute", EXIT_MIGRATION
             )
-        transformed = transform_path_value(match.group("path"))
-        if transformed == match.group("path") and "framenest" in command.lower():
+        classification = classify_unit_path_token(path)
+        if classification == "near-miss":
             raise ReleaseError(
                 f"unit directive {key} path is not classifiable", EXIT_MIGRATION
             )
-        return match.group("prefix") + transformed + command[match.end():]
+        if classification == "moved":
+            path = transform_path_value(path)
+        return match.group("prefix") + path + command[match.end():]
     if key in SYSTEMD_PATH_DIRECTIVES:
         tokens = value.split()
         if not tokens:
@@ -4305,12 +4341,14 @@ def _systemd_transform_value(key: str, value: str) -> str:
                 raise ReleaseError(
                     f"unit directive {key} path is not absolute", EXIT_MIGRATION
                 )
-            transformed = transform_path_value(body)
-            if transformed == body and "framenest" in body.lower():
+            classification = classify_unit_path_token(body)
+            if classification == "near-miss":
                 raise ReleaseError(
                     f"unit directive {key} path is not classifiable", EXIT_MIGRATION
                 )
-            transformed_tokens.append(prefix + transformed)
+            if classification == "moved":
+                body = transform_path_value(body)
+            transformed_tokens.append(prefix + body)
         return " ".join(transformed_tokens)
     raise ReleaseError(
         f"unit directive {key} is not supported", EXIT_MIGRATION

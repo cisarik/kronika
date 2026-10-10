@@ -676,7 +676,25 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # the dual-prefix helper's `FRAMENEST_` spelling, the header compatibility
     # note, and the usage-text compatibility note. The canonical Fish wrapper
     # adds none: it names only the canonical Bash implementation.
-    "tests": 2251,
+    #
+    # KSI-CORR-C6GUARD moved `tests` by +13 (2251 -> 2264) and `deploy` by -4
+    # (250 -> 246), and nothing else.
+    #
+    # `tests` +13, all in `test_kronika_identity_migration.py`: nine occurrences
+    # in the new synthetic classification fixtures (the two frozen tokens, the
+    # foreign token, the three near-miss tokens, the under-root token and the
+    # under-root leftover, which carries two), three occurrences in the
+    # mixed-directive end-to-end test (the preserved foreign and transformed
+    # moved-root tokens of its input, and the preserved foreign token of its
+    # expected text), and one occurrence in the Exec argument-opacity test,
+    # whose preserved argument text names the retired spelling as data.
+    #
+    # `deploy` -4: the four unit-directive guards (`LoadCredential`, the plain
+    # `Exec*` token, the `{ path=.. }` revision form and the path-directive token
+    # list) replace their substring test on the retired spelling with the
+    # unified path-token classification, so four literal occurrences are
+    # removed and none is added.
+    "tests": 2264,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -685,7 +703,11 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C6P2 moved `deploy` by +6 (244 -> 250): `kronika_release.py`
     # adds the nine structural-transformation token guards and removes the
     # routine-scratch helper paths and the old token-replacement regex.
-    "deploy": 250,
+    #
+    # KSI-CORR-C6GUARD moved `deploy` by -4 (250 -> 246): the four
+    # unit-directive guards now classify the path token and remove the retired
+    # spelling from the guard source.
+    "deploy": 246,
     "scripts": 98,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -1494,12 +1516,24 @@ MUTATION_HEADER_FILE_COUNT = 30
 # other host literal. The single occurrence is the documented private receipt
 # path beneath the current catalog root in the new runbook maintenance section;
 # the command and its tests name no host path.
+#
+# KSI-CORR-C6GUARD moved `/opt/framenest` by +2 (226 -> 228),
+# `/etc/framenest` by +1 (86 -> 87), `/var/lib/framenest` by +3 (122 -> 125)
+# and the frozen mount by +1 (25 -> 26); `/var/cache/framenest` is unmoved.
+# All seven movements are new synthetic classification fixtures in
+# `test_kronika_identity_migration.py`: `/opt/framenest/tooling/readwrite`
+# (frozen under a moved root) and `/opt/framenest-old` (near-miss);
+# `/etc/framenest.env` (near-miss); `/var/lib/framenest/catalog.sqlite3`
+# (under-root input), `/var/lib/framenest/framenest-staging` (under-root
+# leftover) and `/var/lib/framenest/catalog-backups` (mixed directive); and
+# `/mnt/framenest-catalog-offdevice/bundles` (frozen mount). The engine adds
+# and removes no host literal.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 226,
-    "/etc/framenest": 86,
-    "/var/lib/framenest": 122,
+    "/opt/framenest": 228,
+    "/etc/framenest": 87,
+    "/var/lib/framenest": 125,
     "/var/cache/framenest": 31,
-    "/mnt/framenest-catalog-offdevice": 25,
+    "/mnt/framenest-catalog-offdevice": 26,
 }
 
 # KSI-IMPL-C4B moved each of these by +3: one `User=framenest` and

@@ -3150,6 +3150,198 @@ def test_structural_dropin_transformation_refuses_unknown_forms() -> None:
         assert exc.value.exit_code == engine.EXIT_MIGRATION
 
 
+# ---------------------------------------------------------------------------
+# KSI-CORR-C6GUARD: unified unit-directive path-token classification
+# ---------------------------------------------------------------------------
+
+# Synthetic unit-directive path tokens for the classification matrix. The
+# foreign token is deliberately a custom path that carries the retired
+# spelling; the live host's custom publication path is never embedded here.
+C6GUARD_FROZEN_TOKENS = (
+    "/opt/framenest/tooling/readwrite",
+    "/mnt/framenest-catalog-offdevice/bundles",
+)
+C6GUARD_FOREIGN_TOKEN = "/srv/media/framenest-example"
+C6GUARD_NEAR_MISS_TOKENS = (
+    "/opt/framenest-old",
+    "/run/framenestx",
+    "/etc/framenest.env",
+)
+C6GUARD_UNDER_ROOT_TOKEN = "/var/lib/framenest/catalog.sqlite3"
+C6GUARD_UNDER_ROOT_CANONICAL = "/var/lib/kronika/catalog.sqlite3"
+C6GUARD_UNDER_ROOT_LEFTOVER_TOKEN = "/var/lib/framenest/framenest-staging"
+
+
+def _c6guard_site_cases(
+    token: str, replacement: str
+) -> tuple[tuple[str, str, str, str], ...]:
+    """One ``(site, token, input, expected)`` case per derived guard shape.
+
+    The four shapes are the derived guard sites of the unit-directive
+    transformer: the ``SYSTEMD_PATH_DIRECTIVES`` token list, the
+    ``LoadCredential`` path, the plain ``Exec*`` token and the
+    ``{ path=… }`` revision form.
+    """
+    return (
+        (
+            "path-list",
+            token,
+            f"[Service]\nReadWritePaths={token}\n",
+            f"[Service]\nReadWritePaths={replacement}\n",
+        ),
+        (
+            "load-credential",
+            token,
+            f"[Service]\nLoadCredential=SAMPLE:{token}\n",
+            f"[Service]\nLoadCredential=SAMPLE:{replacement}\n",
+        ),
+        (
+            "exec-plain",
+            token,
+            f"[Service]\nExecStart={token}\n",
+            f"[Service]\nExecStart={replacement}\n",
+        ),
+        (
+            "exec-revision",
+            token,
+            f"[Service]\nExecStart={{ path={token} }}\n",
+            f"[Service]\nExecStart={{ path={replacement} }}\n",
+        ),
+    )
+
+
+C6GUARD_FROZEN_CASES = [
+    case
+    for token in C6GUARD_FROZEN_TOKENS
+    for case in _c6guard_site_cases(token, token)
+]
+C6GUARD_FOREIGN_CASES = list(
+    _c6guard_site_cases(C6GUARD_FOREIGN_TOKEN, C6GUARD_FOREIGN_TOKEN)
+)
+C6GUARD_NEAR_MISS_CASES = [
+    case
+    for token in C6GUARD_NEAR_MISS_TOKENS
+    for case in _c6guard_site_cases(token, token)
+]
+C6GUARD_UNDER_ROOT_CASES = list(
+    _c6guard_site_cases(C6GUARD_UNDER_ROOT_TOKEN, C6GUARD_UNDER_ROOT_CANONICAL)
+)
+C6GUARD_UNDER_ROOT_LEFTOVER_CASES = list(
+    _c6guard_site_cases(
+        C6GUARD_UNDER_ROOT_LEFTOVER_TOKEN, C6GUARD_UNDER_ROOT_LEFTOVER_TOKEN
+    )
+)
+
+
+def _c6guard_case_ids(cases: list[tuple[str, str, str, str]]) -> list[str]:
+    return [f"{site}:{token}" for site, token, _text, _expected in cases]
+
+
+@pytest.mark.parametrize(
+    "case", C6GUARD_FROZEN_CASES, ids=_c6guard_case_ids(C6GUARD_FROZEN_CASES)
+)
+def test_structural_dropin_preserves_frozen_tokens_at_every_guard_site(
+    case: tuple[str, str, str, str],
+) -> None:
+    _site, token, text, _expected = case
+    assert engine.transform_unit_dropin_text(text) == text
+    assert engine.classify_unit_path_token(token) == "frozen"
+
+
+@pytest.mark.parametrize(
+    "case", C6GUARD_FOREIGN_CASES, ids=_c6guard_case_ids(C6GUARD_FOREIGN_CASES)
+)
+def test_structural_dropin_preserves_foreign_custom_tokens_at_every_guard_site(
+    case: tuple[str, str, str, str],
+) -> None:
+    _site, token, text, _expected = case
+    assert engine.transform_unit_dropin_text(text) == text
+    assert engine.classify_unit_path_token(token) == "foreign"
+
+
+@pytest.mark.parametrize(
+    "case", C6GUARD_NEAR_MISS_CASES, ids=_c6guard_case_ids(C6GUARD_NEAR_MISS_CASES)
+)
+def test_structural_dropin_refuses_near_miss_tokens_at_every_guard_site(
+    case: tuple[str, str, str, str],
+) -> None:
+    _site, token, text, _expected = case
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.transform_unit_dropin_text(text)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert engine.classify_unit_path_token(token) == "near-miss"
+
+
+@pytest.mark.parametrize(
+    "case",
+    C6GUARD_UNDER_ROOT_LEFTOVER_CASES,
+    ids=_c6guard_case_ids(C6GUARD_UNDER_ROOT_LEFTOVER_CASES),
+)
+def test_structural_dropin_refuses_under_root_leftovers_at_every_guard_site(
+    case: tuple[str, str, str, str],
+) -> None:
+    _site, token, text, _expected = case
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.transform_unit_dropin_text(text)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert engine.classify_unit_path_token(token) == "moved"
+
+
+@pytest.mark.parametrize(
+    "case", C6GUARD_UNDER_ROOT_CASES, ids=_c6guard_case_ids(C6GUARD_UNDER_ROOT_CASES)
+)
+def test_structural_dropin_transforms_under_root_tokens_at_every_guard_site(
+    case: tuple[str, str, str, str],
+) -> None:
+    _site, token, text, expected = case
+    assert engine.transform_unit_dropin_text(text) == expected
+    assert engine.classify_unit_path_token(token) == "moved"
+
+
+def test_structural_classification_rule_order_matches_the_specification() -> None:
+    """Frozen wins over moved, and only a moved root's near-miss refuses."""
+    for root, _new_root in engine.MIGRATION_OLD_TO_NEW_ROOTS:
+        assert engine.classify_unit_path_token(root) == "moved"
+        assert engine.classify_unit_path_token(f"{root}/sub/path") == "moved"
+        assert engine.classify_unit_path_token(f"{root}-old") == "near-miss"
+        assert engine.classify_unit_path_token(f"{root}x") == "near-miss"
+    for token in C6GUARD_FROZEN_TOKENS:
+        assert engine.classify_unit_path_token(token) == "frozen"
+    for token in C6GUARD_NEAR_MISS_TOKENS:
+        assert engine.classify_unit_path_token(token) == "near-miss"
+    assert engine.classify_unit_path_token(C6GUARD_UNDER_ROOT_TOKEN) == "moved"
+    assert (
+        engine.classify_unit_path_token(C6GUARD_UNDER_ROOT_LEFTOVER_TOKEN)
+        == "moved"
+    )
+    assert engine.classify_unit_path_token(C6GUARD_FOREIGN_TOKEN) == "foreign"
+    assert engine.classify_unit_path_token(C6GUARD_UNDER_ROOT_CANONICAL) == "foreign"
+
+
+def test_structural_dropin_transforms_a_mixed_foreign_and_moved_directive() -> None:
+    text = (
+        "[Service]\n"
+        "ReadWritePaths=-/srv/media/framenest-example "
+        "/var/lib/framenest/catalog-backups\n"
+    )
+    transformed = engine.transform_unit_dropin_text(text)
+    assert transformed == (
+        "[Service]\n"
+        "ReadWritePaths=-/srv/media/framenest-example "
+        "/var/lib/kronika/catalog-backups\n"
+    )
+
+
+def test_structural_dropin_keeps_exec_argument_text_opaque() -> None:
+    """Only the executable token is classified; argument text is preserved."""
+    text = (
+        "[Service]\n"
+        "ExecStart=/opt/kronika/current/.venv/bin/kronika-production "
+        "serve --identity framenest\n"
+    )
+    assert engine.transform_unit_dropin_text(text) == text
+
+
 def test_structural_sudoers_transformation_moves_runas_and_command() -> None:
     transformed = engine.transform_sudoers_text(
         SAMPLE_SUDO_RULE,
