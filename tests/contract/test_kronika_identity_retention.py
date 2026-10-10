@@ -228,7 +228,16 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # contract test `contract/test_catalog_identity_labels.py` fixtures that
     # stored value. No existing file left either content set, because no path
     # was renamed and no retired spelling was retired by this cut.
-    "src": 185,
+    #
+    # KSI-IMPL-CLOCALP moved `src` by +1 and `tests` by +1, and nothing else.
+    # Both additions are new files that contain a retired spelling by design:
+    # `infrastructure/runtime/local_state_migration.py` names both legacy
+    # directory components and the legacy temporary root in order to migrate
+    # them, and `contract/test_local_state_migration.py` fixtures the legacy
+    # macOS, XDG and temporary layouts alongside their canonical counterparts.
+    # No existing file left either content set: this cut renamed no path and
+    # retired no spelling.
+    "src": 186,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -290,7 +299,10 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     #
     # KSI-IMPL-CDATAP moved `tests` by +1 (the same content-set paragraph in the
     # `src`-side comment above names the one entering path).
-    "tests": 184,
+    #
+    # KSI-IMPL-CLOCALP moved `tests` by +1 (the same content-set paragraph in
+    # the `src`-side comment above names the one entering path).
+    "tests": 185,
     "deploy": 22,
     "scripts": 7,
     "docs": 88,
@@ -474,7 +486,15 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `FRAMENEST_CATALOG_IDENTITY_LABELS_*` error-code string values. The
     # constant names carry no prefix and the mapping tuple references them by
     # name, so they add nothing. No other `src` file moved.
-    "src": 1703,
+    #
+    # KSI-IMPL-CLOCALP moved `src` by +3 (1703 -> 1706), all in the new
+    # `infrastructure/runtime/local_state_migration.py`: its three owned
+    # legacy component constants `FrameNest`, `framenest` and
+    # `framenest-development`. The canonical side is one `Kronika` constant
+    # and the lowercase `kronika`/`kronika-development` constants, which the
+    # case-insensitive counter does not match. No existing `src` file moved;
+    # the edited `adapters/cli/development.py` added only canonical spellings.
+    "src": 1706,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -614,7 +634,20 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `FRAMENEST_CATALOG_IDENTITY_LABELS_*`, `FRAMENEST_CATALOG_NOT_READY` and
     # `FRAMENEST_CATALOG_COMMAND_FAILED` error-code assertions. The two edited
     # existing test files add no retired token.
-    "tests": 2178,
+    #
+    # KSI-IMPL-CLOCALP moved `tests` by +36 (2178 -> 2214), all in the new
+    # `contract/test_local_state_migration.py`: 17 capitalized `FrameNest`
+    # layout fixtures and assertions, 12 lowercase spellings (the XDG
+    # `framenest` AI directory, the `framenest-development` temporary root,
+    # the `framenest-chatgpt-page` capture-state fixture, the
+    # `framenest-browser-profile` fixture and the `framenest` credentials
+    # directory), and 7 fully spelled `FRAMENEST_` tokens (four
+    # `FRAMENEST_DATABASE_PATH`, one `FRAMENEST_DEVELOPMENT_RUNTIME_DIR` and
+    # two `FRAMENEST_PORT` override inputs). No existing test file moved: the
+    # edited `test_development_cli.py` and
+    # `test_kronika_product_string_agreement.py` carry canonical spellings
+    # only, and `test_kronika_direct_reader_routing.py` is unchanged.
+    "tests": 2214,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -728,6 +761,18 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # assertions that pin them). The command's other retired spellings are the new
 # error-code values in the already-tracked `adapters/cli/catalog.py`, so no
 # other path enters or leaves this set.
+#
+# KSI-IMPL-CLOCALP added exactly two paths and removed none. Both are new
+# files that name the legacy components and layouts they migrate or pin:
+# `src/kronika/infrastructure/runtime/local_state_migration.py` (the legacy
+# `FrameNest`, `framenest` and `framenest-development` component constants)
+# and `tests/contract/test_local_state_migration.py` (the synthetic macOS,
+# XDG and temporary legacy layouts and their canonical assertions). No
+# existing path enters or leaves: no path was renamed and no retired spelling
+# was retired by this cut, while the edited `DEVELOPMENT.md`, the edited
+# `adapters/cli/development.py` and the edited
+# `tests/contract/test_kronika_product_string_agreement.py` keep carrying the
+# retired spellings that already placed them in this set.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1045,6 +1090,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/infrastructure/persistence/youtube_acquisition_claim_repository.py",
         "src/kronika/infrastructure/runtime/__init__.py",
         "src/kronika/infrastructure/runtime/development.py",
+        "src/kronika/infrastructure/runtime/local_state_migration.py",
         "src/kronika/infrastructure/runtime/production.py",
         "src/kronika/infrastructure/youtube/downloader.py",
         "src/kronika/server.py",
@@ -1100,6 +1146,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_settings_parity.py",
         "tests/contract/test_library_api.py",
         "tests/contract/test_library_cli.py",
+        "tests/contract/test_local_state_migration.py",
         "tests/contract/test_local_web_application.py",
         "tests/contract/test_media_alias_api.py",
         "tests/contract/test_media_analysis_api.py",
@@ -1289,7 +1336,14 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # `FRAMENEST_API_KEY`). No `FRAMENEST_` environment name was added, removed or
 # respelled; the command reads `FRAMENEST_DATABASE_PATH` exactly as every
 # catalog command already does, so the bare count is unmoved.
-ENV_PREFIX_TOKEN_COUNT = 688
+#
+# KSI-IMPL-CLOCALP moved the token count by +7 (688 -> 695) and moved neither
+# the distinct name count nor the bare count. The new
+# `contract/test_local_state_migration.py` enters `FRAMENEST_DATABASE_PATH`
+# four times, `FRAMENEST_DEVELOPMENT_RUNTIME_DIR` once and `FRAMENEST_PORT`
+# twice as override inputs; all three names already exist elsewhere, so no
+# `FRAMENEST_` name was added, removed or respelled.
+ENV_PREFIX_TOKEN_COUNT = 695
 ENV_PREFIX_DISTINCT_NAME_COUNT = 112
 ENV_PREFIX_BARE_SPELLING_COUNT = 29
 
@@ -1467,8 +1521,17 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # (the sentinel library display name), and the runbook section adds one (the
 # stored label literal). Both new files enter this count, which is the file
 # movement.
-CAPITALIZED_OCCURRENCE_COUNT = 2754
-CAPITALIZED_FILE_COUNT = 396
+#
+# KSI-IMPL-CLOCALP moved the occurrences by +18 (2754 -> 2772) and the files by
+# +2 (396 -> 398). The new
+# `infrastructure/runtime/local_state_migration.py` adds one (the `FrameNest`
+# legacy component constant); the new `contract/test_local_state_migration.py`
+# adds seventeen (the macOS, XDG and temporary legacy-layout fixtures and the
+# assertions that name them, plus the capture-state and browser-profile
+# fixtures). No product message, class name or module name changed, and no
+# existing file moved.
+CAPITALIZED_OCCURRENCE_COUNT = 2772
+CAPITALIZED_FILE_COUNT = 398
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

@@ -14,7 +14,18 @@ from tests.support.kronika_identity import expected
 from tests.support.tooling import resolve_tool
 
 from kronika.adapters.cli import development as cli
+from kronika.identity_env import IdentityEnvironmentConflictError
 from kronika.infrastructure.runtime.development import RuntimeStatus
+from kronika.infrastructure.runtime.local_state_migration import (
+    COPY_READY_STATUS,
+    DESTINATION_OCCUPIED_REFUSED_STATUS,
+    SOURCE_ABSENT_STATUS,
+    EntryOutcome,
+    LocalStateMigrationError,
+    LocalStateMigrationIdentityError,
+    ManagedDevelopmentServerActiveError,
+    MigrationReport,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ROOT_WRAPPER = REPOSITORY_ROOT / "kronika"
@@ -831,6 +842,201 @@ def test_cli_sanitizes_runtime_errors(
 
     assert cli.main(["status"]) == cli.EXIT_ERROR
     assert capsys.readouterr().err == expected("{brand} launcher error: ") + "sanitized failure\n"
+
+
+def _migration_report(
+    operation: str,
+    outcomes: tuple[EntryOutcome, ...],
+) -> MigrationReport:
+    return MigrationReport(
+        operation=operation,
+        platform="linux",
+        outcomes=outcomes,
+        receipt_path=Path("/synthetic/receipts/identity-paths.json"),
+    )
+
+
+def test_cli_migration_command_appears_in_help(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit):
+        cli.main(["--help"])
+    root_output = capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        cli.main(["migrate-identity-paths", "--help"])
+    command_output = capsys.readouterr().out
+
+    assert "migrate-identity-paths" in root_output
+    assert "check" in command_output
+    assert "apply" in command_output
+
+
+def test_cli_migration_check_prints_sanitized_counts(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    private_source = tmp_path / "private-source" / "catalog.sqlite3"
+    private_destination = tmp_path / "private-destination" / "catalog.sqlite3"
+    report = _migration_report(
+        "check",
+        (
+            EntryOutcome(
+                "temporary_development_database",
+                COPY_READY_STATUS,
+                private_source,
+                private_destination,
+            ),
+            EntryOutcome(
+                "temporary_development_covers",
+                SOURCE_ABSENT_STATUS,
+                private_source,
+                private_destination,
+            ),
+        ),
+    )
+
+    class RecordingMigration:
+        def __init__(self, *, receipt_dir: Path | None = None) -> None:
+            self.receipt_dir = receipt_dir
+
+        def check(self) -> MigrationReport:
+            return report
+
+    monkeypatch.setattr(cli, "LocalStateMigration", RecordingMigration)
+
+    assert cli.main(["migrate-identity-paths", "check"]) == cli.EXIT_OK
+
+    output = capsys.readouterr().out
+    assert "Identity-path migration check" in output
+    assert "Classes: 2 total, 0 explicit overrides" in output
+    assert "Sources: present 1, absent 1" in output
+    assert "Destinations: absent 1, occupied 0" in output
+    assert "Receipt: recorded privately." in output
+    assert str(private_source) not in output
+    assert str(private_destination) not in output
+
+
+def test_cli_migration_check_passes_the_receipt_directory_through(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    chosen = tmp_path / "receipts"
+    captured: dict[str, Path | None] = {}
+
+    class RecordingMigration:
+        def __init__(self, *, receipt_dir: Path | None = None) -> None:
+            captured["receipt_dir"] = receipt_dir
+
+        def check(self) -> MigrationReport:
+            return _migration_report(
+                "check",
+                (
+                    EntryOutcome(
+                        "temporary_development_covers",
+                        SOURCE_ABSENT_STATUS,
+                        tmp_path / "source",
+                        tmp_path / "destination",
+                    ),
+                ),
+            )
+
+    monkeypatch.setattr(cli, "LocalStateMigration", RecordingMigration)
+
+    assert (
+        cli.main(["migrate-identity-paths", "check", "--receipt-dir", str(chosen)])
+        == cli.EXIT_OK
+    )
+    assert captured["receipt_dir"] == chosen
+
+
+def test_cli_migration_apply_refusal_returns_conflict(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    report = _migration_report(
+        "apply",
+        (
+            EntryOutcome(
+                "temporary_development_database",
+                DESTINATION_OCCUPIED_REFUSED_STATUS,
+                tmp_path / "source",
+                tmp_path / "destination",
+            ),
+        ),
+    )
+
+    class RefusingMigration:
+        def __init__(self, *, receipt_dir: Path | None = None) -> None:
+            self.receipt_dir = receipt_dir
+
+        def apply(self) -> MigrationReport:
+            return report
+
+    monkeypatch.setattr(cli, "LocalStateMigration", RefusingMigration)
+
+    assert cli.main(["migrate-identity-paths", "apply"]) == cli.EXIT_CONFLICT
+
+    output = capsys.readouterr().out
+    assert "Refused classes: temporary_development_database" in output
+
+
+def test_cli_migration_identity_conflict_returns_two_and_discloses_no_value(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    conflict = IdentityEnvironmentConflictError("DATABASE_PATH")
+
+    class ConflictedMigration:
+        def __init__(self, *, receipt_dir: Path | None = None) -> None:
+            raise LocalStateMigrationIdentityError(str(conflict))
+
+    monkeypatch.setattr(cli, "LocalStateMigration", ConflictedMigration)
+
+    assert cli.main(["migrate-identity-paths", "check"]) == 2
+    err = capsys.readouterr().err
+    assert err == expected("{brand} identity-path migration error: ") + str(conflict) + "\n"
+
+
+def test_cli_migration_managed_server_refusal_returns_conflict(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class ActiveMigration:
+        def __init__(self, *, receipt_dir: Path | None = None) -> None:
+            raise ManagedDevelopmentServerActiveError(
+                "Identity-path migration refused: stop the managed development "
+                "server first."
+            )
+
+    monkeypatch.setattr(cli, "LocalStateMigration", ActiveMigration)
+
+    assert cli.main(["migrate-identity-paths", "check"]) == cli.EXIT_CONFLICT
+    err = capsys.readouterr().err
+    assert err == (
+        expected("{brand} identity-path migration error: ")
+        + "Identity-path migration refused: stop the managed development server first.\n"
+    )
+
+
+def test_cli_migration_unexpected_failure_returns_error_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class BrokenMigration:
+        def __init__(self, *, receipt_dir: Path | None = None) -> None:
+            raise LocalStateMigrationError("sanitized migration failure")
+
+    monkeypatch.setattr(cli, "LocalStateMigration", BrokenMigration)
+
+    assert cli.main(["migrate-identity-paths", "apply"]) == cli.EXIT_ERROR
+    err = capsys.readouterr().err
+    assert err == (
+        expected("{brand} identity-path migration error: ")
+        + "sanitized migration failure\n"
+    )
+    assert "Traceback" not in err
 
 
 def test_cli_import_has_no_runtime_side_effects() -> None:

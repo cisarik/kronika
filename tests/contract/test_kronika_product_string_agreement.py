@@ -174,9 +174,9 @@ def measured_product_strings() -> dict[tuple[str, str, str, int], str]:
 
 
 MEASURED = measured_product_strings()
-OCCURRENCE_COUNT = 55
+OCCURRENCE_COUNT = 57
 
-IN_SCOPE_OCCURRENCE_COUNT = 53
+IN_SCOPE_OCCURRENCE_COUNT = 55
 EXCLUDED_PROMPT_OCCURRENCE_COUNT = 2
 
 EXPECTED: dict[tuple[str, str, str, int], str] = {
@@ -192,6 +192,7 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     # src/kronika/adapters/cli/development.py
     ("src/kronika/adapters/cli/development.py", "build_parser", "Constant", 0): "Control the local Kronika browser-development server.",
     ("src/kronika/adapters/cli/development.py", "main", "JoinedStr", 0): "Kronika launcher error: {exc}",
+    ("src/kronika/adapters/cli/development.py", "_run_identity_path_migration", "JoinedStr", 0): "Kronika identity-path migration error: {exc}",
     ("src/kronika/adapters/cli/development.py", "_print_logs", "Constant", 0): "Kronika development log is not yet available.",
     # src/kronika/adapters/cli/youtube.py
     ("src/kronika/adapters/cli/youtube.py", "main", "Constant", 0): "Kronika configuration could not be loaded.",
@@ -253,6 +254,10 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "JoinedStr", 1): "Kronika is running at {_url(state.port)}",
     ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "Constant", 2): "Managed Kronika process is running but health is not ready.",
     ("src/kronika/infrastructure/runtime/development.py", "_operation_lock", "Constant", 0): "Another Kronika runtime operation is in progress.",
+    # src/kronika/infrastructure/runtime/local_state_migration.py
+    # The one canonical brand component the migration spells literally; every
+    # other canonical spelling is built from this constant or is lowercase.
+    ("src/kronika/infrastructure/runtime/local_state_migration.py", "<module>", "Constant", 0): "Kronika",
     # src/kronika/infrastructure/runtime/production.py
     ("src/kronika/infrastructure/runtime/production.py", "main", "Constant", 0): "Kronika health check failed.",
     ("src/kronika/infrastructure/runtime/production.py", "_build_parser", "Constant", 0): "Verify the Kronika listener answers a local /health request.",
@@ -265,6 +270,7 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
 
 EXPECTED_DUPLICATE_LITERALS: dict[str, int] = {
     "Invalid Kronika media user alias.": 3,
+    "Kronika": 2,
     "Kronika configuration could not be loaded.": 3,
     "Kronika is stopped.": 3,
     "KronikaSettings": 3,

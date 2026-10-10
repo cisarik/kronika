@@ -142,6 +142,23 @@ FRAMENEST_PORT=8123
 Overrides must be absolute paths. They are launcher/runtime inputs only and are
 not web API response data.
 
+## Identity-Path Migration
+
+`kronika-dev migrate-identity-paths check|apply` resolves the owned local
+development and AI state locations beside their canonical destinations.
+`check` is read-only for state: it reports sanitized counts and records the
+source/destination mapping in a private receipt outside the repository. `apply`
+copies consistent databases and durable files only to absent destinations,
+never overwrites a conflicting destination, refuses to revive a
+managed-process liveness record and leaves every explicitly overridden path
+unchanged. Both operations refuse to run while the managed development server
+is running.
+
+The runtime default locations themselves do not change: until the later
+identity switch, launcher-managed state continues at its current locations and
+the migration copies it to the canonical destinations. The private migration
+receipts are the evidence required before that switch.
+
 ## Local `.env` And Explicit Environment Files
 
 FrameNest commands never read a `.env` file from the caller's current working

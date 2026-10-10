@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import sys
 from typing import Sequence
 
+from kronika.identity_env import IdentityEnvironmentConflictFailure
 from kronika.infrastructure.runtime.development import (
     DEFAULT_LOG_LINES,
     DevelopmentRuntime,
@@ -13,6 +15,12 @@ from kronika.infrastructure.runtime.development import (
     IdentityEnvironmentDevelopmentError,
     RuntimeResult,
     RuntimeStatus,
+)
+from kronika.infrastructure.runtime.local_state_migration import (
+    LocalStateMigration,
+    LocalStateMigrationError,
+    ManagedDevelopmentServerActiveError,
+    MigrationReport,
 )
 
 EXIT_OK = 0
@@ -55,6 +63,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LOG_LINES,
         help=f"Number of recent lines to show before following. Default: {DEFAULT_LOG_LINES}.",
     )
+
+    migration = subcommands.add_parser(
+        "migrate-identity-paths",
+        help="Check or migrate owned local development and AI state to canonical paths.",
+    )
+    migration.add_argument(
+        "operation",
+        choices=("check", "apply"),
+        help="Check the owned mapping without writing state, or copy to absent destinations.",
+    )
+    migration.add_argument(
+        "--receipt-dir",
+        default=None,
+        help="Private directory for the migration receipt outside the repository.",
+    )
     return parser
 
 
@@ -62,6 +85,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "migrate-identity-paths":
+            return _run_identity_path_migration(args)
         runtime = DevelopmentRuntime()
         if args.command == "start":
             return _print_result(runtime.start(open_after_start=not args.no_open))
@@ -84,6 +109,52 @@ def main(argv: Sequence[str] | None = None) -> int:
             return exc.exit_status
         return EXIT_ERROR
     return EXIT_USAGE
+
+
+def _run_identity_path_migration(args: argparse.Namespace) -> int:
+    receipt_directory = (
+        Path(args.receipt_dir).expanduser() if args.receipt_dir else None
+    )
+    try:
+        migration = LocalStateMigration(receipt_dir=receipt_directory)
+        if args.operation == "check":
+            report = migration.check()
+        else:
+            report = migration.apply()
+    except LocalStateMigrationError as exc:
+        print(f"Kronika identity-path migration error: {exc}", file=sys.stderr)
+        if isinstance(exc, IdentityEnvironmentConflictFailure):
+            return exc.exit_status
+        if isinstance(exc, ManagedDevelopmentServerActiveError):
+            return EXIT_CONFLICT
+        return EXIT_ERROR
+    _print_migration_report(report)
+    if report.operation == "apply" and report.refused_keys:
+        return EXIT_CONFLICT
+    return EXIT_OK
+
+
+def _print_migration_report(report: MigrationReport) -> None:
+    counts = report.counts
+    print(f"Identity-path migration {report.operation}")
+    print(f"Classes: {counts['classes']} total, {counts['overridden']} explicit overrides")
+    if report.operation == "check":
+        print(
+            f"Sources: present {counts['sources_present']}, "
+            f"absent {counts['sources_absent']}"
+        )
+        print(
+            f"Destinations: absent {counts['destinations_absent']}, "
+            f"occupied {counts['destinations_occupied']}"
+        )
+    else:
+        print(f"Copied verified: {counts['copied_verified']}")
+        print(f"Already verified: {counts['already_verified']}")
+        print(f"Sources absent: {counts['sources_absent']}")
+        print(f"Refused: {counts['refused']}")
+        if report.refused_keys:
+            print("Refused classes: " + ", ".join(report.refused_keys))
+    print("Receipt: recorded privately.")
 
 
 def _print_result(result: RuntimeResult) -> int:
