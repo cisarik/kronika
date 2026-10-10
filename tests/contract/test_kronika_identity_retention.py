@@ -694,7 +694,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # list) replace their substring test on the retired spelling with the
     # unified path-token classification, so four literal occurrences are
     # removed and none is added.
-    "tests": 2264,
+    #
+    # KSI-CORR-C6ENC moved `tests` by +11 (2264 -> 2275) and nothing else.
+    # All eleven are new synthetic revision-form fixtures in
+    # `test_kronika_identity_migration.py`: the frozen escaped token and its
+    # decoded executable (2), the foreign escaped token and its decoded
+    # executable (2), the moved escaped token (2: the moved root plus
+    # `framenest.env`), the escaped near-miss (1), the escaped under-root
+    # leftover (2), the escaped-slash remainder (1) and the escaped renamed
+    # segment (1). `deploy/ubuntu/kronika_release.py` adds none.
+    "tests": 2275,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -1528,10 +1537,21 @@ MUTATION_HEADER_FILE_COUNT = 30
 # leftover) and `/var/lib/framenest/catalog-backups` (mixed directive); and
 # `/mnt/framenest-catalog-offdevice/bundles` (frozen mount). The engine adds
 # and removes no host literal.
+#
+# KSI-CORR-C6ENC moved `/opt/framenest` by +3 (228 -> 231),
+# `/etc/framenest` by +1 (87 -> 88) and `/var/lib/framenest` by +3
+# (125 -> 128). `/var/cache/framenest` and the frozen mount are unmoved.
+# Those seven literals are the new revision-form fixtures in
+# `test_kronika_identity_migration.py`: the frozen escaped token, its decoded
+# executable and the escaped near-miss under `/opt/framenest`; the escaped
+# renamed segment under `/etc/framenest`; and the moved escaped token, the
+# escaped under-root leftover and the escaped-slash remainder under
+# `/var/lib/framenest`. The foreign fixtures sit under `/srv/audit34` and are
+# not keys of this ledger. The engine adds and removes no host literal.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 228,
-    "/etc/framenest": 87,
-    "/var/lib/framenest": 125,
+    "/opt/framenest": 231,
+    "/etc/framenest": 88,
+    "/var/lib/framenest": 128,
     "/var/cache/framenest": 31,
     "/mnt/framenest-catalog-offdevice": 26,
 }

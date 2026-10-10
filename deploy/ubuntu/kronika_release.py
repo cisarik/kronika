@@ -4252,6 +4252,57 @@ def classify_unit_path_token(token: str) -> str:
     return "foreign"
 
 
+def _render_moved_revision_token(key: str, raw_token: str, decoded: str) -> str:
+    """Render one moved revision-form executable from its raw captured token.
+
+    Classification already used ``decoded``. This helper never writes that
+    decoded text back into the command. Moved roots contain no escapes, so a
+    rewrite is provable only when three conditions hold: the raw token begins
+    with the literal old root, that root is separated from its remainder by a
+    literal slash (or the token is exactly the root), and each remainder
+    segment unescapes to the corresponding decoded segment. A segment the
+    migration renames must itself be literal, because a non-literal encoding
+    has no unique raw replacement. Any other raw form raises. The caller
+    then reparses the rewritten command with ``UNIT_EXEC_PATH`` and accepts
+    it only when the executable is exactly ``transform_path_value(decoded)``.
+    """
+
+    def refuse() -> None:
+        raise ReleaseError(
+            f"unit directive {key} revision path is not provably transformable",
+            EXIT_MIGRATION,
+        )
+
+    pair: tuple[str, str] | None = None
+    for old_root, new_root in MIGRATION_OLD_TO_NEW_ROOTS:
+        if decoded == old_root or decoded.startswith(old_root + "/"):
+            pair = (old_root, new_root)
+            break
+    if pair is None:
+        refuse()
+    old_root, new_root = pair
+    if not (raw_token == old_root or raw_token.startswith(old_root + "/")):
+        refuse()
+    raw_segments = raw_token[len(old_root) :].split("/")
+    decoded_segments = decoded[len(old_root) :].split("/")
+    if len(raw_segments) != len(decoded_segments):
+        refuse()
+    rewritten: list[str] = []
+    for raw_segment, decoded_segment in zip(
+        raw_segments, decoded_segments, strict=True
+    ):
+        if _unescape_unit_text(raw_segment) != decoded_segment:
+            refuse()
+        renamed = MIGRATION_SEGMENT_RENAMES.get(decoded_segment)
+        if renamed is None:
+            rewritten.append(raw_segment)
+            continue
+        if raw_segment != decoded_segment:
+            refuse()
+        rewritten.append(renamed)
+    return new_root + "/".join(rewritten)
+
+
 def _systemd_transform_value(key: str, value: str) -> str:
     """Transform one supported directive value, or refuse the form."""
     if key in SYSTEMD_IDENTITY_DIRECTIVES:
@@ -4293,20 +4344,35 @@ def _systemd_transform_value(key: str, value: str) -> str:
                     f"unit directive {key} revision is not classifiable",
                     EXIT_MIGRATION,
                 )
-            original = _unescape_unit_text(match.group(1))
-            if not original.startswith("/"):
+            raw_token = match.group(1)
+            decoded = _unescape_unit_text(raw_token)
+            if not decoded.startswith("/"):
                 raise ReleaseError(
                     f"unit directive {key} path is not absolute", EXIT_MIGRATION
                 )
-            classification = classify_unit_path_token(original)
+            classification = classify_unit_path_token(decoded)
             if classification == "near-miss":
                 raise ReleaseError(
                     f"unit directive {key} path is not classifiable",
                     EXIT_MIGRATION,
                 )
             if classification == "moved":
-                original = transform_path_value(original)
-            return command.replace(match.group(1), original, 1)
+                intended = transform_path_value(decoded)
+                rendered = _render_moved_revision_token(key, raw_token, decoded)
+                start, end = match.span(1)
+                rewritten = command[:start] + rendered + command[end:]
+                reparsed = UNIT_EXEC_PATH.search(rewritten)
+                if (
+                    reparsed is None
+                    or reparsed.group(1) != rendered
+                    or _unescape_unit_text(reparsed.group(1)) != intended
+                ):
+                    raise ReleaseError(
+                        f"unit directive {key} revision path is not provably transformable",
+                        EXIT_MIGRATION,
+                    )
+                return rewritten
+            return command
         match = SYSTEMD_EXEC_TOKEN.match(command)
         if match is None:
             raise ReleaseError(

@@ -3342,6 +3342,138 @@ def test_structural_dropin_keeps_exec_argument_text_opaque() -> None:
     assert engine.transform_unit_dropin_text(text) == text
 
 
+# ---------------------------------------------------------------------------
+# KSI-CORR-C6ENC: revision-form executable tokens keep their encoding
+# ---------------------------------------------------------------------------
+
+# Synthetic revision-form tokens. Escapes are systemd text (\x20 is an
+# escaped space), not decoded characters. The foreign token is a custom path.
+C6ENC_FROZEN_ESCAPED = "/opt/framenest/tooling/audit34\\x20tool"
+C6ENC_FROZEN_EXECUTABLE = "/opt/framenest/tooling/audit34 tool"
+C6ENC_FOREIGN_ESCAPED = "/srv/audit34/framenest\\x20assets"
+C6ENC_FOREIGN_EXECUTABLE = "/srv/audit34/framenest assets"
+C6ENC_MOVED_ESCAPED = "/var/lib/framenest/catalog\\x20data/framenest.env"
+C6ENC_MOVED_ESCAPED_RENDERED = "/var/lib/kronika/catalog\\x20data/kronika.env"
+C6ENC_MOVED_ESCAPED_EXECUTABLE = "/var/lib/kronika/catalog data/kronika.env"
+C6ENC_NEAR_MISS_ESCAPED = "/opt/framenest\\x2dold"
+C6ENC_LEFTOVER_ESCAPED = "/var/lib/framenest/framenest\\x2dstaging"
+C6ENC_ESCAPED_ROOT = "/opt/frame\\x6eest/bin/tool"
+C6ENC_ESCAPED_SLASH = "/var/lib/framenest/catalog\\x2fdata"
+C6ENC_ESCAPED_RENAME = "/etc/framenest/frame\\x6eest.env"
+C6ENC_UNPROVABLE = (
+    "unit directive ExecStart revision path is not provably transformable"
+)
+
+
+def _c6enc_revision_dropin(token: str) -> str:
+    return (
+        "[Service]\n"
+        f"ExecStart={{ path={token} ; argv[]=audit34 ; }}\n"
+    )
+
+
+def _c6enc_reparsed_executable(text: str) -> str:
+    """Reparse one revision-form executable with the engine's own parser."""
+    match = engine.UNIT_EXEC_PATH.search(text)
+    assert match is not None
+    return engine._unescape_unit_text(match.group(1))
+
+
+def test_revision_form_preserves_a_frozen_escaped_token() -> None:
+    text = _c6enc_revision_dropin(C6ENC_FROZEN_ESCAPED)
+    transformed = engine.transform_unit_dropin_text(text)
+    assert transformed == text
+    captured = engine.UNIT_EXEC_PATH.search(transformed)
+    assert captured is not None
+    assert captured.group(1) == C6ENC_FROZEN_ESCAPED
+    assert _c6enc_reparsed_executable(transformed) == C6ENC_FROZEN_EXECUTABLE
+    assert engine.classify_unit_path_token(C6ENC_FROZEN_EXECUTABLE) == "frozen"
+
+
+def test_revision_form_preserves_a_foreign_escaped_token() -> None:
+    text = _c6enc_revision_dropin(C6ENC_FOREIGN_ESCAPED)
+    transformed = engine.transform_unit_dropin_text(text)
+    assert transformed == text
+    captured = engine.UNIT_EXEC_PATH.search(transformed)
+    assert captured is not None
+    assert captured.group(1) == C6ENC_FOREIGN_ESCAPED
+    assert _c6enc_reparsed_executable(transformed) == C6ENC_FOREIGN_EXECUTABLE
+    assert engine.classify_unit_path_token(C6ENC_FOREIGN_EXECUTABLE) == "foreign"
+
+
+def test_revision_form_transforms_a_moved_token_with_an_escaped_remainder() -> None:
+    text = _c6enc_revision_dropin(C6ENC_MOVED_ESCAPED)
+    transformed = engine.transform_unit_dropin_text(text)
+    captured = engine.UNIT_EXEC_PATH.search(transformed)
+    assert captured is not None
+    assert captured.group(1) == C6ENC_MOVED_ESCAPED_RENDERED
+    assert "\\x20" in captured.group(1)
+    assert _c6enc_reparsed_executable(transformed) == C6ENC_MOVED_ESCAPED_EXECUTABLE
+    assert "argv[]=audit34" in transformed
+    assert engine.transform_unit_dropin_text(transformed) == transformed
+
+
+def test_revision_form_plain_moved_token_keeps_the_canonical_rewrite() -> None:
+    case = next(
+        item for item in C6GUARD_UNDER_ROOT_CASES if item[0] == "exec-revision"
+    )
+    _site, _token, text, expected = case
+    transformed = engine.transform_unit_dropin_text(text)
+    assert transformed == expected
+    assert _c6enc_reparsed_executable(transformed) == C6GUARD_UNDER_ROOT_CANONICAL
+
+
+def test_revision_form_refuses_escaped_and_plain_near_misses() -> None:
+    plain = next(
+        text
+        for site, _token, text, _expected in C6GUARD_NEAR_MISS_CASES
+        if site == "exec-revision"
+    )
+    for text in (_c6enc_revision_dropin(C6ENC_NEAR_MISS_ESCAPED), plain):
+        with pytest.raises(engine.ReleaseError) as exc:
+            engine.transform_unit_dropin_text(text)
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+        assert str(exc.value) == "unit directive ExecStart path is not classifiable"
+
+
+def test_revision_form_refuses_escaped_and_plain_under_root_leftovers() -> None:
+    plain = next(
+        text
+        for site, _token, text, _expected in C6GUARD_UNDER_ROOT_LEFTOVER_CASES
+        if site == "exec-revision"
+    )
+    for text in (_c6enc_revision_dropin(C6ENC_LEFTOVER_ESCAPED), plain):
+        with pytest.raises(engine.ReleaseError) as exc:
+            engine.transform_unit_dropin_text(text)
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+        assert str(exc.value) == (
+            "path value under a moved root is not classifiable"
+        )
+
+
+@pytest.mark.parametrize(
+    "token",
+    (C6ENC_ESCAPED_ROOT, C6ENC_ESCAPED_SLASH, C6ENC_ESCAPED_RENAME),
+    ids=("escaped-root", "escaped-slash", "escaped-rename"),
+)
+def test_revision_form_refuses_an_unprovable_moved_raw_token(token: str) -> None:
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.transform_unit_dropin_text(_c6enc_revision_dropin(token))
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert str(exc.value) == C6ENC_UNPROVABLE
+
+
+def test_non_revision_branches_keep_an_escaped_foreign_token_raw() -> None:
+    """Plain exec, path lists and LoadCredential never decode a token."""
+    token = C6ENC_FOREIGN_ESCAPED
+    for text in (
+        f"[Service]\nExecStart={token}\n",
+        f"[Service]\nReadWritePaths={token}\n",
+        f"[Service]\nLoadCredential=SAMPLE:{token}\n",
+    ):
+        assert engine.transform_unit_dropin_text(text) == text
+
+
 def test_structural_sudoers_transformation_moves_runas_and_command() -> None:
     transformed = engine.transform_sudoers_text(
         SAMPLE_SUDO_RULE,
