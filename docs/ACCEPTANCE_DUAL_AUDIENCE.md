@@ -39,6 +39,10 @@ rollout):
 | `be35922` | `docs/INFOSEC.md` hardening manual + three read-only operator diagnostics |
 | *(this range)* | infosec operator script polish: executable bits set; explicit `-h/--help` prints usage and exits 0 before any other logic |
 
+The operator diagnostics below name the canonical `kronika_*` scripts. The
+retained `framenest_*` entry points accept the same arguments and keep working
+unchanged until the compatibility-removal window.
+
 ---
 
 ## Part A — MacBook, local only (no NUC, no Tailscale)
@@ -214,7 +218,8 @@ Report: cite **A6**.
 
 Purpose: run the repository diagnostic end-to-end. The script speaks HTTP base
 URLs; against a UDS you lend it `--unix-socket` through its documented
-`FRAMENEST_CURL_BIN` hook (no repository change needed). Since the polish
+`KRONIKA_CURL_BIN` hook (the retained `FRAMENEST_CURL_BIN` spelling is also
+accepted; no repository change needed). Since the polish
 commit the scripts also carry the executable bit, but the explicit `bash`
 form below works everywhere regardless of mode.
 
@@ -223,9 +228,9 @@ form below works everywhere regardless of mode.
 printf '%s\n' '#!/usr/bin/env bash' \
   'exec curl --unix-socket "$FRAMENEST_UDS_PATH" "$@"' > $ACC/curl-uds.sh
 chmod +x $ACC/curl-uds.sh
-env FRAMENEST_PUBLIC_BASE_URL=http://localhost \
-    FRAMENEST_CURL_BIN=$ACC/curl-uds.sh \
-    bash scripts/operator/infosec/framenest_public_surface_check.sh
+env KRONIKA_PUBLIC_BASE_URL=http://localhost \
+    KRONIKA_CURL_BIN=$ACC/curl-uds.sh \
+    bash scripts/operator/infosec/kronika_public_surface_check.sh
 #------------------------------------------------------
 ```
 
@@ -274,8 +279,8 @@ on a deliberately bad fixture.
 ```fish
 # [MacBook / fish]
 touch $ACC/sockets/bad.sock; chmod 604 $ACC/sockets/bad.sock
-env FRAMENEST_SOCKET_PATHS="$ACC/sockets/public.sock:$ACC/sockets/bad.sock" \
-    ./scripts/operator/infosec/framenest_socket_permissions_check.sh
+env KRONIKA_SOCKET_PATHS="$ACC/sockets/public.sock:$ACC/sockets/bad.sock" \
+    ./scripts/operator/infosec/kronika_socket_permissions_check.sh
 #------------------------------------------------------
 ```
 
@@ -326,14 +331,15 @@ If, and only if, the tested public `main` SHA equals the live
 
 ```text
 # [NUC / bash]
-env FRAMENEST_LOG_UNIT=framenest.service FRAMENEST_LOG_SINCE="-24h" \
-    ./scripts/operator/infosec/framenest_log_triage.sh
+env KRONIKA_LOG_UNIT=framenest.service KRONIKA_LOG_SINCE="-24h" \
+    ./scripts/operator/infosec/kronika_log_triage.sh
 #------------------------------------------------------
 ```
 
   Expected: counts print; `RESULT: CLEAN` unless something abnormal happened.
   Privacy: never paste raw journal lines into chat — the tool prints counts
-  precisely so you do not have to.
+  precisely so you do not have to. The unit filter follows the live NUC unit
+  name until the C6-H host cut switches it.
 
 Every B step: purpose = regression of shipped behavior under real identity;
 failure reporting identical (step id + captured output). Marked clearly:
@@ -390,8 +396,10 @@ when the freeze lifts:
 - Cooperator acceptance sign-off before DNS or any exposure.
 
 Also part of this freeze range: infosec operator script polish — executable
-bits set on all three `scripts/operator/infosec/*.sh` tools, and an explicit
-`-h/--help` now prints usage and exits 0 before any other logic.
+bits set on all three `scripts/operator/infosec/kronika_*.sh` tools (the
+retained `framenest_*.sh` spellings remain working entry points until the
+compatibility-removal window), and an explicit `-h/--help` now prints usage
+and exits 0 before any other logic.
 
 ---
 

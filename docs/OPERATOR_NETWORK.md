@@ -70,18 +70,26 @@ CLI.
 
 ## Subcommands
 
-Shared Bash implementation:
+Canonical shared Bash implementation:
 
 ```text
-scripts/operator/network/framenest_mullvad_egress.sh status
-scripts/operator/network/framenest_mullvad_egress.sh enable --node <mullvad-node>.mullvad.ts.net
-scripts/operator/network/framenest_mullvad_egress.sh disable
-scripts/operator/network/framenest_mullvad_egress.sh verify
-scripts/operator/network/framenest_mullvad_egress.sh recover
+scripts/operator/network/kronika_mullvad_egress.sh status
+scripts/operator/network/kronika_mullvad_egress.sh enable --node <mullvad-node>.mullvad.ts.net
+scripts/operator/network/kronika_mullvad_egress.sh disable
+scripts/operator/network/kronika_mullvad_egress.sh verify
+scripts/operator/network/kronika_mullvad_egress.sh recover
 ```
 
-`ahw` invokes the adjacent Fish wrapper. The NUC uses the Bash script through
-the strict SSH gate. Host execution is separately authorized.
+`ahw` invokes the adjacent canonical Fish wrapper
+`scripts/operator/network/kronika_mullvad_egress.fish`. The NUC uses the Bash
+script through the strict SSH gate. Host execution is separately authorized.
+
+The retained `framenest_mullvad_egress.sh` and `framenest_mullvad_egress.fish`
+entry points keep working unchanged until the compatibility-removal window;
+the canonical pair is authoritative. The canonical implementation resolves
+every operator variable from the `KRONIKA_*` spelling first and still accepts
+the retained `FRAMENEST_*` spelling; a pair set to different values refuses
+with exit 2 naming only the two variable names.
 
 | Subcommand | Mutation | Network contact |
 |---|---|---|
@@ -101,11 +109,11 @@ escalate privileges.
 
 ```text
 # [ahw / fish]
-scripts/operator/network/framenest_mullvad_egress.fish status
-scripts/operator/network/framenest_mullvad_egress.fish enable --node <mullvad-node>.mullvad.ts.net
-scripts/operator/network/framenest_mullvad_egress.fish verify
-scripts/operator/network/framenest_mullvad_egress.fish disable
-scripts/operator/network/framenest_mullvad_egress.fish recover
+scripts/operator/network/kronika_mullvad_egress.fish status
+scripts/operator/network/kronika_mullvad_egress.fish enable --node <mullvad-node>.mullvad.ts.net
+scripts/operator/network/kronika_mullvad_egress.fish verify
+scripts/operator/network/kronika_mullvad_egress.fish disable
+scripts/operator/network/kronika_mullvad_egress.fish recover
 #------------------------------------------------------
 ```
 
@@ -119,13 +127,17 @@ Use MagicDNS, not an IP address:
 
 ```text
 # [ahw / fish]
-set -gx FRAMENEST_NUC_SSH_TARGET <nuc-magicdns-name>
-set -gx FRAMENEST_NUC_SSH_USER <operator-user>
-set -gx FRAMENEST_NUC_SSH_IDENTITY <identity-file>
-scripts/operator/network/framenest_nuc_worker_gate.fish \
-  --command 'framenest_mullvad_egress.sh status'
+set -gx KRONIKA_NUC_SSH_TARGET <nuc-magicdns-name>
+set -gx KRONIKA_NUC_SSH_USER <operator-user>
+set -gx KRONIKA_NUC_SSH_IDENTITY <identity-file>
+scripts/operator/network/kronika_nuc_worker_gate.fish \
+  --command 'kronika_mullvad_egress.sh status'
 #------------------------------------------------------
 ```
+
+The retained `FRAMENEST_NUC_SSH_*` names and the retained
+`framenest_nuc_worker_gate.fish` wrapper remain accepted until the
+compatibility-removal window.
 
 Before `enable` on the headless NUC, arm the separately authorized transient
 rollback described below. Then transmit only a bounded remote command that
@@ -135,12 +147,12 @@ work.
 
 ## Cursor Worker SSH gate
 
-Cursor Workers use `scripts/operator/network/framenest_nuc_worker_gate.fish`
+Cursor Workers use `scripts/operator/network/kronika_nuc_worker_gate.fish`
 as the sole project-owned NUC SSH route. They must not reconstruct
 `gpgconf --list-dirs agent-ssh-socket` or print `SSH_AUTH_SOCK`.
 
 ```text
-scripts/operator/network/framenest_nuc_worker_gate.fish --probe
+scripts/operator/network/kronika_nuc_worker_gate.fish --probe
 ```
 
 `--probe` prints only `ssh-agent: ready` or `ssh-agent: absent`. It does not

@@ -20,6 +20,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPOSITORY_ROOT / "scripts" / "operator" / "network"
 BASH_SCRIPT = SCRIPT_DIR / "framenest_mullvad_egress.sh"
 FISH_SCRIPT = SCRIPT_DIR / "framenest_mullvad_egress.fish"
+CANONICAL_BASH_SCRIPT = SCRIPT_DIR / "kronika_mullvad_egress.sh"
+CANONICAL_FISH_SCRIPT = SCRIPT_DIR / "kronika_mullvad_egress.fish"
 GATE_SCRIPT = SCRIPT_DIR / "framenest_nuc_worker_gate.fish"
 CANONICAL_GATE_SCRIPT = SCRIPT_DIR / "kronika_nuc_worker_gate.fish"
 SCRIPT_README = SCRIPT_DIR / "README.md"
@@ -368,20 +370,63 @@ exit 97
     }
 
 
-def _hook_env(paths: dict[str, Path], *, include_mullvad: bool = True) -> dict[str, str]:
+def _hook_env(
+    paths: dict[str, Path],
+    *,
+    include_mullvad: bool = True,
+    prefix: str = "FRAMENEST_",
+) -> dict[str, str]:
+    """Build the synthetic hook environment under one identity prefix.
+
+    The canonical names take the ``KRONIKA_`` prefix and the retained names the
+    ``FRAMENEST_`` prefix. Both spellings are cleared from the inherited
+    environment first, so a test always drives exactly one chosen spelling
+    unless it adds the other one explicitly through ``extra_env``.
+    """
     env = os.environ.copy()
     for polluted in ("APPIMAGE", "APPDIR", "ARGV0", "LD_LIBRARY_PATH", "LD_PRELOAD"):
         env.pop(polluted, None)
-    env["FRAMENEST_NETWORK_TEST_HOOKS"] = "1"
-    env["FRAMENEST_NETWORK_TEST_TAILSCALE"] = str(paths["tailscale"])
-    env["FRAMENEST_NETWORK_TEST_CURL"] = str(paths["curl"])
-    env["FRAMENEST_NETWORK_TEST_SSH"] = str(paths["ssh"])
-    env["FRAMENEST_NETWORK_TEST_GPGCONF"] = str(paths["gpgconf"])
+    hook_names = (
+        "NETWORK_TEST_HOOKS",
+        "NETWORK_TEST_TAILSCALE",
+        "NETWORK_TEST_CURL",
+        "NETWORK_TEST_SSH",
+        "NETWORK_TEST_GPGCONF",
+        "NETWORK_TEST_MULLVAD",
+    )
+    for name in hook_names:
+        env.pop(f"KRONIKA_{name}", None)
+        env.pop(f"FRAMENEST_{name}", None)
+    env[f"{prefix}NETWORK_TEST_HOOKS"] = "1"
+    env[f"{prefix}NETWORK_TEST_TAILSCALE"] = str(paths["tailscale"])
+    env[f"{prefix}NETWORK_TEST_CURL"] = str(paths["curl"])
+    env[f"{prefix}NETWORK_TEST_SSH"] = str(paths["ssh"])
+    env[f"{prefix}NETWORK_TEST_GPGCONF"] = str(paths["gpgconf"])
     if include_mullvad and paths["mullvad"].name == "mullvad":
-        env["FRAMENEST_NETWORK_TEST_MULLVAD"] = str(paths["mullvad"])
-    else:
-        env.pop("FRAMENEST_NETWORK_TEST_MULLVAD", None)
+        env[f"{prefix}NETWORK_TEST_MULLVAD"] = str(paths["mullvad"])
     return env
+
+
+def _run_bash_script(
+    script: Path,
+    paths: dict[str, Path],
+    args: list[str],
+    *,
+    prefix: str = "FRAMENEST_",
+    extra_env: dict[str, str] | None = None,
+    include_mullvad: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    env = _hook_env(paths, include_mullvad=include_mullvad, prefix=prefix)
+    if extra_env:
+        env.update(extra_env)
+    return subprocess.run(
+        ["bash", str(script), *args],
+        cwd=paths["cwd"],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def _run_bash(
@@ -391,16 +436,12 @@ def _run_bash(
     extra_env: dict[str, str] | None = None,
     include_mullvad: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    env = _hook_env(paths, include_mullvad=include_mullvad)
-    if extra_env:
-        env.update(extra_env)
-    return subprocess.run(
-        ["bash", str(BASH_SCRIPT), *args],
-        cwd=paths["cwd"],
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
+    return _run_bash_script(
+        BASH_SCRIPT,
+        paths,
+        args,
+        extra_env=extra_env,
+        include_mullvad=include_mullvad,
     )
 
 
@@ -482,7 +523,14 @@ def _assert_no_secrets(text: str) -> None:
 
 
 def test_expected_files_exist_and_are_executable() -> None:
-    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT, CANONICAL_GATE_SCRIPT):
+    for path in (
+        BASH_SCRIPT,
+        FISH_SCRIPT,
+        CANONICAL_BASH_SCRIPT,
+        CANONICAL_FISH_SCRIPT,
+        GATE_SCRIPT,
+        CANONICAL_GATE_SCRIPT,
+    ):
         assert path.is_file(), path
         mode = path.stat().st_mode
         assert mode & stat.S_IXUSR
@@ -500,6 +548,21 @@ def test_bash_and_fish_surfaces_expose_only_intended_interface() -> None:
         assert token in bash_text
     assert "enable --node" in bash_text
     assert "framenest_mullvad_egress.sh" in fish_text
+    assert "$argv" in fish_text
+    assert "tailscale set" not in fish_text
+    assert "tailscale up" not in bash_text
+    assert "--accept-routes" not in bash_text
+    assert "--advertise-exit-node" not in bash_text
+
+
+def test_canonical_bash_and_fish_surfaces_expose_only_intended_interface() -> None:
+    bash_text = CANONICAL_BASH_SCRIPT.read_text(encoding="utf-8")
+    fish_text = CANONICAL_FISH_SCRIPT.read_text(encoding="utf-8")
+    for token in ("status", "enable", "disable", "verify", "recover"):
+        assert token in bash_text
+    assert "enable --node" in bash_text
+    assert "kronika_mullvad_egress.sh" in fish_text
+    assert "framenest_mullvad_egress.sh" not in fish_text
     assert "$argv" in fish_text
     assert "tailscale set" not in fish_text
     assert "tailscale up" not in bash_text
@@ -1437,7 +1500,14 @@ def test_ssh_gate_darwin_ownership_follows_final_symlink(tmp_path: Path) -> None
 
 
 def test_scripts_contain_no_forbidden_commands() -> None:
-    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT, CANONICAL_GATE_SCRIPT):
+    for path in (
+        BASH_SCRIPT,
+        FISH_SCRIPT,
+        CANONICAL_BASH_SCRIPT,
+        CANONICAL_FISH_SCRIPT,
+        GATE_SCRIPT,
+        CANONICAL_GATE_SCRIPT,
+    ):
         text = path.read_text(encoding="utf-8")
         for token in FORBIDDEN_SCRIPT_TOKENS:
             assert token not in text, f"{path.name} contains {token}"
@@ -1445,7 +1515,14 @@ def test_scripts_contain_no_forbidden_commands() -> None:
 
 
 def test_scripts_do_not_configure_operator_or_invoke_sudo() -> None:
-    for path in (BASH_SCRIPT, FISH_SCRIPT, GATE_SCRIPT, CANONICAL_GATE_SCRIPT):
+    for path in (
+        BASH_SCRIPT,
+        FISH_SCRIPT,
+        CANONICAL_BASH_SCRIPT,
+        CANONICAL_FISH_SCRIPT,
+        GATE_SCRIPT,
+        CANONICAL_GATE_SCRIPT,
+    ):
         text = path.read_text(encoding="utf-8")
         assert "--operator" not in text
         assert "sudo" not in text
@@ -1480,3 +1557,238 @@ def test_operator_network_doc_requires_ten_minute_nuc_rollback() -> None:
     text = OPERATOR_DOC.read_text(encoding="utf-8")
     rollback = text.split("## Transient NUC rollback design", 1)[1]
     assert "10 minutes" in rollback
+
+
+# --- canonical Mullvad counterparts and the dual-prefix contract ---
+
+
+@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+def test_canonical_mullvad_bash_reads_either_identity_prefix(
+    tmp_path: Path, prefix: str
+) -> None:
+    """Canonical-only and retained-only hook spellings both drive the script."""
+    paths = _install_fakes(tmp_path)
+    result = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["enable", "--node", MULLVAD_NODE],
+        prefix=prefix,
+    )
+    assert result.returncode == 0, result.stderr
+    assert paths["set_log"].read_text(encoding="utf-8").strip() == (
+        f"set --exit-node={MULLVAD_NODE} --exit-node-allow-lan-access=false"
+    )
+
+
+def test_canonical_mullvad_accepts_identical_values_in_both_prefixes(
+    tmp_path: Path,
+) -> None:
+    paths = _install_fakes(tmp_path)
+    result = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["status"],
+        prefix="KRONIKA_",
+        extra_env={
+            "FRAMENEST_NETWORK_TEST_TAILSCALE": str(paths["tailscale"]),
+            "FRAMENEST_NETWORK_TEST_CURL": str(paths["curl"]),
+            "FRAMENEST_NETWORK_TEST_MULLVAD": str(paths["mullvad"]),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Conflicting environment variables " not in _combined(result)
+
+
+def test_canonical_mullvad_exits_two_on_a_conflicting_pair_naming_only_names(
+    tmp_path: Path,
+) -> None:
+    """A conflicting hook pair exits 2 and discloses no value."""
+    paths = _install_fakes(tmp_path)
+    result = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["status"],
+        prefix="KRONIKA_",
+        extra_env={"FRAMENEST_NETWORK_TEST_TAILSCALE": "/nonexistent/retained-value"},
+    )
+    combined = _combined(result)
+    assert result.returncode == 2, combined
+    assert "KRONIKA_NETWORK_TEST_TAILSCALE" in combined
+    assert "FRAMENEST_NETWORK_TEST_TAILSCALE" in combined
+    assert "retained-value" not in combined
+    assert str(paths["tailscale"]) not in combined
+    assert "Conflicting environment variables " in combined
+    assert "are set to different values" in combined
+    assert paths["argv_log"].read_text(encoding="utf-8") == ""
+
+
+def test_canonical_mullvad_treats_an_empty_value_as_unset(tmp_path: Path) -> None:
+    paths = _install_fakes(tmp_path)
+    fallback = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["status"],
+        prefix="KRONIKA_",
+        extra_env={
+            "KRONIKA_NETWORK_TEST_TAILSCALE": "",
+            "FRAMENEST_NETWORK_TEST_TAILSCALE": str(paths["tailscale"]),
+        },
+    )
+    assert fallback.returncode == 0, fallback.stderr
+    assert "Conflicting environment variables " not in _combined(fallback)
+
+    before_both_empty = paths["argv_log"].read_text(encoding="utf-8")
+    both_empty = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["status"],
+        prefix="KRONIKA_",
+        extra_env={
+            "KRONIKA_NETWORK_TEST_TAILSCALE": "",
+            "FRAMENEST_NETWORK_TEST_TAILSCALE": "",
+        },
+    )
+    assert both_empty.returncode == 1
+    assert (
+        "Required tool 'tailscale' is not provided through the test hook."
+        in both_empty.stderr
+    )
+    assert paths["argv_log"].read_text(encoding="utf-8") == before_both_empty
+
+
+def test_canonical_mullvad_missing_hook_tool_refuses(tmp_path: Path) -> None:
+    paths = _install_fakes(tmp_path)
+    result = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["status"],
+        prefix="KRONIKA_",
+        extra_env={"KRONIKA_NETWORK_TEST_TAILSCALE": "/nonexistent/tailscale"},
+    )
+    assert result.returncode == 1
+    assert "Test hook tool path is not a trusted absolute executable." in result.stderr
+    assert paths["argv_log"].read_text(encoding="utf-8") == ""
+
+
+def test_canonical_mullvad_preserves_refusal_exit_codes(tmp_path: Path) -> None:
+    paths = _install_fakes(
+        tmp_path,
+        status_json=_healthy_status_json(backend="NeedsLogin"),
+    )
+    needs_login = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["enable", "--node", MULLVAD_NODE],
+        prefix="KRONIKA_",
+    )
+    assert needs_login.returncode == 3
+    assert "NeedsLogin" in needs_login.stderr
+    assert paths["set_log"].read_text(encoding="utf-8") == ""
+
+    invalid = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["enable", "--node", "example.com"],
+        prefix="KRONIKA_",
+    )
+    assert invalid.returncode == 2
+    assert paths["set_log"].read_text(encoding="utf-8") == ""
+
+    missing_node = _run_bash_script(
+        CANONICAL_BASH_SCRIPT, paths, ["enable"], prefix="KRONIKA_"
+    )
+    assert missing_node.returncode == 2
+    assert "--node" in missing_node.stderr
+
+    unknown = _run_bash_script(
+        CANONICAL_BASH_SCRIPT,
+        paths,
+        ["definitely-not-a-command"],
+        prefix="KRONIKA_",
+    )
+    assert unknown.returncode == 2
+    assert "Unknown subcommand" in unknown.stderr
+
+
+def test_canonical_mullvad_preserves_success_and_verify_exit_codes(
+    tmp_path: Path,
+) -> None:
+    paths = _install_fakes(tmp_path)
+    status = _run_bash_script(
+        CANONICAL_BASH_SCRIPT, paths, ["status"], prefix="KRONIKA_"
+    )
+    assert status.returncode == 0, status.stderr
+
+    other = _install_fakes(tmp_path / "other", curl_mode="other")
+    non_mullvad = _run_bash_script(
+        CANONICAL_BASH_SCRIPT, other, ["verify"], prefix="KRONIKA_"
+    )
+    assert non_mullvad.returncode == 4
+    assert "non-Mullvad egress" in non_mullvad.stdout
+
+    transport = _install_fakes(tmp_path / "transport", curl_mode="transport")
+    failed = _run_bash_script(
+        CANONICAL_BASH_SCRIPT, transport, ["verify"], prefix="KRONIKA_"
+    )
+    assert failed.returncode == 1
+    assert "unknown" in _combined(failed)
+
+
+def test_canonical_fish_wrapper_reaches_the_canonical_bash_implementation(
+    tmp_path: Path,
+) -> None:
+    """Only the canonical Bash implementation owns the dual-prefix contract.
+
+    The wrapper is driven with a conflicting hook pair while every fake tool is
+    present through the retained prefix. The retained Bash implementation would
+    ignore the canonical spelling and succeed; the observed exit 2 can only
+    come from the canonical implementation.
+    """
+    paths = _install_fakes(tmp_path)
+    result = _run_fish(
+        CANONICAL_FISH_SCRIPT,
+        paths,
+        ["status"],
+        extra_env={"KRONIKA_NETWORK_TEST_TAILSCALE": "/nonexistent/canonical-only"},
+    )
+    combined = _combined(result)
+    assert result.returncode == 2, combined
+    assert "KRONIKA_NETWORK_TEST_TAILSCALE" in combined
+    assert "FRAMENEST_NETWORK_TEST_TAILSCALE" in combined
+    assert "Conflicting environment variables " in combined
+    assert paths["argv_log"].read_text(encoding="utf-8") == ""
+
+
+def test_canonical_fish_wrapper_sanitizes_loader_environment(tmp_path: Path) -> None:
+    paths = _install_fakes(tmp_path)
+    polluted = {
+        "APPIMAGE": "/tmp/Cursor.AppImage",
+        "APPDIR": "/tmp/appdir",
+        "ARGV0": "cursor",
+        "LD_LIBRARY_PATH": "/tmp/bad-libs",
+        "LD_PRELOAD": "/tmp/bad.so",
+    }
+    result = _run_fish(CANONICAL_FISH_SCRIPT, paths, ["status"], extra_env=polluted)
+    assert result.returncode == 0, result.stderr
+    env_text = paths["env_log"].read_text(encoding="utf-8")
+    assert "APPIMAGE=/tmp/Cursor.AppImage" not in env_text
+    assert "APPDIR=/tmp/appdir" not in env_text
+    assert "ARGV0=cursor" not in env_text
+    assert "LD_LIBRARY_PATH=/tmp/bad-libs" not in env_text
+    assert "LD_PRELOAD=/tmp/bad.so" not in env_text
+    assert "APPIMAGE=\n" in env_text
+
+
+def test_canonical_fish_wrapper_requires_the_bash_implementation(
+    tmp_path: Path,
+) -> None:
+    wrapper_dir = tmp_path / "wrapper-only"
+    wrapper_dir.mkdir()
+    wrapper = wrapper_dir / "kronika_mullvad_egress.fish"
+    shutil.copy2(CANONICAL_FISH_SCRIPT, wrapper)
+    wrapper.chmod(0o755)
+    paths = _install_fakes(tmp_path / "fakes")
+    result = _run_fish(wrapper, paths, ["status"])
+    assert result.returncode == 127
+    assert "Shared Bash implementation is missing." in result.stderr
+    assert paths["argv_log"].read_text(encoding="utf-8") == ""

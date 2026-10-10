@@ -302,9 +302,20 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     #
     # KSI-IMPL-CLOCALP moved `tests` by +1 (the same content-set paragraph in
     # the `src`-side comment above names the one entering path).
-    "tests": 185,
+    #
+    # KSI-C-OPS moved `tests` by +1 and `scripts` by +4, and nothing else. The
+    # `tests` addition is the new `contract/test_operator_infosec_scripts.py`,
+    # which pins both spellings of every infosec operator variable. The four
+    # `scripts` additions are the canonical Bash counterparts whose dual-prefix
+    # contract names the retained `FRAMENEST_` prefix as accepted data
+    # (`kronika_log_triage.sh`, `kronika_public_surface_check.sh`,
+    # `kronika_socket_permissions_check.sh`, `kronika_mullvad_egress.sh`); the
+    # canonical Fish wrapper names no retired spelling and correctly stays
+    # out. No existing file left either set: the five retained operator
+    # scripts and the network README are untouched.
+    "tests": 186,
     "deploy": 22,
-    "scripts": 7,
+    "scripts": 11,
     "docs": 88,
     "extension": 8,
 }
@@ -647,7 +658,25 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # edited `test_development_cli.py` and
     # `test_kronika_product_string_agreement.py` carry canonical spellings
     # only, and `test_kronika_direct_reader_routing.py` is unchanged.
-    "tests": 2214,
+    #
+    # KSI-C-OPS moved `tests` by +37 (2214 -> 2251) and `scripts` by +12
+    # (86 -> 98), and nothing else.
+    #
+    # `tests` +37: `contract/test_operator_network_scripts.py` +7 (the
+    # canonical Mullvad behavior cases, the dual-prefix hook matrix, the
+    # wrapper identity and sanitization assertions, and the new prefix-aware
+    # hook-environment helper with its documentation), and the new
+    # `contract/test_operator_infosec_scripts.py` +30 (its per-prefix variable
+    # fixtures, conflict and empty-value cases, refusal matrix and
+    # retained-script assertions). No test file was added or removed
+    # otherwise.
+    #
+    # `scripts` +12: each of the three canonical infosec scripts and the
+    # canonical Mullvad Bash implementation adds exactly three occurrences -
+    # the dual-prefix helper's `FRAMENEST_` spelling, the header compatibility
+    # note, and the usage-text compatibility note. The canonical Fish wrapper
+    # adds none: it names only the canonical Bash implementation.
+    "tests": 2251,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -657,7 +686,8 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # adds the nine structural-transformation token guards and removes the
     # routine-scratch helper paths and the old token-replacement regex.
     "deploy": 250,
-    "scripts": 86,
+    "scripts": 98,
+    # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # corrected runbook adds fifteen occurrences and removes two: the new
     # shared-release-lock section names the lock directory, the `.owner`
@@ -671,7 +701,17 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # maintenance section names the stored `FrameNest NUC` label once and the
     # private receipt beneath the retired `/var/lib/framenest` catalog root
     # once. No environment token moves in `docs`.
-    "docs": 1231,
+    #
+    # KSI-C-OPS moved `docs` by -25 (1231 -> 1206), all in the three updated
+    # operator documents. `OPERATOR_NETWORK.md` -12: its command blocks and
+    # gate references were repointed to the canonical names, and the retained
+    # spellings survive only in the compatibility notes. `INFOSEC.md` -7: six
+    # tool references now name the canonical scripts and the diagnostics
+    # section adds one retained-spelling note. `ACCEPTANCE_DUAL_AUDIENCE.md`
+    # -6: the A7, A9 and B4 commands plus the annex paragraph name the
+    # canonical scripts and variables, with two retained-spelling notes added
+    # back. No document left or entered this tree.
+    "docs": 1206,
     "extension": 145,
 }
 
@@ -773,6 +813,21 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # `adapters/cli/development.py` and the edited
 # `tests/contract/test_kronika_product_string_agreement.py` keep carrying the
 # retired spellings that already placed them in this set.
+#
+# KSI-C-OPS added exactly five paths and removed none. The four new canonical
+# Bash operator scripts each carry the dual-prefix contract, so each names the
+# retained `FRAMENEST_` prefix as accepted data: `kronika_log_triage.sh`
+# (3 occurrences), `kronika_public_surface_check.sh` (3),
+# `kronika_socket_permissions_check.sh` (3) and `kronika_mullvad_egress.sh`
+# (3). The new contract module `tests/contract/test_operator_infosec_scripts.py`
+# enters with 30 occurrences because it exercises both spellings of every
+# variable it pins. The canonical Fish wrapper `kronika_mullvad_egress.fish`
+# is deliberately absent: it forwards to the canonical Bash implementation and
+# names no retired spelling, so it correctly stays out of this set. No
+# existing path entered or left: the edited operator documents keep the
+# retained spellings their compatibility notes name, and the edited
+# `test_operator_network_scripts.py` keeps them as the dual-prefix hook
+# matrix.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -911,9 +966,13 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "scripts/operator/infosec/framenest_log_triage.sh",
         "scripts/operator/infosec/framenest_public_surface_check.sh",
         "scripts/operator/infosec/framenest_socket_permissions_check.sh",
+        "scripts/operator/infosec/kronika_log_triage.sh",
+        "scripts/operator/infosec/kronika_public_surface_check.sh",
+        "scripts/operator/infosec/kronika_socket_permissions_check.sh",
         "scripts/operator/network/README.md",
         "scripts/operator/network/framenest_mullvad_egress.fish",
         "scripts/operator/network/framenest_mullvad_egress.sh",
+        "scripts/operator/network/kronika_mullvad_egress.sh",
         "scripts/operator/network/kronika_nuc_worker_gate.fish",
         "src/kronika/__init__.py",
         "src/kronika/adapters/api/analysis_proposal_api.py",
@@ -1164,6 +1223,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_nuc_release_remote_contract.py",
         "tests/contract/test_nuc_release_source_contract.py",
         "tests/contract/test_operator_cli_hygiene.py",
+        "tests/contract/test_operator_infosec_scripts.py",
         "tests/contract/test_operator_network_scripts.py",
         "tests/contract/test_ordinary_upload_ownership_boundary.py",
         "tests/contract/test_persistence_cli.py",
@@ -1343,9 +1403,38 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # four times, `FRAMENEST_DEVELOPMENT_RUNTIME_DIR` once and `FRAMENEST_PORT`
 # twice as override inputs; all three names already exist elsewhere, so no
 # `FRAMENEST_` name was added, removed or respelled.
-ENV_PREFIX_TOKEN_COUNT = 695
+#
+# KSI-C-OPS moved the token count by +4 (695 -> 699) and the bare spelling
+# count by +24 (29 -> 53), and moved the distinct name count nothing.
+#
+# Token +4: the new `contract/test_operator_infosec_scripts.py` adds ten full
+# `FRAMENEST_<NAME>` spellings (its per-variable old-spelling fixtures,
+# assertions and conflict cases); the edited
+# `test_operator_network_scripts.py` adds one
+# (`FRAMENEST_NETWORK_TEST_TAILSCALE` in the equal-dual case); and the three
+# edited operator documents remove seven older full spellings because their
+# commands and tables now name the canonical variables
+# (`OPERATOR_NETWORK.md` -2: its three `FRAMENEST_NUC_SSH_*` names become one
+# retained family mention; `ACCEPTANCE_DUAL_AUDIENCE.md` -5: the A7, A9 and
+# B4 variable names become canonical, with one retained
+# `FRAMENEST_CURL_BIN` mention added back). The distinct count is unmoved
+# because every added name already exists in the retained scripts the
+# canonical pair mirrors.
+#
+# Bare +24: the four canonical Bash scripts add eleven bare `FRAMENEST_`
+# spellings (three each in the three infosec scripts and two in the Mullvad
+# implementation: the dual-prefix helper's dynamic name and the surrounding
+# compatibility comment); the new `test_operator_infosec_scripts.py` adds
+# seven (the prefix-clear pop f-string, three parametrized prefix lists and
+# three retained-script invocations); the edited
+# `test_operator_network_scripts.py` adds five (the prefix-aware hook
+# environment docstring, its default parameter, its pop call, the script
+# runner's default parameter and the new canonical parametrization); and
+# `OPERATOR_NETWORK.md` adds one (the retained `FRAMENEST_*` note in the
+# subcommands section).
+ENV_PREFIX_TOKEN_COUNT = 699
 ENV_PREFIX_DISTINCT_NAME_COUNT = 112
-ENV_PREFIX_BARE_SPELLING_COUNT = 29
+ENV_PREFIX_BARE_SPELLING_COUNT = 53
 
 MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C2 kept every occurrence that existed before it and added 14:
@@ -1530,8 +1619,15 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # assertions that name them, plus the capture-state and browser-profile
 # fixtures). No product message, class name or module name changed, and no
 # existing file moved.
-CAPITALIZED_OCCURRENCE_COUNT = 2772
-CAPITALIZED_FILE_COUNT = 398
+#
+# KSI-C-OPS moved both by +1 (2772 -> 2773 and 398 -> 399). The new
+# `contract/test_operator_infosec_scripts.py` asserts the retained
+# public-surface script's banner line verbatim, so its one capitalized
+# spelling is the object under test. Nothing else added a capitalized
+# spelling: the canonical scripts and the updated documents name the retained
+# token in lowercase only.
+CAPITALIZED_OCCURRENCE_COUNT = 2773
+CAPITALIZED_FILE_COUNT = 399
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

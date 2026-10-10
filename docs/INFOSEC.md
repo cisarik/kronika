@@ -107,7 +107,7 @@ for the authorized deployment whole.
 - [x] C2/F-2: settings refuse non-loopback tcp hosts fail-closed, with no
       override hatch (`configuration.py:449-451`, message constant at `:75`).
 - [x] Ride-alongs F-4/F-5/F-6 closed (§2 table).
-- Verification tool: `scripts/operator/infosec/framenest_public_surface_check.sh`
+- Verification tool: `scripts/operator/infosec/kronika_public_surface_check.sh`
   against the staged origin.
 
 ### 4.2 [app] Public posture facts to re-verify at deploy time
@@ -176,7 +176,7 @@ The application owns none of these; the proxy MUST:
   shell accounts.
 - UDS directory permissions: the socket directory should be owned by the
   service identity with no world access; verify with
-  `scripts/operator/infosec/framenest_socket_permissions_check.sh`.
+  `scripts/operator/infosec/kronika_socket_permissions_check.sh`.
 - systemd suggestions for the preflight whole to evaluate (suggestions, not
   applied unit files): `DynamicUser=` or fixed `User=framenest`,
   `NoNewPrivileges=yes`, `ProtectSystem=strict` with explicit `ReadWritePaths=`
@@ -211,7 +211,7 @@ The application owns none of these; the proxy MUST:
   as sensitive (they contain client IPs and requested paths) and bound their
   retention.
 - Never paste raw journal output into tickets or chats; use
-  `scripts/operator/infosec/framenest_log_triage.sh`, which prints counts and
+  `scripts/operator/infosec/kronika_log_triage.sh`, which prints counts and
   event keys only.
 
 ### 4.9 [preflight] Backup and restore cadence
@@ -252,7 +252,7 @@ whole — nothing here authorizes live mutation today.
    event keys (`public_unexpected_failure`,
    `public_request_validation_rejected`, `public_http_exception_rejected`)
    plus proxy error logs for the same window. Prefer counts and keys
-   (`framenest_log_triage.sh`) over raw dumps.
+   (`kronika_log_triage.sh`) over raw dumps.
 2. **Stop the bleeding at the proxy.** Remove the public vhost/upstream or
    return 503 at the proxy layer. This drops the public listener without
    touching the workspace socket — the two compositions share a database, not
@@ -270,7 +270,7 @@ whole — nothing here authorizes live mutation today.
    window before cleanup; rotate any credential that could have been exposed
    ([SECURITY.md](../SECURITY.md), accidental-exposure procedure).
 6. **Post-incident:** rerun
-   `framenest_public_surface_check.sh` and the contract suite through the
+   `kronika_public_surface_check.sh` and the contract suite through the
    canonical AP route before re-enabling the origin.
 
 ## 6. Explicit non-goals
@@ -300,9 +300,11 @@ grant no operational authority by themselves
 
 | Tool | Purpose |
 |---|---|
-| `framenest_public_surface_check.sh` | Verifies the deployed public posture: docs/OpenAPI/admin paths and POST probes match the uniform sanitized 404 byte-for-byte, with `no-store`/`nosniff` present |
-| `framenest_log_triage.sh` | Counts security-relevant structured-log event keys and audit markers from `journalctl`, flags spikes above a threshold, prints counts only |
-| `framenest_socket_permissions_check.sh` | Stats configured UDS paths; fails on missing sockets, world access bits, or unexpected owner |
+| `kronika_public_surface_check.sh` | Verifies the deployed public posture: docs/OpenAPI/admin paths and POST probes match the uniform sanitized 404 byte-for-byte, with `no-store`/`nosniff` present |
+| `kronika_log_triage.sh` | Counts security-relevant structured-log event keys and audit markers from `journalctl`, flags spikes above a threshold, prints counts only |
+| `kronika_socket_permissions_check.sh` | Stats configured UDS paths; fails on missing sockets, world access bits, or unexpected owner |
 
 Each script prints usage with `-h` and documents its environment variables in
-its header comment.
+its header comment. The canonical `kronika_*` names are authoritative; the
+retained `framenest_*` entry points keep working unchanged until the
+compatibility-removal window.
