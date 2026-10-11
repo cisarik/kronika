@@ -4304,7 +4304,13 @@ def _render_moved_revision_token(key: str, raw_token: str, decoded: str) -> str:
 
 
 def _systemd_transform_value(key: str, value: str) -> str:
-    """Transform one supported directive value, or refuse the form."""
+    """Transform one supported directive value, or classify the unknown form.
+
+    A directive outside the supported sets is preserved as written when its
+    key and value are brand-free; when either names the retired spelling the
+    form is refused, because transforming it is not defined and installing it
+    silently would carry the retired spelling forward.
+    """
     if key in SYSTEMD_IDENTITY_DIRECTIVES:
         candidate = value.strip()
         if candidate.lower() == "framenest":
@@ -4416,9 +4422,14 @@ def _systemd_transform_value(key: str, value: str) -> str:
                 body = transform_path_value(body)
             transformed_tokens.append(prefix + body)
         return " ".join(transformed_tokens)
-    raise ReleaseError(
-        f"unit directive {key} is not supported", EXIT_MIGRATION
-    )
+    if "framenest" in key.lower() or "framenest" in value.lower():
+        raise ReleaseError(
+            f"unit directive {key} is not supported", EXIT_MIGRATION
+        )
+    # A directive outside the supported sets that names no retired spelling is
+    # a benign drop-in setting the migration does not own. Return the value
+    # unchanged; the caller rebuilds the line from its exact captured parts.
+    return value
 
 
 def transform_unit_dropin_text(text: str) -> str:
@@ -4427,9 +4438,11 @@ def transform_unit_dropin_text(text: str) -> str:
     Section headers, comments and blank lines are preserved byte-for-byte. Each
     supported directive is parsed structurally: ``User``/``Group`` identities,
     ``LoadCredential`` identifier and path pairs, executable paths and path
-    lists. An unknown or malformed directive form raises instead of passing the
-    retired spelling through, so an unsupported installation stops preflight
-    rather than being transformed silently.
+    lists. A malformed directive form, a supported directive's unclassifiable
+    value, or an unknown directive that names the retired spelling in its key
+    or value raises, so such an installation stops preflight rather than being
+    transformed silently. An unknown brand-free directive is preserved as
+    written.
     """
     transformed_lines: list[str] = []
     for raw in text.splitlines():

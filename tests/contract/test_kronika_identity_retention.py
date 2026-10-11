@@ -703,7 +703,24 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `framenest.env`), the escaped near-miss (1), the escaped under-root
     # leftover (2), the escaped-slash remainder (1) and the escaped renamed
     # segment (1). `deploy/ubuntu/kronika_release.py` adds none.
-    "tests": 2275,
+    #
+    # KSI-CORR-C6UNK moved `tests` by +8 (2275 -> 2283) and `deploy` by +2
+    # (246 -> 248), and moved no other scalar in this block.
+    #
+    # `tests` +8, all in `test_kronika_identity_migration.py`: the adjusted
+    # preflight refusal fixture `Environment=FRAMENEST_FOO=bar` (1), the same
+    # form as the adjusted refusal-loop entry (1), the adjusted refusal-loop
+    # entry `UnknownDirective=framenest-x` (1) and its brand-bearing matrix
+    # twin (1), the matrix `Environment=FRAMENEST_X=1` (1), the key-bearing
+    # matrix entry (2: the expected key and the fixture text both name
+    # `FramenestMarker`) and the mixed-case matrix entry (1). The two adjusted
+    # entries replace brand-free forms of the same shape; the six remaining
+    # occurrences are new brand-bearing fixtures that pin the refusal.
+    #
+    # `deploy` +2: the unknown-directive branch in `kronika_release.py` tests
+    # the directive key and value for the retired spelling, one literal each.
+    # No other engine line moved.
+    "tests": 2283,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -716,7 +733,7 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-CORR-C6GUARD moved `deploy` by -4 (250 -> 246): the four
     # unit-directive guards now classify the path token and remove the retired
     # spelling from the guard source.
-    "deploy": 246,
+    "deploy": 248,
     "scripts": 98,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -1463,8 +1480,17 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # runner's default parameter and the new canonical parametrization); and
 # `OPERATOR_NETWORK.md` adds one (the retained `FRAMENEST_*` note in the
 # subcommands section).
-ENV_PREFIX_TOKEN_COUNT = 699
-ENV_PREFIX_DISTINCT_NAME_COUNT = 112
+#
+# KSI-CORR-C6UNK moved the token count by +3 (699 -> 702) and the distinct
+# name count by +2 (112 -> 114), and moved neither the bare count nor
+# anything else. The three tokens are two `FRAMENEST_FOO` spellings in
+# `test_kronika_identity_migration.py` (the adjusted preflight refusal
+# fixture and the adjusted refusal-loop entry) and one `FRAMENEST_X` in the
+# brand-bearing matrix. Both names are new to this count, hence +2 distinct.
+# No other `FRAMENEST_` name was added, removed or respelled, and the bare
+# prefix spelling is unmoved because `FOO` and `X` both continue each match.
+ENV_PREFIX_TOKEN_COUNT = 702
+ENV_PREFIX_DISTINCT_NAME_COUNT = 114
 ENV_PREFIX_BARE_SPELLING_COUNT = 53
 
 MUTATION_HEADER = "X-FrameNest-Request"

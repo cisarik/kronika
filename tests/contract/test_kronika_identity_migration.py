@@ -2971,7 +2971,7 @@ def test_preflight_refuses_a_present_canonical_current_pointer() -> None:
 def test_preflight_refuses_an_unknown_dropin_directive() -> None:
     transport = {"target": "nuc", "user": "op", "identity": "identity"}
     runner = ReadOnlyPreflightRunner()
-    runner.dropin_raw = "[Service]\nEnvironment=FOO=bar\n"
+    runner.dropin_raw = "[Service]\nEnvironment=FRAMENEST_FOO=bar\n"
     with pytest.raises(engine.ReleaseError) as exc:
         engine.read_migration_observation(runner, transport, release_sha=RELEASE)
     assert exc.value.exit_code == engine.EXIT_MIGRATION
@@ -3138,10 +3138,10 @@ def test_structural_dropin_transformation_handles_supported_directives() -> None
 
 def test_structural_dropin_transformation_refuses_unknown_forms() -> None:
     for text in (
-        "[Service]\nEnvironment=FOO=bar\n",
+        "[Service]\nEnvironment=FRAMENEST_FOO=bar\n",
         "[Service]\nLoadCredential=just-an-identifier\n",
         "[Service]\nExecStart=relative-command serve\n",
-        "[Service]\nUnknownDirective=value\n",
+        "[Service]\nUnknownDirective=framenest-x\n",
         "not a directive\n",
         "[Service]\nExecStart=/opt/kronika/current/x \\\n  continued\n",
     ):
@@ -3472,6 +3472,74 @@ def test_non_revision_branches_keep_an_escaped_foreign_token_raw() -> None:
         f"[Service]\nLoadCredential=SAMPLE:{token}\n",
     ):
         assert engine.transform_unit_dropin_text(text) == text
+
+
+# ---------------------------------------------------------------------------
+# KSI-CORR-C6UNK: brand-free unknown unit directives are preserved
+# ---------------------------------------------------------------------------
+
+# Synthetic unknown-directive forms. The preserved forms are deliberately
+# benign and brand-free. The refused forms name the retired spelling in the
+# directive value or in the key itself, so the policy matrix covers both
+# positions and both spellings' letter cases. No host path and no live drop-in
+# is embedded here.
+C6UNK_PRESERVED_FORMS = (
+    "[Service]\nRuntimeDirectoryMode=0700\n",
+    "[Service]\nEnvironment=FOO=bar\n",
+    "[Service]\nUnknownDirective=value\n",
+)
+C6UNK_BRAND_BEARING_FORMS = (
+    ("UnknownDirective", "[Service]\nUnknownDirective=framenest-x\n"),
+    ("Environment", "[Service]\nEnvironment=FRAMENEST_X=1\n"),
+    ("FramenestMarker", "[Service]\nFramenestMarker=value\n"),
+    ("UnknownDirective", "[Service]\nUnknownDirective=fraMeNest-x\n"),
+)
+
+
+def test_structural_dropin_preserves_brand_free_unknown_directives() -> None:
+    for text in C6UNK_PRESERVED_FORMS:
+        transformed = engine.transform_unit_dropin_text(text)
+        assert transformed == text
+        assert engine.transform_unit_dropin_text(transformed) == transformed
+
+
+def test_structural_dropin_refuses_brand_bearing_unknown_directives() -> None:
+    for key, text in C6UNK_BRAND_BEARING_FORMS:
+        with pytest.raises(engine.ReleaseError) as exc:
+            engine.transform_unit_dropin_text(text)
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+        assert str(exc.value) == f"unit directive {key} is not supported"
+
+
+def test_preflight_installs_a_brand_free_runtime_directory_mode_dropin() -> None:
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    runner = ReadOnlyPreflightRunner()
+    runner.dropin_raw = "[Service]\nRuntimeDirectoryMode=0700\n"
+    observation = engine.read_migration_observation(
+        runner, transport, release_sha=RELEASE
+    )
+    assert observation.dropin_installations[0].text == (
+        "[Service]\nRuntimeDirectoryMode=0700"
+    )
+
+
+def test_structural_dropin_transforms_a_mixed_unknown_and_supported_dropin() -> None:
+    """One drop-in mixing the three shapes: preserved unknown, foreign and
+    moved path tokens, and a transformed credential source."""
+    text = (
+        "[Service]\n"
+        "RuntimeDirectoryMode=0700\n"
+        f"ReadWritePaths=-{C6GUARD_FOREIGN_TOKEN}\n"
+        f"LoadCredential=SAMPLE:{C6GUARD_UNDER_ROOT_TOKEN}\n"
+    )
+    transformed = engine.transform_unit_dropin_text(text)
+    assert transformed == (
+        "[Service]\n"
+        "RuntimeDirectoryMode=0700\n"
+        f"ReadWritePaths=-{C6GUARD_FOREIGN_TOKEN}\n"
+        f"LoadCredential=SAMPLE:{C6GUARD_UNDER_ROOT_CANONICAL}\n"
+    )
+    assert engine.transform_unit_dropin_text(transformed) == transformed
 
 
 def test_structural_sudoers_transformation_moves_runas_and_command() -> None:
