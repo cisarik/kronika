@@ -265,7 +265,11 @@ def test_companion_host_asset_omits_wildcard_cors_and_wildcard_postmessage(
     response = client.get("/assets/companion_host.js")
     assert response.status_code == 200
     body = response.text
-    assert "framenest.companion.web.v1" in body
+    assert 'const PROTOCOL = "kronika.companion.web.v1";' in body
+    assert (
+        'const ACCEPTED_WEB_PROTOCOLS = Object.freeze([PROTOCOL, "framenest.companion.web.v1"]);'
+        in body
+    )
     assert "chrome-extension://omiihmnlkmieaafaphohakcgmbggppap" in body
     assert '"*"' not in body
     assert "'*'" not in body

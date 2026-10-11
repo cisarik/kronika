@@ -5,16 +5,13 @@
   }
   root.FrameNestCompanionWeb = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
-  // The companion web protocol below is a validated cross-boundary contract,
-  // not an internal identifier, and this asset is served by the NUC while the
-  // extension holds the other side of it. Both sides gate on the spelling, so
-  // renaming it here alone would leave the extension's `host_hello` unread,
-  // keep `hosted` false and make attach() answer "not_hosted", which breaks
-  // meme attach silently against a refreshed extension. The host therefore
-  // keeps emitting the retired `framenest.companion.web.v1` on purpose while
-  // the extension accepts both spellings and also keeps sending this one; the
-  // rename lands in the removal cut, on both sides at once.
-  const PROTOCOL = "framenest.companion.web.v1";
+  // This cross-boundary protocol connects the served NUC host and extension.
+  // The host emits the canonical spelling and accepts both spellings. The
+  // extension accepts both but still emits the retired spelling until its own
+  // companion cut, after this server is published and served. Compatibility
+  // readers are removed in the later removal cut.
+  const PROTOCOL = "kronika.companion.web.v1";
+  const ACCEPTED_WEB_PROTOCOLS = Object.freeze([PROTOCOL, "framenest.companion.web.v1"]);
   const PINNED_EXTENSION_ORIGIN = "chrome-extension://omiihmnlkmieaafaphohakcgmbggppap";
   const UUID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -81,7 +78,7 @@
         return;
       }
       const data = event.data;
-      if (!data || typeof data !== "object" || data.v !== PROTOCOL || typeof data.type !== "string") {
+      if (!data || typeof data !== "object" || !ACCEPTED_WEB_PROTOCOLS.includes(data.v) || typeof data.type !== "string") {
         return;
       }
       if (data.type === TYPES.HOST_HELLO) {
@@ -176,6 +173,7 @@
 
   return {
     PROTOCOL,
+    ACCEPTED_WEB_PROTOCOLS,
     TYPES,
     PINNED_EXTENSION_ORIGIN,
     isUuid,

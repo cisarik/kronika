@@ -505,7 +505,15 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # and the lowercase `kronika`/`kronika-development` constants, which the
     # case-insensitive counter does not match. No existing `src` file moved;
     # the edited `adapters/cli/development.py` added only canonical spellings.
-    "src": 1706,
+    # KSI-IMPL-C7AS moved `src` by -1 (1706 -> 1705) and `tests` by -1
+    # (2283 -> 2282), and nothing else. `adapters/api/web/companion_host.js`
+    # loses the retired protocol literal in its transition comment; moving the
+    # emitter literal to the compatible reader is one removal plus one addition.
+    # `companion_web_bridge.test.js` loses the retired emitter assertion literal;
+    # its behavioral matrix reuses the existing protocol fixtures. The served
+    # asset assertion in `contract/test_local_web_application.py` retains one
+    # retired reader literal. No content-path membership or file count moved.
+    "src": 1705,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -720,7 +728,7 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `deploy` +2: the unknown-directive branch in `kronika_release.py` tests
     # the directive key and value for the retired spelling, one literal each.
     # No other engine line moved.
-    "tests": 2283,
+    "tests": 2282,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
