@@ -2762,6 +2762,7 @@ class MigrationObservation:
     old_layout: WebLayout
     new_layout: WebLayout
     environment_text: str
+    environment_file_evidence: str
     copy_sources: tuple[tuple[str, str], ...]
     installed_units: tuple[str, ...]
     unit_observations: tuple[ObservedUnit, ...]
@@ -2790,6 +2791,7 @@ class MigrationPlan:
     old_layout: WebLayout
     new_layout: WebLayout
     environment: EnvironmentTransformation
+    environment_file_evidence: str
     copy_moves: tuple[tuple[str, str], ...]
     installed_units: tuple[str, ...]
     unit_observations: tuple[ObservedUnit, ...]
@@ -2823,6 +2825,7 @@ class MigrationPlan:
             "environment_sha256": hashlib.sha256(
                 self.environment.text.encode("utf-8")
             ).hexdigest(),
+            "environment_file_evidence": self.environment_file_evidence,
             "copy_moves": [list(move) for move in self.copy_moves],
             "installed_units": list(self.installed_units),
             "unit_observations": [
@@ -2887,8 +2890,45 @@ def migration_plan_digest(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
+def parse_environment_file_evidence(evidence: str) -> tuple[str, str, str, str]:
+    """Require one regular file's named owner/group, octal mode and SHA-256."""
+    evidence = _require_query_result(evidence, "former environment file")
+    if evidence in ("absent", "unsafe"):
+        raise ReleaseError(f"former environment file is {evidence}", EXIT_MIGRATION)
+    match = re.fullmatch(
+        r"([A-Za-z_][A-Za-z0-9_.-]*\$?):([A-Za-z_][A-Za-z0-9_.-]*\$?):"
+        r"([0-7]{1,4}) ([0-9a-f]{64})",
+        evidence,
+    )
+    if match is None or "UNKNOWN" in match.group(1, 2):
+        raise ReleaseError("former environment file evidence is malformed", EXIT_MIGRATION)
+    owner, group, mode, digest = match.groups()
+    return owner, group, format(int(mode, 8), "o"), digest
+
+
+def environment_file_ownership(
+    evidence: str, old_layout: WebLayout
+) -> tuple[str, str, str]:
+    """Return chown identity, mode and the expected pre-rename stat metadata.
+
+    Environment installation precedes account rename. Apply the observed group
+    by name: the later groupmod preserves that group's identity and gives it
+    the canonical name. The account's primary GID need not name this group.
+    Verify its still-former name at installation.
+    Other owners and groups retain their observed names and access exactly.
+    """
+    owner, group, mode, _digest = parse_environment_file_evidence(evidence)
+    if owner == old_layout.user:
+        raise ReleaseError("environment file owner cannot be preserved", EXIT_MIGRATION)
+    return f"{owner}:{group}", mode, f"{owner}:{group}:{mode}"
+
+
 def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
     """Build one validated plan and its digest from preflight observations."""
+    environment_file_ownership(
+        observation.environment_file_evidence,
+        observation.old_layout,
+    )
     environment = transform_environment_text(observation.environment_text)
     partial = {
         "plan_version": MIGRATION_PLAN_VERSION,
@@ -2902,6 +2942,7 @@ def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
         "environment_sha256": hashlib.sha256(
             environment.text.encode("utf-8")
         ).hexdigest(),
+        "environment_file_evidence": observation.environment_file_evidence,
         "copy_moves": [list(move) for move in observation.copy_sources],
         "installed_units": list(observation.installed_units),
         "unit_observations": [
@@ -2944,6 +2985,7 @@ def build_migration_plan(observation: MigrationObservation) -> MigrationPlan:
         old_layout=observation.old_layout,
         new_layout=observation.new_layout,
         environment=environment,
+        environment_file_evidence=observation.environment_file_evidence,
         copy_moves=observation.copy_sources,
         installed_units=observation.installed_units,
         unit_observations=observation.unit_observations,
@@ -3407,6 +3449,10 @@ class RemoteMigrationHost:
         return verified
 
     def transform_environment(self) -> dict[str, object]:
+        ownership, mode, expected_metadata = environment_file_ownership(
+            self.plan.environment_file_evidence,
+            self.plan.old_layout,
+        )
         destination = self.plan.new_layout.env_file
         ssh(
             self.runner,
@@ -3443,6 +3489,21 @@ class RemoteMigrationHost:
                 f"sudo -n mv -T {shlex.quote(pending)} {shlex.quote(destination)}"
             ),
         )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=f"sudo -n chown {shlex.quote(ownership)} {shlex.quote(destination)}",
+        )
+        ssh(
+            self.runner,
+            **self.transport,
+            remote_command=f"sudo -n chmod {mode} {shlex.quote(destination)}",
+        )
+        metadata, installed_digest = self._root_file_evidence(
+            destination, "installed environment file"
+        )
+        if metadata != expected_metadata or installed_digest != digest:
+            raise ReleaseError("installed environment file did not verify", EXIT_MIGRATION)
         return {
             "moved_path_keys": list(self.plan.environment.moved_path_keys),
             "preserved_path_keys": list(self.plan.environment.preserved_path_keys),
@@ -3919,11 +3980,14 @@ class RemoteMigrationHost:
                 EXIT_MIGRATION,
             )
         index = old_handlers[0]
-        if targets[index] != tailscale_unix_target(self.plan.old_layout.socket_path):
+        old_forms = tailscale_unix_targets(self.plan.old_layout.socket_path)
+        if targets[index] not in old_forms:
             raise ReleaseError(
                 "existing ingress handler target is unexpected", EXIT_MIGRATION
             )
-        new_target = tailscale_unix_target(self.plan.new_layout.socket_path)
+        new_target = tailscale_unix_targets(self.plan.new_layout.socket_path)[
+            old_forms.index(targets[index])
+        ]
         ssh(
             self.runner,
             **self.transport,
@@ -3948,10 +4012,7 @@ class RemoteMigrationHost:
             )
         )
         socket_path = self.plan.new_layout.socket_path
-        new_forms = {
-            f"unix+http://{socket_path}",
-            f"unix:{socket_path}",
-        }
+        new_forms = set(tailscale_unix_targets(socket_path))
         if status["old_handlers"] or not (set(status["targets"]) & new_forms):
             raise ReleaseError("ingress replacement did not verify", EXIT_MIGRATION)
 
@@ -4169,10 +4230,7 @@ def parse_tailscale_serve_status(raw: str) -> dict[str, object]:
                     continue
                 mounts.append(f"{mount}{path}")
                 targets.append(proxy)
-                if proxy in (
-                    tailscale_unix_target(OLD_WEB_LAYOUT.socket_path),
-                    "unix:" + OLD_WEB_LAYOUT.socket_path,
-                ):
+                if proxy in tailscale_unix_targets(OLD_WEB_LAYOUT.socket_path):
                     old_handlers.append(len(targets) - 1)
     return {
         "handler_count": len(targets),
@@ -4182,8 +4240,9 @@ def parse_tailscale_serve_status(raw: str) -> dict[str, object]:
     }
 
 
-def tailscale_unix_target(socket_path: str) -> str:
-    return f"unix+http://{socket_path}"
+def tailscale_unix_targets(socket_path: str) -> tuple[str, str]:
+    """Accepted socket spellings, in matching order for a scheme-preserving edit."""
+    return f"unix+http://{socket_path}", f"unix:{socket_path}"
 
 
 # ---------------------------------------------------------------------------
@@ -4793,16 +4852,24 @@ def read_migration_observation(
             "canonical current pointer already exists", EXIT_MIGRATION
         )
 
-    environment_raw = _require_query_result(
-        ssh(
-            runner,
-            **transport,
-            remote_command=cmd_remote_read_optional_file(old_layout.env_file),
-        ),
-        "former environment file",
+    environment_file_evidence = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_root_file_evidence(old_layout.env_file),
+    ).strip()
+    _owner, _group, _mode, source_digest = parse_environment_file_evidence(
+        environment_file_evidence
     )
+    environment_source = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_read_optional_file(old_layout.env_file),
+    )
+    environment_raw = _require_query_result(environment_source, "former environment file")
     if environment_raw == "absent":
         raise ReleaseError("former environment file is absent", EXIT_MIGRATION)
+    if hashlib.sha256(environment_source.encode("utf-8")).hexdigest() != source_digest:
+        raise ReleaseError("former environment file content did not verify", EXIT_MIGRATION)
 
     copy_sources: list[tuple[str, str]] = []
     for old_root, new_root in (
@@ -4986,6 +5053,7 @@ def read_migration_observation(
         old_layout=old_layout,
         new_layout=new_layout,
         environment_text=environment_raw,
+        environment_file_evidence=environment_file_evidence,
         copy_sources=tuple(copy_sources),
         installed_units=tuple(installed_units),
         unit_observations=tuple(unit_observations),

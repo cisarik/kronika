@@ -11,6 +11,7 @@ in-memory simulated host with failure injection.
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import hashlib
 import importlib.util
@@ -659,6 +660,10 @@ def _observation(capture_pointer: str = "old") -> engine.MigrationObservation:
         old_layout=engine.OLD_WEB_LAYOUT,
         new_layout=engine.NEW_WEB_LAYOUT,
         environment_text=SAMPLE_ENVIRONMENT,
+        environment_file_evidence=(
+            f"root:{engine.OLD_WEB_LAYOUT.group}:640 "
+            + hashlib.sha256(SAMPLE_ENVIRONMENT.encode()).hexdigest()
+        ),
         copy_sources=(
             ("/var/lib/framenest", "/var/lib/kronika"),
             ("/var/cache/framenest", "/var/cache/kronika"),
@@ -1210,12 +1215,20 @@ class ReadOnlyPreflightRunner:
         self.non_unit_artifacts_present = False
         self.dropin_raw = SAMPLE_DROPIN_RAW
         self.sudo_rule_raw = SAMPLE_SUDO_RULE
+        self.environment_raw = READONLY_ENVIRONMENT
+        self.environment_file_evidence = (
+            f"root:{engine.OLD_WEB_LAYOUT.group}:640 "
+            + hashlib.sha256(self.environment_raw.encode()).hexdigest()
+        )
 
     def __call__(self, argv, input_bytes):
         combined = " ".join(argv)
         self.calls.append(combined)
         for token in MUTATION_TOKENS:
             assert token not in combined, f"preflight issued a mutation: {combined}"
+        if "stat -c '%U:%G:%a'" in combined:
+            assert engine.OLD_WEB_LAYOUT.env_file in combined
+            return self.environment_file_evidence
         if "dropin=%s" in combined:
             match = re.search(r"systemctl show -p LoadState --value (\S+)", combined)
             assert match is not None, combined
@@ -1258,7 +1271,7 @@ class ReadOnlyPreflightRunner:
         if "sudo -n cat " in combined and (".service.d/" in combined):
             return self.dropin_raw
         if "sudo -n cat " in combined and engine.OLD_WEB_LAYOUT.env_file in combined:
-            return READONLY_ENVIRONMENT
+            return self.environment_raw
         if "ls -1" in combined and "credentials" in combined:
             return self.credential_listing
         if "ls -1" in combined:
@@ -1712,6 +1725,7 @@ class RemoteBoundary:
         self.tamper_old_release = False
         self.backup_state = "succeeded"
         self.capture_identities: list[str] = []
+        self.tailscale_status: dict[str, object] = {"Web": {}}
 
     # -- state helpers ----------------------------------------------------
 
@@ -2096,6 +2110,27 @@ class RemoteBoundary:
         return token.strip().strip("'")
 
     def _dispatch(self, combined: str, input_bytes) -> str:
+        if "tailscale serve status --json" in combined:
+            return json.dumps(self.tailscale_status)
+        if "sudo -n tailscale serve --bg " in combined:
+            target = shlex.split(combined.split("tailscale serve --bg ", 1)[1])
+            assert len(target) == 1
+            roots = [
+                block["Handlers"]["/"]
+                for mount, block in self.tailscale_status["Web"].items()
+                if mount.endswith(":443") and "/" in block["Handlers"]
+            ]
+            assert len(roots) == 1
+            roots[0]["Proxy"] = target[0]
+            return ""
+        if "sudo -n grep -Eq " in combined:
+            path = shlex.split(combined.split("grep -Eq ", 1)[1])[1].rstrip(";")
+            data = self._require(path)["data"].decode("utf-8")
+            return (
+                "retired-assignment-present"
+                if re.search(r"^" + engine.COMPATIBLE_ENVIRONMENT_PREFIX, data, re.MULTILINE)
+                else "canonical-only"
+            )
         if "sudo -n mkdir -m 0700 " in combined:
             path = combined.split("sudo -n mkdir -m 0700 ", 1)[1].strip()
             if self.exists(path):
@@ -2242,10 +2277,13 @@ class RemoteBoundary:
                     value["owner"] = "root"
                     value["group"] = "root"
             return ""
-        if "chown root:root " in combined:
-            path = self._unquote(combined.split("chown root:root ", 1)[1])
-            self._require(path)["owner"] = "root"
-            self._require(path)["group"] = "root"
+        if "sudo -n chown " in combined:
+            identity, path = shlex.split(combined.split("sudo -n chown ", 1)[1])
+            owner, group = identity.split(":")
+            assert group == "root" or group in self.groups
+            assert owner == "root" or owner in self.users
+            self._require(path)["owner"] = owner
+            self._require(path)["group"] = group
             return ""
         if "chmod -R a-w " in combined:
             path = self._unquote(combined.split("chmod -R a-w ", 1)[1])
@@ -2397,6 +2435,9 @@ class RemoteBoundary:
             if old_name not in self.groups:
                 raise engine.ReleaseError("no such group", engine.EXIT_TRANSPORT)
             self.groups[new_name] = self.groups.pop(old_name)
+            for value in self.paths.values():
+                if value["group"] == old_name:
+                    value["group"] = new_name
             return ""
         if "usermod -l " in combined:
             _command, rest = combined.split("usermod -l ", 1)
@@ -2410,6 +2451,16 @@ class RemoteBoundary:
             if home is not None:
                 record["home"] = home
             self.users[new_name] = record
+            return ""
+        if "getent passwd kronika >/dev/null" in combined:
+            assert engine.NEW_WEB_LAYOUT.user in self.users
+            assert engine.OLD_WEB_LAYOUT.user not in self.users
+            assert engine.NEW_WEB_LAYOUT.group in self.groups
+            assert engine.OLD_WEB_LAYOUT.group not in self.groups
+            for flag, field in (("-u", "uid"), ("-g", "gid")):
+                match = re.search(r"\$\(id " + flag + r' ([^)]+)\)" = (\d+)', combined)
+                assert match is not None
+                assert self.users[match.group(1)][field] == int(match.group(2))
             return ""
         if "systemctl " in combined:
             return self._dispatch_systemctl(combined)
@@ -4407,3 +4458,411 @@ def test_new_pure_guards_refuse_absent_and_foreign_inputs(
     with pytest.raises(engine.ReleaseError) as exc:
         engine.migration_required_console_scripts(systemd, engine.NEW_WEB_LAYOUT)
     assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def _serve_status(*targets: str) -> dict[str, object]:
+    return {"Web": {"synthetic.example:443": {"Handlers": {
+        "/" if index == 0 else f"/other{index}": {"Proxy": target}
+        for index, target in enumerate(targets)
+    }}}}
+
+
+@pytest.mark.parametrize("scheme", ["unix:", "unix+http://"])
+def test_c6_completion_ingress_round_trip(scheme: str) -> None:
+    boundary = RemoteBoundary()
+    old = scheme + engine.OLD_WEB_LAYOUT.socket_path
+    new = scheme + engine.NEW_WEB_LAYOUT.socket_path
+    foreign = "http://127.0.0.1:9999"
+    boundary.tailscale_status = _serve_status(old, foreign)
+    host = _boundary_host(boundary)
+    assert host.record_tailscale_state()["old_handlers"] == [0]
+    assert host.replace_tailscale_handler() == {"replaced": 1, "handler_count": 2}
+    edits = [call for call in boundary.calls if "tailscale serve --bg" in call]
+    assert len(edits) == 1
+    assert edits[0].endswith("sudo -n tailscale serve --bg " + new)
+    assert all("reset" not in call for call in boundary.calls)
+    assert host.record_tailscale_state()["targets"] == [new, foreign]
+    assert host.record_tailscale_state()["old_handlers"] == []
+    host.verify_ingress()
+
+
+@pytest.mark.parametrize("target", [
+    "http://127.0.0.1:9999", "unix:/foreign.sock", "",
+    "unix:" + engine.OLD_WEB_LAYOUT.socket_path + ".other",
+    "unix+http://" + engine.OLD_WEB_LAYOUT.socket_path + "/child",
+    "unix://" + engine.OLD_WEB_LAYOUT.socket_path,
+    "unix:" + engine.NEW_WEB_LAYOUT.socket_path + ".other",
+    "unix+http://" + engine.NEW_WEB_LAYOUT.socket_path + "/child",
+    "unix://" + engine.NEW_WEB_LAYOUT.socket_path,
+])
+def test_c6_completion_foreign_ingress_never_becomes_former(target: str) -> None:
+    boundary = RemoteBoundary()
+    boundary.tailscale_status = _serve_status(target)
+    host = _boundary_host(boundary)
+    assert host.record_tailscale_state()["old_handlers"] == []
+    with pytest.raises(engine.ReleaseError, match="not uniquely identifiable") as exc:
+        host.replace_tailscale_handler()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    with pytest.raises(engine.ReleaseError, match="did not verify") as exc:
+        host.verify_ingress()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert all("serve --bg" not in call for call in boundary.calls)
+
+
+def test_c6_completion_guard_rechecks_the_plans_exact_socket(monkeypatch) -> None:
+    boundary = RemoteBoundary()
+    host = _boundary_host(boundary)
+    state = {
+        "handler_count": 1, "old_handlers": [0],
+        "mounts": ["synthetic.example:443/"], "targets": ["unix:/foreign.sock"],
+    }
+    monkeypatch.setattr(host, "record_tailscale_state", lambda: state)
+    with pytest.raises(engine.ReleaseError, match="existing ingress handler target is unexpected") as exc:
+        host.replace_tailscale_handler()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert boundary.calls == []
+
+
+def test_c6_completion_duplicate_and_zero_ingress() -> None:
+    boundary = RemoteBoundary()
+    boundary.tailscale_status = _serve_status(
+        "unix:" + engine.OLD_WEB_LAYOUT.socket_path,
+        "unix+http://" + engine.OLD_WEB_LAYOUT.socket_path,
+    )
+    host = _boundary_host(boundary)
+    assert host.record_tailscale_state()["old_handlers"] == [0, 1]
+    with pytest.raises(engine.ReleaseError, match="not uniquely identifiable") as exc:
+        host.replace_tailscale_handler()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    boundary.tailscale_status = _serve_status()
+    assert host.replace_tailscale_handler() == {"replaced": 0, "handler_count": 0}
+    host.plan = _plan_with(tailscale_handler_count=0, tailscale_old_handlers=0)
+    before = len(boundary.calls)
+    host.verify_ingress()
+    assert len(boundary.calls) == before + 1  # Health still runs; no Serve query.
+    assert "systemd-run" in boundary.calls[-1]
+    assert all("serve --bg" not in call for call in boundary.calls)
+
+
+@pytest.mark.parametrize("mount", ["synthetic.example:443/other", "synthetic.example:80/", ""])
+def test_c6_completion_mount_guard_stays_closed(mount: str) -> None:
+    with pytest.raises(engine.ReleaseError, match="mount is not the documented default") as exc:
+        engine.cmd_remote_tailscale_replace(mount, "unix:/synthetic.sock")
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def _environment_evidence(metadata: str, text: str = SAMPLE_ENVIRONMENT) -> str:
+    return metadata + " " + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _environment_host(metadata: str = ""):
+    boundary = RemoteBoundary()
+    metadata = metadata or f"root:{engine.OLD_WEB_LAYOUT.group}:640"
+    owner, group, mode = metadata.split(":")
+    if owner != "root" and owner not in boundary.users:
+        boundary.users[owner] = {"uid": 2001, "gid": 2001, "home": "/synthetic"}
+    if group != "root" and group not in boundary.groups:
+        boundary.groups[group] = {"gid": 2001}
+    boundary.add_file(
+        engine.OLD_WEB_LAYOUT.env_file, SAMPLE_ENVIRONMENT.encode(),
+        owner=owner, group=group, mode=int(mode, 8),
+    )
+    host = _boundary_host(boundary)
+    host.plan = _plan_with(environment_file_evidence=_environment_evidence(metadata))
+    return boundary, host
+
+
+def _assert_environment_parity(metadata: str = "") -> None:
+    boundary, host = _environment_host(metadata)
+    old_path = host.plan.old_layout.env_file
+    destination = host.plan.new_layout.env_file
+    before = copy.deepcopy(boundary.paths[old_path])
+    assert host.transform_environment() == {
+        "moved_path_keys": list(host.plan.environment.moved_path_keys),
+        "preserved_path_keys": list(host.plan.environment.preserved_path_keys),
+    }
+    installed = boundary.paths[destination]
+    assert (installed["owner"], installed["group"], installed["mode"]) == (
+        before["owner"], before["group"], before["mode"]
+    )
+    payload = host.plan.environment.text.encode("utf-8")
+    assert installed["data"] == payload
+    assert boundary.paths[old_path] == before
+    assert destination + ".next" not in boundary.paths
+    digest = hashlib.sha256(payload).hexdigest()
+    write = next(i for i, c in enumerate(boundary.calls) if "cat > " in c)
+    assertion = next(i for i, c in enumerate(boundary.calls) if "grep -Eq" in c)
+    move = next(i for i, c in enumerate(boundary.calls) if "mv -T" in c)
+    chown = next(i for i, c in enumerate(boundary.calls) if "chown " in c)
+    chmod = next(i for i, c in enumerate(boundary.calls) if "chmod " in c)
+    verify = next(i for i, c in enumerate(boundary.calls) if "stat -c" in c)
+    assert write < assertion < move < chown < chmod < verify
+    assert digest in boundary.calls[write] and "sha256sum" in boundary.calls[write]
+    assert boundary.calls[verify].endswith(engine.cmd_remote_root_file_evidence(destination))
+    assert boundary.calls[chown].endswith(f"sudo -n chown {before['owner']}:{before['group']} {destination}")
+    assert boundary.calls[chmod].endswith(f"sudo -n chmod {int(before['mode']):o} {destination}")
+    host.rename_account()
+    final_group = host.plan.new_layout.group if before["group"] == host.plan.old_layout.group else before["group"]
+    evidence = boundary._dispatch(engine.cmd_remote_root_file_evidence(destination), None)
+    assert evidence == f"{before['owner']}:{final_group}:{int(before['mode']):o} {digest}"
+    # The renamed service account's primary GID can read the live-shaped file.
+    if before["group"] == host.plan.old_layout.group:
+        assert installed["mode"] & 0o040
+        assert boundary.groups[final_group]["gid"] == boundary.users[host.plan.new_layout.user]["gid"]
+
+
+@pytest.mark.parametrize("metadata", [
+    "root:" + engine.OLD_WEB_LAYOUT.group + ":640", "root:root:640",
+    "operator:operators:600",
+])
+def test_c6_completion_environment_parity(metadata: str) -> None:
+    _assert_environment_parity(metadata)
+
+
+@pytest.mark.parametrize("evidence, message", [
+    ("absent", "is absent"), ("unsafe", "is unsafe"),
+    ("query-failed", "could not be queried"), ("", "malformed"),
+    ("root:root:888 " + "a" * 64, "malformed"),
+    ("root:root:640 missing", "malformed"),
+    ("UNKNOWN:root:640 " + "a" * 64, "malformed"),
+    ("root:UNKNOWN:640 " + "a" * 64, "malformed"),
+    ("root:root:640 " + "a" * 64 + " extra", "malformed"),
+])
+def test_c6_completion_environment_evidence_fails_closed(evidence: str, message: str) -> None:
+    runner = ReadOnlyPreflightRunner()
+    runner.environment_file_evidence = evidence
+    with pytest.raises(engine.ReleaseError, match=message) as exc:
+        engine.read_migration_observation(
+            runner, {"target": "nuc", "user": "op", "identity": "identity"}, release_sha=RELEASE,
+        )
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert not any("sudo -n cat " in c and engine.OLD_WEB_LAYOUT.env_file in c for c in runner.calls)
+    with pytest.raises(engine.ReleaseError, match=message) as exc:
+        _plan_with(environment_file_evidence=evidence)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_c6_completion_environment_mapping_does_not_assume_primary_gid() -> None:
+    boundary, host = _environment_host()
+    boundary.users[host.plan.old_layout.user]["gid"] = 2001
+    boundary.groups["operators"] = {"gid": 2001}
+    host.plan = _plan_with(account_gid=2001)
+    host.transform_environment()
+    destination = host.plan.new_layout.env_file
+    assert boundary.paths[destination]["group"] == host.plan.old_layout.group
+    host.rename_account()
+    assert boundary.paths[destination]["group"] == host.plan.new_layout.group
+    assert boundary.groups[host.plan.new_layout.group]["gid"] == 1001
+    assert boundary.users[host.plan.new_layout.user]["gid"] == 2001
+
+
+def test_c6_completion_environment_unpreservable_owner_refuses() -> None:
+    evidence = _environment_evidence(f"{engine.OLD_WEB_LAYOUT.user}:root:640")
+    with pytest.raises(engine.ReleaseError, match="owner cannot be preserved") as exc:
+        _plan_with(environment_file_evidence=evidence)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def test_c6_completion_environment_observation_binds_raw_evidence_and_detects_drift() -> None:
+    runner = ReadOnlyPreflightRunner()
+    transport = {"target": "nuc", "user": "op", "identity": "identity"}
+    observation = engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert observation.environment_file_evidence == runner.environment_file_evidence
+    plan = engine.build_migration_plan(observation)
+    assert plan.environment_file_evidence == observation.environment_file_evidence
+    assert plan.payload()["environment_file_evidence"] == observation.environment_file_evidence
+    assert engine.migration_plan_digest(plan.payload()) == plan.plan_digest
+    assert plan.payload()["environment_sha256"] == hashlib.sha256(plan.environment.text.encode()).hexdigest()
+    assert runner.environment_file_evidence.endswith(hashlib.sha256(runner.environment_raw.encode()).hexdigest())
+    base = _plan()
+    old = f"root:{engine.OLD_WEB_LAYOUT.group}:640"
+    variants = ["operator:" + engine.OLD_WEB_LAYOUT.group + ":640", "root:root:640", old[:-3] + "600"]
+    digests = {base.plan_digest}
+    for metadata in variants:
+        changed = _plan_with(environment_file_evidence=_environment_evidence(metadata))
+        assert engine.migration_plan_digest(changed.payload()) == changed.plan_digest
+        digests.add(changed.plan_digest)
+    digests.add(_plan_with(environment_file_evidence=old + " " + "f" * 64).plan_digest)
+    assert len(digests) == 5
+    runner.environment_file_evidence = _environment_evidence("root:root:640", runner.environment_raw)
+    with pytest.raises(engine.ReleaseError, match="digest does not match") as exc:
+        engine._cmd_migrate_apply(_apply_args(plan.plan_digest), runner)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    runner.environment_raw += "\n"
+    with pytest.raises(engine.ReleaseError, match="content did not verify") as exc:
+        engine.read_migration_observation(runner, transport, release_sha=RELEASE)
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+@pytest.mark.parametrize("mismatch", [
+    "absent", "unsafe", "query-failed", "", "owner", "group", "mode", "digest",
+])
+def test_c6_completion_environment_installed_mismatch_refuses(mismatch: str) -> None:
+    boundary, host = _environment_host()
+    owner, group, mode = "root", engine.OLD_WEB_LAYOUT.group, "640"
+    digest = hashlib.sha256(host.plan.environment.text.encode()).hexdigest()
+    if mismatch == "owner":
+        owner = "operator"
+    elif mismatch == "group":
+        group = "root"
+    elif mismatch == "mode":
+        mode = "600"
+    elif mismatch == "digest":
+        digest = "0" * 64
+    evidence = (
+        f"{owner}:{group}:{mode} {digest}"
+        if mismatch in ("owner", "group", "mode", "digest") else mismatch
+    )
+    def runner(argv, input_bytes):
+        if argv[-1] == engine.cmd_remote_root_file_evidence(host.plan.new_layout.env_file):
+            boundary.calls.append(" ".join(argv))
+            return evidence
+        return boundary(argv, input_bytes)
+    host.runner = runner
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.transform_environment()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert any("stat -c" in c for c in boundary.calls)
+
+
+@pytest.mark.parametrize("answer, message", [
+    ("absent", "is absent"), ("query-failed", "could not be queried"),
+])
+def test_c6_completion_environment_disappears_after_evidence(answer: str, message: str) -> None:
+    runner = ReadOnlyPreflightRunner()
+    runner.environment_raw = answer
+    with pytest.raises(engine.ReleaseError, match=message) as exc:
+        engine.read_migration_observation(
+            runner, {"target": "nuc", "user": "op", "identity": "identity"}, release_sha=RELEASE,
+        )
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+@pytest.mark.parametrize("failure", ["write", "assertion", "move"])
+def test_c6_completion_environment_atomic_failures(failure: str) -> None:
+    boundary, host = _environment_host()
+    destination = host.plan.new_layout.env_file
+    boundary.add_file(destination, b"previous", mode=0o640)
+    before = copy.deepcopy(boundary.paths[destination])
+    boundary.fail_atomic_write = failure == "write"
+    boundary.fail_atomic_rename = failure == "move"
+    if failure == "assertion":
+        host.plan = engine.MigrationPlan(**{
+            **host.plan.__dict__, "environment": engine.EnvironmentTransformation(
+                assignments=(), text=engine.COMPATIBLE_ENVIRONMENT_PREFIX + "HOST=127.0.0.1\n",
+            ),
+        })
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.transform_environment()
+    assert boundary.paths[destination] == before
+    assert not any("chown" in c or "chmod" in c for c in boundary.calls)
+    if failure == "assertion":
+        assert str(exc.value) == "installed environment still carries retired assignments"
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+@pytest.mark.parametrize("kind, expected", [
+    ("file", "valid"), ("absent", "absent"), ("dir", "unsafe"),
+    ("symlink", "unsafe"), ("query-failed", "query-failed"),
+])
+def test_c6_completion_root_file_evidence_real_shell(tmp_path: Path, kind: str, expected: str) -> None:
+    path = tmp_path / "environment"
+    if kind == "file":
+        path.write_bytes(b"synthetic\n")
+        path.chmod(0o640)
+    elif kind == "dir":
+        path.mkdir()
+    elif kind == "symlink":
+        target = tmp_path / "target"
+        target.write_bytes(b"synthetic\n")
+        path.symlink_to(target)
+    sudo = "sudo() { return 1; }\n" if kind == "query-failed" else (
+        'sudo() { [ "$1" = -n ] || return 97; shift; "$@"; }\n'
+    )
+    result = subprocess.run(
+        ["/bin/sh", "-c", sudo + engine.cmd_remote_root_file_evidence(str(path))],
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, timeout=5,
+    )
+    assert result.returncode == 0 and result.stderr == ""
+    if expected == "valid":
+        owner, group, mode, digest = engine.parse_environment_file_evidence(result.stdout)
+        assert owner and group and mode == "640"
+        assert digest == hashlib.sha256(b"synthetic\n").hexdigest()
+    else:
+        assert result.stdout == expected
+        with pytest.raises(engine.ReleaseError) as exc:
+            engine.parse_environment_file_evidence(result.stdout)
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+
+
+def _mutate_host_method(monkeypatch, name: str, mutation: str) -> None:
+    """Compile one altered production method in memory, leaving the file intact."""
+    source = ENGINE_PATH.read_text()
+    tree = ast.parse(source)
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "RemoteMigrationHost")
+    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name)
+    changed = 0
+    if mutation == "old-only-guard":
+        for node in ast.walk(method):
+            if isinstance(node, ast.Compare) and ast.unparse(node) == "targets[index] not in old_forms":
+                node.ops = [ast.NotEq()]
+                node.comparators = [ast.parse("old_forms[0]", mode="eval").body]
+                changed += 1
+    elif mutation == "fixed-replacement":
+        for node in ast.walk(method):
+            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "new_target" for t in node.targets):
+                node.value = ast.parse('"unix+http://" + self.plan.new_layout.socket_path', mode="eval").body
+                changed += 1
+    else:
+        kept = []
+        for statement in method.body:
+            rendered = ast.unparse(statement)
+            remove = (
+                mutation == "no-ownership" and "sudo -n chown " in rendered
+                or mutation == "no-mode" and "sudo -n chmod " in rendered
+                or mutation == "no-verification" and (
+                    isinstance(statement, ast.Assign) and "self._root_file_evidence(" in rendered
+                    or isinstance(statement, ast.If) and "installed_digest != digest" in rendered
+                )
+            )
+            if remove:
+                changed += 1
+            else:
+                kept.append(statement)
+        method.body = kept
+    assert changed == (2 if mutation == "no-verification" else 1)
+    module = ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[]))
+    namespace = dict(vars(engine))
+    exec(compile(module, "<c6-completion-mutation>", "exec"), namespace)
+    monkeypatch.setattr(engine.RemoteMigrationHost, name, namespace[name])
+
+
+@pytest.mark.parametrize("mutation", ["old-only-guard", "fixed-replacement", "no-ownership", "no-mode", "no-verification"])
+def test_c6_completion_mutation_demonstrations(monkeypatch, mutation: str) -> None:
+    ingress = mutation in ("old-only-guard", "fixed-replacement")
+    if ingress:
+        test_c6_completion_ingress_round_trip("unix:")
+    else:
+        _assert_environment_parity()
+        test_c6_completion_environment_installed_mismatch_refuses("unsafe")
+    name = "replace_tailscale_handler" if ingress else "transform_environment"
+    _mutate_host_method(monkeypatch, name, mutation)
+    if mutation == "old-only-guard":
+        with pytest.raises(engine.ReleaseError, match="existing ingress handler target is unexpected") as exc:
+            test_c6_completion_ingress_round_trip("unix:")
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+        observed = "spurious refusal, EXIT_MIGRATION"
+    elif mutation == "fixed-replacement":
+        with pytest.raises(AssertionError):
+            test_c6_completion_ingress_round_trip("unix:")
+        observed = "exact mirrored target assertion failed"
+    elif mutation in ("no-ownership", "no-mode"):
+        with pytest.raises(engine.ReleaseError, match="installed environment file did not verify") as exc:
+            _assert_environment_parity()
+        assert exc.value.exit_code == engine.EXIT_MIGRATION
+        observed = "installed metadata mismatch, EXIT_MIGRATION"
+    else:
+        with pytest.raises(pytest.fail.Exception, match="DID NOT RAISE"):
+            test_c6_completion_environment_installed_mismatch_refuses("unsafe")
+        observed = "unsafe installed evidence accepted; DID NOT RAISE"
+    print(f"mutation={mutation}: {observed}; regression detected")
