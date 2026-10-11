@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import socket
 import subprocess
 import sys
@@ -1692,6 +1693,11 @@ class RemoteBoundary:
         self.calls: list[str] = []
         self.privilege_ok = True
         self.ps_query_ok = True
+        self.ps_exit_code = 0
+        self.ps_uid_output: str | None = None
+        self.id_exit_code = 0
+        self.id_output: str | None = None
+        self.awk_exit_code = 0
         self.process_counts: dict[str, int] = {}
         self.users: dict[str, dict[str, object]] = {
             "framenest": {"uid": 1001, "gid": 1001, "home": "/var/lib/framenest"}
@@ -2034,7 +2040,56 @@ class RemoteBoundary:
     def __call__(self, argv, input_bytes):
         combined = " ".join(argv)
         self.calls.append(combined)
+        if "ps -u " in combined or "ps -e -o uid=" in combined:
+            return self.account_process_query(argv[-1])
         return self._dispatch(combined, input_bytes)
+
+    def account_process_query(self, command: str) -> str:
+        """Run the real shell guards with synthetic account/process queries.
+
+        The selected-user query models procps: an empty selection exits 1.
+        Neither function can fall through to the workstation's id or ps.
+        """
+        id_cases: list[str] = []
+        ps_cases: list[str] = []
+        uid_lines = ["    0", " 11001", " 10010"]
+        for user, record in self.users.items():
+            uid = str(record["uid"])
+            output = uid if self.id_output is None else self.id_output
+            id_cases.append(
+                f"{shlex.quote(user)}) printf '%s' {shlex.quote(output)}; "
+                f"return {self.id_exit_code} ;;"
+            )
+            count = self.process_counts.get(user, 0)
+            pids = "".join(f"{200 + index}\n" for index in range(count))
+            ps_cases.append(
+                f"{shlex.quote(user)}) printf '%s' {shlex.quote(pids)}; "
+                f"return {0 if count else 1} ;;"
+            )
+            uid_lines.extend(f"   {uid} " for _ in range(count))
+        uid_output = self.ps_uid_output
+        if uid_output is None:
+            uid_output = "\n".join(uid_lines) + "\n"
+        script = (
+            'id() { [ "$#" = 2 ] && [ "$1" = -u ] || return 97; '
+            'case "$2" in ' + " ".join(id_cases) + ' *) return 1 ;; esac; }\n'
+            "ps() { "
+            + ("return 1; " if not self.ps_query_ok else "")
+            + 'if [ "$*" = "-e -o uid=" ]; then '
+            f"printf '%s' {shlex.quote(uid_output)}; return {self.ps_exit_code}; fi; "
+            '[ "$#" = 4 ] && [ "$1" = -u ] && [ "$3" = -o ] '
+            '&& [ "$4" = pid= ] || return 97; case "$2" in '
+            + " ".join(ps_cases) + ' *) return 1 ;; esac; }\n'
+            + (f"awk() {{ return {self.awk_exit_code}; }}\n" if self.awk_exit_code else "")
+            + command
+        )
+        result = subprocess.run(
+            ["/bin/sh", "-c", script], capture_output=True, text=True,
+            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, timeout=5,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stderr == ""
+        return result.stdout
 
     @staticmethod
     def _unquote(token: str) -> str:
@@ -2358,12 +2413,6 @@ class RemoteBoundary:
             return ""
         if "systemctl " in combined:
             return self._dispatch_systemctl(combined)
-        if "ps -u " in combined:
-            user = self._unquote(combined.split("ps -u ", 1)[1].split()[0])
-            if "printf %s query-failed" in combined:
-                if not self.ps_query_ok or user not in self.users:
-                    return "query-failed"
-            return str(self.process_counts.get(user, 0))
         raise AssertionError(f"unhandled remote command: {combined}")
 
     def _dispatch_systemctl(self, combined: str) -> str:
@@ -2726,14 +2775,135 @@ def test_production_writer_process_query_is_not_read_as_absence() -> None:
     with pytest.raises(engine.ReleaseError) as exc:
         host.assert_no_legacy_writers()
     assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert str(exc.value) == "former web account process state is unverifiable"
 
     boundary.ps_query_ok = True
     boundary.process_counts["framenest"] = 2
-    with pytest.raises(engine.ReleaseError):
+    with pytest.raises(engine.ReleaseError) as exc:
         host.assert_no_legacy_writers()
+    assert exc.value.exit_code == engine.EXIT_MIGRATION
+    assert str(exc.value) == "a process still runs as the former web account"
 
     boundary.process_counts["framenest"] = 0
     host.assert_no_legacy_writers()
+
+
+def _assert_process_query_outcome(boundary: RemoteBoundary, expected: str) -> None:
+    host = _boundary_host(boundary)
+    command = engine.cmd_remote_account_processes_absent(host.plan.old_layout.user)
+    assert boundary.account_process_query(command) == expected
+    if expected == "0":
+        host.assert_no_legacy_writers()
+    else:
+        with pytest.raises(engine.ReleaseError) as exc:
+            host.assert_no_legacy_writers()
+        assert exc.value.exit_code == 27
+        message = (
+            "former web account process state is unverifiable"
+            if expected == "query-failed"
+            else "a process still runs as the former web account"
+        )
+        assert str(exc.value) == message
+
+
+@pytest.mark.parametrize(
+    ("count", "state", "expected"),
+    [
+        pytest.param(0, {}, "0", id="valid-empty"),
+        pytest.param(1, {}, "1", id="valid-one"),
+        pytest.param(4, {}, "4", id="valid-several-spaced-uids"),
+        pytest.param(0, {"users": {}}, "query-failed", id="unknown-user"),
+        pytest.param(0, {"ps_query_ok": False}, "query-failed", id="broken-ps"),
+        pytest.param(0, {"ps_exit_code": 127, "ps_uid_output": ""},
+                     "query-failed", id="missing-ps"),
+        pytest.param(0, {"ps_exit_code": 1}, "query-failed", id="partial-failed-ps"),
+        pytest.param(0, {"id_output": ""}, "query-failed", id="missing-id-result"),
+        pytest.param(0, {"id_exit_code": 127, "id_output": ""},
+                     "query-failed", id="missing-id"),
+        pytest.param(0, {"id_exit_code": 1}, "query-failed", id="partial-failed-id"),
+        pytest.param(0, {"id_output": "1001 extra"}, "query-failed", id="malformed-uid"),
+        pytest.param(0, {"id_output": "1001\n1002"}, "query-failed", id="multiple-uids"),
+        pytest.param(0, {"ps_uid_output": ""}, "query-failed", id="absent-snapshot"),
+        pytest.param(0, {"ps_uid_output": "  \n"}, "query-failed", id="blank-snapshot"),
+        pytest.param(0, {"ps_uid_output": "UID\n1001\n"},
+                     "query-failed", id="malformed-snapshot"),
+        pytest.param(0, {"ps_uid_output": "1001 1002\n"},
+                     "query-failed", id="extra-snapshot-column"),
+        pytest.param(0, {"awk_exit_code": 127}, "query-failed", id="missing-counter"),
+        pytest.param(0, {"awk_exit_code": 2}, "query-failed", id="broken-counter"),
+    ],
+)
+def test_production_account_process_query_matrix(
+    count: int, state: dict[str, object], expected: str,
+) -> None:
+    boundary = RemoteBoundary()
+    boundary.process_counts[engine.OLD_WEB_LAYOUT.user] = count
+    for name, value in state.items():
+        setattr(boundary, name, value)
+    _assert_process_query_outcome(boundary, expected)
+
+
+def test_account_process_query_quotes_the_user() -> None:
+    boundary = RemoteBoundary()
+    user = "worker' $(printf unsafe)"
+    boundary.users = {user: {"uid": 1001}}
+    boundary.process_counts[user] = 2
+    assert boundary.account_process_query(
+        engine.cmd_remote_account_processes_absent(user)
+    ) == "2"
+
+
+@pytest.mark.parametrize("mutation", ["old-selection-guard", "unchecked-ps", "unguarded-uid"])
+def test_account_process_query_mutation_demonstrations(
+    monkeypatch: pytest.MonkeyPatch, mutation: str,
+) -> None:
+    boundary = RemoteBoundary()
+    builder = engine.cmd_remote_account_processes_absent
+    expected = "0" if mutation == "old-selection-guard" else "query-failed"
+    if mutation == "unchecked-ps":
+        # A failing ps can leave valid partial output from unrelated accounts.
+        boundary.ps_exit_code = 1
+    elif mutation == "unguarded-uid":
+        boundary.users = {}
+    _assert_process_query_outcome(boundary, expected)
+
+    def mutated(user: str) -> str:
+        command = builder(user)
+        failure = "{ printf %s query-failed; exit 0; }\n"
+        if mutation == "old-selection-guard":
+            quoted = shlex.quote(user)
+            return (
+                f"if ! ps -u {quoted} -o pid= >/dev/null 2>&1; then "
+                "printf %s query-failed; "
+                f"else count=$(ps -u {quoted} -o pid= 2>/dev/null | wc -l); "
+                'printf %s "$count"; fi'
+            )
+        if mutation == "unchecked-ps":
+            old = "uids=$(ps -e -o uid= 2>/dev/null) || " + failure
+            new = "uids=$(ps -e -o uid= 2>/dev/null)\n"
+        else:
+            old = (
+                f"uid=$(id -u {shlex.quote(user)} 2>/dev/null) || " + failure
+                + 'case "$uid" in ""|*[!0-9]*) printf %s query-failed; exit 0 ;; esac\n'
+            )
+            new = f"uid=$(id -u {shlex.quote(user)} 2>/dev/null)\n"
+        assert command.count(old) == 1
+        return command.replace(old, new, 1)
+
+    monkeypatch.setattr(engine, "cmd_remote_account_processes_absent", mutated)
+    actual = boundary.account_process_query(mutated(engine.OLD_WEB_LAYOUT.user))
+    assert actual == ("query-failed" if expected == "0" else "0")
+    with pytest.raises(AssertionError):
+        _assert_process_query_outcome(boundary, expected)
+    # Independently prove the incorrect caller decision, not only the raw token.
+    host = _boundary_host(boundary)
+    if mutation == "old-selection-guard":
+        with pytest.raises(engine.ReleaseError, match="process state is unverifiable") as exc:
+            host.assert_no_legacy_writers()
+        assert exc.value.exit_code == 27
+    else:
+        host.assert_no_legacy_writers()
+    print(f"mutation={mutation}: expected={expected}, observed={actual}; regression detected")
 
 
 def test_production_pre_write_recovery_reverses_a_partial_rename() -> None:
@@ -4032,6 +4202,11 @@ def test_production_quiesce_stops_admission_then_timers_then_jobs() -> None:
             for index, call in enumerate(boundary.calls)
             if "stop framenest-catalog-backup.service" in call
         ),
+        "processes": next(
+            index
+            for index, call in enumerate(boundary.calls)
+            if "ps -e -o uid=" in call
+        ),
         "capture": next(
             index
             for index, call in enumerate(boundary.calls)
@@ -4043,9 +4218,37 @@ def test_production_quiesce_stops_admission_then_timers_then_jobs() -> None:
         < order["admission"]
         < order["timer"]
         < order["job"]
+        < order["processes"]
         < order["capture"]
     )
     assert host._capture_before["runner_active"] is True
+
+
+@pytest.mark.parametrize("query_failed", [False, True])
+def test_production_quiesce_process_refusal_preserves_pre_write_recovery(
+    query_failed: bool,
+) -> None:
+    boundary = RemoteBoundary()
+    boundary.units = _writer_units()
+    before = copy.deepcopy(boundary.units)
+    boundary.ps_query_ok = not query_failed
+    boundary.process_counts[engine.OLD_WEB_LAYOUT.user] = 1
+    host = _boundary_host(boundary)
+    journal = engine.migration_journal_payload(_plan())
+    host.bind_journal(journal)
+
+    with pytest.raises(engine.ReleaseError) as exc:
+        host.quiesce()
+    assert exc.value.exit_code == 27
+    assert str(exc.value) == (
+        "former web account process state is unverifiable" if query_failed
+        else "a process still runs as the former web account"
+    )
+    assert journal["substeps"]["writers_stopped"]
+    assert not hasattr(host, "_capture_before")
+    assert all("identity-snapshot" not in call for call in boundary.calls)
+    host.recover_pre_write(journal)
+    assert all(boundary.units[unit] == state for unit, state in before.items())
 
 
 def test_production_create_checkpoint_returns_the_bundle_and_refuses_non_success() -> None:

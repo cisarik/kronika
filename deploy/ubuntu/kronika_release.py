@@ -2610,15 +2610,23 @@ def cmd_remote_assert_account_renamed(uid: int, gid: int) -> str:
 def cmd_remote_account_processes_absent(user: str) -> str:
     """Process count for one account, or ``query-failed``.
 
-    A failing ``ps`` (unknown account, broken query) must not be read as the
-    successful absence of processes.
+    Resolve the account separately: procps exits 1 for an empty user selection.
+    Count a single checked system-wide snapshot so a failed query, missing UID
+    or malformed output cannot be read as the successful absence of processes.
     """
     quoted = shlex.quote(user)
     return (
-        f"if ! ps -u {quoted} -o pid= >/dev/null 2>&1; then "
-        "printf %s query-failed; "
-        f"else count=$(ps -u {quoted} -o pid= 2>/dev/null | wc -l); "
-        'printf %s "$count"; fi'
+        f"uid=$(id -u {quoted} 2>/dev/null) || "
+        "{ printf %s query-failed; exit 0; }\n"
+        'case "$uid" in ""|*[!0-9]*) printf %s query-failed; exit 0 ;; esac\n'
+        "uids=$(ps -e -o uid= 2>/dev/null) || "
+        "{ printf %s query-failed; exit 0; }\n"
+        'count=$(printf "%s\\n" "$uids" | awk -v uid="$uid" '
+        "'NF != 1 || $1 !~ /^[0-9]+$/ { failed=1; exit 1 } "
+        "$1 == uid { count++ } "
+        'END { if (!failed) printf "%d", count }\' 2>/dev/null) || '
+        "{ printf %s query-failed; exit 0; }\n"
+        'printf %s "$count"'
     )
 
 
