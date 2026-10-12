@@ -513,7 +513,19 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # its behavioral matrix reuses the existing protocol fixtures. The served
     # asset assertion in `contract/test_local_web_application.py` retains one
     # retired reader literal. No content-path membership or file count moved.
-    "src": 1705,
+    #
+    # KSI-CORR-C7AS-API moved `src` by -1 (1705 -> 1704) and `tests` by -2
+    # (2282 -> 2280), and nothing else. `application/companion_picker.py`
+    # loses its one retired API-version literal. The four `FrameNest`
+    # identifiers in that file remain, so the file stays in the content set.
+    # `contract/test_x_companion_api.py` and
+    # `contract/test_tailscale_ingress_security.py` each lose the emitted
+    # retired version pin. The first keeps `framenest.sock` and the second
+    # keeps its other retired spellings, so neither file leaves the content
+    # set. No file count, content-path membership, capitalized spelling,
+    # environment token, mutation header, host path or unit-account count
+    # moved.
+    "src": 1704,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -728,7 +740,12 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `deploy` +2: the unknown-directive branch in `kronika_release.py` tests
     # the directive key and value for the retired spelling, one literal each.
     # No other engine line moved.
-    "tests": 2282,
+    #
+    # KSI-CORR-C7AS-API moved `tests` by -2 (2282 -> 2280). The cause is the
+    # paragraph on the `src` scalar above: the two emitted companion API
+    # version pins, one in `contract/test_x_companion_api.py` and one in
+    # `contract/test_tailscale_ingress_security.py`.
+    "tests": 2280,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a

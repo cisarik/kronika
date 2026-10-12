@@ -27,7 +27,7 @@ from kronika.domain.media import (
 from kronika.domain.media_classification import ContentCategory
 from kronika.domain.record_access import AccessScopeKind, RecordAccessScope
 
-COMPANION_API_VERSION = "framenest-companion.v1"
+COMPANION_API_VERSION = "kronika-companion.v1"
 COMPANION_PICKER_QUERY_INVALID_MESSAGE = MEDIA_CATALOG_QUERY_INVALID_MESSAGE
 DEFAULT_COMPANION_PICKER_LIMIT = 24
 MAX_COMPANION_PICKER_LIMIT = 50

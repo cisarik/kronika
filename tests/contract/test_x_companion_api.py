@@ -242,7 +242,7 @@ def test_owner_sees_published_jpeg_and_own_private_x_meme(
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["companion_api_version"] == "framenest-companion.v1"
+    assert payload["companion_api_version"] == "kronika-companion.v1"
     ids = [item["media_id"] for item in payload["items"]]
     assert ids == [PUBLISHED_JPEG, OWNER_PRIVATE]
     assert payload["items"][0]["location"]["media_type"] == "image/jpeg"

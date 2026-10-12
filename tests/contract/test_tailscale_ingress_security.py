@@ -1632,7 +1632,7 @@ def test_companion_picker_route_is_readable_without_mutation_origin(
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["companion_api_version"] == "framenest-companion.v1"
+    assert payload["companion_api_version"] == "kronika-companion.v1"
     assert payload["items"] == []
     assert response.headers.get("cache-control") == "no-store"
     assert "access-control-allow-origin" not in response.headers
