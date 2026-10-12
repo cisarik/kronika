@@ -2901,7 +2901,7 @@ def test_kronika_shell_adds_timeline_without_replacing_gallery(client: TestClien
     assert 'referrerpolicy="no-referrer"' in html
     assert "http://" not in html
     assert "https://" not in html
-    assert "FrameNestCompanionWeb.onOpenDetails" in script
+    assert "KronikaCompanionWeb.onOpenDetails" in script
     assert "openDetailsDialog({ media_id: mediaId }, detailsCloseButton)" in script
     assert "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'" in script
     assert "kronikaStartNavigation" in script

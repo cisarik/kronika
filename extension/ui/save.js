@@ -1,5 +1,5 @@
 (function () {
-  const companion = globalThis.FrameNestCompanion;
+  const companion = globalThis.KronikaCompanion;
   const SUGGESTION_LIMIT = 8;
   const TAG_LIMIT = 32;
   const COMPANION_X_TAG_KEY = "x";
@@ -147,7 +147,7 @@
     window.parent.postMessage(
       {
         v: companion.PROTOCOL,
-        source: "framenest-save-popup",
+        source: "kronika-save-popup",
         action: "size",
         height: height,
         result: null,
@@ -181,7 +181,7 @@
     window.parent.postMessage(
       {
         v: companion.PROTOCOL,
-        source: "framenest-save-popup",
+        source: "kronika-save-popup",
         action: action,
         result: result || null,
       },
@@ -517,7 +517,7 @@
 
   window.addEventListener("message", (event) => {
     const data = event.data;
-    if (!data || data.v !== companion.PROTOCOL || data.source !== "framenest-save-host") {
+    if (!data || data.v !== companion.PROTOCOL || data.source !== "kronika-save-host") {
       return;
     }
     if (data.action === "prefill") {

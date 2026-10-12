@@ -313,7 +313,7 @@ test("shell markup keeps the gallery and sandboxed answer frame", () => {
   assert.match(INDEX_SOURCE, /id="catalog-browser"/);
   assert.match(INDEX_SOURCE, /id="kronika-document-frame"[^>]*sandbox=""/);
   assert.match(INDEX_SOURCE, /referrerpolicy="no-referrer"/);
-  assert.match(APP_SOURCE, /FrameNestCompanionWeb\.onOpenDetails/);
+  assert.match(APP_SOURCE, /KronikaCompanionWeb\.onOpenDetails/);
   assert.match(APP_SOURCE, /openDetailsDialog\(\{\s*media_id:\s*mediaId\s*\}/);
   assert.doesNotMatch(APP_SOURCE, /console\.log/);
   assert.doesNotMatch(APP_SOURCE, /indexedDB/);

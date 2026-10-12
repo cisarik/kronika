@@ -86,7 +86,7 @@ function webMessage(iframeWindow, origin, value, type) {
 
 function loadSidebarBridgeContext() {
   const context = {
-    FrameNestCompanion: companion,
+    KronikaCompanion: companion,
     document: {
       getElementById() {
         return null;
@@ -107,14 +107,19 @@ function loadSidebarBridgeContext() {
 }
 
 function loadSidebarBridge() {
-  return loadSidebarBridgeContext().FrameNestSidebarBridge;
+  return loadSidebarBridgeContext().KronikaSidebarBridge;
 }
 
-test("host emits canonical and shell emits retired with compatible readers and no wildcard target", () => {
+test("host and extension emit canonical and both still accept the retired spelling", () => {
   const bridge = loadSidebarBridge();
   assert.equal(webHost.PROTOCOL, CURRENT_WEB_PROTOCOL);
-  assert.equal(bridge.WEB_PROTOCOL, RETIRED_WEB_PROTOCOL);
+  assert.equal(bridge.WEB_PROTOCOL, CURRENT_WEB_PROTOCOL);
+  assert.equal(bridge.RETIRED_WEB_PROTOCOL, RETIRED_WEB_PROTOCOL);
   assert.deepEqual(webHost.ACCEPTED_WEB_PROTOCOLS, [CURRENT_WEB_PROTOCOL, RETIRED_WEB_PROTOCOL]);
+  assert.deepEqual(Array.from(bridge.ACCEPTED_WEB_PROTOCOLS), [
+    CURRENT_WEB_PROTOCOL,
+    RETIRED_WEB_PROTOCOL,
+  ]);
   assert.equal(Object.isFrozen(webHost.ACCEPTED_WEB_PROTOCOLS), true);
   assert.notEqual(webHost.PROTOCOL, companion.PROTOCOL);
   assert.equal(webHost.PINNED_EXTENSION_ORIGIN, PIN);
@@ -313,12 +318,13 @@ test("shell accepts only the framed stored origin and UUID attach ids", () => {
   assert.doesNotMatch(sidebarSource, /payload\.url/);
 });
 
-test("the extension retains acceptance of the retired companion web protocol", () => {
+test("the extension emits canonical and retains acceptance of the retired companion web protocol", () => {
   const bridge = loadSidebarBridge();
-  assert.equal(bridge.WEB_PROTOCOL, RETIRED_WEB_PROTOCOL);
+  assert.equal(bridge.WEB_PROTOCOL, CURRENT_WEB_PROTOCOL);
+  assert.equal(bridge.RETIRED_WEB_PROTOCOL, RETIRED_WEB_PROTOCOL);
   assert.deepEqual(Array.from(bridge.ACCEPTED_WEB_PROTOCOLS), [
-    RETIRED_WEB_PROTOCOL,
     CURRENT_WEB_PROTOCOL,
+    RETIRED_WEB_PROTOCOL,
   ]);
   const iframeWindow = {};
   const accepted = bridge.acceptIncomingWebMessage(
@@ -392,11 +398,11 @@ test("every host send site emits canonical messages accepted by the extension", 
   }
 });
 
-test("extension open_details still emits the retired spelling and reaches the host", () => {
-  const inbox = loadSidebarBridgeContext().FrameNestReviewInbox;
+test("extension open_details emits the canonical spelling and reaches the host", () => {
+  const inbox = loadSidebarBridgeContext().KronikaReviewInbox;
   const message = inbox.openDetailsMessage(MEDIA_ID);
   assert.ok(message);
-  assert.equal(message.v, RETIRED_WEB_PROTOCOL);
+  assert.equal(message.v, CURRENT_WEB_PROTOCOL);
   assert.equal(message.type, "open_details");
   assert.equal(inbox.openDetailsMessage("not-a-uuid"), null);
   const { host, send } = createHostHarness();

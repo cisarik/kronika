@@ -1,6 +1,6 @@
 (function () {
-  const companion = globalThis.FrameNestCompanion;
-  const contract = globalThis.FrameNestXAdapterContractV1;
+  const companion = globalThis.KronikaCompanion;
+  const contract = globalThis.KronikaXAdapterContractV1;
   if (!companion || !contract) {
     return;
   }
@@ -29,7 +29,7 @@
   const POLL_MAX_DELAY_MS = 15000;
   const ATTACH_NAME = "Attach from Kronika";
   const COMPANION_STYLE = [
-    "[data-framenest-companion='save'] {",
+    "[data-kronika-companion='save'] {",
     "  position: absolute;",
     "  bottom: 8px;",
     "  right: 8px;",
@@ -55,50 +55,50 @@
     "  opacity: 0;",
     "  pointer-events: none;",
     "}",
-    "[data-framenest-media-host] [aria-label='Edit image'],",
-    "[data-framenest-media-host] [title='Edit image'],",
+    "[data-kronika-media-host] [aria-label='Edit image'],",
+    "[data-kronika-media-host] [title='Edit image'],",
     "article[data-testid='tweet'] [aria-label='Edit image'],",
     "article[data-testid='tweet'] [title='Edit image'],",
-    "[data-framenest-post] [aria-label='Edit image'],",
-    "[data-framenest-post] [title='Edit image'] {",
+    "[data-kronika-post] [aria-label='Edit image'],",
+    "[data-kronika-post] [title='Edit image'] {",
     "  display: none !important;",
     "}",
-    "[data-framenest-media-host]:hover > [data-framenest-companion='save'],",
-    "[data-framenest-media-host]:focus-within > [data-framenest-companion='save'],",
-    "[data-framenest-companion='save']:focus,",
-    "[data-framenest-companion='save']:focus-visible {",
+    "[data-kronika-media-host]:hover > [data-kronika-companion='save'],",
+    "[data-kronika-media-host]:focus-within > [data-kronika-companion='save'],",
+    "[data-kronika-companion='save']:focus,",
+    "[data-kronika-companion='save']:focus-visible {",
     "  opacity: 1;",
     "  pointer-events: auto;",
     "}",
-    "[data-framenest-companion='save']:hover,",
-    "[data-framenest-companion='attach']:hover {",
+    "[data-kronika-companion='save']:hover,",
+    "[data-kronika-companion='attach']:hover {",
     "  color: #39ff14;",
     "}",
-    "[data-framenest-companion='save']:focus-visible,",
-    "[data-framenest-companion='attach']:focus-visible {",
+    "[data-kronika-companion='save']:focus-visible,",
+    "[data-kronika-companion='attach']:focus-visible {",
     "  outline: 2px solid #00ff41;",
     "  outline-offset: 2px;",
     "}",
-    "[data-framenest-companion='save'][data-framenest-save-kind='failed'] {",
+    "[data-kronika-companion='save'][data-kronika-save-kind='failed'] {",
     "  color: #ff4d4d;",
     "  border-color: #ff4d4d;",
     "}",
-    "[data-framenest-companion='save'][data-framenest-save-kind='partial'],",
-    "[data-framenest-companion='save'][data-framenest-save-kind='unknown'] {",
+    "[data-kronika-companion='save'][data-kronika-save-kind='partial'],",
+    "[data-kronika-companion='save'][data-kronika-save-kind='unknown'] {",
     "  color: #e6b800;",
     "  border-color: #e6b800;",
     "}",
-    ".framenest-save-live {",
+    ".kronika-save-live {",
     "  position: absolute;",
     "  width: 1px;",
     "  height: 1px;",
     "  overflow: hidden;",
     "  clip: rect(0 0 0 0);",
     "}",
-    "[data-framenest-companion='save'][data-framenest-save-kind='busy'] svg {",
+    "[data-kronika-companion='save'][data-kronika-save-kind='busy'] svg {",
     "  opacity: 0.7;",
     "}",
-    "[data-framenest-companion='attach'] {",
+    "[data-kronika-companion='attach'] {",
     "  position: fixed;",
     "  margin: 0;",
     "  z-index: 2147483645;",
@@ -123,16 +123,16 @@
     "  opacity: 0;",
     "  pointer-events: none;",
     "}",
-    "[data-framenest-companion='attach']::-webkit-inner-spin-button,",
-    "[data-framenest-companion='attach']::-webkit-outer-spin-button {",
+    "[data-kronika-companion='attach']::-webkit-inner-spin-button,",
+    "[data-kronika-companion='attach']::-webkit-outer-spin-button {",
     "  appearance: none;",
     "  -webkit-appearance: none;",
     "  margin: 0;",
     "  display: none;",
     "}",
-    "[data-framenest-companion='attach'][data-framenest-attach-visible],",
-    "[data-framenest-companion='attach']:focus,",
-    "[data-framenest-companion='attach']:focus-visible {",
+    "[data-kronika-companion='attach'][data-kronika-attach-visible],",
+    "[data-kronika-companion='attach']:focus,",
+    "[data-kronika-companion='attach']:focus-visible {",
     "  opacity: 1;",
     "  pointer-events: auto;",
     "}",
@@ -245,8 +245,8 @@
     closeAttachPopup();
     boundComposer = null;
     [
-      "[data-framenest-companion-save-host]",
-      "[data-framenest-companion-popup-host]",
+      "[data-kronika-companion-save-host]",
+      "[data-kronika-companion-popup-host]",
     ].forEach((selector) => {
       document.querySelectorAll(selector).forEach((node) => {
         if (node.parentNode) {
@@ -254,9 +254,9 @@
         }
       });
     });
-    document.querySelectorAll("[data-framenest-companion]").forEach((node) => {
+    document.querySelectorAll("[data-kronika-companion]").forEach((node) => {
       node.setAttribute("disabled", "true");
-      if (node.getAttribute("data-framenest-companion") === "save") {
+      if (node.getAttribute("data-kronika-companion") === "save") {
         setSaveName(node, RELOAD_RECOVERY);
         node.removeAttribute("aria-busy");
         return;
@@ -264,9 +264,9 @@
       node.setAttribute("aria-label", RELOAD_RECOVERY);
       node.setAttribute("title", RELOAD_RECOVERY);
     });
-    if (!document.querySelector("[data-framenest-reload-notice]")) {
+    if (!document.querySelector("[data-kronika-reload-notice]")) {
       const notice = document.createElement("div");
-      notice.setAttribute("data-framenest-reload-notice", "");
+      notice.setAttribute("data-kronika-reload-notice", "");
       notice.setAttribute("role", "alert");
       notice.textContent = RELOAD_RECOVERY;
       notice.style.position = "fixed";
@@ -436,8 +436,8 @@
       button.removeChild(button.firstChild);
     }
     button.appendChild(saveIconSvg(kind));
-    button.dataset.framenestSaveKind = kind;
-    button.setAttribute("data-framenest-save-kind", kind);
+    button.dataset.kronikaSaveKind = kind;
+    button.setAttribute("data-kronika-save-kind", kind);
     let tone = GALLERY_ACCENT;
     if (kind === "failed") {
       tone = GALLERY_DANGER;
@@ -449,11 +449,11 @@
   }
 
   function ensureCompanionStyle() {
-    if (document.querySelector("style[data-framenest-companion-style]")) {
+    if (document.querySelector("style[data-kronika-companion-style]")) {
       return;
     }
     const style = document.createElement("style");
-    style.setAttribute("data-framenest-companion-style", "");
+    style.setAttribute("data-kronika-companion-style", "");
     style.textContent = COMPANION_STYLE;
     const parent = document.head || document.documentElement;
     parent.appendChild(style);
@@ -488,7 +488,7 @@
     if (!node || !node.tagName) {
       return false;
     }
-    if (node.getAttribute && node.getAttribute("data-framenest-companion")) {
+    if (node.getAttribute && node.getAttribute("data-kronika-companion")) {
       return false;
     }
     const tag = String(node.tagName).toLowerCase();
@@ -695,7 +695,7 @@
     return Boolean(
       node &&
         typeof node.getAttribute === "function" &&
-        node.getAttribute("data-framenest-companion")
+        node.getAttribute("data-kronika-companion")
     );
   }
 
@@ -795,7 +795,7 @@
     }
     return Array.prototype.slice.call(
       document.querySelectorAll(
-        "[data-framenest-companion='save'][data-framenest-post-id='" + accepted + "']"
+        "[data-kronika-companion='save'][data-kronika-post-id='" + accepted + "']"
       )
     );
   }
@@ -804,14 +804,14 @@
     if (typeof message !== "string" || !message || typeof document.getElementById !== "function") {
       return;
     }
-    let live = document.getElementById("framenest-save-live");
+    let live = document.getElementById("kronika-save-live");
     if (!live) {
       live = document.createElement("div");
-      live.id = "framenest-save-live";
-      live.setAttribute("id", "framenest-save-live");
+      live.id = "kronika-save-live";
+      live.setAttribute("id", "kronika-save-live");
       live.setAttribute("aria-live", "polite");
       live.setAttribute("aria-atomic", "true");
-      live.className = "framenest-save-live";
+      live.className = "kronika-save-live";
       const parent = document.body || document.documentElement;
       parent.appendChild(live);
     }
@@ -842,8 +842,8 @@
   function createSaveControl(accepted) {
     const button = document.createElement("button");
     button.type = "button";
-    button.setAttribute("data-framenest-companion", "save");
-    button.setAttribute("data-framenest-post-id", accepted.postId);
+    button.setAttribute("data-kronika-companion", "save");
+    button.setAttribute("data-kronika-post-id", accepted.postId);
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     setSaveStatus(button, "idle", SAVE_NAME, false);
@@ -943,7 +943,7 @@
     }
     const prefill = postTextPrefillFrom(owningPostRoot(button), button.parentElement);
     const host = document.createElement("div");
-    host.setAttribute("data-framenest-companion-save-host", "");
+    host.setAttribute("data-kronika-companion-save-host", "");
     host.setAttribute("role", "dialog");
     host.setAttribute("aria-label", SAVE_NAME);
     const shadow = host.attachShadow({ mode: "closed" });
@@ -1008,11 +1008,11 @@
       if (!data || data.v !== companion.PROTOCOL) {
         return;
       }
-      if (data.source === "framenest-save-popup" && data.action === "ready") {
+      if (data.source === "kronika-save-popup" && data.action === "ready") {
         onSaveIframeReady();
         return;
       }
-      if (data.source !== "framenest-save-popup") {
+      if (data.source !== "kronika-save-popup") {
         return;
       }
       if (data.action === "size") {
@@ -1074,7 +1074,7 @@
     iframe.contentWindow.postMessage(
       {
         v: companion.PROTOCOL,
-        source: "framenest-save-host",
+        source: "kronika-save-host",
         action: "prefill",
         title: prefill && typeof prefill.title === "string" ? prefill.title : "",
         description: prefill && typeof prefill.description === "string" ? prefill.description : "",
@@ -1091,7 +1091,7 @@
     iframe.contentWindow.postMessage(
       {
         v: companion.PROTOCOL,
-        source: "framenest-save-host",
+        source: "kronika-save-host",
         action: "submit",
       },
       origin
@@ -1100,7 +1100,7 @@
 
   function applySaveResult(button, result) {
     const postId =
-      companion.acceptXPostId(button && button.getAttribute && button.getAttribute("data-framenest-post-id")) ||
+      companion.acceptXPostId(button && button.getAttribute && button.getAttribute("data-kronika-post-id")) ||
       companion.acceptXPostId(result && result.postId);
     const outcome = companion.reduceXSaveOutcome(result);
     const claimId = result && result.claimId;
@@ -1128,13 +1128,13 @@
       return "no_media";
     }
     hosts.forEach((host) => {
-      host.setAttribute("data-framenest-media-host", "");
+      host.setAttribute("data-kronika-media-host", "");
       ensureContainingBlock(host);
       hideOverlappingEditImage(host, postRoot);
       if (injected.has(host)) {
         return;
       }
-      if (host.querySelector(":scope > [data-framenest-companion='save']")) {
+      if (host.querySelector(":scope > [data-kronika-companion='save']")) {
         injected.add(host);
         return;
       }
@@ -1455,7 +1455,7 @@
     if (mapped && document.contains(mapped)) {
       return mapped;
     }
-    const nodes = document.querySelectorAll("[data-framenest-companion='attach']");
+    const nodes = document.querySelectorAll("[data-kronika-companion='attach']");
     for (let i = 0; i < nodes.length; i += 1) {
       const button = nodes[i];
       const bound = attachEditable.get(button);
@@ -1483,7 +1483,7 @@
     if (!composerChrome) {
       return null;
     }
-    const nodes = document.querySelectorAll("[data-framenest-companion='attach']");
+    const nodes = document.querySelectorAll("[data-kronika-companion='attach']");
     for (let i = 0; i < nodes.length; i += 1) {
       const button = nodes[i];
       const bound = attachEditable.get(button);
@@ -1538,10 +1538,10 @@
   }
 
   function repositionVisibleAttaches() {
-    const nodes = document.querySelectorAll("[data-framenest-companion='attach']");
+    const nodes = document.querySelectorAll("[data-kronika-companion='attach']");
     for (let i = 0; i < nodes.length; i += 1) {
       const button = nodes[i];
-      if (button.hasAttribute("data-framenest-attach-visible")) {
+      if (button.hasAttribute("data-kronika-attach-visible")) {
         positionAttachControl(button);
       }
     }
@@ -1561,7 +1561,7 @@
       return;
     }
     positionAttachControl(button);
-    button.setAttribute("data-framenest-attach-visible", "");
+    button.setAttribute("data-kronika-attach-visible", "");
   }
 
   function syncAttachVisibility(editable, button) {
@@ -1576,7 +1576,7 @@
       showAttachControl(button);
       return;
     }
-    button.removeAttribute("data-framenest-attach-visible");
+    button.removeAttribute("data-kronika-attach-visible");
   }
 
   function bindComposerAttachVisibility(editable, button) {
@@ -1603,7 +1603,7 @@
     if (!target) {
       return;
     }
-    if (target.getAttribute && target.getAttribute("data-framenest-companion") === "attach") {
+    if (target.getAttribute && target.getAttribute("data-kronika-companion") === "attach") {
       return;
     }
     let editable = null;
@@ -1633,7 +1633,7 @@
   }
 
   function pruneOrphanAttaches() {
-    const nodes = document.querySelectorAll("[data-framenest-companion='attach']");
+    const nodes = document.querySelectorAll("[data-kronika-companion='attach']");
     for (let i = 0; i < nodes.length; i += 1) {
       const button = nodes[i];
       if (attachPopupIsOpen() && attachPopup.button === button) {
@@ -1741,7 +1741,7 @@
       return;
     }
     const host = document.createElement("div");
-    host.setAttribute("data-framenest-companion-popup-host", "");
+    host.setAttribute("data-kronika-companion-popup-host", "");
     host.setAttribute("role", "dialog");
     host.setAttribute("aria-label", ATTACH_NAME);
     const shadow = host.attachShadow({ mode: "closed" });
@@ -1777,7 +1777,7 @@
     shadow.appendChild(frame);
     document.documentElement.appendChild(host);
     button.setAttribute("aria-expanded", "true");
-    button.setAttribute("data-framenest-attach-visible", "");
+    button.setAttribute("data-kronika-attach-visible", "");
     const reposition = () => {
       positionAttachPopup();
     };
@@ -1885,7 +1885,7 @@
   function createAttachControl(composerRoot, fileInput, composerChrome) {
     const button = document.createElement("button");
     button.type = "button";
-    button.setAttribute("data-framenest-companion", "attach");
+    button.setAttribute("data-kronika-companion", "attach");
     button.setAttribute("aria-label", ATTACH_NAME);
     button.setAttribute("title", ATTACH_NAME);
     button.setAttribute("aria-haspopup", "dialog");
@@ -1914,7 +1914,7 @@
     if (injected.has(composerRoot)) {
       const mounted = mountedAttachNode(composerRoot);
       if (mounted && document.contains(mounted)) {
-        if (mounted.hasAttribute("data-framenest-attach-visible")) {
+        if (mounted.hasAttribute("data-kronika-attach-visible")) {
           positionAttachControl(mounted);
         }
         const liveEditable = findComposerEditable(composerRoot, composerChrome);
@@ -1946,7 +1946,7 @@
       attachByComposer.set(editable, existing);
       injected.add(composerRoot);
       bindComposerPlusPlus(editable, existing, composerRoot, fileInput, composerChrome);
-      if (existing.hasAttribute("data-framenest-attach-visible")) {
+      if (existing.hasAttribute("data-kronika-attach-visible")) {
         positionAttachControl(existing);
       }
       return;
@@ -1965,32 +1965,32 @@
     injected.add(composerRoot);
   }
 
-  if (globalThis.FrameNestXAdapterTestHooks) {
-    globalThis.FrameNestXAdapterTestHooks.findComposerChrome = findComposerChrome;
-    globalThis.FrameNestXAdapterTestHooks.findComposerTextRow = findComposerTextRow;
-    globalThis.FrameNestXAdapterTestHooks.injectAttach = injectAttach;
-    globalThis.FrameNestXAdapterTestHooks.injectSave = injectSave;
-    globalThis.FrameNestXAdapterTestHooks.saveIconSvg = saveIconSvg;
-    globalThis.FrameNestXAdapterTestHooks.onComposerFocusIn = onComposerFocusIn;
-    globalThis.FrameNestXAdapterTestHooks.bindComposerIfLive = bindComposerIfLive;
-    globalThis.FrameNestXAdapterTestHooks.resolveLiveComposerFileInput = resolveLiveComposerFileInput;
-    globalThis.FrameNestXAdapterTestHooks.completeAttachTransfer = completeAttachTransfer;
-    globalThis.FrameNestXAdapterTestHooks.plusPlusTokenAtCaret = plusPlusTokenAtCaret;
-    globalThis.FrameNestXAdapterTestHooks.consumePlusPlusFromValue = consumePlusPlusFromValue;
-    globalThis.FrameNestXAdapterTestHooks.applySaveResult = applySaveResult;
-    globalThis.FrameNestXAdapterTestHooks.createSaveControl = createSaveControl;
-    globalThis.FrameNestXAdapterTestHooks.closeSavePopup = closeSavePopup;
-    globalThis.FrameNestXAdapterTestHooks.paintPostSaveOutcome = paintPostSaveOutcome;
-    globalThis.FrameNestXAdapterTestHooks.pollClaim = pollClaim;
-    globalThis.FrameNestXAdapterTestHooks.recover = recover;
-    globalThis.FrameNestXAdapterTestHooks.markStale = markStale;
-    globalThis.FrameNestXAdapterTestHooks.request = request;
-    globalThis.FrameNestXAdapterTestHooks.runtimeUrl = runtimeUrl;
-    globalThis.FrameNestXAdapterTestHooks.addRuntimeListener = addRuntimeListener;
-    globalThis.FrameNestXAdapterTestHooks.openSavePopup = openSavePopup;
-    globalThis.FrameNestXAdapterTestHooks.openAttachPopup = openAttachPopup;
-    globalThis.FrameNestXAdapterTestHooks.hideOverlappingEditImage = hideOverlappingEditImage;
-    globalThis.FrameNestXAdapterTestHooks.postTextPrefillFrom = postTextPrefillFrom;
+  if (globalThis.KronikaXAdapterTestHooks) {
+    globalThis.KronikaXAdapterTestHooks.findComposerChrome = findComposerChrome;
+    globalThis.KronikaXAdapterTestHooks.findComposerTextRow = findComposerTextRow;
+    globalThis.KronikaXAdapterTestHooks.injectAttach = injectAttach;
+    globalThis.KronikaXAdapterTestHooks.injectSave = injectSave;
+    globalThis.KronikaXAdapterTestHooks.saveIconSvg = saveIconSvg;
+    globalThis.KronikaXAdapterTestHooks.onComposerFocusIn = onComposerFocusIn;
+    globalThis.KronikaXAdapterTestHooks.bindComposerIfLive = bindComposerIfLive;
+    globalThis.KronikaXAdapterTestHooks.resolveLiveComposerFileInput = resolveLiveComposerFileInput;
+    globalThis.KronikaXAdapterTestHooks.completeAttachTransfer = completeAttachTransfer;
+    globalThis.KronikaXAdapterTestHooks.plusPlusTokenAtCaret = plusPlusTokenAtCaret;
+    globalThis.KronikaXAdapterTestHooks.consumePlusPlusFromValue = consumePlusPlusFromValue;
+    globalThis.KronikaXAdapterTestHooks.applySaveResult = applySaveResult;
+    globalThis.KronikaXAdapterTestHooks.createSaveControl = createSaveControl;
+    globalThis.KronikaXAdapterTestHooks.closeSavePopup = closeSavePopup;
+    globalThis.KronikaXAdapterTestHooks.paintPostSaveOutcome = paintPostSaveOutcome;
+    globalThis.KronikaXAdapterTestHooks.pollClaim = pollClaim;
+    globalThis.KronikaXAdapterTestHooks.recover = recover;
+    globalThis.KronikaXAdapterTestHooks.markStale = markStale;
+    globalThis.KronikaXAdapterTestHooks.request = request;
+    globalThis.KronikaXAdapterTestHooks.runtimeUrl = runtimeUrl;
+    globalThis.KronikaXAdapterTestHooks.addRuntimeListener = addRuntimeListener;
+    globalThis.KronikaXAdapterTestHooks.openSavePopup = openSavePopup;
+    globalThis.KronikaXAdapterTestHooks.openAttachPopup = openAttachPopup;
+    globalThis.KronikaXAdapterTestHooks.hideOverlappingEditImage = hideOverlappingEditImage;
+    globalThis.KronikaXAdapterTestHooks.postTextPrefillFrom = postTextPrefillFrom;
     return;
   }
 
@@ -2088,7 +2088,7 @@
   });
 
   const connectListenerAdded = addRuntimeListener("onConnect", (port) => {
-    if (!port || port.name !== "framenest-attach") {
+    if (!port || port.name !== "kronika-attach") {
       return;
     }
     const chunks = [];

@@ -313,11 +313,21 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # canonical Fish wrapper names no retired spelling and correctly stays
     # out. No existing file left either set: the five retained operator
     # scripts and the network README are untouched.
-    "tests": 186,
+    #
+    # KSI-IMPL-C7AC moved `extension` by -6 (8 -> 2) and `tests` by -1
+    # (186 -> 185), and nothing else. Six extension files lost their last
+    # case-insensitive `framenest` occurrence because the operational tokens
+    # moved to `kronika` and the retired readers now live only in
+    # `shared/messages.js` and `ui/sidebar.js`: `background/service_worker.js`,
+    # `content/x_adapter.js`, `content/x_adapter_contract_v1.js`, `ui/picker.js`,
+    # `ui/review.js` and `ui/save.js`. `tests/support/x_fixtures/composer.html`
+    # lost its nine fixture attributes and left the `tests` set. No other
+    # tree's file membership moved.
+    "tests": 185,
     "deploy": 22,
     "scripts": 11,
     "docs": 88,
-    "extension": 8,
+    "extension": 2,
 }
 
 # Occurrence counts, not file counts. A content-only rename inside an already
@@ -525,7 +535,14 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # set. No file count, content-path membership, capitalized spelling,
     # environment token, mutation header, host path or unit-account count
     # moved.
-    "src": 1704,
+    #
+    # KSI-IMPL-C7AC moved `src` by -9 (1704 -> 1695) and nothing else in this
+    # scalar's neighbours except the `tests` and `extension` paragraphs below.
+    # `adapters/api/web/app.js` -8 and `adapters/api/web/companion_host.js` -1
+    # are the `FrameNestCompanionWeb` global becoming `KronikaCompanionWeb`.
+    # The host keeps its retired web-protocol literal, and `app.js` keeps the
+    # retired mutation-header literal, so neither file leaves the content set.
+    "src": 1695,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -745,7 +762,17 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # paragraph on the `src` scalar above: the two emitted companion API
     # version pins, one in `contract/test_x_companion_api.py` and one in
     # `contract/test_tailscale_ingress_security.py`.
-    "tests": 2280,
+    #
+    # KSI-IMPL-C7AC moved `tests` by -90 (2280 -> 2190). Per file:
+    # `x_companion_extension.test.js` -81, `support/x_fixtures/composer.html`
+    # -9 (and that file leaves the content set), `companion_web_bridge.test.js`
+    # -3, `catalog_card_ai_quick_action.test.js` -2,
+    # `companion_settings_automatic_analysis.test.js` -2,
+    # `browser_companion_evidence.test.js` -1,
+    # `contract/test_local_web_application.py` -1, `kronika_ui.test.js` -1,
+    # and `companion_review_extension.test.js` +10 for the migration and
+    # canonical-emission assertions that still name the retired readers.
+    "tests": 2190,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -785,7 +812,14 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # canonical scripts and variables, with two retained-spelling notes added
     # back. No document left or entered this tree.
     "docs": 1206,
-    "extension": 145,
+    # KSI-IMPL-C7AC moved `extension` by -141 (145 -> 4). Per file:
+    # `content/x_adapter.js` -101, `content/x_adapter_contract_v1.js` -10,
+    # `ui/sidebar.js` -9, `background/service_worker.js` -7,
+    # `shared/messages.js` -6, `ui/save.js` -4, `ui/picker.js` -2 and
+    # `ui/review.js` -2. The four that remain are the three retired readers in
+    # `shared/messages.js` (API version, review alarm, origin key) and the
+    # retired web-protocol literal in `ui/sidebar.js`.
+    "extension": 4,
 }
 
 # The exact tracked text paths, this ledger excluded, whose decoded content
@@ -1026,13 +1060,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "docs/adr/0085-kronika-sole-identity.md",
         "docs/adr/README.md",
         "docs/provenance/kronika-capture.json",
-        "extension/background/service_worker.js",
-        "extension/content/x_adapter.js",
-        "extension/content/x_adapter_contract_v1.js",
         "extension/shared/messages.js",
-        "extension/ui/picker.js",
-        "extension/ui/review.js",
-        "extension/ui/save.js",
         "extension/ui/sidebar.js",
         "kronika",
         "pyproject.toml",
@@ -1340,7 +1368,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/research_settings_admin_frontend.test.js",
         "tests/support/metadata_field_contract_cases.json",
         "tests/support/x_fake_demo.py",
-        "tests/support/x_fixtures/composer.html",
         "tests/support/youtube_fake_demo.py",
         "tests/tailscale_identity_frontend.test.js",
         "tests/unit/application/test_companion_review.py",
@@ -1530,8 +1557,15 @@ MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C3B deliberately moved neither count. The mutation header is a later
 # cut's surface, and this pair is the evidence that no header literal and no
 # assertion naming one was touched while the package moved.
-MUTATION_HEADER_OCCURRENCE_COUNT = 73
-MUTATION_HEADER_FILE_COUNT = 30
+#
+# KSI-IMPL-C7AC moved the occurrences by -4 (73 -> 69) and the files by -1
+# (30 -> 29). `extension/background/service_worker.js` -1: the extension no
+# longer emits the retired header, so that file leaves this set.
+# `tests/companion_review_extension.test.js` -3: three request assertions now
+# name only the canonical header. The Class 1 absence check and the
+# server-gate model still name the retired header, so the test file stays.
+MUTATION_HEADER_OCCURRENCE_COUNT = 69
+MUTATION_HEADER_FILE_COUNT = 29
 
 # KSI-IMPL-C4A moved `/opt/framenest` by +6 and moved every other literal
 # nothing. The move itself is neutral: `framenest_release.py` loses 12 and
@@ -1731,8 +1765,27 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # spelling is the object under test. Nothing else added a capitalized
 # spelling: the canonical scripts and the updated documents name the retained
 # token in lowercase only.
-CAPITALIZED_OCCURRENCE_COUNT = 2773
-CAPITALIZED_FILE_COUNT = 399
+#
+# KSI-IMPL-C7AC moved the occurrences by -92 (2773 -> 2681) and the files by
+# -10 (399 -> 389). Ten files lost their last `FrameNest` spelling:
+# `extension/background/service_worker.js` -5,
+# `extension/content/x_adapter.js` -28,
+# `extension/content/x_adapter_contract_v1.js` -1,
+# `extension/shared/messages.js` -6, `extension/ui/picker.js` -2,
+# `extension/ui/review.js` -2, `extension/ui/save.js` -1,
+# `extension/ui/sidebar.js` -8,
+# `src/kronika/adapters/api/web/companion_host.js` -1 and
+# `tests/companion_web_bridge.test.js` -3. Files that stayed and still moved:
+# `src/kronika/adapters/api/web/app.js` -8 (eight companion-web globals; the
+# one remaining spelling is inside the retired `X-FrameNest-Request` literal),
+# `tests/companion_review_extension.test.js` -11,
+# `tests/x_companion_extension.test.js` -10,
+# `tests/catalog_card_ai_quick_action.test.js` -2,
+# `tests/companion_settings_automatic_analysis.test.js` -2,
+# `tests/contract/test_local_web_application.py` -1 and
+# `tests/kronika_ui.test.js` -1.
+CAPITALIZED_OCCURRENCE_COUNT = 2681
+CAPITALIZED_FILE_COUNT = 389
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

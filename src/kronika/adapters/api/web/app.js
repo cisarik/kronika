@@ -5386,7 +5386,7 @@ function reconcileCatalogSelectedCard() {
 }
 
 function companionWebHosted() {
-  const host = globalThis.FrameNestCompanionWeb;
+  const host = globalThis.KronikaCompanionWeb;
   return Boolean(host && typeof host.isHosted === "function" && host.isHosted());
 }
 
@@ -5470,7 +5470,7 @@ function renderCatalogCard(item) {
       attachButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const host = globalThis.FrameNestCompanionWeb;
+        const host = globalThis.KronikaCompanionWeb;
         if (!host || typeof host.attach !== "function") {
           return;
         }
@@ -11275,18 +11275,18 @@ identityReady.then(() => {
   }
 });
 if (
-  globalThis.FrameNestCompanionWeb
-  && typeof globalThis.FrameNestCompanionWeb.onHostedChange === "function"
+  globalThis.KronikaCompanionWeb
+  && typeof globalThis.KronikaCompanionWeb.onHostedChange === "function"
 ) {
-  globalThis.FrameNestCompanionWeb.onHostedChange(() => {
+  globalThis.KronikaCompanionWeb.onHostedChange(() => {
     void loadCatalog();
   });
 }
 if (
-  globalThis.FrameNestCompanionWeb
-  && typeof globalThis.FrameNestCompanionWeb.onOpenDetails === "function"
+  globalThis.KronikaCompanionWeb
+  && typeof globalThis.KronikaCompanionWeb.onOpenDetails === "function"
 ) {
-  globalThis.FrameNestCompanionWeb.onOpenDetails((mediaId) => {
+  globalThis.KronikaCompanionWeb.onOpenDetails((mediaId) => {
     openDetailsDialog({ media_id: mediaId }, detailsCloseButton);
   });
 }

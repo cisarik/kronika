@@ -137,7 +137,7 @@ function loadWorker(options) {
   };
   const context = {
     chrome,
-    FrameNestCompanion: companion,
+    KronikaCompanion: companion,
     fetch: fetchImpl,
     importScripts() {},
     setTimeout,
@@ -301,7 +301,7 @@ function loadSidebar(options) {
     addEventListener() {},
   };
   const context = {
-    FrameNestCompanion: companion,
+    KronikaCompanion: companion,
     document,
     chrome,
     window: {
@@ -382,7 +382,8 @@ test("service worker PUT enable requires confirm and sends the mutation header",
   const putCall = worker.state.fetchCalls[worker.state.fetchCalls.length - 1];
   assert.equal(putCall.url, ORIGIN + "/api/admin/settings/automatic-analysis");
   assert.equal(putCall.init.method, "PUT");
-  assert.equal(putCall.init.headers["X-FrameNest-Request"], "1");
+  assert.equal(putCall.init.headers["X-Kronika-Request"], "1");
+  assert.equal(putCall.init.headers["X-FrameNest-Request"], undefined);
   assert.deepEqual(JSON.parse(putCall.init.body), {
     automatic_media_analysis_enabled: true,
     confirm_cloud_upload: true,

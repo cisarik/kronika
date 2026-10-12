@@ -1,16 +1,15 @@
-/* global importScripts, chrome, FrameNestCompanion */
+/* global importScripts, chrome, KronikaCompanion */
 importScripts(chrome.runtime.getURL("shared/messages.js"));
 
-const companion = self.FrameNestCompanion;
+const companion = self.KronikaCompanion;
 let boundTabId = null;
-// The mutation gate is the one server contract this extension depends on. Both
-// spellings are sent on every request so that the extension keeps working
-// against a server that predates the dual-read cut as well as one that has it:
-// a server compares only the spelling it knows and ignores the extra header.
+// The extension emits only the canonical mutation header. The server still
+// accepts the retired spelling until the removal cut, and no other header changes.
 const MUTATION_REQUEST_HEADERS = Object.freeze({
-  "X-FrameNest-Request": "1",
   "X-Kronika-Request": "1",
 });
+const ATTACH_PORT = "kronika-attach";
+let originQueue = Promise.resolve();
 const STORAGE_KEYS = Object.freeze({
   origin: companion.STORAGE.origin.name,
   retiredOrigin: companion.STORAGE.origin.retiredName,
@@ -91,7 +90,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (!port || port.name !== "framenest-attach") {
+  if (!port || port.name !== ATTACH_PORT) {
     return;
   }
   port.onMessage.addListener((message) => {
@@ -161,8 +160,17 @@ async function handle(message) {
   }
 }
 
+function enqueueOriginWork(task) {
+  const run = originQueue.then(task, task);
+  originQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
 async function configureOrigin(payload) {
-  const origin = companion.canonicalizeFrameNestOrigin(payload.origin);
+  const origin = companion.canonicalizeKronikaOrigin(payload.origin);
   if (!origin) {
     return { ok: false, error: "invalid_origin" };
   }
@@ -170,31 +178,34 @@ async function configureOrigin(payload) {
   if (!granted) {
     return { ok: false, error: "permission_denied" };
   }
-  await chrome.storage.local.set({ [STORAGE_KEYS.origin]: origin });
+  await enqueueOriginWork(async () => {
+    await chrome.storage.local.set({ [STORAGE_KEYS.origin]: origin });
+    await companion.completeStoredEntryMigration(chrome.storage.local, companion.STORAGE.origin);
+  });
   await ensureReviewInboxAlarm();
   await refreshReviewInboxBadge();
   return { ok: true, origin };
 }
 
 async function resetState() {
-  const stored = await chrome.storage.local.get(
-    companion.storageKeyRequest(companion.STORAGE.origin)
-  );
-  const origin = companion.storageValue(stored, companion.STORAGE.origin);
-  if (origin) {
-    try {
-      await chrome.permissions.remove({ origins: [origin + "/*"] });
-    } catch {
-      /* optional */
+  return enqueueOriginWork(async () => {
+    const stored = await chrome.storage.local.get(
+      companion.storageKeyRequest(companion.STORAGE.origin)
+    );
+    const origin = companion.storageValue(stored, companion.STORAGE.origin);
+    if (origin) {
+      try {
+        await chrome.permissions.remove({ origins: [origin + "/*"] });
+      } catch {
+        /* optional */
+      }
     }
-  }
-  // An explicit reset is the one place a retired spelling is removed, and it has
-  // to remove both. STORAGE_KEYS carries the retired origin name, so removing its
-  // values covers both spellings; leaving the retired origin behind would let the
-  // fallback read re-configure a companion the operator just disconnected.
-  await chrome.storage.local.remove(Object.values(STORAGE_KEYS));
-  await clearReviewInboxAlarmAndBadge();
-  return { ok: true };
+    // Reset removes every key this worker owns, including the retired origin,
+    // and does not write that retired value back.
+    await chrome.storage.local.remove(Object.values(STORAGE_KEYS));
+    await clearReviewInboxAlarmAndBadge();
+    return { ok: true };
+  });
 }
 
 async function savePost(payload) {
@@ -421,14 +432,17 @@ async function dropInflight(claimId) {
 }
 
 async function configuredOrigin() {
-  const stored = await chrome.storage.local.get(
-    companion.storageKeyRequest(companion.STORAGE.origin)
-  );
-  const origin = companion.storageValue(stored, companion.STORAGE.origin);
-  if (!companion.acceptFrameNestOrigin(origin)) {
-    return null;
-  }
-  return origin;
+  return enqueueOriginWork(async () => {
+    const migrated = await companion.completeStoredEntryMigration(
+      chrome.storage.local,
+      companion.STORAGE.origin
+    );
+    const origin = migrated && migrated.value;
+    if (!companion.acceptKronikaOrigin(origin)) {
+      return null;
+    }
+    return origin;
+  });
 }
 
 function isSuccessfulClaim(snapshot) {
@@ -453,6 +467,13 @@ async function ensureReviewInboxAlarm() {
     );
   } catch {
     return false;
+  }
+  if (typeof chrome.alarms.clear === "function") {
+    try {
+      await Promise.resolve(chrome.alarms.clear(RETIRED_REVIEW_INBOX_ALARM));
+    } catch {
+      /* clearing an absent retired alarm is idempotent */
+    }
   }
   return true;
 }
@@ -916,7 +937,7 @@ async function startAttach(payload) {
   if (boundTabId == null) {
     return { ok: false, error: "composer_unbound" };
   }
-  const port = chrome.tabs.connect(boundTabId, { name: "framenest-attach" });
+  const port = chrome.tabs.connect(boundTabId, { name: ATTACH_PORT });
   const outcome = waitForPortAttachOutcome(port);
   let transferResult;
   try {

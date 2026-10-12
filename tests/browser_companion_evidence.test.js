@@ -212,7 +212,7 @@ test("synthetic browser evidence: extension Origin and composer DataTransfer", {
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     const attach = await evaluate(chrome.cdp, fixtureSession, `(() => {
-      const input = document.querySelector("[data-framenest-composer-file]");
+      const input = document.querySelector("[data-kronika-composer-file]");
       const post = document.querySelector("#must-not-click");
       let submitted = false;
       post.addEventListener("click", () => { submitted = true; });

@@ -689,7 +689,7 @@ function renderCatalogCardForCapabilities(capabilities, overrides = {}, options 
     `/api/media/${mediaId}/locations/${locationId}/content`;
   context.automaticAnalysisStatusMessage = () => "";
   if (options.hosted) {
-    context.FrameNestCompanionWeb = {
+    context.KronikaCompanionWeb = {
       isHosted() {
         return true;
       },
@@ -1077,7 +1077,7 @@ test("ordinary missing-capability role-only and missing identity fail closed for
   context.identityState.available = true;
   context.identityState.capabilities = new Set(["analysis.run", "metadata.canonical.write"]);
   assert.equal(context.cardAiQuickActionEligible(item), true);
-  context.FrameNestCompanionWeb = {
+  context.KronikaCompanionWeb = {
     isHosted() {
       return true;
     },

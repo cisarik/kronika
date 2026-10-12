@@ -1,7 +1,7 @@
 (function (root) {
   const contract = Object.freeze({
     adapterVersion: 1,
-    postRoots: Object.freeze(["article[data-testid='tweet']", "[data-framenest-post]"]),
+    postRoots: Object.freeze(["article[data-testid='tweet']", "[data-kronika-post]"]),
     permalinkSelectors: Object.freeze([
       "a[href*='/status/'][role='link']",
       "a[href*='/status/'] time",
@@ -10,16 +10,16 @@
     composerRoots: Object.freeze([
       "[data-testid='tweetTextarea_0']",
       "[aria-label='Post your reply']",
-      "[data-framenest-composer]",
+      "[data-kronika-composer]",
     ]),
     composerFileInputs: Object.freeze([
-      "input[data-framenest-composer-file]",
+      "input[data-kronika-composer-file]",
       "input[type='file'][accept*='image']",
       "input[type='file']",
     ]),
     composerToolbarSelectors: Object.freeze([
       "[data-testid='toolBar']",
-      "[data-framenest-composer-toolbar]",
+      "[data-kronika-composer-toolbar]",
       "[role='toolbar']",
     ]),
     composerMediaButtonSelectors: Object.freeze([
@@ -27,11 +27,11 @@
       "[aria-label='Add photos or video']",
       "[aria-label='Media']",
     ]),
-    composerChromeSelectors: Object.freeze(["[data-framenest-composer-chrome]"]),
-    composerTextRowSelectors: Object.freeze(["[data-framenest-composer-text-row]"]),
+    composerChromeSelectors: Object.freeze(["[data-kronika-composer-chrome]"]),
+    composerTextRowSelectors: Object.freeze(["[data-kronika-composer-text-row]"]),
     contentDisclosureSelectors: Object.freeze([
       "[aria-label='Content disclosure']",
-      "[data-framenest-content-disclosure]",
+      "[data-kronika-content-disclosure]",
     ]),
     bookmarkSelectors: Object.freeze([
       "[data-testid='bookmark']",
@@ -54,16 +54,16 @@
       "[data-testid='tweetPhoto']",
       "[data-testid='videoPlayer']",
       "[data-testid='videoComponent']",
-      "[data-framenest-media]",
+      "[data-kronika-media]",
     ]),
     tweetTextSelectors: Object.freeze([
       "[data-testid='tweetText']",
-      "[data-framenest-tweet-text]",
+      "[data-kronika-tweet-text]",
     ]),
     requiredSignals: Object.freeze(["permalink", "composerFileInput"]),
   });
   if (typeof module !== "undefined" && module.exports) {
     module.exports = contract;
   }
-  root.FrameNestXAdapterContractV1 = contract;
+  root.KronikaXAdapterContractV1 = contract;
 })(typeof globalThis !== "undefined" ? globalThis : this);

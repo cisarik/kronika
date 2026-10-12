@@ -3,12 +3,12 @@
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   }
-  root.FrameNestCompanion = api;
+  root.KronikaCompanion = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const PROTOCOL = "kronika.companion.v1";
-  // The server keeps emitting the retired spelling until a later cut moves
-  // COMPANION_API_VERSION, so both spellings are accepted and only a value that
-  // is neither one still counts as version skew.
+  // The server emits `kronika-companion.v1`. This reader still accepts the
+  // retired spelling as well, and only a value that is neither one still counts
+  // as version skew. The retired reader is removed in the removal cut.
   const API_VERSION = "kronika-companion.v1";
   const RETIRED_API_VERSION = "framenest-companion.v1";
   const ACCEPTED_API_VERSIONS = Object.freeze([API_VERSION, RETIRED_API_VERSION]);
@@ -75,9 +75,11 @@
 
   // Persisted browser identifiers keep the retired spelling readable until the
   // removal cut. A reader takes the current name when it is present and the
-  // retired name only when the current one is absent; a writer writes the
-  // current name and never touches the retired one. Nothing here ever deletes a
-  // retired entry, so an upgrade cannot lose state that predates it.
+  // retired name only when the current one is absent. When a retired value is
+  // present, completeStoredEntryMigration writes the canonical value if needed,
+  // reads it back, and only then removes the retired entry. The canonical value
+  // wins when both are present, and a missing or mismatched readback leaves the
+  // retired entry in place. The only retired counterpart today is the origin key.
   const STORAGE = Object.freeze({
     origin: Object.freeze({
       name: "kronikaOrigin",
@@ -116,6 +118,64 @@
       return changes[entry.retiredName];
     }
     return null;
+  }
+
+  function storedEntryPresent(stored, key) {
+    return Boolean(
+      stored &&
+        typeof stored === "object" &&
+        Object.prototype.hasOwnProperty.call(stored, key) &&
+        stored[key] !== undefined
+    );
+  }
+
+  // Copies a retired browser value to its canonical key, verifies that readback,
+  // and only then removes the retired key. A failed readback does not remove.
+  async function completeStoredEntryMigration(storage, entry) {
+    if (!storage || typeof storage.get !== "function" || !entry || typeof entry.name !== "string") {
+      return { value: undefined, removed: false, verified: false, copied: false };
+    }
+    const retiredName = typeof entry.retiredName === "string" ? entry.retiredName : "";
+    const keys = retiredName ? [entry.name, retiredName] : [entry.name];
+    const stored = await storage.get(keys);
+    const canonicalPresent = storedEntryPresent(stored, entry.name);
+    const retiredPresent = Boolean(retiredName) && storedEntryPresent(stored, retiredName);
+    if (!retiredPresent) {
+      return {
+        value: canonicalPresent ? stored[entry.name] : undefined,
+        removed: false,
+        verified: true,
+        copied: false,
+      };
+    }
+    let expected = canonicalPresent ? stored[entry.name] : stored[retiredName];
+    let copied = false;
+    if (!canonicalPresent) {
+      const again = await storage.get(keys);
+      if (storedEntryPresent(again, entry.name)) {
+        expected = again[entry.name];
+      } else if (!storedEntryPresent(again, retiredName)) {
+        return { value: undefined, removed: false, verified: true, copied: false };
+      } else {
+        expected = again[retiredName];
+        await storage.set({ [entry.name]: expected });
+        copied = true;
+      }
+    }
+    const readback = await storage.get(keys);
+    if (!storedEntryPresent(readback, entry.name) || readback[entry.name] !== expected) {
+      let fallback = expected;
+      if (storedEntryPresent(readback, entry.name)) {
+        fallback = readback[entry.name];
+      } else if (retiredName && storedEntryPresent(readback, retiredName)) {
+        fallback = readback[retiredName];
+      }
+      return { value: fallback, removed: false, verified: false, copied: copied };
+    }
+    if (retiredName && typeof storage.remove === "function") {
+      await storage.remove(retiredName);
+    }
+    return { value: readback[entry.name], removed: true, verified: true, copied: copied };
   }
 
   function acceptCompanionApiVersion(value) {
@@ -190,7 +250,7 @@
     };
   }
 
-  function canonicalizeFrameNestOrigin(value) {
+  function canonicalizeKronikaOrigin(value) {
     if (typeof value !== "string") {
       return null;
     }
@@ -232,8 +292,8 @@
     return origin;
   }
 
-  function acceptFrameNestOrigin(value) {
-    return canonicalizeFrameNestOrigin(value) !== null;
+  function acceptKronikaOrigin(value) {
+    return canonicalizeKronikaOrigin(value) !== null;
   }
 
   function canonicalizeCompanionAliasTitle(value) {
@@ -713,6 +773,7 @@
     storageKeyRequest,
     storageValue,
     storageChangeFor,
+    completeStoredEntryMigration,
     isProtocolMessage,
     dropUnknown,
     isUuid,
@@ -723,8 +784,8 @@
     savePopupDefaultContentCategory,
     defaultContentCategoryForMediaKind,
     reduceXSaveOutcome,
-    acceptFrameNestOrigin,
-    canonicalizeFrameNestOrigin,
+    acceptKronikaOrigin,
+    canonicalizeKronikaOrigin,
     canonicalizeCompanionAliasTitle,
     pathFor,
     reviewInboxQuerySuffix,

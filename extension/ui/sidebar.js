@@ -1,17 +1,12 @@
 (function () {
-  const companion = globalThis.FrameNestCompanion;
-  // The companion web protocol below is a validated cross-boundary contract,
-  // not an internal identifier: the companion host served by the NUC gates on
-  // it as well, so renaming it on one side only would leave that host never
-  // seeing `host_hello`, keep it unhosted and make attach() answer
-  // "not_hosted", which breaks meme attach silently against every NUC that has
-  // not been refreshed. The receive side therefore accepts both spellings,
-  // while every send site below keeps emitting the retired
-  // `framenest.companion.web.v1` on purpose, because the host gates on exactly
-  // that spelling. The rename lands in the removal cut, on both sides at once.
-  const WEB_PROTOCOL = "framenest.companion.web.v1";
-  const CURRENT_WEB_PROTOCOL = "kronika.companion.web.v1";
-  const ACCEPTED_WEB_PROTOCOLS = Object.freeze([WEB_PROTOCOL, CURRENT_WEB_PROTOCOL]);
+  const companion = globalThis.KronikaCompanion;
+  // The extension emits the canonical companion web protocol. The receive side
+  // still accepts the retired spelling so an un-refreshed server keeps working.
+  // Handshake, attach, hosted details and recovery are otherwise unchanged.
+  // Retired readers are removed in the removal cut.
+  const WEB_PROTOCOL = "kronika.companion.web.v1";
+  const RETIRED_WEB_PROTOCOL = "framenest.companion.web.v1";
+  const ACCEPTED_WEB_PROTOCOLS = Object.freeze([WEB_PROTOCOL, RETIRED_WEB_PROTOCOL]);
   const WEB_TYPES = Object.freeze({
     WEB_READY: "web_ready",
     HOST_HELLO: "host_hello",
@@ -36,7 +31,7 @@
     if (typeof storedOrigin !== "string" || event.origin !== storedOrigin) {
       return null;
     }
-    if (!companion.acceptFrameNestOrigin(event.origin)) {
+    if (!companion.acceptKronikaOrigin(event.origin)) {
       return null;
     }
     const data = event.data;
@@ -74,9 +69,10 @@
     return frameLoaded ? companionHostMissingCopy() : framingFailureCopy();
   }
 
-  globalThis.FrameNestSidebarBridge = {
+  globalThis.KronikaSidebarBridge = {
     WEB_PROTOCOL,
-    CURRENT_WEB_PROTOCOL,
+    CURRENT_WEB_PROTOCOL: WEB_PROTOCOL,
+    RETIRED_WEB_PROTOCOL,
     ACCEPTED_WEB_PROTOCOLS,
     acceptCompanionWebProtocol,
     WEB_TYPES,
@@ -370,7 +366,7 @@
     return "";
   }
 
-  globalThis.FrameNestReviewInbox = {
+  globalThis.KronikaReviewInbox = {
     POLL_MS: REVIEW.pollMs,
     COMPACT_ANALYZED_LIMIT: COMPACT_ANALYZED_LIMIT,
     renderList: renderReviewInboxList,
@@ -595,7 +591,7 @@
     if (!message) {
       return false;
     }
-    if (!handshakeSeen || !storedOrigin || !companion.acceptFrameNestOrigin(storedOrigin)) {
+    if (!handshakeSeen || !storedOrigin || !companion.acceptKronikaOrigin(storedOrigin)) {
       const loaded = frameLoaded;
       setText(shellStatus, handshakeTimeoutCopy(loaded), loaded ? "notice" : "error");
       return false;
@@ -797,7 +793,7 @@
   }
 
   function hostFrame(origin) {
-    if (!companion.acceptFrameNestOrigin(origin)) {
+    if (!companion.acceptKronikaOrigin(origin)) {
       clearFrame();
       return;
     }
@@ -814,7 +810,7 @@
   }
 
   function postToFrame(message, origin) {
-    if (!frame.contentWindow || !companion.acceptFrameNestOrigin(origin)) {
+    if (!frame.contentWindow || !companion.acceptKronikaOrigin(origin)) {
       return;
     }
     frame.contentWindow.postMessage(message, origin);
@@ -1083,7 +1079,12 @@
     companion.storageKeyRequest(companion.STORAGE.origin),
     (stored) => {
       const origin = companion.storageValue(stored, companion.STORAGE.origin) || "";
-      if (companion.acceptFrameNestOrigin(origin)) {
+      if (typeof companion.completeStoredEntryMigration === "function") {
+        void companion
+          .completeStoredEntryMigration(chrome.storage.local, companion.STORAGE.origin)
+          .catch(() => {});
+      }
+      if (companion.acceptKronikaOrigin(origin)) {
         storedOrigin = origin;
         originInput.value = origin;
         syncChromeAction();

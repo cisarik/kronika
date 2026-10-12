@@ -1,5 +1,5 @@
 (function () {
-  const companion = globalThis.FrameNestCompanion;
+  const companion = globalThis.KronikaCompanion;
   const pickerStatus = document.getElementById("picker-status");
   const search = document.getElementById("search");
   const refreshButton = document.getElementById("refresh");
@@ -194,7 +194,7 @@
   }
 
   function applyOrigin(origin) {
-    connected = companion.acceptFrameNestOrigin(origin);
+    connected = companion.acceptKronikaOrigin(origin);
     if (!connected) {
       clearResults();
       setText(pickerStatus, disconnectedStatus());
@@ -324,6 +324,11 @@
   attachSelected.addEventListener("click", () => attachCurrent());
   chrome.storage.local.get(companion.storageKeyRequest(companion.STORAGE.origin), (stored) => {
     const origin = companion.storageValue(stored, companion.STORAGE.origin) || "";
+    if (typeof companion.completeStoredEntryMigration === "function") {
+      void companion
+        .completeStoredEntryMigration(chrome.storage.local, companion.STORAGE.origin)
+        .catch(() => {});
+    }
     if (applyOrigin(origin)) {
       void refresh();
     }

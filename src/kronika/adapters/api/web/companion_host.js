@@ -3,13 +3,11 @@
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   }
-  root.FrameNestCompanionWeb = api;
+  root.KronikaCompanionWeb = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   // This cross-boundary protocol connects the served NUC host and extension.
-  // The host emits the canonical spelling and accepts both spellings. The
-  // extension accepts both but still emits the retired spelling until its own
-  // companion cut, after this server is published and served. Compatibility
-  // readers are removed in the later removal cut.
+  // Both sides emit the canonical spelling and accept the retired spelling.
+  // Compatibility readers are removed in the later removal cut.
   const PROTOCOL = "kronika.companion.web.v1";
   const ACCEPTED_WEB_PROTOCOLS = Object.freeze([PROTOCOL, "framenest.companion.web.v1"]);
   const PINNED_EXTENSION_ORIGIN = "chrome-extension://omiihmnlkmieaafaphohakcgmbggppap";

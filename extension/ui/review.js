@@ -1,5 +1,5 @@
 (function () {
-  const companion = globalThis.FrameNestCompanion;
+  const companion = globalThis.KronikaCompanion;
   const FIELD_TITLE = "display_title";
   const FIELD_TAGS = "tags";
   const FIELD_DESCRIPTION = "description";
@@ -738,7 +738,7 @@
     return session;
   }
 
-  globalThis.FrameNestReviewOverlay = {
+  globalThis.KronikaReviewOverlay = {
     remainingMappedKeys: remainingMappedKeys,
     tagsCanBeChecked: tagsCanBeChecked,
     saveEnabled: saveEnabled,

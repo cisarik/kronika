@@ -101,8 +101,8 @@ test("FrameNest origin canonicalizer accepts ordinary tailnet paste variants", (
     "  https://nuc.example.ts.net/  ",
   ];
   accepted.forEach((value) => {
-    assert.equal(companion.canonicalizeFrameNestOrigin(value), canonical, value);
-    assert.equal(companion.acceptFrameNestOrigin(value), true, value);
+    assert.equal(companion.canonicalizeKronikaOrigin(value), canonical, value);
+    assert.equal(companion.acceptKronikaOrigin(value), true, value);
   });
   const rejected = [
     "https://example.ts.net",
@@ -114,8 +114,8 @@ test("FrameNest origin canonicalizer accepts ordinary tailnet paste variants", (
     "",
   ];
   rejected.forEach((value) => {
-    assert.equal(companion.canonicalizeFrameNestOrigin(value), null, JSON.stringify(value));
-    assert.equal(companion.acceptFrameNestOrigin(value), false, JSON.stringify(value));
+    assert.equal(companion.canonicalizeKronikaOrigin(value), null, JSON.stringify(value));
+    assert.equal(companion.acceptKronikaOrigin(value), false, JSON.stringify(value));
   });
   const sidebarJs = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.js"), "utf8");
   assert.match(
@@ -124,7 +124,7 @@ test("FrameNest origin canonicalizer accepts ordinary tailnet paste variants", (
       `Use the ${BRAND} HTTPS tailnet origin \\(https://<node>\\.<tailnet>\\.ts\\.net\\), with no path\\.`
     )
   );
-  assert.match(workerSource, /canonicalizeFrameNestOrigin/);
+  assert.match(workerSource, /canonicalizeKronikaOrigin/);
   assert.doesNotMatch(workerSource, /origins: \[origin \+ "\/\/\*"\]/);
 });
 
@@ -220,15 +220,15 @@ test("adapter contract exposes frozen action-bar, Share, and media-host selector
     "[data-testid='tweetPhoto']",
     "[data-testid='videoPlayer']",
     "[data-testid='videoComponent']",
-    "[data-framenest-media]",
+    "[data-kronika-media]",
   ]);
   assert.deepEqual(contract.tweetTextSelectors, [
     "[data-testid='tweetText']",
-    "[data-framenest-tweet-text]",
+    "[data-kronika-tweet-text]",
   ]);
-  assert.deepEqual(contract.composerChromeSelectors, ["[data-framenest-composer-chrome]"]);
+  assert.deepEqual(contract.composerChromeSelectors, ["[data-kronika-composer-chrome]"]);
   assert.ok(Object.isFrozen(contract.composerTextRowSelectors));
-  assert.deepEqual(contract.composerTextRowSelectors, ["[data-framenest-composer-text-row]"]);
+  assert.deepEqual(contract.composerTextRowSelectors, ["[data-kronika-composer-text-row]"]);
   assert.ok(contract.composerRoots.includes("[aria-label='Post your reply']"));
   assert.deepEqual(contract.composerMediaButtonSelectors, [
     "[data-testid='fileInput']",
@@ -248,8 +248,8 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.match(fixture, /data-testid="like"/);
   assert.match(fixture, /aria-label="Share post"/);
   assert.match(fixture, /data-testid="tweetPhoto"/);
-  assert.match(fixture, /data-framenest-media/);
-  assert.doesNotMatch(fixture, /data-framenest-companion/);
+  assert.match(fixture, /data-kronika-media/);
+  assert.doesNotMatch(fixture, /data-kronika-companion/);
 
   assert.doesNotMatch(adapterSource, /writing-mode/);
   assert.doesNotMatch(adapterSource, /addButton\(\s*postRoot/);
@@ -267,19 +267,19 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.doesNotMatch(adapterSource, /style\.background = "transparent"/);
   assert.doesNotMatch(
     adapterSource,
-    /\[data-framenest-companion='save'\][\s\S]{0,500}background:\s*transparent/
+    /\[data-kronika-companion='save'\][\s\S]{0,500}background:\s*transparent/
   );
-  assert.match(adapterSource, /setAttribute\("data-framenest-companion", "save"\)/);
+  assert.match(adapterSource, /setAttribute\("data-kronika-companion", "save"\)/);
   assert.match(adapterSource, /setAttribute\("aria-label", name\)/);
   assert.match(adapterSource, /stopImmediatePropagation/);
   assert.match(adapterSource, /ownMediaHosts/);
   assert.match(adapterSource, /mediaHostSelectors/);
-  assert.match(adapterSource, /data-framenest-media-host/);
-  assert.match(adapterSource, /data-framenest-companion-style/);
+  assert.match(adapterSource, /data-kronika-media-host/);
+  assert.match(adapterSource, /data-kronika-companion-style/);
   assert.match(adapterSource, /position: absolute/);
   const saveRule = companionStyleArrayRule(
     adapterSource,
-    "[data-framenest-companion='save'] {"
+    "[data-kronika-companion='save'] {"
   );
   assert.match(saveRule, /bottom:\s*8px/);
   assert.match(saveRule, /right:\s*8px/);
@@ -288,13 +288,13 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.doesNotMatch(saveRule, /top:\s*0/);
   assert.doesNotMatch(saveRule, /left:\s*0/);
   assert.doesNotMatch(saveRule, /overflow:\s*hidden/);
-  assert.doesNotMatch(adapterSource, /\[data-framenest-companion='save'\][\s\S]{0,80}top:\s*0/);
-  assert.doesNotMatch(adapterSource, /\[data-framenest-companion='save'\][\s\S]{0,80}left:\s*0/);
-  assert.match(adapterSource, /\[data-framenest-media-host\] \[aria-label='Edit image'\]/);
-  assert.match(adapterSource, /\[data-framenest-media-host\] \[title='Edit image'\]/);
+  assert.doesNotMatch(adapterSource, /\[data-kronika-companion='save'\][\s\S]{0,80}top:\s*0/);
+  assert.doesNotMatch(adapterSource, /\[data-kronika-companion='save'\][\s\S]{0,80}left:\s*0/);
+  assert.match(adapterSource, /\[data-kronika-media-host\] \[aria-label='Edit image'\]/);
+  assert.match(adapterSource, /\[data-kronika-media-host\] \[title='Edit image'\]/);
   const editRule = companionStyleArrayRule(
     adapterSource,
-    "[data-framenest-media-host] [aria-label='Edit image']"
+    "[data-kronika-media-host] [aria-label='Edit image']"
   );
   assert.match(editRule, /display:\s*none\s*!important/);
   assert.doesNotMatch(editRule, /left:\s*8px/);
@@ -308,7 +308,7 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.match(extractNamedFunction(adapterSource, "openSavePopup"), /postTextPrefillFrom/);
   assert.match(extractNamedFunction(adapterSource, "requestSavePopupHandshake"), /prefill/);
   assert.doesNotMatch(extractNamedFunction(adapterSource, "requestSavePopupHandshake"), /focus-category/);
-  assert.match(extractNamedFunction(adapterSource, "requestSavePopupHandshake"), /framenest-save-host/);
+  assert.match(extractNamedFunction(adapterSource, "requestSavePopupHandshake"), /kronika-save-host/);
   assert.match(extractNamedFunction(adapterSource, "requestSavePopupHandshake"), /title:/);
   assert.doesNotMatch(
     extractNamedFunction(adapterSource, "requestSavePopupHandshake"),
@@ -323,12 +323,12 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.match(extractNamedFunction(adapterSource, "openSavePopup"), /isComposing/);
   assert.match(extractNamedFunction(adapterSource, "openSavePopup"), /requestSavePopupSubmit/);
   assert.match(extractNamedFunction(adapterSource, "requestSavePopupSubmit"), /action:\s*"submit"/);
-  assert.match(extractNamedFunction(adapterSource, "requestSavePopupSubmit"), /framenest-save-host/);
+  assert.match(extractNamedFunction(adapterSource, "requestSavePopupSubmit"), /kronika-save-host/);
   assert.doesNotMatch(
     extractNamedFunction(adapterSource, "requestSavePopupSubmit"),
     /["']\*["']/
   );
-  assert.doesNotMatch(adapterSource, /data-framenest-media-kind/);
+  assert.doesNotMatch(adapterSource, /data-kronika-media-kind/);
   assert.doesNotMatch(
     extractNamedFunction(adapterSource, "requestSavePopupHandshake"),
     /["']\*["']/
@@ -340,7 +340,7 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.match(adapterSource, /return "no_media"/);
   assert.match(adapterSource, /accepted\.submittedUrl/);
   assert.doesNotMatch(adapterSource, /pbs\.twimg\.com/);
-  assert.match(adapterSource, /data-framenest-companion"\) === "save"/);
+  assert.match(adapterSource, /data-kronika-companion"\) === "save"/);
   assert.equal(companion.reduceXSaveOutcome({ ok: false }).name, `${SAVE_TO_BRAND} failed`);
   assert.match(adapterSource, /openSavePopup/);
   assert.match(adapterSource, /ui\/save\.html/);
@@ -473,20 +473,20 @@ test("Attach floats on the focused reply field and opens an in-page popup", () =
   assert.ok(Object.isFrozen(contract.composerToolbarSelectors));
   assert.deepEqual(contract.composerToolbarSelectors, [
     "[data-testid='toolBar']",
-    "[data-framenest-composer-toolbar]",
+    "[data-kronika-composer-toolbar]",
     "[role='toolbar']",
   ]);
   assert.ok(Object.isFrozen(contract.contentDisclosureSelectors));
   assert.deepEqual(contract.contentDisclosureSelectors, [
     "[aria-label='Content disclosure']",
-    "[data-framenest-content-disclosure]",
+    "[data-kronika-content-disclosure]",
   ]);
   assert.ok(Object.isFrozen(contract.bookmarkSelectors));
   assert.match(fixture, /data-testid="toolBar"/);
-  assert.match(fixture, /data-framenest-composer-toolbar/);
-  assert.match(fixture, /data-framenest-composer-chrome/);
-  assert.match(fixture, /data-framenest-composer-text-row/);
-  assert.match(fixture, /data-framenest-composer-row-canary/);
+  assert.match(fixture, /data-kronika-composer-toolbar/);
+  assert.match(fixture, /data-kronika-composer-chrome/);
+  assert.match(fixture, /data-kronika-composer-text-row/);
+  assert.match(fixture, /data-kronika-composer-row-canary/);
   assert.match(fixture, /id="inline-reply-only-editable"/);
   assert.match(fixture, /id="inline-reply-deep"/);
   assert.match(fixture, /Post your reply/);
@@ -494,13 +494,13 @@ test("Attach floats on the focused reply field and opens an in-page popup", () =
     fixture.indexOf('id="inline-reply-only-editable"'),
     fixture.indexOf('id="inline-reply-deep"')
   );
-  assert.doesNotMatch(inlineOnly, /data-framenest-composer-text-row/);
-  assert.doesNotMatch(inlineOnly, /data-framenest-composer-chrome/);
+  assert.doesNotMatch(inlineOnly, /data-kronika-composer-text-row/);
+  assert.doesNotMatch(inlineOnly, /data-kronika-composer-chrome/);
   assert.match(inlineOnly, /contenteditable="true"/);
   assert.match(inlineOnly, /data-testid="toolBar"/);
   assert.match(fixture, /data-testid="bookmark"/);
   assert.match(fixture, /aria-label="Content disclosure"/);
-  assert.match(fixture, /data-framenest-content-disclosure/);
+  assert.match(fixture, /data-kronika-content-disclosure/);
   assert.doesNotMatch(adapterSource, /addButton\(/);
   assert.doesNotMatch(adapterSource, /composerRoot\.appendChild/);
   assert.doesNotMatch(adapterSource, /composerChrome\.appendChild/);
@@ -519,15 +519,15 @@ test("Attach floats on the focused reply field and opens an in-page popup", () =
   assert.match(adapterSource, /findComposerTextRow/);
   assert.match(adapterSource, /composerChromeSelectors/);
   assert.match(adapterSource, /composerTextRowSelectors/);
-  assert.match(adapterSource, /setAttribute\("data-framenest-companion", "attach"\)/);
+  assert.match(adapterSource, /setAttribute\("data-kronika-companion", "attach"\)/);
   assert.match(adapterSource, /setAttribute\("aria-label", ATTACH_NAME\)/);
   assert.match(adapterSource, /document\.documentElement\.appendChild\(button\)/);
   assert.match(adapterSource, /addEventListener\("focusin", show, true\)/);
   assert.match(adapterSource, /addEventListener\("focus", show, true\)/);
   assert.match(adapterSource, /addEventListener\("focusin", onComposerFocusIn, true\)/);
   assert.match(adapterSource, /addEventListener\("scroll", repositionVisibleAttaches, true\)/);
-  assert.match(adapterSource, /data-framenest-attach-visible/);
-  assert.match(adapterSource, /data-framenest-companion-popup-host/);
+  assert.match(adapterSource, /data-kronika-attach-visible/);
+  assert.match(adapterSource, /data-kronika-companion-popup-host/);
   assert.match(adapterSource, /attachShadow\(\{\s*mode:\s*"closed"\s*\}\)/);
   assert.match(adapterSource, /runtimeUrl\("ui\/picker\.html"\)/);
   assert.match(adapterSource, /getBoundingClientRect/);
@@ -535,7 +535,7 @@ test("Attach floats on the focused reply field and opens an in-page popup", () =
   assert.match(adapterSource, /::-webkit-inner-spin-button/);
   assert.match(adapterSource, /::-webkit-outer-spin-button/);
   const attachRule = adapterSource.match(
-    /\[data-framenest-companion='attach'\] \{[\s\S]*?\n\}/
+    /\[data-kronika-companion='attach'\] \{[\s\S]*?\n\}/
   );
   assert.ok(attachRule);
   assert.match(attachRule[0], /position:\s*fixed/);
@@ -544,7 +544,7 @@ test("Attach floats on the focused reply field and opens an in-page popup", () =
   assert.doesNotMatch(adapterSource, /textContent\s*=\s*ATTACH_NAME/);
   assert.doesNotMatch(
     adapterSource,
-    /\[data-framenest-composer[^\]]*\]:hover[^\n]*\[data-framenest-companion='attach'\]/
+    /\[data-kronika-composer[^\]]*\]:hover[^\n]*\[data-kronika-companion='attach'\]/
   );
 });
 
@@ -1024,9 +1024,9 @@ function loadAdapterHooks(dom, options) {
       observe() {}
       disconnect() {}
     },
-    FrameNestCompanion: companion,
-    FrameNestXAdapterContractV1: contract,
-    FrameNestXAdapterTestHooks: hooks,
+    KronikaCompanion: companion,
+    KronikaXAdapterContractV1: contract,
+    KronikaXAdapterTestHooks: hooks,
     File: class File {
       constructor(bits, name, options) {
         this.bits = bits;
@@ -1058,10 +1058,10 @@ function loadAdapterHooks(dom, options) {
 
 test("invalidated X contexts become stale once, disable controls, and remove partial hosts", () => {
   const dom = createMiniDom();
-  const save = el(dom, "button", { "data-framenest-companion": "save" });
-  const attach = el(dom, "button", { "data-framenest-companion": "attach" });
-  const partialSave = el(dom, "div", { "data-framenest-companion-save-host": "" });
-  const partialPicker = el(dom, "div", { "data-framenest-companion-popup-host": "" });
+  const save = el(dom, "button", { "data-kronika-companion": "save" });
+  const attach = el(dom, "button", { "data-kronika-companion": "attach" });
+  const partialSave = el(dom, "div", { "data-kronika-companion-save-host": "" });
+  const partialPicker = el(dom, "div", { "data-kronika-companion-popup-host": "" });
   dom.body.appendChild(save);
   dom.body.appendChild(attach);
   dom.body.appendChild(partialSave);
@@ -1075,7 +1075,7 @@ test("invalidated X contexts become stale once, disable controls, and remove par
   assert.equal(attach.getAttribute("title"), companion.EXTENSION_CONTEXT_RECOVERY_COPY);
   assert.equal(dom.document.contains(partialSave), false);
   assert.equal(dom.document.contains(partialPicker), false);
-  let notices = dom.document.querySelectorAll("[data-framenest-reload-notice]");
+  let notices = dom.document.querySelectorAll("[data-kronika-reload-notice]");
   assert.equal(notices.length, 1);
   assert.equal(notices[0].getAttribute("role"), "alert");
   assert.equal(notices[0].textContent, companion.EXTENSION_CONTEXT_RECOVERY_COPY);
@@ -1083,33 +1083,33 @@ test("invalidated X contexts become stale once, disable controls, and remove par
 
   hooks.markStale(new Error("Extension context invalidated."));
   hooks.runtimeUrl("ui/picker.html");
-  notices = dom.document.querySelectorAll("[data-framenest-reload-notice]");
+  notices = dom.document.querySelectorAll("[data-kronika-reload-notice]");
   assert.equal(notices.length, 1);
 });
 
 test("Save and picker URL invalidation appends no partial iframe host", () => {
   const accepted = companion.acceptXPostUrl("https://x.com/fixture/status/123456789");
   const saveDom = createMiniDom();
-  const saveButton = el(saveDom, "button", { "data-framenest-companion": "save" });
+  const saveButton = el(saveDom, "button", { "data-kronika-companion": "save" });
   saveDom.body.appendChild(saveButton);
   const saveHooks = loadAdapterHooks(saveDom, {
     getUrlError: new Error("Extension context invalidated."),
   });
   saveHooks.openSavePopup(saveButton, accepted);
   assert.equal(
-    saveDom.document.querySelector("[data-framenest-companion-save-host]"),
+    saveDom.document.querySelector("[data-kronika-companion-save-host]"),
     null
   );
 
   const pickerDom = createMiniDom();
-  const pickerButton = el(pickerDom, "button", { "data-framenest-companion": "attach" });
+  const pickerButton = el(pickerDom, "button", { "data-kronika-companion": "attach" });
   pickerDom.body.appendChild(pickerButton);
   const pickerHooks = loadAdapterHooks(pickerDom, {
     getUrlError: new Error("Extension context invalidated."),
   });
   pickerHooks.openAttachPopup(pickerButton, pickerDom.body);
   assert.equal(
-    pickerDom.document.querySelector("[data-framenest-companion-popup-host]"),
+    pickerDom.document.querySelector("[data-kronika-companion-popup-host]"),
     null
   );
 });
@@ -1275,15 +1275,15 @@ test("injectAttach re-injects after the attach node leaves the document", () => 
   dom.body.appendChild(chrome);
   const hooks = loadAdapterHooks(dom);
   hooks.injectAttach(editable);
-  const firstButton = dom.document.documentElement.querySelector("[data-framenest-companion='attach']");
+  const firstButton = dom.document.documentElement.querySelector("[data-kronika-companion='attach']");
   assert.ok(firstButton);
   assert.equal(firstButton.parentElement, dom.document.documentElement);
-  assert.equal(chrome.querySelector("[data-framenest-companion='attach']"), null);
+  assert.equal(chrome.querySelector("[data-kronika-companion='attach']"), null);
   firstButton.parentElement.removeChild(firstButton);
-  assert.equal(dom.document.documentElement.querySelector("[data-framenest-companion='attach']"), null);
+  assert.equal(dom.document.documentElement.querySelector("[data-kronika-companion='attach']"), null);
   assert.equal(dom.document.contains(firstButton), false);
   hooks.injectAttach(editable);
-  const secondButton = dom.document.documentElement.querySelector("[data-framenest-companion='attach']");
+  const secondButton = dom.document.documentElement.querySelector("[data-kronika-companion='attach']");
   assert.ok(secondButton);
   assert.notEqual(secondButton, firstButton);
   assert.equal(secondButton.parentElement, dom.document.documentElement);
@@ -1296,19 +1296,19 @@ test("injectAttach does not mount inside the text row or set a host containing b
     contenteditable: "true",
     "aria-label": "Post your reply",
   });
-  const row = el(dom, "div", { "data-framenest-composer-text-row": "" }, [editable]);
+  const row = el(dom, "div", { "data-kronika-composer-text-row": "" }, [editable]);
   const toolbar = el(dom, "div", { "data-testid": "toolBar", role: "toolbar" });
   const file = el(dom, "input", { type: "file", accept: "image/*,video/mp4" });
-  const chrome = el(dom, "div", { "data-framenest-composer-chrome": "" }, [row, toolbar, file]);
+  const chrome = el(dom, "div", { "data-kronika-composer-chrome": "" }, [row, toolbar, file]);
   dom.body.appendChild(chrome);
   dom.window.getComputedStyle = () => ({ position: "static" });
   const hooks = loadAdapterHooks(dom);
   hooks.injectAttach(editable);
-  const button = dom.document.documentElement.querySelector("[data-framenest-companion='attach']");
+  const button = dom.document.documentElement.querySelector("[data-kronika-companion='attach']");
   assert.ok(button);
   assert.equal(button.parentElement, dom.document.documentElement);
-  assert.equal(row.querySelector("[data-framenest-companion='attach']"), null);
-  assert.equal(chrome.querySelector("[data-framenest-companion='attach']"), null);
+  assert.equal(row.querySelector("[data-kronika-companion='attach']"), null);
+  assert.equal(chrome.querySelector("[data-kronika-companion='attach']"), null);
   assert.notEqual(row.style.position, "relative");
   assert.notEqual(chrome.style.position, "relative");
   assert.notEqual(editable.style.position, "relative");
@@ -1327,8 +1327,8 @@ test("missing composer file input skips that composer without page-wide stale", 
   dom.body.appendChild(chrome);
   const hooks = loadAdapterHooks(dom);
   hooks.injectAttach(editable);
-  assert.equal(chrome.querySelector("[data-framenest-companion='attach']"), null);
-  const save = el(dom, "button", { "data-framenest-companion": "save" });
+  assert.equal(chrome.querySelector("[data-kronika-companion='attach']"), null);
+  const save = el(dom, "button", { "data-kronika-companion": "save" });
   dom.body.appendChild(save);
   hooks.injectAttach(editable);
   assert.equal(save.getAttribute("disabled"), null);
@@ -1407,7 +1407,7 @@ test("toolbar action opens the side-panel shell instead of a picker popup", () =
   assert.doesNotMatch(sidebarJs, /window\.open/);
   assert.doesNotMatch(sidebarJs, /ui\/picker\.html/);
   assert.doesNotMatch(sidebarJs, /postMessage\([^)]*,\s*["']\*["']/);
-  assert.match(sidebarJs, /acceptFrameNestOrigin/);
+  assert.match(sidebarJs, /acceptKronikaOrigin/);
   assert.match(sidebarJs, /textContent = connected \? "Disconnect" : "Connect"/);
   assert.match(sidebarJs, /TYPES\.RESET/);
   assert.doesNotMatch(sidebarJs, /could not be framed/);
@@ -1788,7 +1788,7 @@ test("unbound live file input posts composer_unbound without a download fallback
   assert.doesNotMatch(pickerHtml, /id="settings-dialog"/);
   assert.doesNotMatch(pickerHtml, /<dialog/);
   assert.match(saveJs, /TYPES\.SAVE_POST/);
-  assert.match(saveJs, /framenest-save-popup/);
+  assert.match(saveJs, /kronika-save-popup/);
   assert.doesNotMatch(saveJs, /completeAttachTransfer/);
   assert.doesNotMatch(saveJs, /waitForPortAttachOutcome/);
   const dom = createMiniDom();
@@ -1829,7 +1829,7 @@ test("Save popup is an Edit-media subset without radios, source, or on-open focu
   assert.doesNotMatch(saveJs, /focusCheckedCategory/);
   assert.doesNotMatch(saveJs, /focus-category/);
   assert.match(saveJs, /action === "prefill"/);
-  assert.match(saveJs, /source !== "framenest-save-host"/);
+  assert.match(saveJs, /source !== "kronika-save-host"/);
   assert.match(saveJs, /applyPrefill\(data\)/);
   assert.match(saveJs, /action === "submit"/);
   assert.match(saveJs, /action === "submit"[\s\S]{0,80}submitSave\(\)/);
@@ -1911,7 +1911,7 @@ test("Save live UX keeps + inset, hides Edit image, and searches canonical tags 
   assert.match(saveJs, /submitSave\(\)/);
   assert.doesNotMatch(saveJs, /innerHTML/);
   const attachRule = adapterSource.match(
-    /\[data-framenest-companion='attach'\] \{[\s\S]*?\n\}/
+    /\[data-kronika-companion='attach'\] \{[\s\S]*?\n\}/
   );
   assert.ok(attachRule);
   assert.match(attachRule[0], /position:\s*fixed/);
@@ -1923,7 +1923,7 @@ test("Save live UX keeps + inset, hides Edit image, and searches canonical tags 
   const tweetText = el(dom, "div", { "data-testid": "tweetText" });
   tweetText.textContent = "First line of the post\nSecond line stays in description";
   post.appendChild(tweetText);
-  const photo = el(dom, "div", { "data-testid": "tweetPhoto", "data-framenest-media": "" });
+  const photo = el(dom, "div", { "data-testid": "tweetPhoto", "data-kronika-media": "" });
   photo.appendChild(el(dom, "img", { alt: "Cardano founder still" }));
   const edit = el(dom, "button", { "aria-label": "Edit image", title: "Edit image" });
   const overlayEdit = el(dom, "button", { "aria-label": "Edit image", title: "Edit image" });
@@ -1940,7 +1940,7 @@ test("Save live UX keeps + inset, hides Edit image, and searches canonical tags 
   assert.notEqual(edit.style.left, "8px");
   assert.equal(profile.style.display, undefined);
   assert.equal(profile.style.left, undefined);
-  const save = photo.querySelector("[data-framenest-companion='save']");
+  const save = photo.querySelector("[data-kronika-companion='save']");
   assert.ok(save);
   assert.equal(save.getAttribute("aria-label"), SAVE_TO_BRAND);
   const prefill = hooks.postTextPrefillFrom(post, photo);
@@ -1948,7 +1948,7 @@ test("Save live UX keeps + inset, hides Edit image, and searches canonical tags 
   assert.equal(prefill.title, "Cardano founder still");
   assert.equal(prefill.descriptionHeight, undefined);
   const emptyPost = el(dom, "article", { "data-testid": "tweet" });
-  const emptyPhoto = el(dom, "div", { "data-testid": "tweetPhoto", "data-framenest-media": "" });
+  const emptyPhoto = el(dom, "div", { "data-testid": "tweetPhoto", "data-kronika-media": "" });
   emptyPhoto.appendChild(el(dom, "img", { alt: "Fallback tile alt" }));
   emptyPost.appendChild(emptyPhoto);
   const emptyPrefill = hooks.postTextPrefillFrom(emptyPost, emptyPhoto);
@@ -2004,7 +2004,7 @@ test("Save prefill prefers non-generic alt, clamps height, and keeps hidden DOM 
 });
 
 test("Save title ignores companion plus inside the photo host", () => {
-  assert.match(extractNamedFunction(adapterSource, "isCompanionChrome"), /data-framenest-companion/);
+  assert.match(extractNamedFunction(adapterSource, "isCompanionChrome"), /data-kronika-companion/);
   assert.match(extractNamedFunction(adapterSource, "firstNonGenericName"), /isReservedSaveControlName/);
   assert.match(extractNamedFunction(adapterSource, "accessibleNameFrom"), /isCompanionChrome/);
   assert.match(extractNamedFunction(adapterSource, "positionSavePopup"), /contentHeight/);
@@ -2021,7 +2021,7 @@ test("Save title ignores companion plus inside the photo host", () => {
   photo.appendChild(el(dom, "img", { alt: "Image" }));
   photo.appendChild(
     el(dom, "button", {
-      "data-framenest-companion": "save",
+      "data-kronika-companion": "save",
       "aria-label": SAVE_TO_BRAND,
     })
   );
@@ -2036,7 +2036,7 @@ test("Save title ignores companion plus inside the photo host", () => {
   emptyPhoto.appendChild(el(dom, "img", { alt: "Image" }));
   emptyPhoto.appendChild(
     el(dom, "button", {
-      "data-framenest-companion": "save",
+      "data-kronika-companion": "save",
       "aria-label": SAVE_TO_BRAND,
     })
   );
@@ -2126,8 +2126,8 @@ test("failed Save never paints the completed Saved to brand copy and mirrors eve
     href: "https://x.com/fixture/status/" + POST_ID,
     role: "link",
   });
-  const photo = el(dom, "div", { "data-testid": "tweetPhoto", "data-framenest-media": "" });
-  const video = el(dom, "div", { "data-testid": "videoPlayer", "data-framenest-media": "" });
+  const photo = el(dom, "div", { "data-testid": "tweetPhoto", "data-kronika-media": "" });
+  const video = el(dom, "div", { "data-testid": "videoPlayer", "data-kronika-media": "" });
   post.appendChild(link);
   post.appendChild(photo);
   post.appendChild(video);
@@ -2149,12 +2149,12 @@ test("failed Save never paints the completed Saved to brand copy and mirrors eve
     },
   });
   assert.equal(hooks.injectSave(post), "placed");
-  const placed = post.querySelectorAll("[data-framenest-companion='save']");
+  const placed = post.querySelectorAll("[data-kronika-companion='save']");
   assert.equal(placed.length, 2);
   const first = placed[0];
   const second = placed[1];
-  assert.equal(first.getAttribute("data-framenest-post-id"), POST_ID);
-  assert.equal(second.getAttribute("data-framenest-post-id"), POST_ID);
+  assert.equal(first.getAttribute("data-kronika-post-id"), POST_ID);
+  assert.equal(second.getAttribute("data-kronika-post-id"), POST_ID);
   hooks.applySaveResult(first, {
     ok: true,
     claimId: CLAIM,
@@ -2164,8 +2164,8 @@ test("failed Save never paints the completed Saved to brand copy and mirrors eve
   });
   assert.equal(first.getAttribute("aria-label"), `${SAVE_TO_BRAND} failed`);
   assert.equal(second.getAttribute("aria-label"), `${SAVE_TO_BRAND} failed`);
-  assert.equal(first.getAttribute("data-framenest-save-kind"), "failed");
-  assert.equal(second.getAttribute("data-framenest-save-kind"), "failed");
+  assert.equal(first.getAttribute("data-kronika-save-kind"), "failed");
+  assert.equal(second.getAttribute("data-kronika-save-kind"), "failed");
   assert.equal(first.getAttribute("aria-label").includes(`Saved to ${BRAND}`), false);
   const failedIcon = hooks.saveIconSvg("failed");
   assert.ok(pathDataFrom(failedIcon).includes("M12 6.5v11M6.5 12h11"));
@@ -2213,7 +2213,7 @@ test("catalog_removed, reuse, partial, and unknown outcomes paint distinct copy"
     },
   });
   hooks.injectSave(post);
-  const button = photo.querySelector("[data-framenest-companion='save']");
+  const button = photo.querySelector("[data-kronika-companion='save']");
   hooks.applySaveResult(button, { ok: true, submissionResult: "reuse", state: "completed" });
   assert.equal(button.getAttribute("aria-label"), `Already saved to ${BRAND}`);
   hooks.applySaveResult(button, {
@@ -2444,7 +2444,7 @@ async function loadSaveOverlay(options) {
   });
   const saves = [];
   const sandbox = {
-    FrameNestCompanion: companion,
+    KronikaCompanion: companion,
     document: documentRef,
     window: {
       location: { hash: "#url=" + encodeURIComponent("https://x.com/fixture/status/123456789") },
@@ -2623,6 +2623,53 @@ test("Class 4: the picker and the side panel both read the origin through the sh
   assert.doesNotMatch(pickerSource, /changes\.frameNestOrigin/);
   assert.doesNotMatch(sidebarSource, /stored\.frameNestOrigin/);
   assert.doesNotMatch(sidebarSource, /\["frameNestOrigin"\]/);
+});
+
+test("companion DOM attributes, selectors, inline styles and ports agree", () => {
+  const contractSource = fs.readFileSync(
+    path.join(REPO, "extension/content/x_adapter_contract_v1.js"),
+    "utf8"
+  );
+  const saveSource = fs.readFileSync(path.join(REPO, "extension/ui/save.js"), "utf8");
+  const extensionFiles = [adapterSource, contractSource, saveSource, workerSource];
+  extensionFiles.forEach((source) => {
+    assert.equal(source.includes("data-framenest-"), false);
+  });
+  const written = new Set();
+  for (const match of adapterSource.matchAll(/setAttribute\("(data-kronika-[a-z0-9-]+)"/g)) {
+    written.add(match[1]);
+  }
+  const selected = new Set();
+  for (const match of adapterSource.matchAll(/\[(data-kronika-[a-z0-9-]+)/g)) {
+    selected.add(match[1]);
+  }
+  assert.ok(written.has("data-kronika-companion"));
+  assert.ok(selected.has("data-kronika-companion"));
+  const saveAttribute = adapterSource.match(/setAttribute\("(data-kronika-companion)", "save"\)/);
+  const saveSelector = adapterSource.match(/\[(data-kronika-companion)='save'\]/);
+  assert.ok(saveAttribute && saveSelector);
+  assert.equal(saveAttribute[1], saveSelector[1]);
+  assert.match(adapterSource, /\.kronika-save-live \{/);
+  assert.match(adapterSource, /id = "kronika-save-live"/);
+  assert.doesNotMatch(adapterSource, /framenest-save-live/);
+  const contractNames = new Set();
+  for (const match of contractSource.matchAll(/data-kronika-[a-z0-9-]+/g)) {
+    contractNames.add(match[0]);
+  }
+  assert.ok(contractNames.has("data-kronika-composer"));
+  assert.ok(contractNames.has("data-kronika-media"));
+  const workerPort = workerSource.match(/const ATTACH_PORT = "([^"]+)"/);
+  const adapterPort = adapterSource.match(/port\.name !== "([^"]+)"/);
+  assert.ok(workerPort && adapterPort);
+  assert.equal(workerPort[1], adapterPort[1]);
+  assert.equal(workerPort[1], "kronika-attach");
+  const hostSourceToken = adapterSource.match(/source: "(kronika-save-host)"/);
+  const popupSourceToken = saveSource.match(/source: "(kronika-save-popup)"/);
+  const popupAccepts = saveSource.match(/data\.source !== "(kronika-save-host)"/);
+  assert.ok(hostSourceToken && popupSourceToken && popupAccepts);
+  assert.equal(hostSourceToken[1], "kronika-save-host");
+  assert.equal(popupSourceToken[1], "kronika-save-popup");
+  assert.equal(popupAccepts[1], hostSourceToken[1]);
 });
 
 test("Extension version is at least the dual-send revision so a reload is observable", () => {
