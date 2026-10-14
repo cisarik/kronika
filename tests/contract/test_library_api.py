@@ -203,7 +203,7 @@ def test_list_libraries_returns_deterministic_public_fields_only() -> None:
     assert PRIVATE_ROOT_PATH not in body
     assert "/private/beta" not in body
     assert PRIVATE_DATABASE_PATH not in body
-    assert "FRAMENEST_DATABASE_PATH" not in body
+    assert "KRONIKA_DATABASE_PATH" not in body
 
 
 def test_absent_catalog_returns_sanitized_503_and_does_not_create_database(tmp_path: Path) -> None:

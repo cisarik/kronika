@@ -135,9 +135,9 @@ def _run_direct_process_shutdown(
 ) -> dict[str, Any]:
     port = _find_free_loopback_port()
     env = _server_env()
-    env["FRAMENEST_HOST"] = "127.0.0.1"
-    env["FRAMENEST_PORT"] = str(port)
-    env["FRAMENEST_API_KEY"] = REPRESENTATIVE_SECRET
+    env["KRONIKA_HOST"] = "127.0.0.1"
+    env["KRONIKA_PORT"] = str(port)
+    env["KRONIKA_API_KEY"] = REPRESENTATIVE_SECRET
     env.pop("UVICORN_HOST", None)
     env.pop("UVICORN_PORT", None)
 
@@ -267,9 +267,9 @@ def test_direct_process_sigterm_shutdown_has_no_traceback() -> None:
 def test_direct_process_emergency_cleanup_prevents_listener_leak() -> None:
     port = _find_free_loopback_port()
     env = _server_env()
-    env["FRAMENEST_HOST"] = "127.0.0.1"
-    env["FRAMENEST_PORT"] = str(port)
-    env["FRAMENEST_API_KEY"] = REPRESENTATIVE_SECRET
+    env["KRONIKA_HOST"] = "127.0.0.1"
+    env["KRONIKA_PORT"] = str(port)
+    env["KRONIKA_API_KEY"] = REPRESENTATIVE_SECRET
 
     popen_kwargs: dict[str, Any] = {
         "cwd": str(REPOSITORY_ROOT),

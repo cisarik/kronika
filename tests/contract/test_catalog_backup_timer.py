@@ -30,7 +30,7 @@ def _require_backup_console_script() -> Path:
 
 def _run_backup_command(*args: str, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     merged = os.environ.copy()
-    merged.pop("FRAMENEST_API_KEY", None)
+    merged.pop("KRONIKA_API_KEY", None)
     if env:
         merged.update(env)
     return subprocess.run(
@@ -59,11 +59,11 @@ def _migrated_database(path: Path) -> Path:
 
 def _ops_env(tmp_path: Path, database: Path) -> dict[str, str]:
     return {
-        "FRAMENEST_DATABASE_PATH": str(database),
-        "FRAMENEST_CATALOG_BACKUP_ROOT": str(tmp_path / "catalog-backups"),
-        "FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT": str(tmp_path / "catalog-restore-verify"),
-        "FRAMENEST_CATALOG_BACKUP_OPS_ROOT": str(tmp_path / "catalog-backup-ops"),
-        "FRAMENEST_CATALOG_BACKUP_KEEP_AUTO": "30",
+        "KRONIKA_DATABASE_PATH": str(database),
+        "KRONIKA_CATALOG_BACKUP_ROOT": str(tmp_path / "catalog-backups"),
+        "KRONIKA_CATALOG_RESTORE_VERIFY_ROOT": str(tmp_path / "catalog-restore-verify"),
+        "KRONIKA_CATALOG_BACKUP_OPS_ROOT": str(tmp_path / "catalog-backup-ops"),
+        "KRONIKA_CATALOG_BACKUP_KEEP_AUTO": "30",
     }
 
 
@@ -202,7 +202,7 @@ def test_create_verify_restore_compatibility_preserved(tmp_path: Path) -> None:
 def test_invalid_keep_auto_fails_closed(tmp_path: Path) -> None:
     database = _migrated_database(tmp_path / "catalog.sqlite3")
     env = _ops_env(tmp_path, database)
-    env["FRAMENEST_CATALOG_BACKUP_KEEP_AUTO"] = "2"
+    env["KRONIKA_CATALOG_BACKUP_KEEP_AUTO"] = "2"
     result = _run_backup_command("status", cwd=tmp_path, env=env)
     assert result.returncode == 1
     payload = _payload(result.stderr)

@@ -20,7 +20,7 @@ def test_importing_engine_module_does_not_create_database(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     database_path = tmp_path / "import-only.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     importlib.import_module("kronika.infrastructure.persistence.engine")
 

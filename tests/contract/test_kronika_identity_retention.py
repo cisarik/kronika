@@ -323,7 +323,11 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # `ui/review.js` and `ui/save.js`. `tests/support/x_fixtures/composer.html`
     # lost its nine fixture attributes and left the `tests` set. No other
     # tree's file membership moved.
-    "tests": 185,
+    # KSI-IMPL-C7B1 moves tests by -4 (185 -> 181), with no additions.
+    # The exact four content-only departures are recorded beside the set below.
+    # Fixture-input edits remove no further file. All other per-tree file
+    # counts stay unchanged.
+    "tests": 181,
     "deploy": 22,
     "scripts": 11,
     "docs": 88,
@@ -542,7 +546,11 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # are the `FrameNestCompanionWeb` global becoming `KronikaCompanionWeb`.
     # The host keeps its retired web-protocol literal, and `app.js` keeps the
     # retired mutation-header literal, so neither file leaves the content set.
-    "src": 1695,
+    # KSI-IMPL-C7B1: src -65 = -37 emitted command codes, -13 development
+    # variable/message/default occurrences, -6 configuration occurrences,
+    # -7 resolver occurrences and -2 retired recovery-command components.
+    # The caller-free helper cleanup adds no retired spelling.
+    "src": 1630,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -772,7 +780,21 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `contract/test_local_web_application.py` -1, `kronika_ui.test.js` -1,
     # and `companion_review_extension.test.js` +10 for the migration and
     # canonical-emission assertions that still name the retired readers.
-    "tests": 2190,
+    # KSI-IMPL-C7B1: tests -307 (2190 -> 1883) = contract -145, integration -5,
+    # support -8, infrastructure units -61 and other units -88. The first -299
+    # retire input fixtures, output-code pins and default-path pins; negative
+    # retired-input cases remain. Contract includes -2 in the CLI/release reader
+    # module: the generic code-prefix pin and the stale development-directory pin.
+    # The remaining -8 are fixture inputs only: test_catalog_backup_timer.py -7
+    # (five operation inputs, the invalid-retention override and the API-key
+    # isolation pop) and test_catalog_offdevice_timer.py -1 (the same pop).
+    # Both files keep their environment-template pins, so neither leaves the
+    # content set. The retired identical-value entry-point test adds no token.
+    # The product-string inventory completion adds 0 here and to every other
+    # Part C scalar. Its six new pins are canonical brand literals in
+    # tests/contract/test_kronika_product_string_agreement.py; that file was
+    # already a content-path member, and the pins add no retired token.
+    "tests": 1883,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -785,7 +807,9 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-CORR-C6GUARD moved `deploy` by -4 (250 -> 246): the four
     # unit-directive guards now classify the path token and remove the retired
     # spelling from the guard source.
-    "deploy": 248,
+    # KSI-IMPL-C7B1: deploy -2, both in kronika_release.py: the injected
+    # environment-file variable and its explanatory comment. Other trees stay.
+    "deploy": 246,
     "scripts": 98,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -935,6 +959,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # retained spellings their compatibility notes name, and the edited
 # `test_operator_network_scripts.py` keeps them as the dual-prefix hook
 # matrix.
+# KSI-IMPL-C7B1 removes exactly four entries, with no additions or path renames:
+# tests/contract/test_library_cli.py (-1), test_operator_cli_hygiene.py (-11),
+# tests/unit/infrastructure/ai/test_ai_configuration_storage.py (-2) and
+# tests/unit/infrastructure/backup/test_catalog_backup_ops.py (-4). Their
+# canonical input fixtures and code assertions remove each file's last retired
+# spelling; the files remain tracked. The later timer-fixture edits remove no
+# further entry: both timer modules still pin retained environment-template
+# lines. The product-string inventory completion adds no entry and removes
+# none, so these four departures stay exact. This membership movement is
+# separate from the occurrence and capitalized-count movements.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1305,7 +1339,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_product_string_agreement.py",
         "tests/contract/test_kronika_settings_parity.py",
         "tests/contract/test_library_api.py",
-        "tests/contract/test_library_cli.py",
         "tests/contract/test_local_state_migration.py",
         "tests/contract/test_local_web_application.py",
         "tests/contract/test_media_alias_api.py",
@@ -1323,7 +1356,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_nuc_release_docs.py",
         "tests/contract/test_nuc_release_remote_contract.py",
         "tests/contract/test_nuc_release_source_contract.py",
-        "tests/contract/test_operator_cli_hygiene.py",
         "tests/contract/test_operator_infosec_scripts.py",
         "tests/contract/test_operator_network_scripts.py",
         "tests/contract/test_ordinary_upload_ownership_boundary.py",
@@ -1405,13 +1437,11 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/unit/domain/test_x_acquisition_domain.py",
         "tests/unit/domain/test_youtube_acquisition.py",
         "tests/unit/infrastructure/ai/chatgpt_page/test_budget.py",
-        "tests/unit/infrastructure/ai/test_ai_configuration_storage.py",
         "tests/unit/infrastructure/ai/test_credentials.py",
         "tests/unit/infrastructure/ai/test_image_derivative.py",
         "tests/unit/infrastructure/ai/test_nvidia_nim.py",
         "tests/unit/infrastructure/backup/test_catalog_backup.py",
         "tests/unit/infrastructure/backup/test_catalog_backup_offdevice.py",
-        "tests/unit/infrastructure/backup/test_catalog_backup_ops.py",
         "tests/unit/infrastructure/backup/test_catalog_backup_workstation.py",
         "tests/unit/infrastructure/filesystem/test_local_media_content.py",
         "tests/unit/infrastructure/filesystem/test_media_sidecar_store.py",
@@ -1541,9 +1571,18 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # brand-bearing matrix. Both names are new to this count, hence +2 distinct.
 # No other `FRAMENEST_` name was added, removed or respelled, and the bare
 # prefix spelling is unmoved because `FOO` and `X` both continue each match.
-ENV_PREFIX_TOKEN_COUNT = 702
-ENV_PREFIX_DISTINCT_NAME_COUNT = 114
-ENV_PREFIX_BARE_SPELLING_COUNT = 53
+# KSI-IMPL-C7B1: tokens -329 (702 -> 373) = src -46, tests -281 and
+# deploy -2. Canonical input fixtures, emitted codes and the engine selector
+# replace the retired full tokens. The last -8 tokens are the timer-fixture
+# inputs named on the tests occurrence scalar; every removed spelling remains
+# in a retained template pin or another module. Distinct names -40 (114 -> 74),
+# with no additions; a name leaves only when no counted file still carries it.
+# Bare prefixes -9 (53 -> 44) = src -5 (configuration -2, resolver -3) and
+# tests -4 (CLI/release readers -1, parity -1, development runtime units -2).
+# The fixture-input edits add no bare spelling.
+ENV_PREFIX_TOKEN_COUNT = 373
+ENV_PREFIX_DISTINCT_NAME_COUNT = 74
+ENV_PREFIX_BARE_SPELLING_COUNT = 44
 
 MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C2 kept every occurrence that existed before it and added 14:
@@ -1635,9 +1674,11 @@ MUTATION_HEADER_FILE_COUNT = 29
 # not keys of this ledger. The engine adds and removes no host literal.
 HOST_PATH_OCCURRENCE_COUNT = {
     "/opt/framenest": 231,
-    "/etc/framenest": 88,
-    "/var/lib/framenest": 128,
-    "/var/cache/framenest": 31,
+    # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
+    # /var/cache -1. No production host path or frozen mount changes.
+    "/etc/framenest": 86,
+    "/var/lib/framenest": 126,
+    "/var/cache/framenest": 30,
     "/mnt/framenest-catalog-offdevice": 26,
 }
 
@@ -1784,8 +1825,13 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # `tests/companion_settings_automatic_analysis.test.js` -2,
 # `tests/contract/test_local_web_application.py` -1 and
 # `tests/kronika_ui.test.js` -1.
-CAPITALIZED_OCCURRENCE_COUNT = 2681
-CAPITALIZED_FILE_COUNT = 389
+# KSI-IMPL-C7B1: capitalized occurrences -18 (2681 -> 2663) = src -7
+# (configuration comment -1, development defaults -6) and tests -11
+# (dual-read tests -4, parity -1, development-runtime defaults -6).
+# Files -1 (389 -> 388): only test_development_runtime.py loses its last
+# capitalized spelling. It retains lowercase tokens and stays in the content set.
+CAPITALIZED_OCCURRENCE_COUNT = 2663
+CAPITALIZED_FILE_COUNT = 388
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

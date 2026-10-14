@@ -250,7 +250,7 @@ def test_manifest_rejects_unexpected_secret_shaped_fields_and_excludes_non_catal
         "secrets",
         "non_secret_ai_configuration",
     ]
-    assert "FRAMENEST_DATABASE_PATH" not in json.dumps(manifest)
+    assert "KRONIKA_DATABASE_PATH" not in json.dumps(manifest)
 
     manifest["token"] = "not-allowed"
     (bundle / "manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")

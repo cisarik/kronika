@@ -43,11 +43,11 @@ DEFAULT_STOP_TIMEOUT_SECONDS = 10.0
 DEFAULT_LOCK_TIMEOUT_SECONDS = 5.0
 DEFAULT_LOG_LINES = 80
 
-DATABASE_ENV = "FRAMENEST_DATABASE_PATH"
-PORT_ENV = "FRAMENEST_PORT"
-HOST_ENV = "FRAMENEST_HOST"
-RUNTIME_DIR_ENV = "FRAMENEST_DEVELOPMENT_RUNTIME_DIR"
-LOG_DIR_ENV = "FRAMENEST_DEVELOPMENT_LOG_DIR"
+DATABASE_ENV = "KRONIKA_DATABASE_PATH"
+PORT_ENV = "KRONIKA_PORT"
+HOST_ENV = "KRONIKA_HOST"
+RUNTIME_DIR_ENV = "KRONIKA_DEVELOPMENT_RUNTIME_DIR"
+LOG_DIR_ENV = "KRONIKA_DEVELOPMENT_LOG_DIR"
 
 #: Setting-name suffixes for the same five development runtime variables. The
 #: constants above stay the exact names of the variables; the first three are the
@@ -173,9 +173,9 @@ def selected_development_port(environ: dict[str, str] | None = None) -> int:
     try:
         port = int(raw_port)
     except ValueError as exc:
-        raise DevelopmentRuntimeError("FRAMENEST_PORT must be an integer.") from exc
+        raise DevelopmentRuntimeError("KRONIKA_PORT must be an integer.") from exc
     if port < 1 or port > 65535:
-        raise DevelopmentRuntimeError("FRAMENEST_PORT must be between 1 and 65535.")
+        raise DevelopmentRuntimeError("KRONIKA_PORT must be between 1 and 65535.")
     return port
 
 
@@ -194,6 +194,8 @@ class DevelopmentRuntime:
         spawn_process: Callable[..., subprocess.Popen[bytes]] | None = None,
     ) -> None:
         self._environ = os.environ if environ is None else environ
+        self._platform_name = sys.platform if platform_name is None else platform_name
+        self._home = Path.home() if home is None else home
         self._paths = resolve_development_paths(
             environ=self._environ,
             platform_name=platform_name,
@@ -214,6 +216,20 @@ class DevelopmentRuntime:
         return _url(self._port)
 
     def start(self, *, open_after_start: bool = True) -> RuntimeResult:
+        from kronika.infrastructure.runtime.local_state_migration import (
+            LegacyStateReplacementRefusal,
+            refuse_silent_legacy_state_replacement,
+        )
+
+        try:
+            refuse_silent_legacy_state_replacement(
+                environ=self._environ,
+                platform_name=self._platform_name,
+                home=self._home,
+                development_only=True,
+            )
+        except LegacyStateReplacementRefusal as exc:
+            raise DevelopmentRuntimeError(str(exc)) from exc
         with self._operation_lock():
             status = self.status()
             if status.kind == "running":
@@ -717,13 +733,13 @@ def _database_path(env: os._Environ[str] | dict[str, str], platform: str, home: 
             home
             / "Library"
             / "Application Support"
-            / "FrameNest"
+            / "Kronika"
             / "development"
             / "catalog.sqlite3"
         ).resolve(strict=False)
     return (
         _xdg_directory(env, "XDG_DATA_HOME", home / ".local" / "share")
-        / "FrameNest"
+        / "Kronika"
         / "development"
         / "catalog.sqlite3"
     ).resolve(strict=False)
@@ -738,13 +754,13 @@ def _runtime_dir(env: os._Environ[str] | dict[str, str], platform: str, home: Pa
             home
             / "Library"
             / "Application Support"
-            / "FrameNest"
+            / "Kronika"
             / "development"
             / "runtime"
         ).resolve(strict=False)
     return (
         _xdg_directory(env, "XDG_STATE_HOME", home / ".local" / "state")
-        / "FrameNest"
+        / "Kronika"
         / "development"
         / "runtime"
     ).resolve(strict=False)
@@ -755,12 +771,12 @@ def _log_path(env: os._Environ[str] | dict[str, str], platform: str, home: Path)
     if override:
         return _absolute_override(LOG_DIR_ENV, override) / "server.log"
     if platform == "darwin":
-        return (home / "Library" / "Logs" / "FrameNest" / "development" / "server.log").resolve(
+        return (home / "Library" / "Logs" / "Kronika" / "development" / "server.log").resolve(
             strict=False
         )
     return (
         _xdg_directory(env, "XDG_STATE_HOME", home / ".local" / "state")
-        / "FrameNest"
+        / "Kronika"
         / "development"
         / "logs"
         / "server.log"

@@ -30,7 +30,7 @@ from kronika.domain.media_analysis_runs import (
     MAX_CONFIGURED_ANALYSIS_ATTEMPTS,
 )
 from kronika.identity_env import (
-    COMPATIBLE_ENVIRONMENT_PREFIX,
+    PRIMARY_ENVIRONMENT_PREFIX,
     IdentityEnvironmentConflictError,
     IdentityEnvironmentConflictFailure,
     canonical_identity_environment,
@@ -39,12 +39,12 @@ from kronika.identity_env import (
     lookup_field_value,
 )
 
-ENV_FILE_ENVIRONMENT_VARIABLE = f"{COMPATIBLE_ENVIRONMENT_PREFIX}ENV_FILE"
+ENV_FILE_ENVIRONMENT_VARIABLE = f"{PRIMARY_ENVIRONMENT_PREFIX}ENV_FILE"
 ENV_FILE_ENVIRONMENT_SUFFIX = "ENV_FILE"
 EXPLICIT_ENV_FILE_MESSAGE = (
     "The explicitly configured environment file is missing or unreadable."
 )
-DEVELOPMENT_DATABASE_DIRECTORY = "framenest-development"
+DEVELOPMENT_DATABASE_DIRECTORY = "kronika-development"
 DEVELOPMENT_DATABASE_FILENAME = "catalog.sqlite3"
 RUNTIME_SETTINGS_FILENAME = "runtime-settings.json"
 DEVELOPMENT_GALLERY_PREVIEW_DIRECTORY = "gallery-previews"
@@ -187,46 +187,37 @@ class _IdentityResolverFieldMixin:
         return resolved
 
 
-class _DualPrefixEnvSettingsSource(_IdentityResolverFieldMixin, EnvSettingsSource):
-    """Environment source whose field values come from the identity resolver.
+class _CanonicalEnvSettingsSource(_IdentityResolverFieldMixin, EnvSettingsSource):
+    """Canonical field resolution with the characterized constructor behavior.
 
-    ``env_prefix`` stays as the internal key spelling only; it is no longer the
-    reader. Every field value is resolved by
-    :func:`kronika.identity_env.lookup_field_value`, so each field accepts
-    ``KRONIKA_<SUFFIX>`` and ``FRAMENEST_<SUFFIX>`` under any case, and a
-    conflicting pair of the two canonical names fails closed inside source
-    construction, before any field value is assembled.
-
-    Everything the inherited implementation provides is unchanged: complex field
-    decoding, strict value coercion, case-insensitive field mapping, the
-    ``env_ignore_empty`` and ``env_parse_none_str`` handling, and the source
-    ordering that makes process environment override environment-file values.
+    Rebuilding the sources from settings_cls deliberately preserves the existing
+    constructor-override behavior and the library's source ordering and decoding.
     """
 
     def _load_env_vars(self) -> Mapping[str, str]:
         return self._resolved_field_values(os.environ)
 
 
-class _DualPrefixDotEnvSettingsSource(_IdentityResolverFieldMixin, DotEnvSettingsSource):
-    """Environment-file source whose field values come from the resolver too.
-
-    The file keys the library already read are preserved exactly, and the
-    resolver adds the field values the file supplies under either accepted
-    prefix. ``env_file_encoding``, the ``env_prefix``-based extras handling, and
-    the source ordering are unchanged.
-    """
+class _CanonicalDotEnvSettingsSource(_IdentityResolverFieldMixin, DotEnvSettingsSource):
+    """Resolve canonical file fields without reintroducing empty raw values."""
 
     def _load_env_vars(self) -> Mapping[str, str]:
         file_values = self._read_env_files()
         resolved = self._resolved_field_values(canonical_identity_environment(file_values))
-        return {**file_values, **resolved}
+        return {
+            **{
+                key: value for key, value in file_values.items()
+                if not key.upper().startswith(PRIMARY_ENVIRONMENT_PREFIX)
+            },
+            **resolved,
+        }
 
 
 class KronikaSettings(BaseSettings):
     """Typed application settings loaded outside the domain layer."""
 
     model_config = SettingsConfigDict(
-        env_prefix="FRAMENEST_",
+        env_prefix="KRONIKA_",
         env_file_encoding="utf-8",
         hide_input_in_errors=True,
         extra="ignore",
@@ -251,8 +242,8 @@ class KronikaSettings(BaseSettings):
         assert isinstance(dotenv_settings, DotEnvSettingsSource)
         return (
             init_settings,
-            _DualPrefixEnvSettingsSource(settings_cls),
-            _DualPrefixDotEnvSettingsSource(settings_cls, env_file=dotenv_settings.env_file),
+            _CanonicalEnvSettingsSource(settings_cls),
+            _CanonicalDotEnvSettingsSource(settings_cls, env_file=dotenv_settings.env_file),
             file_secret_settings,
         )
 
@@ -637,7 +628,7 @@ def resolved_runtime_settings_path(settings: KronikaSettings) -> Path:
     """Return the JSON sidecar path for administrator runtime settings.
 
     Defaults to ``{database_path.parent}/runtime-settings.json``. An explicit
-    ``runtime_settings_path`` (env ``FRAMENEST_RUNTIME_SETTINGS_PATH``) wins.
+    ``runtime_settings_path`` (env ``KRONIKA_RUNTIME_SETTINGS_PATH``) wins.
     """
     if settings.runtime_settings_path is not None:
         return settings.runtime_settings_path
@@ -656,10 +647,8 @@ def load_settings(
       regular file;
     - ``env_file=None`` disables environment-file loading entirely;
     - an omitted argument consults the ``ENV_FILE`` process environment
-      variable through the identity resolver, so both ``KRONIKA_ENV_FILE`` and
-      ``FRAMENEST_ENV_FILE`` select the file, and, when set to different values,
-      fails closed before the file is opened; when unset or empty, no
-      environment file is loaded.
+      variable through the canonical identity resolver. Only KRONIKA_ENV_FILE
+      selects the file; when unset or empty, no environment file is loaded.
 
     The caller's current working directory is never probed for an implicit
     ``.env`` file, so administrative and production commands behave
@@ -668,11 +657,6 @@ def load_settings(
     ``FrameNestConfigurationError``. Process environment variables always
     override environment-file values.
 
-    A conflict between the two accepted spellings of one setting-name suffix
-    raises :class:`IdentityEnvironmentConfigurationError`, a
-    :class:`FrameNestConfigurationError` subtype carrying the same sanitized
-    message, so every command line entry point can map exactly this failure to
-    its own output shape and to the one fail-closed exit status.
     """
     if isinstance(env_file, _EnvFileNotSpecified):
         try:

@@ -172,10 +172,12 @@ def test_notify_cataloged_follows_callable_flag() -> None:
     assert repository.calls == 1
 
 
-def test_from_settings_uses_env_named_override(tmp_path: Path) -> None:
+def test_from_settings_uses_env_named_override(tmp_path: Path, monkeypatch) -> None:
     override = tmp_path / "named.json"
-    previous = os.environ.get("FRAMENEST_RUNTIME_SETTINGS_PATH")
-    os.environ["FRAMENEST_RUNTIME_SETTINGS_PATH"] = str(override)
+    retired = tmp_path / "retired.json"
+    monkeypatch.setenv("FRAMENEST_RUNTIME_SETTINGS_PATH", str(retired))
+    previous = os.environ.get("KRONIKA_RUNTIME_SETTINGS_PATH")
+    os.environ["KRONIKA_RUNTIME_SETTINGS_PATH"] = str(override)
     try:
         settings = KronikaSettings(
             database_path=tmp_path / "catalog.sqlite3",
@@ -188,11 +190,12 @@ def test_from_settings_uses_env_named_override(tmp_path: Path) -> None:
         store = RuntimeSettingsStore.from_settings(settings, now_ms=lambda: 3)
         store.set_enabled(True)
         assert override.is_file()
+        assert not retired.exists()
         assert json.loads(override.read_text(encoding="utf-8"))[
             "automatic_media_analysis_enabled"
         ] is True
     finally:
         if previous is None:
-            del os.environ["FRAMENEST_RUNTIME_SETTINGS_PATH"]
+            del os.environ["KRONIKA_RUNTIME_SETTINGS_PATH"]
         else:
-            os.environ["FRAMENEST_RUNTIME_SETTINGS_PATH"] = previous
+            os.environ["KRONIKA_RUNTIME_SETTINGS_PATH"] = previous

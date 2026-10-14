@@ -27,11 +27,11 @@ def _require_backup_console_script() -> Path:
 def _ops_env(tmp_path: Path, database: Path | None = None) -> dict[str, str]:
     db = database if database is not None else tmp_path / "catalog.sqlite3"
     return {
-        "FRAMENEST_DATABASE_PATH": str(db),
-        "FRAMENEST_CATALOG_BACKUP_ROOT": str(tmp_path / "catalog-backups"),
-        "FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT": str(tmp_path / "catalog-restore-verify"),
-        "FRAMENEST_CATALOG_BACKUP_OPS_ROOT": str(tmp_path / "catalog-backup-ops"),
-        "FRAMENEST_CATALOG_BACKUP_KEEP_AUTO": "30",
+        "KRONIKA_DATABASE_PATH": str(db),
+        "KRONIKA_CATALOG_BACKUP_ROOT": str(tmp_path / "catalog-backups"),
+        "KRONIKA_CATALOG_RESTORE_VERIFY_ROOT": str(tmp_path / "catalog-restore-verify"),
+        "KRONIKA_CATALOG_BACKUP_OPS_ROOT": str(tmp_path / "catalog-backup-ops"),
+        "KRONIKA_CATALOG_BACKUP_KEEP_AUTO": "30",
     }
 
 
@@ -42,7 +42,7 @@ def _run_backup_command(
     timeout: float = 30.0,
 ) -> subprocess.CompletedProcess[str]:
     merged = os.environ.copy()
-    merged.pop("FRAMENEST_API_KEY", None)
+    merged.pop("KRONIKA_API_KEY", None)
     if env:
         merged.update(env)
     return subprocess.run(
@@ -163,7 +163,7 @@ def test_failure_output_is_sanitized_and_stable(tmp_path: Path) -> None:
     assert payload == {
         "operation": "create",
         "state": "error",
-        "error_code": "FRAMENEST_BACKUP_COMMAND_FAILED",
+        "error_code": "KRONIKA_BACKUP_COMMAND_FAILED",
         "message": "Backup command failed.",
     }
     assert str(supplied_path) not in result.stderr
@@ -178,7 +178,7 @@ def test_invalid_usage_returns_exit_2_with_sanitized_json(tmp_path: Path) -> Non
     assert result.stdout == ""
     payload = _payload(result.stderr)
     assert payload["operation"] == "unknown"
-    assert payload["error_code"] == "FRAMENEST_BACKUP_INVALID_INPUT"
+    assert payload["error_code"] == "KRONIKA_BACKUP_INVALID_INPUT"
     assert "relative.sqlite3" not in result.stderr
 
 

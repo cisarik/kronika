@@ -314,11 +314,11 @@ def test_manifest_release_sha_absent_key_returns_none(release_helper: Any) -> No
     assert release_helper.manifest_release_sha("not-a-mapping") is None
 
 
-def test_release_helper_still_injects_the_old_env_file_name(release_helper: Any) -> None:
+def test_release_helper_injects_the_canonical_env_file_name(release_helper: Any) -> None:
     prefix = release_helper.service_account_prefix("/opt/framenest/releases/abc")
 
-    assert f"env {COMPATIBLE}ENV_FILE={release_helper.ENV_FILE}" in prefix
-    assert f"{PRIMARY}ENV_FILE" not in prefix
+    assert f"env {PRIMARY}ENV_FILE={release_helper.ENV_FILE}" in prefix
+    assert f"{COMPATIBLE}ENV_FILE" not in prefix
 
 
 def test_release_helper_env_file_path_constant_is_unchanged(release_helper: Any) -> None:
@@ -336,13 +336,13 @@ def test_protocol_magic_and_version_reads_are_unchanged() -> None:
     assert isinstance(version("kronika"), str)
 
 
-def test_development_database_directory_is_unchanged() -> None:
+def test_development_database_directory_is_canonical() -> None:
     from kronika.configuration import DEVELOPMENT_DATABASE_DIRECTORY
 
-    assert DEVELOPMENT_DATABASE_DIRECTORY == "framenest-development"
+    assert DEVELOPMENT_DATABASE_DIRECTORY == "kronika-development"
 
 
-def test_emitted_cli_error_codes_stay_on_the_former_prefix() -> None:
+def test_emitted_cli_error_codes_use_the_canonical_prefix() -> None:
     from kronika.adapters.cli.backup import COMMAND_FAILED_CODE, INVALID_INPUT_CODE
     from kronika.infrastructure.persistence.cli import (
         COMMAND_ERROR_CODE,
@@ -361,11 +361,12 @@ def test_emitted_cli_error_codes_stay_on_the_former_prefix() -> None:
         DATABASE_NOT_READY_CODE,
         HEALTH_CHECK_FAILED_CODE,
     )
-    assert all(code.startswith("FRAMENEST_") for code in codes)
-    assert not any("KRONIKA_" in code for code in codes)
+    assert codes
+    assert all(code.startswith("KRONIKA_") for code in codes)
+    assert not any("FRAMENEST_" in code for code in codes)
 
 
-def test_catalog_cli_error_codes_stay_on_the_former_prefix() -> None:
+def test_catalog_cli_error_codes_use_the_canonical_prefix() -> None:
     from kronika.adapters.cli import catalog
 
     codes = [
@@ -374,7 +375,7 @@ def test_catalog_cli_error_codes_stay_on_the_former_prefix() -> None:
         if name.endswith("_CODE") and isinstance(value, str)
     ]
     assert codes
-    assert all(code.startswith("FRAMENEST_") for code in codes)
+    assert all(code.startswith("KRONIKA_") for code in codes)
 
 
 def test_json_manifest_key_reader_is_used_for_the_current_release_fallback(
@@ -393,11 +394,9 @@ def test_json_manifest_key_reader_is_used_for_the_current_release_fallback(
 #: conflicting pair is enough to exercise each command's own settings or
 #: operator-configuration reader.
 CONFLICT_SUFFIX = "DATABASE_PATH"
-CONFLICT_PRIMARY_VALUE = "alpha-conflict-value"
 CONFLICT_COMPATIBLE_VALUE = "beta-conflict-value"
 
 CONFLICT_SENTENCE_MARKER = "Conflicting environment variables "
-CONFLICT_SENTENCE_END = "are set to different values."
 
 #: Symbols that would let a module reach the dual-prefix reader. A module that
 #: carries none of them cannot surface the conflict, whatever its arguments are.
@@ -428,7 +427,7 @@ ENTRY_POINT_CASES: dict[str, dict[str, Any]] = {
         # The ordinary path of this entry point is a long-running server, so the
         # non-conflicting run uses an unreadable environment file instead, which
         # is its ordinary configuration failure.
-        "normal_environment": (("{COMPATIBLE}ENV_FILE", "{TMP}/absent.env"),),
+        "normal_environment": (("{PRIMARY}ENV_FILE", "{TMP}/absent.env"),),
         "normal_status": 1,
     },
     "infrastructure.persistence.cli": {
@@ -446,9 +445,9 @@ ENTRY_POINT_CASES: dict[str, dict[str, Any]] = {
     "adapters.cli.backup": {
         "arguments": ("status",),
         "environment": (
-            ("{COMPATIBLE}CATALOG_BACKUP_ROOT", "{TMP}/backups"),
-            ("{COMPATIBLE}CATALOG_BACKUP_OPS_ROOT", "{TMP}/ops"),
-            ("{COMPATIBLE}CATALOG_RESTORE_VERIFY_ROOT", "{TMP}/restore"),
+            ("{PRIMARY}CATALOG_BACKUP_ROOT", "{TMP}/backups"),
+            ("{PRIMARY}CATALOG_BACKUP_OPS_ROOT", "{TMP}/ops"),
+            ("{PRIMARY}CATALOG_RESTORE_VERIFY_ROOT", "{TMP}/restore"),
         ),
         "normal_status": 0,
     },
@@ -462,7 +461,7 @@ ENTRY_POINT_CASES: dict[str, dict[str, Any]] = {
     },
     "adapters.cli.development": {
         "arguments": ("status",),
-        "environment": (("{COMPATIBLE}DEVELOPMENT_RUNTIME_DIR", "{TMP}/dev"),),
+        "environment": (("{PRIMARY}DEVELOPMENT_RUNTIME_DIR", "{TMP}/dev"),),
         "normal_status": 3,
     },
     "adapters.cli.library": {
@@ -554,11 +553,9 @@ def _isolated_environment(
         for name, value in os.environ.items()
         if not name.startswith((PRIMARY, COMPATIBLE))
     }
+    environment[f"{PRIMARY}{CONFLICT_SUFFIX}"] = str(database_path)
     if conflicting:
-        environment[f"{PRIMARY}{CONFLICT_SUFFIX}"] = CONFLICT_PRIMARY_VALUE
         environment[f"{COMPATIBLE}{CONFLICT_SUFFIX}"] = CONFLICT_COMPATIBLE_VALUE
-    else:
-        environment[f"{COMPATIBLE}{CONFLICT_SUFFIX}"] = str(database_path)
     environment.update(extra)
     return environment
 
@@ -578,12 +575,6 @@ def _run_entry_point(
         timeout=60,
         check=False,
     )
-
-
-def _reported_conflict_sentence(combined_output: str) -> str:
-    start = combined_output.index(CONFLICT_SENTENCE_MARKER)
-    end = combined_output.index(CONFLICT_SENTENCE_END, start)
-    return combined_output[start : end + len(CONFLICT_SENTENCE_END)]
 
 
 def test_every_declared_console_script_is_classified() -> None:
@@ -612,11 +603,11 @@ def test_the_parked_capture_package_cannot_surface_the_conflict() -> None:
 
 
 @pytest.mark.parametrize("module_key", sorted(ENTRY_POINT_CASES))
-def test_identity_conflict_exits_two_and_discloses_no_value(
+def test_retired_input_does_not_change_each_entry_point_status(
     module_key: str,
     tmp_path: Path,
 ) -> None:
-    """One conflicting pair exits 2 at every entry point that can surface it."""
+    """A conflicting retired input cannot override canonical configuration."""
     case = ENTRY_POINT_CASES[module_key]
     script_name = _script_name(module_key)
     arguments = _expand(case["arguments"], tmp_path)
@@ -626,24 +617,17 @@ def test_identity_conflict_exits_two_and_discloses_no_value(
         arguments,
         _isolated_environment(
             tmp_path,
-            extra=_environment(case.get("environment", ()), tmp_path),
+            extra=_environment(tuple((dict(case.get("environment", ())) | dict(case.get("normal_environment", ()))).items()), tmp_path),
             conflicting=True,
             database_path=tmp_path / "catalog.sqlite3",
         ),
     )
     combined = result.stdout + result.stderr
 
-    assert result.returncode == 2, f"{script_name}: {combined}"
-    sentence = _reported_conflict_sentence(combined)
-    assert f"{PRIMARY}{CONFLICT_SUFFIX}" in sentence
-    assert f"{COMPATIBLE}{CONFLICT_SUFFIX}" in sentence
+    assert result.returncode == case["normal_status"], f"{script_name}: {combined}"
+    assert CONFLICT_SENTENCE_MARKER not in combined
     assert "Traceback" not in combined
-    for value in (CONFLICT_PRIMARY_VALUE, CONFLICT_COMPATIBLE_VALUE):
-        assert value not in combined
-        assert value not in sentence
-        assert str(len(value)) not in sentence
-        assert hashlib.sha256(value.encode("utf-8")).hexdigest()[:12] not in sentence
-        assert repr(value) not in sentence
+    assert CONFLICT_COMPATIBLE_VALUE not in combined
 
 
 @pytest.mark.parametrize("module_key", sorted(ENTRY_POINT_CASES))
@@ -768,23 +752,7 @@ def test_an_empty_primary_value_still_behaves_as_unset_at_an_entry_point(
     assert CONFLICT_SENTENCE_MARKER not in result.stdout + result.stderr
 
 
-def test_identical_values_in_both_prefixes_still_succeed_at_an_entry_point(
-    tmp_path: Path,
-) -> None:
-    """The correction cannot turn the identical-value rule into a failure."""
-    script_name = _script_name("infrastructure.persistence.cli")
-    database_path = str(tmp_path / "catalog.sqlite3")
-
-    result = _run_entry_point(
-        script_name,
-        ("status",),
-        _isolated_environment(
-            tmp_path,
-            extra={f"{PRIMARY}{CONFLICT_SUFFIX}": database_path},
-            conflicting=False,
-            database_path=tmp_path / "catalog.sqlite3",
-        ),
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert CONFLICT_SENTENCE_MARKER not in result.stdout + result.stderr
+# Retired: an identical-value dual-prefix success rule no longer exists.
+# Entry points read only the canonical name. The former test supplied that
+# name alone, so its two-prefix premise was empty. Canonical-only success is
+# already covered by test_ordinary_status_of_the_same_arguments_is_unchanged.

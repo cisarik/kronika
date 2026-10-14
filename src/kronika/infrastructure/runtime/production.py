@@ -20,9 +20,9 @@ from kronika.infrastructure.persistence.errors import FrameNestPersistenceError
 from kronika.infrastructure.persistence.migrations import inspect_database_migration_status
 from kronika.server import run_server
 
-COMMAND_ERROR_CODE = "FRAMENEST_PRODUCTION_COMMAND_FAILED"
-DATABASE_NOT_READY_CODE = "FRAMENEST_DATABASE_NOT_READY"
-HEALTH_CHECK_FAILED_CODE = "FRAMENEST_HEALTH_CHECK_FAILED"
+COMMAND_ERROR_CODE = "KRONIKA_PRODUCTION_COMMAND_FAILED"
+DATABASE_NOT_READY_CODE = "KRONIKA_DATABASE_NOT_READY"
+HEALTH_CHECK_FAILED_CODE = "KRONIKA_HEALTH_CHECK_FAILED"
 
 
 class _UsageError(Exception):

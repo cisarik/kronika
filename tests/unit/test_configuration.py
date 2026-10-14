@@ -18,21 +18,21 @@ from tests.support.kronika_identity import expected
 from kronika.configuration import KronikaSettings, load_settings
 
 FRAMENEST_ENV_VARS = (
-    "FRAMENEST_HOST",
-    "FRAMENEST_PORT",
-    "FRAMENEST_API_KEY",
-    "FRAMENEST_DATABASE_PATH",
-    "FRAMENEST_UPLOAD_QUARANTINE_ROOT",
-    "FRAMENEST_UPLOAD_MAX_TOTAL_BYTES",
-    "FRAMENEST_UPLOAD_MAX_PATCH_BYTES",
-    "FRAMENEST_UPLOAD_SESSION_TTL_SECONDS",
-    "FRAMENEST_UPLOAD_MIN_FREE_SPACE_RESERVE_BYTES",
-    "FRAMENEST_YOUTUBE_ACQUISITION_ROOT",
-    "FRAMENEST_YOUTUBE_ACQUISITION_MAX_STAGING_BYTES",
-    "FRAMENEST_AI_PROVIDER_ID",
-    "FRAMENEST_AI_MODEL_ID",
-    "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED",
-    "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS",
+    "KRONIKA_HOST",
+    "KRONIKA_PORT",
+    "KRONIKA_API_KEY",
+    "KRONIKA_DATABASE_PATH",
+    "KRONIKA_UPLOAD_QUARANTINE_ROOT",
+    "KRONIKA_UPLOAD_MAX_TOTAL_BYTES",
+    "KRONIKA_UPLOAD_MAX_PATCH_BYTES",
+    "KRONIKA_UPLOAD_SESSION_TTL_SECONDS",
+    "KRONIKA_UPLOAD_MIN_FREE_SPACE_RESERVE_BYTES",
+    "KRONIKA_YOUTUBE_ACQUISITION_ROOT",
+    "KRONIKA_YOUTUBE_ACQUISITION_MAX_STAGING_BYTES",
+    "KRONIKA_AI_PROVIDER_ID",
+    "KRONIKA_AI_MODEL_ID",
+    "KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED",
+    "KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS",
 )
 
 
@@ -100,7 +100,7 @@ def test_database_path_is_typed_path_and_safe_temporary_default(
 
     assert isinstance(settings.database_path, Path)
     assert settings.database_path == (
-        configured_temp_root / "framenest-development" / "catalog.sqlite3"
+        configured_temp_root / "kronika-development" / "catalog.sqlite3"
     )
     assert settings.database_path.is_absolute()
     assert Path(__file__).resolve().parents[2] not in settings.database_path.parents
@@ -116,7 +116,7 @@ def test_default_database_path_loading_creates_no_directory_or_database(
 
     settings = load_settings(env_file=None)
 
-    assert settings.database_path.parent == configured_temp_root / "framenest-development"
+    assert settings.database_path.parent == configured_temp_root / "kronika-development"
     assert not settings.database_path.parent.exists()
     assert not settings.database_path.exists()
 
@@ -129,7 +129,7 @@ def test_temporary_env_file_sets_database_path(
     configured_path = tmp_path / "configured" / "catalog.sqlite3"
     env_file = tmp_path / ".env"
     env_file.write_text(
-        f"FRAMENEST_DATABASE_PATH={configured_path}\n",
+        f"KRONIKA_DATABASE_PATH={configured_path}\n",
         encoding="utf-8",
     )
 
@@ -147,10 +147,10 @@ def test_process_environment_overrides_temporary_env_file_database_path(
     process_path = tmp_path / "process-env" / "catalog.sqlite3"
     env_file = tmp_path / ".env"
     env_file.write_text(
-        f"FRAMENEST_DATABASE_PATH={env_file_path}\n",
+        f"KRONIKA_DATABASE_PATH={env_file_path}\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(process_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(process_path))
 
     settings = load_settings(env_file=env_file)
 
@@ -163,11 +163,11 @@ def test_upload_quarantine_settings_are_optional_bounded_and_sanitized(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "quarantine"
-    monkeypatch.setenv("FRAMENEST_UPLOAD_QUARANTINE_ROOT", str(root))
-    monkeypatch.setenv("FRAMENEST_UPLOAD_MAX_TOTAL_BYTES", "123")
-    monkeypatch.setenv("FRAMENEST_UPLOAD_MAX_PATCH_BYTES", "12")
-    monkeypatch.setenv("FRAMENEST_UPLOAD_SESSION_TTL_SECONDS", "30")
-    monkeypatch.setenv("FRAMENEST_UPLOAD_MIN_FREE_SPACE_RESERVE_BYTES", "7")
+    monkeypatch.setenv("KRONIKA_UPLOAD_QUARANTINE_ROOT", str(root))
+    monkeypatch.setenv("KRONIKA_UPLOAD_MAX_TOTAL_BYTES", "123")
+    monkeypatch.setenv("KRONIKA_UPLOAD_MAX_PATCH_BYTES", "12")
+    monkeypatch.setenv("KRONIKA_UPLOAD_SESSION_TTL_SECONDS", "30")
+    monkeypatch.setenv("KRONIKA_UPLOAD_MIN_FREE_SPACE_RESERVE_BYTES", "7")
 
     settings = load_settings(env_file=None)
 
@@ -185,7 +185,7 @@ def test_relative_upload_quarantine_root_is_rejected_without_path_echo(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     supplied = "relative/private/quarantine"
-    monkeypatch.setenv("FRAMENEST_UPLOAD_QUARANTINE_ROOT", supplied)
+    monkeypatch.setenv("KRONIKA_UPLOAD_QUARANTINE_ROOT", supplied)
 
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
@@ -201,11 +201,11 @@ def test_youtube_staging_configuration_is_absolute_private_and_non_overlapping(
     youtube_root = state_root / "youtube"
     database_path = state_root / "catalog.sqlite3"
     quarantine_root = tmp_path / "quarantine"
-    monkeypatch.setenv("FRAMENEST_YOUTUBE_ACQUISITION_ROOT", str(youtube_root))
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
-    monkeypatch.setenv("FRAMENEST_UPLOAD_QUARANTINE_ROOT", str(quarantine_root))
+    monkeypatch.setenv("KRONIKA_YOUTUBE_ACQUISITION_ROOT", str(youtube_root))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_UPLOAD_QUARANTINE_ROOT", str(quarantine_root))
     monkeypatch.setenv(
-        "FRAMENEST_YOUTUBE_ACQUISITION_MAX_STAGING_BYTES",
+        "KRONIKA_YOUTUBE_ACQUISITION_MAX_STAGING_BYTES",
         "12345",
     )
 
@@ -217,15 +217,15 @@ def test_youtube_staging_configuration_is_absolute_private_and_non_overlapping(
     assert str(youtube_root) not in f"{settings!r}{settings!s}"
 
     monkeypatch.setenv(
-        "FRAMENEST_UPLOAD_QUARANTINE_ROOT",
+        "KRONIKA_UPLOAD_QUARANTINE_ROOT",
         str(youtube_root / "quarantine"),
     )
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
     assert str(youtube_root) not in str(exc_info.value)
 
-    monkeypatch.setenv("FRAMENEST_UPLOAD_QUARANTINE_ROOT", str(quarantine_root))
-    monkeypatch.setenv("FRAMENEST_YOUTUBE_ACQUISITION_ROOT", str(state_root))
+    monkeypatch.setenv("KRONIKA_UPLOAD_QUARANTINE_ROOT", str(quarantine_root))
+    monkeypatch.setenv("KRONIKA_YOUTUBE_ACQUISITION_ROOT", str(state_root))
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
     assert str(state_root) not in str(exc_info.value)
@@ -235,7 +235,7 @@ def test_relative_youtube_staging_root_is_rejected_without_path_echo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     supplied = "relative/private/youtube"
-    monkeypatch.setenv("FRAMENEST_YOUTUBE_ACQUISITION_ROOT", supplied)
+    monkeypatch.setenv("KRONIKA_YOUTUBE_ACQUISITION_ROOT", supplied)
 
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
@@ -250,7 +250,7 @@ def test_database_path_expands_user_and_normalizes_to_absolute_path(
     monkeypatch.chdir(tmp_path)
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", "~/catalogs/../catalog.sqlite3")
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", "~/catalogs/../catalog.sqlite3")
 
     settings = load_settings(env_file=None)
 
@@ -265,7 +265,7 @@ def test_relative_database_path_is_rejected_with_sanitized_error(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     supplied_path = "relative/private/catalog.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", supplied_path)
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", supplied_path)
 
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
@@ -286,7 +286,7 @@ def test_database_path_absent_from_settings_repr_logs_api_and_openapi(
 
     monkeypatch.chdir(tmp_path)
     private_path = tmp_path / "private" / "catalog.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(private_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(private_path))
     settings = load_settings(env_file=None)
 
     rendered_settings = f"{settings!r}{settings!s}"
@@ -320,7 +320,7 @@ def test_temporary_env_file_sets_port(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env"
-    env_file.write_text("FRAMENEST_PORT=9001\n", encoding="utf-8")
+    env_file.write_text("KRONIKA_PORT=9001\n", encoding="utf-8")
     settings = load_settings(env_file=env_file)
     assert settings.port == 9001
 
@@ -331,8 +331,8 @@ def test_process_environment_overrides_temporary_env_file_port(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env"
-    env_file.write_text("FRAMENEST_PORT=9001\n", encoding="utf-8")
-    monkeypatch.setenv("FRAMENEST_PORT", "9002")
+    env_file.write_text("KRONIKA_PORT=9001\n", encoding="utf-8")
+    monkeypatch.setenv("KRONIKA_PORT", "9002")
     settings = load_settings(env_file=env_file)
     assert settings.port == 9002
 
@@ -344,8 +344,8 @@ def test_invalid_port_produces_sanitized_validation_error(
     monkeypatch.chdir(tmp_path)
     invalid_port = "70000"
     secret_value = "must-not-appear-in-error-output"
-    monkeypatch.setenv("FRAMENEST_PORT", invalid_port)
-    monkeypatch.setenv("FRAMENEST_API_KEY", secret_value)
+    monkeypatch.setenv("KRONIKA_PORT", invalid_port)
+    monkeypatch.setenv("KRONIKA_API_KEY", secret_value)
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
     error_text = str(exc_info.value)
@@ -359,7 +359,7 @@ def test_temporary_env_file_overrides_default(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env"
-    env_file.write_text("FRAMENEST_HOST=127.0.0.2\n", encoding="utf-8")
+    env_file.write_text("KRONIKA_HOST=127.0.0.2\n", encoding="utf-8")
     settings = load_settings(env_file=env_file)
     assert settings.host == "127.0.0.2"
 
@@ -370,8 +370,8 @@ def test_process_environment_overrides_temporary_env_file(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env"
-    env_file.write_text("FRAMENEST_HOST=127.0.0.2\n", encoding="utf-8")
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.3")
+    env_file.write_text("KRONIKA_HOST=127.0.0.2\n", encoding="utf-8")
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.3")
     settings = load_settings(env_file=env_file)
     assert settings.host == "127.0.0.3"
 
@@ -381,7 +381,7 @@ def test_secret_field_uses_secret_str(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_API_KEY", "representative-secret-value")
+    monkeypatch.setenv("KRONIKA_API_KEY", "representative-secret-value")
     settings = load_settings(env_file=None)
     assert isinstance(settings.api_key, SecretStr)
 
@@ -392,7 +392,7 @@ def test_secret_plaintext_not_in_repr_or_str(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     secret_value = "representative-secret-value"
-    monkeypatch.setenv("FRAMENEST_API_KEY", secret_value)
+    monkeypatch.setenv("KRONIKA_API_KEY", secret_value)
     settings = load_settings(env_file=None)
     rendered = f"{settings!r}{settings!s}"
     assert secret_value not in rendered
@@ -405,8 +405,8 @@ def test_invalid_configuration_produces_sanitized_validation_error(
     monkeypatch.chdir(tmp_path)
     invalid_host = "not-a-valid-ip-address"
     secret_value = "must-not-appear-in-error-output"
-    monkeypatch.setenv("FRAMENEST_HOST", invalid_host)
-    monkeypatch.setenv("FRAMENEST_API_KEY", secret_value)
+    monkeypatch.setenv("KRONIKA_HOST", invalid_host)
+    monkeypatch.setenv("KRONIKA_API_KEY", secret_value)
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
     error_text = str(exc_info.value)
@@ -429,7 +429,7 @@ def test_environment_override_accepts_declared_ai_provider_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_AI_PROVIDER_ID", "opencode-go")
+    monkeypatch.setenv("KRONIKA_AI_PROVIDER_ID", "opencode-go")
     settings = load_settings(env_file=None)
 
     assert settings.ai_provider_id == "opencode-go"
@@ -442,8 +442,8 @@ def test_invalid_ai_provider_id_produces_sanitized_validation_error(
     monkeypatch.chdir(tmp_path)
     invalid_provider_id = "OpenCode!"
     secret_value = "must-not-appear-in-error-output"
-    monkeypatch.setenv("FRAMENEST_AI_PROVIDER_ID", invalid_provider_id)
-    monkeypatch.setenv("FRAMENEST_API_KEY", secret_value)
+    monkeypatch.setenv("KRONIKA_AI_PROVIDER_ID", invalid_provider_id)
+    monkeypatch.setenv("KRONIKA_API_KEY", secret_value)
     with pytest.raises(ValidationError) as exc_info:
         load_settings(env_file=None)
     error_text = str(exc_info.value)
@@ -480,7 +480,7 @@ def test_automatic_media_analysis_max_attempts_override_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS", "1")
     settings = load_settings(env_file=None)
     assert settings.automatic_media_analysis_max_attempts == 1
 
@@ -492,6 +492,6 @@ def test_automatic_media_analysis_max_attempts_rejects_invalid(
     invalid: str,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS", invalid)
+    monkeypatch.setenv("KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_MAX_ATTEMPTS", invalid)
     with pytest.raises(ValidationError):
         load_settings(env_file=None)

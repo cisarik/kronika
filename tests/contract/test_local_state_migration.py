@@ -377,11 +377,11 @@ def test_temporary_root_covers_database_settings_previews_covers_and_thumbnails(
         assert entry.source != entry.destination
 
 
-def test_plan_sources_still_equal_the_public_default_functions(
+def test_development_destinations_equal_the_public_default_functions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The defaults did not move: the plan's legacy side is the live default."""
+    """Development defaults now match the canonical side; AI defaults stay put."""
     home = tmp_path / "home"
     temp_root = tmp_path / "temp-root"
 
@@ -391,13 +391,13 @@ def test_plan_sources_still_equal_the_public_default_functions(
     darwin_paths = resolve_development_paths(
         environ={}, platform_name="darwin", home=home
     )
-    assert darwin_plan.by_key("macos_development_database").source == (
+    assert darwin_plan.by_key("macos_development_database").destination == (
         darwin_paths.database_path
     )
-    assert darwin_plan.by_key("macos_development_runtime").source == (
+    assert darwin_plan.by_key("macos_development_runtime").destination == (
         darwin_paths.runtime_dir
     )
-    assert darwin_plan.by_key("macos_development_logs").source == (
+    assert darwin_plan.by_key("macos_development_logs").destination == (
         darwin_paths.log_path.parent
     )
     darwin_ai = default_ai_config_path({}, platform="darwin", home=home)
@@ -421,9 +421,9 @@ def test_plan_sources_still_equal_the_public_default_functions(
     xdg_paths = resolve_development_paths(
         environ=xdg_environ, platform_name="linux", home=home
     )
-    assert xdg_plan.by_key("xdg_development_database").source == xdg_paths.database_path
-    assert xdg_plan.by_key("xdg_development_runtime").source == xdg_paths.runtime_dir
-    assert xdg_plan.by_key("xdg_development_logs").source == xdg_paths.log_path.parent
+    assert xdg_plan.by_key("xdg_development_database").destination == xdg_paths.database_path
+    assert xdg_plan.by_key("xdg_development_runtime").destination == xdg_paths.runtime_dir
+    assert xdg_plan.by_key("xdg_development_logs").destination == xdg_paths.log_path.parent
     xdg_ai = default_ai_config_path(
         xdg_environ, platform="linux", home=home
     )
@@ -450,35 +450,35 @@ def test_plan_sources_still_equal_the_public_default_functions(
             environ={}, platform_name="linux", home=home, temp_root=temp_root
         )
         .by_key("temporary_development_database")
-        .source
+        .destination
     )
     assert settings.gallery_preview_cache_path == (
         build_migration_plan(
             environ={}, platform_name="linux", home=home, temp_root=temp_root
         )
         .by_key("temporary_development_gallery_previews")
-        .source
+        .destination
     )
     assert settings.cover_storage_root == (
         build_migration_plan(
             environ={}, platform_name="linux", home=home, temp_root=temp_root
         )
         .by_key("temporary_development_covers")
-        .source
+        .destination
     )
     assert settings.cover_thumbnail_cache_path == (
         build_migration_plan(
             environ={}, platform_name="linux", home=home, temp_root=temp_root
         )
         .by_key("temporary_development_cover_thumbnails")
-        .source
+        .destination
     )
     assert resolved_runtime_settings_path(settings) == (
         build_migration_plan(
             environ={}, platform_name="linux", home=home, temp_root=temp_root
         )
         .by_key("temporary_development_runtime_settings")
-        .source
+        .destination
     )
 
 
@@ -647,8 +647,8 @@ def test_the_real_runtime_factory_proceeds_when_no_state_file_exists(
         port = int(listener.getsockname()[1])
     layout = _linux_layout(tmp_path)
     environ = _xdg_environ(layout) | {
-        "FRAMENEST_DEVELOPMENT_RUNTIME_DIR": str(tmp_path / "runtime-override"),
-        "FRAMENEST_PORT": str(port),
+        "KRONIKA_DEVELOPMENT_RUNTIME_DIR": str(tmp_path / "runtime-override"),
+        "KRONIKA_PORT": str(port),
     }
     migration = LocalStateMigration(
         environ=environ,
@@ -664,7 +664,7 @@ def test_the_real_runtime_factory_proceeds_when_no_state_file_exists(
 def test_an_uninspectable_runtime_state_is_a_sanitized_failure(tmp_path: Path) -> None:
     layout = _linux_layout(tmp_path)
     migration = LocalStateMigration(
-        environ=_xdg_environ(layout) | {"FRAMENEST_PORT": "not-a-number"},
+        environ=_xdg_environ(layout) | {"KRONIKA_PORT": "not-a-number"},
         platform_name="linux",
         home=layout["home"],
         temp_root=layout["temp_root"],
@@ -874,7 +874,7 @@ def test_apply_leaves_explicitly_overridden_paths_unchanged(tmp_path: Path) -> N
     custom_before = custom.read_bytes()
     legacy_path = layout["development"] / "catalog.sqlite3"
     legacy_before = legacy_path.read_bytes()
-    environ = _xdg_environ(layout) | {"FRAMENEST_DATABASE_PATH": str(custom)}
+    environ = _xdg_environ(layout) | {"KRONIKA_DATABASE_PATH": str(custom)}
     migration = _migration(tmp_path, environ=environ)
 
     report = migration.apply()
@@ -1050,11 +1050,67 @@ def test_legacy_state_detector_refuses_and_clears(tmp_path: Path) -> None:
 
     _make_database(layout["development"] / "catalog.sqlite3", rows=1).close()
     refuse_silent_legacy_state_replacement(
-        environ=environ | {"FRAMENEST_DATABASE_PATH": str(tmp_path / "elsewhere.sqlite3")},
+        environ=environ | {"KRONIKA_DATABASE_PATH": str(tmp_path / "elsewhere.sqlite3")},
         platform_name="linux",
         home=layout["home"],
         temp_root=layout["temp_root"],
     )
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_launcher_refuses_legacy_state_before_creating_canonical_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str,
+) -> None:
+    from kronika.infrastructure.runtime.development import (
+        DevelopmentRuntime, DevelopmentRuntimeError,
+    )
+
+    layout = _macos_layout(tmp_path) if platform == "darwin" else _linux_layout(tmp_path)
+    environment = {} if platform == "darwin" else _xdg_environ(layout)
+    monkeypatch.setattr(migration_module.tempfile, "gettempdir", lambda: str(layout["temp_root"]))
+    legacy = layout["development"] / "catalog.sqlite3"
+    _make_database(legacy, rows=1).close()
+    before = legacy.read_bytes()
+    runtime = DevelopmentRuntime(
+        environ=environment, platform_name=platform, home=layout["home"],
+    )
+
+    with pytest.raises(DevelopmentRuntimeError, match="refusing to create an empty replacement"):
+        runtime.start(open_after_start=False)
+
+    assert not runtime.paths.database_path.parent.exists()
+    assert not runtime.paths.runtime_dir.exists()
+    assert legacy.read_bytes() == before
+    migration = _migration(
+        tmp_path, platform_name=platform, environ=environment,
+        home=layout["home"], temp_root=layout["temp_root"],
+    )
+    report = migration.apply()
+    assert not report.refused_keys
+    assert runtime.paths.database_path.is_file()
+    assert legacy.read_bytes() == before
+    refuse_silent_legacy_state_replacement(
+        environ=environment, platform_name=platform, home=layout["home"],
+        temp_root=layout["temp_root"], development_only=True,
+    )
+
+
+def test_migration_still_checks_the_legacy_launcher_after_the_default_switch(tmp_path: Path) -> None:
+    layout = _linux_layout(tmp_path)
+
+    def factory(**kwargs):
+        environment = kwargs["environ"]
+        legacy = environment.get("KRONIKA_DEVELOPMENT_RUNTIME_DIR") == str(layout["runtime"])
+        return _StubRuntime("running" if legacy else "stopped")
+
+    migration = LocalStateMigration(
+        environ=_xdg_environ(layout), platform_name="linux", home=layout["home"],
+        temp_root=layout["temp_root"], receipt_dir=tmp_path / "receipts",
+        runtime_factory=factory,
+    )
+    with pytest.raises(ManagedDevelopmentServerActiveError):
+        migration.apply()
+    assert not (tmp_path / "receipts").exists()
 
 
 def test_capture_profile_credentials_and_media_trees_stay_outside_the_mapping(
@@ -1099,7 +1155,7 @@ def test_capture_profile_credentials_and_media_trees_stay_outside_the_mapping(
 # ---------------------------------------------------------------------------
 
 
-def test_override_detection_reads_either_prefix_and_fails_closed(
+def test_override_detection_ignores_retired_input_and_uses_canonical_input(
     tmp_path: Path,
 ) -> None:
     compatible = _migration(
@@ -1109,8 +1165,8 @@ def test_override_detection_reads_either_prefix_and_fails_closed(
     statuses = {
         outcome.key: outcome.status for outcome in compatible.check().outcomes
     }
-    assert statuses["xdg_development_database"] == OVERRIDE_STATUS
-    assert statuses["temporary_development_database"] == OVERRIDE_STATUS
+    assert statuses["xdg_development_database"] != OVERRIDE_STATUS
+    assert statuses["temporary_development_database"] != OVERRIDE_STATUS
 
     primary = _migration(
         tmp_path,
@@ -1119,16 +1175,12 @@ def test_override_detection_reads_either_prefix_and_fails_closed(
     statuses = {outcome.key: outcome.status for outcome in primary.check().outcomes}
     assert statuses["xdg_development_database"] == OVERRIDE_STATUS
 
-    with pytest.raises(LocalStateMigrationIdentityError) as excinfo:
-        conflicted = _migration(
-            tmp_path,
-            environ={
-                "KRONIKA_DATABASE_PATH": str(tmp_path / "a.sqlite3"),
-                "FRAMENEST_DATABASE_PATH": str(tmp_path / "b.sqlite3"),
-            },
-        )
-        conflicted.check()
-    assert excinfo.value.exit_status == 2
-    assert "DATABASE_PATH" in str(excinfo.value)
-    assert str(tmp_path / "a.sqlite3") not in str(excinfo.value)
-    assert str(tmp_path / "b.sqlite3") not in str(excinfo.value)
+    mixed = _migration(
+        tmp_path,
+        environ={
+            "KRONIKA_DATABASE_PATH": str(tmp_path / "a.sqlite3"),
+            "FRAMENEST_DATABASE_PATH": str(tmp_path / "b.sqlite3"),
+        },
+    )
+    statuses = {outcome.key: outcome.status for outcome in mixed.check().outcomes}
+    assert statuses["xdg_development_database"] == OVERRIDE_STATUS

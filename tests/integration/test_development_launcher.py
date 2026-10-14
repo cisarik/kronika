@@ -39,17 +39,17 @@ def test_development_launcher_real_process_lifecycle(tmp_path: Path) -> None:
     port = _free_loopback_port()
     assert port != 8000
     env = os.environ.copy()
-    env["FRAMENEST_DATABASE_PATH"] = str(tmp_path / "data" / "catalog.sqlite3")
-    env["FRAMENEST_DEVELOPMENT_RUNTIME_DIR"] = str(tmp_path / "runtime")
-    env["FRAMENEST_DEVELOPMENT_LOG_DIR"] = str(tmp_path / "logs")
-    env["FRAMENEST_PORT"] = str(port)
+    env["KRONIKA_DATABASE_PATH"] = str(tmp_path / "data" / "catalog.sqlite3")
+    env["KRONIKA_DEVELOPMENT_RUNTIME_DIR"] = str(tmp_path / "runtime")
+    env["KRONIKA_DEVELOPMENT_LOG_DIR"] = str(tmp_path / "logs")
+    env["KRONIKA_PORT"] = str(port)
 
     first_pid: int | None = None
     try:
         started = _run(["start", "--no-open"], env=env)
         assert started.returncode == 0, started.stderr
         assert "Kronika is running" in started.stdout
-        assert env["FRAMENEST_DATABASE_PATH"] not in started.stdout
+        assert env["KRONIKA_DATABASE_PATH"] not in started.stdout
         assert _health(port) == {"status": "ok"}
 
         status = _run(["status"], env=env)

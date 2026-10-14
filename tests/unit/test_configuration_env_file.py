@@ -16,9 +16,9 @@ from kronika.configuration import (
 )
 
 FRAMENEST_ENV_VARS = (
-    "FRAMENEST_HOST",
-    "FRAMENEST_PORT",
-    "FRAMENEST_DATABASE_PATH",
+    "KRONIKA_HOST",
+    "KRONIKA_PORT",
+    "KRONIKA_DATABASE_PATH",
     ENV_FILE_ENVIRONMENT_VARIABLE,
 )
 
@@ -39,7 +39,7 @@ def test_omitted_env_file_ignores_random_caller_cwd_dotenv(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _write_env_file(tmp_path / ".env", "FRAMENEST_PORT=9999\n")
+    _write_env_file(tmp_path / ".env", "KRONIKA_PORT=9999\n")
     monkeypatch.chdir(tmp_path)
 
     settings = load_settings()
@@ -52,7 +52,7 @@ def test_omitted_env_file_ignores_garbage_caller_cwd_dotenv(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Positive control: this file would fail validation if it were consumed.
-    _write_env_file(tmp_path / ".env", "FRAMENEST_PORT=not-a-number\n")
+    _write_env_file(tmp_path / ".env", "KRONIKA_PORT=not-a-number\n")
     monkeypatch.chdir(tmp_path)
 
     settings = load_settings()
@@ -65,7 +65,7 @@ def test_omitted_env_file_ignores_unreadable_caller_cwd_dotenv(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = _write_env_file(tmp_path / ".env", "FRAMENEST_PORT=9999\n")
+    env_file = _write_env_file(tmp_path / ".env", "KRONIKA_PORT=9999\n")
     env_file.chmod(0o000)
     monkeypatch.chdir(tmp_path)
 
@@ -90,7 +90,7 @@ def test_explicit_variable_env_file_is_loaded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = _write_env_file(tmp_path / "operator.env", "FRAMENEST_PORT=8123\n")
+    env_file = _write_env_file(tmp_path / "operator.env", "KRONIKA_PORT=8123\n")
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
 
     settings = load_settings()
@@ -117,7 +117,7 @@ def test_explicit_variable_unreadable_file_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = _write_env_file(tmp_path / "operator.env", "FRAMENEST_PORT=8123\n")
+    env_file = _write_env_file(tmp_path / "operator.env", "KRONIKA_PORT=8123\n")
     env_file.chmod(0o000)
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
 
@@ -165,7 +165,7 @@ def test_explicit_none_disables_even_configured_variable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = _write_env_file(tmp_path / "operator.env", "FRAMENEST_PORT=8123\n")
+    env_file = _write_env_file(tmp_path / "operator.env", "KRONIKA_PORT=8123\n")
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
 
     settings = load_settings(env_file=None)
@@ -177,9 +177,9 @@ def test_process_environment_overrides_explicit_env_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    env_file = _write_env_file(tmp_path / "operator.env", "FRAMENEST_PORT=8123\n")
+    env_file = _write_env_file(tmp_path / "operator.env", "KRONIKA_PORT=8123\n")
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
-    monkeypatch.setenv("FRAMENEST_PORT", "8200")
+    monkeypatch.setenv("KRONIKA_PORT", "8200")
 
     settings = load_settings()
 
@@ -192,7 +192,7 @@ def test_malformed_explicit_env_file_fails_deterministically(
 ) -> None:
     env_file = _write_env_file(
         tmp_path / "operator.env",
-        "FRAMENEST_PORT=not-a-number\n",
+        "KRONIKA_PORT=not-a-number\n",
     )
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
 
@@ -206,7 +206,7 @@ def test_explicit_relative_env_file_is_operator_authority(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _write_env_file(tmp_path / ".env", "FRAMENEST_PORT=8123\n")
+    _write_env_file(tmp_path / ".env", "KRONIKA_PORT=8123\n")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, ".env")
 
@@ -222,8 +222,8 @@ def test_load_settings_does_not_depend_on_resolvable_cwd(
     outer = tmp_path / "outer"
     inner = outer / "inner"
     inner.mkdir(parents=True)
-    _write_env_file(inner / ".env", "FRAMENEST_PORT=not-a-number\n")
-    env_file = _write_env_file(tmp_path / "operator.env", "FRAMENEST_PORT=8123\n")
+    _write_env_file(inner / ".env", "KRONIKA_PORT=not-a-number\n")
+    env_file = _write_env_file(tmp_path / "operator.env", "KRONIKA_PORT=8123\n")
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
     monkeypatch.chdir(inner)
     outer.chmod(0o000)

@@ -40,7 +40,7 @@ def _run(
     database_path: Path,
     argv: list[str],
 ) -> int:
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
     return library.main(argv)
 
 

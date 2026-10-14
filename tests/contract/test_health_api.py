@@ -19,7 +19,7 @@ from kronika.adapters.api.upload_api import UploadApiDependencies
 from kronika.configuration import KronikaSettings, load_settings
 from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
-FRAMENEST_ENV_VARS = ("FRAMENEST_HOST", "FRAMENEST_PORT", "FRAMENEST_API_KEY")
+FRAMENEST_ENV_VARS = ("KRONIKA_HOST", "KRONIKA_PORT", "KRONIKA_API_KEY")
 REPRESENTATIVE_SECRET = "contract-test-api-key-secret"
 
 

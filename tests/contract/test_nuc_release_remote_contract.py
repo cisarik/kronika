@@ -454,7 +454,7 @@ def test_atomic_switch_creates_new_symlink_then_renames() -> None:
 def test_service_account_commands_establish_release_cwd_and_env() -> None:
     command = engine.cmd_remote_db_status(TARGET)
     assert f"--chdir={TARGET}" in command
-    assert f"env FRAMENEST_ENV_FILE={engine.ENV_FILE}" in command
+    assert f"env KRONIKA_ENV_FILE={engine.ENV_FILE}" in command
     assert "-u framenest" in command
 
 
@@ -468,7 +468,7 @@ def test_production_cli_uses_systemd_environment_file() -> None:
         assert f"EnvironmentFile={engine.ENV_FILE}" in command
         assert "--uid=framenest" in command
         assert "--gid=framenest" in command
-        assert "FRAMENEST_ENV_FILE" not in command
+        assert "KRONIKA_ENV_FILE" not in command
         assert "uv " not in command
         assert "migrate" not in command
 

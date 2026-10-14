@@ -37,10 +37,10 @@ class _Process:
 
 def _env(tmp_path: Path, *, port: int = 48123) -> dict[str, str]:
     return {
-        "FRAMENEST_DATABASE_PATH": str(tmp_path / "data" / "catalog.sqlite3"),
-        "FRAMENEST_DEVELOPMENT_RUNTIME_DIR": str(tmp_path / "state"),
-        "FRAMENEST_DEVELOPMENT_LOG_DIR": str(tmp_path / "logs"),
-        "FRAMENEST_PORT": str(port),
+        "KRONIKA_DATABASE_PATH": str(tmp_path / "data" / "catalog.sqlite3"),
+        "KRONIKA_DEVELOPMENT_RUNTIME_DIR": str(tmp_path / "state"),
+        "KRONIKA_DEVELOPMENT_LOG_DIR": str(tmp_path / "logs"),
+        "KRONIKA_PORT": str(port),
     }
 
 
@@ -67,12 +67,12 @@ def test_macos_development_path_resolution_uses_user_library(tmp_path: Path) -> 
     paths = resolve_development_paths(environ={}, platform_name="darwin", home=tmp_path)
 
     assert paths.database_path == (
-        tmp_path / "Library" / "Application Support" / "FrameNest" / "development" / "catalog.sqlite3"
+        tmp_path / "Library" / "Application Support" / "Kronika" / "development" / "catalog.sqlite3"
     )
     assert paths.runtime_dir == (
-        tmp_path / "Library" / "Application Support" / "FrameNest" / "development" / "runtime"
+        tmp_path / "Library" / "Application Support" / "Kronika" / "development" / "runtime"
     )
-    assert paths.log_path == tmp_path / "Library" / "Logs" / "FrameNest" / "development" / "server.log"
+    assert paths.log_path == tmp_path / "Library" / "Logs" / "Kronika" / "development" / "server.log"
 
 
 def test_xdg_fallback_path_resolution(tmp_path: Path) -> None:
@@ -83,14 +83,14 @@ def test_xdg_fallback_path_resolution(tmp_path: Path) -> None:
 
     paths = resolve_development_paths(environ=env, platform_name="linux", home=tmp_path)
 
-    assert paths.database_path == tmp_path / "xdg-data" / "FrameNest" / "development" / "catalog.sqlite3"
-    assert paths.runtime_dir == tmp_path / "xdg-state" / "FrameNest" / "development" / "runtime"
-    assert paths.log_path == tmp_path / "xdg-state" / "FrameNest" / "development" / "logs" / "server.log"
+    assert paths.database_path == tmp_path / "xdg-data" / "Kronika" / "development" / "catalog.sqlite3"
+    assert paths.runtime_dir == tmp_path / "xdg-state" / "Kronika" / "development" / "runtime"
+    assert paths.log_path == tmp_path / "xdg-state" / "Kronika" / "development" / "logs" / "server.log"
 
 
 def test_absolute_override_validation_rejects_relative_paths(tmp_path: Path) -> None:
     env = _env(tmp_path)
-    env["FRAMENEST_DEVELOPMENT_RUNTIME_DIR"] = "relative-state"
+    env["KRONIKA_DEVELOPMENT_RUNTIME_DIR"] = "relative-state"
 
     with pytest.raises(DevelopmentRuntimeError, match="absolute path"):
         DevelopmentRuntime(environ=env)
@@ -384,8 +384,8 @@ def test_spawn_environment_enforces_loopback_and_disposable_database(
     assert result.ok is True
     assert captured["args"][0][1:] == ["-m", "kronika.server"]
     env = captured["kwargs"]["env"]
-    assert env["FRAMENEST_HOST"] == "127.0.0.1"
-    assert env["FRAMENEST_DATABASE_PATH"] == str(tmp_path / "data" / "catalog.sqlite3")
+    assert env["KRONIKA_HOST"] == "127.0.0.1"
+    assert env["KRONIKA_DATABASE_PATH"] == str(tmp_path / "data" / "catalog.sqlite3")
     assert env["NVIDIA_API_KEY"] == "synthetic-nvidia-key"
     assert env["AI_GATEWAY_API_KEY"] == "synthetic-gateway-key"
 
@@ -396,7 +396,7 @@ def test_every_spawned_setting_name_is_covered_by_the_normalised_suffix_list() -
 
     assert set(development.SPAWNED_SETTING_SUFFIXES) == {"HOST", "PORT", "DATABASE_PATH"}
     for suffix in development.SPAWNED_SETTING_SUFFIXES:
-        assert f'"FRAMENEST_{suffix}"' in source
+        assert f'"KRONIKA_{suffix}"' in source
     assert "drop_identity_environment_spellings(env, SPAWNED_SETTING_SUFFIXES)" in source
 
 
@@ -420,7 +420,7 @@ def test_spawned_environment_carries_no_alternate_spelling_of_a_written_setting(
         captured.update(kwargs)
         return _Process(6061)
 
-    canonical = f"FRAMENEST_{suffix}"
+    canonical = f"KRONIKA_{suffix}"
     inherited_value = {
         "HOST": "203.0.113.9",
         "PORT": "48199",
@@ -461,18 +461,10 @@ def test_spawned_environment_carries_no_alternate_spelling_of_a_written_setting(
     assert settings.database_path == runtime.paths.database_path
 
 
-def test_a_conflicting_parent_pair_is_rejected_before_anything_is_spawned(
-    tmp_path: Path,
-) -> None:
-    """The launcher's own fail-closed check is unchanged by the normalisation."""
+def test_a_mixed_parent_pair_uses_the_canonical_port(tmp_path: Path) -> None:
     runtime_env = _env(tmp_path)
-    runtime_env["KRONIKA_PORT"] = "48199"
-
-    with pytest.raises(development.IdentityEnvironmentDevelopmentError) as excinfo:
-        DevelopmentRuntime(environ=runtime_env)
-
-    assert "PORT" in str(excinfo.value)
-    assert excinfo.value.exit_status == 2
+    runtime_env["FRAMENEST_PORT"] = "48199"
+    assert DevelopmentRuntime(environ=runtime_env)._port == 48123
 
 
 def test_no_sigkill_literal_in_runtime_source() -> None:

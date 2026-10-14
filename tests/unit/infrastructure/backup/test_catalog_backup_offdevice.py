@@ -115,7 +115,7 @@ def _hooks(
 
 
 def _environ(destination_id: str = DESTINATION_ID) -> dict[str, str]:
-    return {"FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID": destination_id}
+    return {"KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID": destination_id}
 
 
 def _seed_scheduled(tmp_path: Path, *, day: int = 4):
@@ -139,14 +139,14 @@ def test_parse_configured_destination_id_disabled_and_invalid() -> None:
     )
 
     assert parse_configured_destination_id({}) is None
-    assert parse_configured_destination_id({"FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID": ""}) is None
+    assert parse_configured_destination_id({"KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID": ""}) is None
     assert parse_configured_destination_id(_environ()) == DESTINATION_ID
     with pytest.raises(OffdeviceError) as exc:
-        parse_configured_destination_id({"FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID": "not-hex"})
+        parse_configured_destination_id({"KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID": "not-hex"})
     assert exc.value.error_code == "OFFDEVICE_DESTINATION_ID_INVALID"
     with pytest.raises(OffdeviceError) as exc:
         parse_configured_destination_id(
-            {"FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID": "0123456789ABCDEF0123456789ABCDEF"}
+            {"KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID": "0123456789ABCDEF0123456789ABCDEF"}
         )
     assert exc.value.error_code == "OFFDEVICE_DESTINATION_ID_INVALID"
 

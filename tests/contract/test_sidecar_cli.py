@@ -374,7 +374,7 @@ def test_catalog_not_ready_and_unexpected_fallback(
 ) -> None:
     from kronika.adapters.cli import sidecar
 
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "missing" / "catalog.sqlite3"))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(tmp_path / "missing" / "catalog.sqlite3"))
     monkeypatch.setattr(sidecar, "load_settings", lambda: KronikaSettings(
         database_path=tmp_path / "missing" / "catalog.sqlite3",
         _env_file=None,
@@ -432,7 +432,7 @@ def test_validate_does_not_load_or_require_catalog(
     monkeypatch.setattr(sidecar, "SqliteLibraryRepository", _forbidden)
     monkeypatch.setattr(sidecar, "SqliteMediaMetadataRepository", _forbidden)
     monkeypatch.setattr(sidecar, "dispose_engine", _forbidden)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "absent" / "catalog.sqlite3"))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(tmp_path / "absent" / "catalog.sqlite3"))
 
     code, stdout, stderr = _run(["validate", "--path", str(sidecar_path)], capsys)
     assert code == 0
@@ -544,7 +544,7 @@ def test_cli_round_trip_export_validate_compare_and_stale_without_repair(
     database_path = _seed_catalog(tmp_path)
     sidecar_path = tmp_path / "library" / "movies" / "clip.mp4.kronika.json"
     tables_before = _table_names(database_path)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     created_code, created_out, created_err = _run(
         ["export", "--media-id", MEDIA_ID_TEXT, "--location-id", LOCATION_ID_TEXT],

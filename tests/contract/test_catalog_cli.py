@@ -33,8 +33,8 @@ def _require_catalog_console_script() -> Path:
 
 def _run_db_migrate(*, cwd: Path, database_path: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    env["FRAMENEST_DATABASE_PATH"] = database_path
-    env.pop("FRAMENEST_API_KEY", None)
+    env["KRONIKA_DATABASE_PATH"] = database_path
+    env.pop("KRONIKA_API_KEY", None)
     return subprocess.run(
         [str(DB_CONSOLE_SCRIPT), "migrate"],
         cwd=cwd,
@@ -52,8 +52,8 @@ def _run_catalog_command(
     database_path: str,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    env["FRAMENEST_DATABASE_PATH"] = database_path
-    env.pop("FRAMENEST_API_KEY", None)
+    env["KRONIKA_DATABASE_PATH"] = database_path
+    env.pop("KRONIKA_API_KEY", None)
     return subprocess.run(
         [str(_require_catalog_console_script()), *args],
         cwd=cwd,
@@ -161,7 +161,7 @@ def test_invalid_usage_returns_exit_2_with_sanitized_json(tmp_path: Path) -> Non
     assert payload == {
         "operation": "device.get",
         "state": "error",
-        "error_code": "FRAMENEST_CATALOG_INVALID_INPUT",
+        "error_code": "KRONIKA_CATALOG_INVALID_INPUT",
         "message": "Invalid catalog command.",
     }
     combined = result.stdout + result.stderr
@@ -185,7 +185,7 @@ def test_nonexistent_database_returns_exit_4_without_creating_file(tmp_path: Pat
     assert payload == {
         "operation": "device.list",
         "state": "error",
-        "error_code": "FRAMENEST_CATALOG_NOT_READY",
+        "error_code": "KRONIKA_CATALOG_NOT_READY",
         "message": "Catalog database is not ready. Run framenest-db migrate.",
     }
     assert not database_path.exists()
@@ -206,7 +206,7 @@ def test_database_at_revision_0001_returns_exit_4(tmp_path: Path) -> None:
 
     assert result.returncode == 4
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_NOT_READY"
+    assert payload["error_code"] == "KRONIKA_CATALOG_NOT_READY"
     assert "0001" not in result.stderr
     assert "0002" not in result.stderr
 
@@ -216,7 +216,7 @@ def test_catalog_cli_does_not_execute_migrations(tmp_path: Path, monkeypatch: py
 
     database_path = tmp_path / "no-migrate.sqlite3"
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     def fail_upgrade(*args: object, **kwargs: object) -> object:
         raise AssertionError("catalog CLI must not execute migrations")
@@ -256,7 +256,7 @@ def test_get_rejects_malformed_device_ids(tmp_path: Path, device_id: str) -> Non
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_INVALID_INPUT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_INVALID_INPUT"
     assert device_id not in result.stdout + result.stderr
 
 
@@ -310,7 +310,7 @@ def test_register_invalid_display_name_via_subprocess_returns_exit_2(tmp_path: P
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_INVALID_INPUT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_INVALID_INPUT"
     assert "leading" not in result.stdout + result.stderr
 
 
@@ -364,7 +364,7 @@ def test_get_missing_device_returns_exit_3(tmp_path: Path) -> None:
     assert payload == {
         "operation": "device.get",
         "state": "error",
-        "error_code": "FRAMENEST_DEVICE_NOT_FOUND",
+        "error_code": "KRONIKA_DEVICE_NOT_FOUND",
         "message": "Device not found.",
     }
     assert CANONICAL_UUID4_TEXT not in result.stderr
@@ -468,7 +468,7 @@ def test_repository_failure_returns_exit_1(tmp_path: Path, monkeypatch: pytest.M
     database_path = tmp_path / "failure.sqlite3"
     _run_db_migrate(cwd=tmp_path, database_path=str(database_path))
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     def fail_add(self: object, device: object) -> None:
         raise FrameNestDeviceRepositoryError("Device registry operation failed.")
@@ -656,7 +656,7 @@ def test_library_register_missing_device_returns_exit_3(tmp_path: Path) -> None:
     assert payload == {
         "operation": "library.register",
         "state": "error",
-        "error_code": "FRAMENEST_LIBRARY_DEVICE_NOT_FOUND",
+        "error_code": "KRONIKA_LIBRARY_DEVICE_NOT_FOUND",
         "message": "Owning device not found.",
     }
     assert CANONICAL_UUID4_TEXT not in result.stderr
@@ -698,7 +698,7 @@ def test_library_register_duplicate_root_on_same_device_returns_exit_5(tmp_path:
     )
     assert second.returncode == 5
     payload = _parse_single_json_line(second.stderr)
-    assert payload["error_code"] == "FRAMENEST_LIBRARY_ROOT_ALREADY_REGISTERED"
+    assert payload["error_code"] == "KRONIKA_LIBRARY_ROOT_ALREADY_REGISTERED"
     assert str(library_dir) not in second.stderr
 
 
@@ -771,7 +771,7 @@ def test_library_register_missing_root_returns_exit_2_without_path_leak(tmp_path
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_LIBRARY_ROOT_NOT_USABLE"
+    assert payload["error_code"] == "KRONIKA_LIBRARY_ROOT_NOT_USABLE"
     assert str(missing_root) not in result.stderr
 
 
@@ -790,7 +790,7 @@ def test_library_get_missing_returns_exit_3(tmp_path: Path) -> None:
 
     assert result.returncode == 3
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_LIBRARY_NOT_FOUND"
+    assert payload["error_code"] == "KRONIKA_LIBRARY_NOT_FOUND"
     assert CANONICAL_UUID4_TEXT not in result.stderr
 
 
@@ -824,7 +824,7 @@ def test_library_list_at_database_revision_0002_returns_not_ready(tmp_path: Path
     )
 
     assert result.returncode == 4
-    assert _parse_single_json_line(result.stderr)["error_code"] == "FRAMENEST_CATALOG_NOT_READY"
+    assert _parse_single_json_line(result.stderr)["error_code"] == "KRONIKA_CATALOG_NOT_READY"
 
 
 def _register_library_for_scan_tests(
@@ -979,7 +979,7 @@ def test_library_scan_preview_missing_library_returns_exit_3(tmp_path: Path) -> 
     assert payload == {
         "operation": "library.scan_preview",
         "state": "error",
-        "error_code": "FRAMENEST_LIBRARY_NOT_FOUND",
+        "error_code": "KRONIKA_LIBRARY_NOT_FOUND",
         "message": "Library not found.",
     }
 
@@ -1010,7 +1010,7 @@ def test_library_scan_preview_unavailable_root_returns_exit_6(tmp_path: Path) ->
     assert payload == {
         "operation": "library.scan_preview",
         "state": "error",
-        "error_code": "FRAMENEST_LIBRARY_SCAN_UNAVAILABLE",
+        "error_code": "KRONIKA_LIBRARY_SCAN_UNAVAILABLE",
         "message": "Library scan preview is not available.",
     }
     assert str(library_dir) not in result.stderr
@@ -1030,7 +1030,7 @@ def test_library_scan_preview_at_database_revision_0002_returns_not_ready(tmp_pa
     )
 
     assert result.returncode == 4
-    assert _parse_single_json_line(result.stderr)["error_code"] == "FRAMENEST_CATALOG_NOT_READY"
+    assert _parse_single_json_line(result.stderr)["error_code"] == "KRONIKA_CATALOG_NOT_READY"
 
 
 def test_library_scan_preview_does_not_execute_migrations(
@@ -1041,7 +1041,7 @@ def test_library_scan_preview_does_not_execute_migrations(
 
     database_path = tmp_path / "no-migrate.sqlite3"
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     def fail_upgrade(*args: object, **kwargs: object) -> object:
         raise AssertionError("catalog CLI must not execute migrations")
@@ -1187,7 +1187,7 @@ def test_library_analyze_preview_invalid_relative_path_returns_exit_2(tmp_path: 
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_INVALID_INPUT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_INVALID_INPUT"
 
 
 def test_library_analyze_preview_missing_library_returns_exit_3(tmp_path: Path) -> None:
@@ -1210,7 +1210,7 @@ def test_library_analyze_preview_missing_library_returns_exit_3(tmp_path: Path) 
     assert payload == {
         "operation": "library.analyze_preview",
         "state": "error",
-        "error_code": "FRAMENEST_LIBRARY_NOT_FOUND",
+        "error_code": "KRONIKA_LIBRARY_NOT_FOUND",
         "message": "Library not found.",
     }
 
@@ -1240,7 +1240,7 @@ def test_library_analyze_preview_unsupported_extension_returns_exit_6(tmp_path: 
 
     assert result.returncode == 6
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_LIBRARY_ANALYSIS_UNAVAILABLE"
+    assert payload["error_code"] == "KRONIKA_LIBRARY_ANALYSIS_UNAVAILABLE"
 
 
 def test_library_analyze_preview_at_database_revision_0002_returns_not_ready(tmp_path: Path) -> None:
@@ -1259,7 +1259,7 @@ def test_library_analyze_preview_at_database_revision_0002_returns_not_ready(tmp
     )
 
     assert result.returncode == 4
-    assert _parse_single_json_line(result.stderr)["error_code"] == "FRAMENEST_CATALOG_NOT_READY"
+    assert _parse_single_json_line(result.stderr)["error_code"] == "KRONIKA_CATALOG_NOT_READY"
 
 
 def test_library_analyze_preview_does_not_execute_migrations(
@@ -1269,7 +1269,7 @@ def test_library_analyze_preview_does_not_execute_migrations(
     from kronika.adapters.cli import catalog
 
     database_path = tmp_path / "missing.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert catalog.main(
         [
@@ -1316,7 +1316,7 @@ def test_library_suggest_preview_missing_confirmation_returns_exit_2(tmp_path: P
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_CLOUD_CONFIRMATION_REQUIRED"
+    assert payload["error_code"] == "KRONIKA_CATALOG_CLOUD_CONFIRMATION_REQUIRED"
 
 
 def test_library_suggest_preview_missing_confirmation_skips_local_preparation(
@@ -1370,7 +1370,7 @@ def test_library_suggest_preview_missing_credential_returns_exit_2(
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_NVIDIA_CREDENTIAL_MISSING"
+    assert payload["error_code"] == "KRONIKA_CATALOG_NVIDIA_CREDENTIAL_MISSING"
 
 
 def test_library_suggest_preview_unsupported_provider_returns_exit_2(
@@ -1397,7 +1397,7 @@ def test_library_suggest_preview_unsupported_provider_returns_exit_2(
 
     assert result.returncode == 2
     payload = _parse_single_json_line(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_UNSUPPORTED_PROVIDER"
+    assert payload["error_code"] == "KRONIKA_CATALOG_UNSUPPORTED_PROVIDER"
 
 
 def test_library_suggest_preview_success_returns_deterministic_json(

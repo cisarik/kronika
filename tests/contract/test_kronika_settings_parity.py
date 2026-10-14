@@ -1,26 +1,10 @@
-"""Differential parity between the current settings source and the pre-cut source.
+"""Canonical settings parity and exhaustive retired-prefix rejection.
 
-A settings field must behave, for old-spelling-only input, exactly as
-``pydantic-settings`` behaved before the dual-prefix resolver existed. This
-module proves that differentially instead of by reading, for every field, over
-case variants, explicitly empty values, whitespace-only values and invalid
-values, through both the process environment and an environment file.
-
-The reference side is built from the library's own
-``BaseSettings.settings_customise_sources``, which is the hook the library
-defines and the hook the code at the restoration reference commit used. Patching
-that hook makes ``_settings_init_sources`` build the stock ``EnvSettingsSource``
-and ``DotEnvSettingsSource`` and apply the library's default source order, so no
-project dual-prefix class takes part in the reference.
-
-Why today's library is a valid reference for that older commit: ``poetry.lock``
-is byte-identical at ``18c357cf6f8c5ff9cc3b2c28e638510fc73a3672`` and at this
-commit, the installed ``pydantic-settings`` is the locked version, and the
-``KronikaSettings`` field set, validators and ``model_config`` are
-byte-identical at both commits. Settings-source assembly is therefore the only
-difference, and this module replaces it with the library's own.
-``test_the_settings_library_is_unchanged_since_the_restoration_reference`` keeps
-that claim honest.
+The former old-prefix matrix now proves those inputs are ignored for every
+field, case and value shape. The stock source also ignores them under the
+canonical model prefix; explicit defaults below keep that comparison causal.
+The adopted canonical constructor, empty, none-string, dotenv and precedence
+characterizations retain their pre-removal expectations unchanged.
 """
 
 from __future__ import annotations
@@ -159,6 +143,7 @@ def _parity_mismatches(tmp_path: Path, channel: str) -> list[str]:
             env_file.write_text(f"{variable}={value}\n", encoding="utf-8")
             stock = _observed({}, env_file, stock=True)
             current = _observed({}, env_file, stock=False)
+        assert current == _observed({}, None, stock=False), label
         if stock != current:
             mismatches.append(f"{label}: stock={stock!r} current={current!r}")
     return mismatches
@@ -227,7 +212,7 @@ def test_the_matrix_subject_is_pinned_to_the_compatible_prefix_value() -> None:
     become vacuous with nothing failing.
     """
     assert COMPATIBLE_ENVIRONMENT_PREFIX == "FRAMENEST_"
-    assert KronikaSettings.model_config["env_prefix"] == "FRAMENEST_"
+    assert KronikaSettings.model_config["env_prefix"] == "KRONIKA_"
 
 
 def test_the_matrix_reaches_every_field_and_every_value() -> None:
@@ -288,7 +273,7 @@ def test_the_settings_library_is_unchanged_since_the_restoration_reference() -> 
 
 
 @pytest.mark.parametrize("variable", ["framenest_port", "Framenest_Port", "fRaMeNeSt_pOrT"])
-def test_an_old_spelling_name_in_any_case_configures_the_field(
+def test_an_old_spelling_name_in_any_case_is_ignored(
     variable: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -296,7 +281,7 @@ def test_an_old_spelling_name_in_any_case_configures_the_field(
 
     settings = load_settings(env_file=None)
 
-    assert settings.port == 9999
+    assert settings.port == 8000
 
 
 @pytest.mark.parametrize("variable", ["kronika_port", "Kronika_Port"])
@@ -324,17 +309,17 @@ def test_a_case_variant_of_a_name_outside_both_prefixes_is_still_ignored(
     assert settings.host == "127.0.0.1"
 
 
-def test_both_cases_of_one_old_name_resolve_to_the_later_value(
+def test_both_cases_of_one_old_name_are_ignored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The pre-cut collision rule, kept exactly: the later entry wins."""
+    """Neither retired case variant configures a field."""
     monkeypatch.setenv("FRAMENEST_PORT", "9998")
     monkeypatch.setenv("framenest_port", "9999")
 
     settings = load_settings(env_file=None)
 
-    assert settings.port == 9999
-    assert lookup_field_value("PORT", environ={"FRAMENEST_PORT": "1", "framenest_port": "2"}) == "2"
+    assert settings.port == 8000
+    assert lookup_field_value("PORT", environ={"FRAMENEST_PORT": "1", "framenest_port": "2"}) is None
 
 
 def test_the_case_exact_identity_spelling_outranks_a_case_variant_of_the_old_spelling(
@@ -369,32 +354,35 @@ def test_the_two_prefixes_in_different_cases_do_not_raise_a_conflict() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_an_explicitly_empty_old_spelling_value_fails_closed(
+def test_an_explicitly_empty_old_spelling_value_is_ignored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The pre-cut outcome: a validation failure, not the field default."""
+    """An empty retired value is ignored along with non-empty retired values."""
     monkeypatch.setenv(f"{COMPATIBLE_ENVIRONMENT_PREFIX}PORT", "")
 
-    with pytest.raises(ValidationError):
-        load_settings(env_file=None)
+    settings = load_settings(env_file=None)
+    assert settings.port == 8000
+    assert settings.database_path.is_absolute()
 
 
-def test_an_explicitly_empty_old_spelling_path_value_fails_closed(
+def test_an_explicitly_empty_old_spelling_path_value_is_ignored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(f"{COMPATIBLE_ENVIRONMENT_PREFIX}DATABASE_PATH", "")
 
-    with pytest.raises(ValidationError):
-        load_settings(env_file=None)
+    settings = load_settings(env_file=None)
+    assert settings.port == 8000
+    assert settings.database_path.is_absolute()
 
 
-def test_an_explicitly_empty_environment_file_value_fails_closed(tmp_path: Path) -> None:
-    """The environment-file path never lost this; it must keep it."""
+def test_an_explicitly_empty_environment_file_value_is_ignored(tmp_path: Path) -> None:
+    """Retired file fields are ignored, including an empty value."""
     env_file = tmp_path / "framenest.env"
     env_file.write_text(f"{COMPATIBLE_ENVIRONMENT_PREFIX}PORT=\n", encoding="utf-8")
 
-    with pytest.raises(ValidationError):
-        load_settings(env_file=env_file)
+    settings = load_settings(env_file=env_file)
+    assert settings.port == 8000
+    assert settings.database_path.is_absolute()
 
 
 @pytest.mark.parametrize("prefix", [PRIMARY_ENVIRONMENT_PREFIX, COMPATIBLE_ENVIRONMENT_PREFIX])
@@ -437,17 +425,88 @@ def test_an_empty_old_spelling_beside_an_identity_value_keeps_the_identity_value
     assert settings.port == 9999
 
 
-def test_the_conflicting_pair_still_fails_closed_with_a_suffix_only_message(
+def test_the_conflicting_pair_uses_the_canonical_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(f"{PRIMARY_ENVIRONMENT_PREFIX}PORT", "9998")
     monkeypatch.setenv(f"{COMPATIBLE_ENVIRONMENT_PREFIX}PORT", "9999")
 
-    with pytest.raises(FrameNestConfigurationError) as excinfo:
-        load_settings(env_file=None)
+    assert load_settings(env_file=None).port == 9998
 
-    rendered = str(excinfo.value)
-    assert "PORT" in rendered
-    assert "9998" not in rendered
-    assert "9999" not in rendered
-    assert excinfo.value.exit_status == 2
+# C7-B characterization: these constructor overrides are currently not forwarded
+# to the custom sources. Removing compatibility must not silently fix that
+# unrelated behavior. All inputs below use the canonical prefix.
+@pytest.mark.parametrize("case_sensitive", [False, True])
+def test_canonical_constructor_case_override_parity(case_sensitive: bool) -> None:
+    with mock.patch.dict(os.environ, {"kronika_port": "8123"}, clear=True):
+        assert KronikaSettings(_env_file=None, _case_sensitive=case_sensitive).port == 8123
+
+
+@pytest.mark.parametrize("prefix", ["", "CUSTOM_", "KRONIKA_"])
+def test_canonical_constructor_prefix_override_parity(prefix: str) -> None:
+    with mock.patch.dict(
+        os.environ, {"KRONIKA_PORT": "8123", "CUSTOM_PORT": "9123", "PORT": "9124"},
+        clear=True,
+    ):
+        assert KronikaSettings(_env_file=None, _env_prefix=prefix).port == 8123
+
+
+@pytest.mark.parametrize("ignore_empty", [False, True])
+@pytest.mark.parametrize("channel", [PROCESS_CHANNEL, FILE_CHANNEL])
+def test_canonical_constructor_empty_override_parity(
+    ignore_empty: bool, channel: str, tmp_path: Path,
+) -> None:
+    env_file = tmp_path / "canonical.env"
+    env_file.write_text("KRONIKA_PORT=\n", encoding="utf-8")
+    process = {"KRONIKA_PORT": ""} if channel == PROCESS_CHANNEL else {}
+    with mock.patch.dict(os.environ, process, clear=True):
+        settings = KronikaSettings(
+            _env_file=env_file if channel == FILE_CHANNEL else None,
+            _env_ignore_empty=ignore_empty,
+        )
+    assert settings.port == 8000
+
+
+@pytest.mark.parametrize("channel", [PROCESS_CHANNEL, FILE_CHANNEL])
+def test_canonical_constructor_none_override_parity(channel: str, tmp_path: Path) -> None:
+    env_file = tmp_path / "canonical.env"
+    env_file.write_text("KRONIKA_API_KEY=NULL\n", encoding="utf-8")
+    process = {"KRONIKA_API_KEY": "NULL"} if channel == PROCESS_CHANNEL else {}
+    with mock.patch.dict(os.environ, process, clear=True):
+        settings = KronikaSettings(
+            _env_file=env_file if channel == FILE_CHANNEL else None,
+            _env_parse_none_str="NULL",
+        )
+    assert settings.api_key is not None
+    assert settings.api_key.get_secret_value() == "NULL"
+
+
+def test_canonical_dotenv_encoding_override_parity(tmp_path: Path) -> None:
+    env_file = tmp_path / "canonical.env"
+    env_file.write_text("KRONIKA_API_KEY=synthetic-é\n", encoding="utf-8")
+    with mock.patch.dict(os.environ, {}, clear=True):
+        # The stock source reads first, before the custom hook replaces it.
+        with pytest.raises(UnicodeDecodeError):
+            KronikaSettings(_env_file=env_file, _env_file_encoding="ascii")
+        settings = KronikaSettings(_env_file=env_file, _env_file_encoding="latin-1")
+    assert settings.api_key is not None
+    assert settings.api_key.get_secret_value() == "synthetic-é"
+
+
+def test_canonical_dotenv_sequence_and_source_precedence_parity(tmp_path: Path) -> None:
+    first, second = tmp_path / "first.env", tmp_path / "second.env"
+    first.write_text("KRONIKA_PORT=8121\n", encoding="utf-8")
+    second.write_text("kronika_port=8122\n", encoding="utf-8")
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert KronikaSettings(_env_file=(first, second), _case_sensitive=True).port == 8122
+        assert KronikaSettings(_env_file=None).port == 8000
+    with mock.patch.dict(os.environ, {"KRONIKA_PORT": "8123"}, clear=True):
+        assert KronikaSettings(_env_file=(first, second)).port == 8123
+        assert KronikaSettings(_env_file=(first, second), port=8124).port == 8124
+
+
+def test_canonical_exact_case_precedence_parity() -> None:
+    with mock.patch.dict(
+        os.environ, {"KRONIKA_PORT": "8123", "kronika_port": "9123"}, clear=True,
+    ):
+        assert KronikaSettings(_env_file=None).port == 8123

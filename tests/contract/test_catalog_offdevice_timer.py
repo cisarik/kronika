@@ -35,7 +35,7 @@ def _require_backup_console_script() -> Path:
 
 def _run_backup_command(*args: str, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     merged = os.environ.copy()
-    merged.pop("FRAMENEST_API_KEY", None)
+    merged.pop("KRONIKA_API_KEY", None)
     if env:
         merged.update(env)
     return subprocess.run(

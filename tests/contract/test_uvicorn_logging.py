@@ -163,8 +163,8 @@ def test_server_config_access_log_is_false(
 def test_existing_runtime_invariants_remain_unchanged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.1")
-    monkeypatch.setenv("FRAMENEST_PORT", "8000")
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.1")
+    monkeypatch.setenv("KRONIKA_PORT", "8000")
     monkeypatch.setenv("UVICORN_HOST", "0.0.0.0")
     server = create_server()
     assert server.config.host == "127.0.0.1"

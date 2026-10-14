@@ -1,60 +1,8 @@
-"""Dual-prefix environment identity resolver for ADR-0085.
+"""Canonical environment resolution for ADR-0085.
 
-One setting name may be spelled with either accepted prefix during the ordered
-Kronika identity cut sequence:
-
-- ``KRONIKA_<SUFFIX>`` is the identity prefix recorded by ADR-0085.
-- ``FRAMENEST_<SUFFIX>`` is the compatible spelling that every installed
-  release, the installed ``/etc/framenest/framenest.env`` file, and the
-  installed systemd units still use.
-
-This module is the only place that reads either spelling, so readers learn the
-new spelling while writers keep emitting the old one until the matching reader
-is the installed release.
-
-Precedence, exactly:
-
-===========================  =========================  =========================
-``KRONIKA_<SUFFIX>``         ``FRAMENEST_<SUFFIX>``     Result
-===========================  =========================  =========================
-set                          unset                      the ``KRONIKA_`` value
-unset                        set                        the ``FRAMENEST_`` value
-unset                        unset                      ``None``; caller default
-set                          set, identical             that value
-set                          set, different             fail closed
-===========================  =========================  =========================
-
-A variable set to the empty string counts as unset, so the installed
-environment file and existing systemd ``Environment=`` handling keep their
-current meaning. That rule exists for the ``ENV_FILE`` selector, which reads a
-path rather than a field value, and for the direct reader call sites.
-
-The table is a rule about **one mapping**, and the conflict check is
-**per channel**. :func:`lookup_env` is called once per source over that source's
-mapping only: the process environment is one channel and the environment file is
-the other. ``KRONIKA_<SUFFIX>`` in the process environment together with
-``FRAMENEST_<SUFFIX>`` in the environment file therefore raises no conflict, and
-the process-environment source is ordered first, so the process-environment
-value wins; the reverse arrangement resolves the same way.
-
-There is deliberately no cross-channel conflict check. A global rule would fail
-closed on the ordinary case of an environment file that supplies a value and a
-process environment that overrides it, which the installed ``EnvironmentFile=``
-and ``Environment=`` handling treats as normal operation rather than a
-misconfiguration. This is a deliberate silent resolution, not an oversight, and
-it is a divergence from a global conflict rule.
-
-One settings *field* needs a wider rule than a direct reader, and
-:func:`lookup_field_value` states it. A settings field is matched against a
-variable name, not read as a whole setting, so the two behaviours a field must
-keep are the case-insensitive name matching and the fail-closed coercion that
-``pydantic-settings`` performed before this resolver existed. See that function
-for the three layers and their order.
-
-The fail-closed path raises :class:`IdentityEnvironmentConflictError`, which
-carries the setting-name suffix only. It never carries, derives, or logs a
-value, a length, a hash, or a ``repr`` of either value, and it never returns a
-partially resolved pair.
+FRAMENEST_ inputs no longer configure the application. Direct readers require
+case-exact names and treat empty values as unset. Settings fields additionally
+accept case variants, with a non-empty case-exact canonical name taking priority.
 """
 
 from __future__ import annotations
@@ -104,32 +52,13 @@ class IdentityEnvironmentConflictError(Exception):
         )
 
 
-def identity_environment_names(suffix: str) -> tuple[str, str]:
-    """Return both accepted variable names for one setting-name suffix."""
-    return (
-        f"{PRIMARY_ENVIRONMENT_PREFIX}{suffix}",
-        f"{COMPATIBLE_ENVIRONMENT_PREFIX}{suffix}",
-    )
-
-
 def canonical_identity_environment(values: Mapping[str, str]) -> dict[str, str]:
-    """Present a mapping under canonical variable names.
-
-    ``pydantic-settings`` lowercases the keys it reads from an environment file,
-    so a file mapping cannot be handed to :func:`lookup_env` directly. This
-    helper keeps only the entries that carry an accepted identity prefix, under
-    the canonical upper-case spelling, and drops everything else. Values that
-    carry no accepted prefix are outside the identity surface.
-    """
-    canonical: dict[str, str] = {}
-    prefixes = (PRIMARY_ENVIRONMENT_PREFIX, COMPATIBLE_ENVIRONMENT_PREFIX)
-    for key, value in values.items():
-        upper = key.upper()
-        for prefix in prefixes:
-            if upper.startswith(prefix):
-                canonical[f"{prefix}{upper[len(prefix):]}"] = value
-                break
-    return canonical
+    """Keep canonical-prefixed file keys, normalized to upper case."""
+    return {
+        key.upper(): value
+        for key, value in values.items()
+        if key.upper().startswith(PRIMARY_ENVIRONMENT_PREFIX)
+    }
 
 
 def lookup_env(
@@ -137,35 +66,9 @@ def lookup_env(
     *,
     environ: Mapping[str, str] | None = None,
 ) -> str | None:
-    """Return the resolved value of one prefixed setting name.
-
-    ``suffix`` is the part of the variable name after the prefix, for example
-    ``DATABASE_PATH``. ``environ`` exists for the readers that already accept an
-    explicit environment mapping so they can resolve without mutating the
-    process environment; it defaults to :data:`os.environ`.
-
-    Returns ``None`` when neither spelling carries a non-empty value, which is
-    the caller's own default. Raises
-    :class:`IdentityEnvironmentConflictError` when both spellings are set to
-    different values, before either value is returned.
-
-    The check covers exactly the mapping passed in, so it is per channel. A
-    caller that reads two channels calls this once per channel, and two
-    spellings of one suffix split across the two channels never meet in one
-    call. The module docstring states that rule and why it exists.
-    """
+    """Read a case-exact canonical name; absent and empty values are unset."""
     env = os.environ if environ is None else environ
-    primary = env.get(f"{PRIMARY_ENVIRONMENT_PREFIX}{suffix}")
-    compatible = env.get(f"{COMPATIBLE_ENVIRONMENT_PREFIX}{suffix}")
-    if primary == "":
-        primary = None
-    if compatible == "":
-        compatible = None
-    if primary is None:
-        return compatible
-    if compatible is None or primary == compatible:
-        return primary
-    raise IdentityEnvironmentConflictError(suffix)
+    return env.get(f"{PRIMARY_ENVIRONMENT_PREFIX}{suffix}") or None
 
 
 def folded_identity_environment(values: Mapping[str, str]) -> dict[str, str]:
@@ -190,72 +93,18 @@ def lookup_field_value(
     environ: Mapping[str, str] | None = None,
     case_folded: Mapping[str, str] | None = None,
 ) -> str | None:
-    """Return the value one settings field takes from an environment mapping.
+    """Read a canonical field name, preserving case and empty-value precedence.
 
-    :func:`lookup_env` resolves a whole setting name and is right for the
-    ``ENV_FILE`` selector and for the direct reader call sites. A settings field
-    additionally has to match a variable *name*, so this function resolves in
-    three layers, in this order:
-
-    1. the case-exact identity spelling, when it carries a non-empty value. The
-       case-exact spelling wins outright because it is the spelling the identity
-       authority names.
-    2. the compatible spelling from the case-folded view, raw, including an
-       explicitly empty value. This is what ``pydantic-settings`` produced for
-       the field before this resolver existed, so an old-spelling name
-       configures the field whatever its case and an unparseable value still
-       fails closed instead of silently becoming the default.
-    3. the identity spelling from the case-folded view, with an empty value
-       counting as unset, because that is the identity prefix's documented rule.
-
-    ``case_folded`` is accepted so a caller that resolves many fields folds the
-    mapping once. :func:`lookup_env` runs for every field, so the cross-prefix
-    conflict check stays exactly as strict as before within that one mapping, and
-    raises before any layer returns.
-
-    What the layer order means, measured on one mapping:
-
-    - A case-exact ``KRONIKA_<SUFFIX>`` carrying a non-empty value is answered
-      by layer 1 and short-circuits, so it is shadowed neither by a case variant
-      of the compatible spelling nor by a case variant of itself.
-    - When both spellings are present only as case variants, layer 2 answers
-      first, so the compatible spelling wins and a case variant of the identity
-      spelling **can** be shadowed by a case variant of the compatible one:
-      ``kronika_port=9998`` beside ``framenest_port=9999`` resolves to ``9999``
-      and raises nothing.
-    - An empty identity spelling counts as unset in layer 1 and in layer 3
-      alike, so ``KRONIKA_PORT=`` beside ``framenest_port=9999`` resolves to
-      ``9999``.
-
-    The compatible layer sits ahead of the identity layer deliberately. Before
-    this resolver existed the compatible prefix was the only prefix the library
-    read, so a case variant of the compatible spelling is what configured a
-    field then; the differential parity matrix in
-    ``tests/contract/test_kronika_settings_parity.py`` measures that reading
-    case by case against the pre-cut source. Keeping layer 2 ahead therefore
-    reproduces the pre-cut result for an input whose identity spelling is a
-    case variant, and changes nothing for an input that carries no identity
-    spelling at all. A case-exact ``KRONIKA_<SUFFIX>`` is the deliberate
-    divergence: layer 1 answers it, where the pre-cut library read the
-    compatible spelling instead.
-
-    The cross-prefix conflict check is unaffected by any of this. It stays
-    case-exact, because it compares the two canonical names only, and it runs
-    unconditionally before any layer decides, because :func:`lookup_env` is
-    called first. It is per mapping like everything else here.
+    The non-empty case-exact name wins. Otherwise the case-folded mapping is
+    consulted, with later case variants winning and an empty value unset.
+    Unlike this field reader, lookup_env does not fold names.
     """
     values = os.environ if environ is None else environ
-    folded = folded_identity_environment(values) if case_folded is None else case_folded
     resolved = lookup_env(suffix, environ=values)
-    if values.get(f"{PRIMARY_ENVIRONMENT_PREFIX}{suffix}"):
+    if resolved is not None:
         return resolved
-    compatible = folded.get(f"{COMPATIBLE_ENVIRONMENT_PREFIX}{suffix}")
-    if compatible is not None:
-        return compatible
-    primary = folded.get(f"{PRIMARY_ENVIRONMENT_PREFIX}{suffix}")
-    if primary:
-        return primary
-    return resolved
+    folded = folded_identity_environment(values) if case_folded is None else case_folded
+    return folded.get(f"{PRIMARY_ENVIRONMENT_PREFIX}{suffix}") or None
 
 
 def drop_identity_environment_spellings(

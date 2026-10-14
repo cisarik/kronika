@@ -70,10 +70,10 @@ def _declared_config() -> AiServerConfig:
 def test_config_path_override_is_absolute(tmp_path: Path) -> None:
     path = tmp_path / "ai" / "config.json"
 
-    assert default_ai_config_path({"FRAMENEST_AI_CONFIG_PATH": str(path)}) == path
+    assert default_ai_config_path({"KRONIKA_AI_CONFIG_PATH": str(path)}) == path
 
     with pytest.raises(AiConfigurationError):
-        default_ai_config_path({"FRAMENEST_AI_CONFIG_PATH": "relative.json"})
+        default_ai_config_path({"KRONIKA_AI_CONFIG_PATH": "relative.json"})
 
 
 def test_write_and_load_config_persists_no_secret(tmp_path: Path) -> None:

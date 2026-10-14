@@ -137,8 +137,8 @@ def test_tcp_mode_rejects_non_loopback_hosts(host: str) -> None:
 def test_tcp_mode_rejects_non_loopback_host_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_INGRESS_MODE", "tcp")
-    monkeypatch.setenv("FRAMENEST_HOST", "0.0.0.0")
+    monkeypatch.setenv("KRONIKA_INGRESS_MODE", "tcp")
+    monkeypatch.setenv("KRONIKA_HOST", "0.0.0.0")
     with pytest.raises(ValidationError, match="loopback"):
         KronikaSettings(_env_file=None)
 
@@ -195,13 +195,13 @@ def test_public_published_uds_mode_accepts_explicit_socket(tmp_path: Path) -> No
 def test_tailscale_settings_load_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_INGRESS_MODE", "tailscale_uds")
-    monkeypatch.setenv("FRAMENEST_UDS_PATH", "/run/framenest/framenest.sock")
+    monkeypatch.setenv("KRONIKA_INGRESS_MODE", "tailscale_uds")
+    monkeypatch.setenv("KRONIKA_UDS_PATH", "/run/framenest/framenest.sock")
     monkeypatch.setenv(
-        "FRAMENEST_EXTERNAL_ORIGIN", "https://nuc-1.tail247768.ts.net"
+        "KRONIKA_EXTERNAL_ORIGIN", "https://nuc-1.tail247768.ts.net"
     )
     monkeypatch.setenv(
-        "FRAMENEST_IDENTITY_MAP", '{"aecrypto@gmail.com": "admin"}'
+        "KRONIKA_IDENTITY_MAP", '{"aecrypto@gmail.com": "admin"}'
     )
     settings = KronikaSettings(_env_file=None)
     assert settings.ingress_mode == "tailscale_uds"
@@ -248,16 +248,16 @@ def test_companion_extension_origins_reject_inexact_values(origins: object) -> N
 def test_companion_extension_origins_load_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_INGRESS_MODE", "tailscale_uds")
-    monkeypatch.setenv("FRAMENEST_UDS_PATH", "/run/framenest/framenest.sock")
+    monkeypatch.setenv("KRONIKA_INGRESS_MODE", "tailscale_uds")
+    monkeypatch.setenv("KRONIKA_UDS_PATH", "/run/framenest/framenest.sock")
     monkeypatch.setenv(
-        "FRAMENEST_EXTERNAL_ORIGIN", "https://nuc-1.tail247768.ts.net"
+        "KRONIKA_EXTERNAL_ORIGIN", "https://nuc-1.tail247768.ts.net"
     )
     monkeypatch.setenv(
-        "FRAMENEST_IDENTITY_MAP", '{"aecrypto@gmail.com": "admin"}'
+        "KRONIKA_IDENTITY_MAP", '{"aecrypto@gmail.com": "admin"}'
     )
     monkeypatch.setenv(
-        "FRAMENEST_COMPANION_EXTENSION_ORIGINS",
+        "KRONIKA_COMPANION_EXTENSION_ORIGINS",
         '["chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]',
     )
     settings = KronikaSettings(_env_file=None)

@@ -1,4 +1,4 @@
-"""Unit tests for the ADR-0085 dual-prefix identity environment resolver."""
+"""Unit tests for the ADR-0085 canonical identity environment resolver."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from kronika.identity_env import (
     COMPATIBLE_ENVIRONMENT_PREFIX,
     EXIT_IDENTITY_ENVIRONMENT_CONFLICT,
     PRIMARY_ENVIRONMENT_PREFIX,
-    IdentityEnvironmentConflictError,
     lookup_env,
     lookup_field_value,
 )
@@ -22,10 +21,10 @@ def test_primary_prefix_only_wins() -> None:
     assert resolved == "/a"
 
 
-def test_compatible_prefix_only_still_resolves() -> None:
+def test_compatible_prefix_only_is_ignored() -> None:
     resolved = lookup_env(SUFFIX, environ={f"{COMPATIBLE_ENVIRONMENT_PREFIX}{SUFFIX}": "/b"})
 
-    assert resolved == "/b"
+    assert resolved is None
 
 
 def test_both_unset_returns_the_caller_default() -> None:
@@ -65,55 +64,41 @@ def test_both_empty_counts_as_unset() -> None:
     assert lookup_env(SUFFIX, environ=environ) is None
 
 
-def test_conflicting_values_fail_closed() -> None:
+def test_conflicting_values_use_the_canonical_value() -> None:
     environ = {
         f"{PRIMARY_ENVIRONMENT_PREFIX}{SUFFIX}": "/a",
         f"{COMPATIBLE_ENVIRONMENT_PREFIX}{SUFFIX}": "/b",
     }
 
-    with pytest.raises(IdentityEnvironmentConflictError):
-        lookup_env(SUFFIX, environ=environ)
+    assert lookup_env(SUFFIX, environ=environ) == "/a"
 
 
-def test_conflict_carries_the_suffix_only() -> None:
+def test_mixed_input_carries_the_suffix_only() -> None:
     environ = {
         f"{PRIMARY_ENVIRONMENT_PREFIX}{SUFFIX}": "/secret-a",
         f"{COMPATIBLE_ENVIRONMENT_PREFIX}{SUFFIX}": "/secret-b",
     }
 
-    with pytest.raises(IdentityEnvironmentConflictError) as excinfo:
-        lookup_env(SUFFIX, environ=environ)
-
-    error = excinfo.value
-    assert error.suffix == SUFFIX
-    assert SUFFIX in str(error)
-    for forbidden in ("/secret-a", "/secret-b", "secret", "8", "9"):
-        assert forbidden not in str(error)
+    assert lookup_env(SUFFIX, environ=environ) == "/secret-a"
 
 
-def test_conflict_repr_holds_no_value() -> None:
+def test_mixed_input_repr_holds_no_value() -> None:
     environ = {
         f"{PRIMARY_ENVIRONMENT_PREFIX}{SUFFIX}": "/secret-a",
         f"{COMPATIBLE_ENVIRONMENT_PREFIX}{SUFFIX}": "/secret-b",
     }
 
-    with pytest.raises(IdentityEnvironmentConflictError) as excinfo:
-        lookup_env(SUFFIX, environ=environ)
-
-    rendered = f"{excinfo.value!r}"
-    assert "/secret-a" not in rendered
-    assert "/secret-b" not in rendered
+    assert lookup_env(SUFFIX, environ=environ) == "/secret-a"
 
 
-def test_conflict_is_raised_before_any_value_is_returned() -> None:
-    """The fail-closed path is total: no field is resolved partially."""
+def test_canonical_value_is_returned_for_a_mixed_pair() -> None:
+    """A retired name cannot prevent the canonical value from being used."""
     environ = {
         f"{PRIMARY_ENVIRONMENT_PREFIX}PORT": "9000",
         f"{COMPATIBLE_ENVIRONMENT_PREFIX}PORT": "9001",
     }
 
-    with pytest.raises(IdentityEnvironmentConflictError):
-        lookup_env("PORT", environ=environ)
+    assert lookup_env("PORT", environ=environ) == "9000"
 
 
 def test_process_environment_is_the_default_source(
@@ -152,18 +137,18 @@ def test_a_case_exact_identity_spelling_short_circuits_every_other_layer() -> No
     )
 
 
-def test_a_case_variant_of_the_identity_spelling_loses_to_the_compatible_layer() -> None:
-    """Layer 2 precedes layer 3, so the case variant of the identity name loses."""
+def test_a_case_variant_of_the_identity_spelling_ignores_the_retired_layer() -> None:
+    """Only canonical case variants take part in field resolution."""
     assert (
         lookup_field_value("PORT", environ={"kronika_port": "9998", "framenest_port": "9999"})
-        == "9999"
+        == "9998"
     )
     assert (
         lookup_field_value(
             "PORT",
             environ={"kronika_port": "9998", "Framenest_Port": "9999"},
         )
-        == "9999"
+        == "9998"
     )
 
 
@@ -171,19 +156,17 @@ def test_an_empty_identity_spelling_is_unset_in_both_identity_layers() -> None:
     """Layers 1 and 3 agree that an empty identity value carries no value."""
     assert (
         lookup_field_value("PORT", environ={"KRONIKA_PORT": "", "framenest_port": "9999"})
-        == "9999"
+        is None
     )
     assert (
         lookup_field_value("PORT", environ={"kronika_port": "", "framenest_port": "9999"})
-        == "9999"
+        is None
     )
     assert lookup_field_value("PORT", environ={"KRONIKA_PORT": ""}) is None
     assert lookup_field_value("PORT", environ={"kronika_port": ""}) is None
 
 
-def test_the_cross_prefix_conflict_check_precedes_every_field_layer() -> None:
-    """The check runs first, so it also outranks the case-exact short-circuit."""
-    with pytest.raises(IdentityEnvironmentConflictError):
-        lookup_field_value(
-            "PORT", environ={"KRONIKA_PORT": "9998", "FRAMENEST_PORT": "9999"}
-        )
+def test_a_mixed_pair_keeps_the_canonical_field_value() -> None:
+    assert lookup_field_value(
+        "PORT", environ={"KRONIKA_PORT": "9998", "FRAMENEST_PORT": "9999"}
+    ) == "9998"

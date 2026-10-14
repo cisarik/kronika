@@ -35,7 +35,7 @@ from kronika.infrastructure.ai.provider_records import (
     validate_provider_identifier,
 )
 from kronika.identity_env import (
-    COMPATIBLE_ENVIRONMENT_PREFIX,
+    PRIMARY_ENVIRONMENT_PREFIX,
     IdentityEnvironmentConflictError,
     lookup_env,
 )
@@ -54,7 +54,7 @@ _V3_CONFIG_KEYS = frozenset(
 )
 AI_TEST_STATE_SCHEMA_VERSION = 1
 AI_STATUS_SNAPSHOT_SCHEMA_VERSION = 1
-AI_CONFIG_PATH_ENVIRONMENT_NAME = f"{COMPATIBLE_ENVIRONMENT_PREFIX}AI_CONFIG_PATH"
+AI_CONFIG_PATH_ENVIRONMENT_NAME = f"{PRIMARY_ENVIRONMENT_PREFIX}AI_CONFIG_PATH"
 AI_CONFIG_PATH_ENVIRONMENT_SUFFIX = "AI_CONFIG_PATH"
 
 SAFE_TEST_STATUSES = frozenset(

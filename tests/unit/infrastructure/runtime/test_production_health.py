@@ -73,8 +73,8 @@ def test_check_health_succeeds_over_tcp_loopback(
     capsys: pytest.CaptureFixture[str],
     tcp_health_server: int,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.1")
-    monkeypatch.setenv("FRAMENEST_PORT", str(tcp_health_server))
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.1")
+    monkeypatch.setenv("KRONIKA_PORT", str(tcp_health_server))
 
     assert production.main(["check-health"]) == 0
 
@@ -88,10 +88,10 @@ def test_check_health_succeeds_over_unix_socket(
     capsys: pytest.CaptureFixture[str],
     uds_health_server: Path,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_INGRESS_MODE", "tailscale_uds")
-    monkeypatch.setenv("FRAMENEST_UDS_PATH", str(uds_health_server))
-    monkeypatch.setenv("FRAMENEST_EXTERNAL_ORIGIN", "https://nuc-1.example.ts.net")
-    monkeypatch.setenv("FRAMENEST_IDENTITY_MAP", '{"admin@example.com": "admin"}')
+    monkeypatch.setenv("KRONIKA_INGRESS_MODE", "tailscale_uds")
+    monkeypatch.setenv("KRONIKA_UDS_PATH", str(uds_health_server))
+    monkeypatch.setenv("KRONIKA_EXTERNAL_ORIGIN", "https://nuc-1.example.ts.net")
+    monkeypatch.setenv("KRONIKA_IDENTITY_MAP", '{"admin@example.com": "admin"}')
 
     assert production.main(["check-health"]) == 0
 
@@ -105,8 +105,8 @@ def test_check_health_fails_closed_without_listener(
     capsys: pytest.CaptureFixture[str],
     tcp_health_server: int,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.1")
-    monkeypatch.setenv("FRAMENEST_PORT", str(tcp_health_server + 1))
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.1")
+    monkeypatch.setenv("KRONIKA_PORT", str(tcp_health_server + 1))
 
     assert production.main(["check-health"]) == 5
 
@@ -115,7 +115,7 @@ def test_check_health_fails_closed_without_listener(
     payload = _payload(output.err)
     assert payload["operation"] == "check-health"
     assert payload["state"] == "error"
-    assert payload["error_code"] == "FRAMENEST_HEALTH_CHECK_FAILED"
+    assert payload["error_code"] == "KRONIKA_HEALTH_CHECK_FAILED"
     assert payload["message"] == expected("{brand} health check failed.")
     assert "Traceback" not in output.err
 
@@ -125,17 +125,17 @@ def test_check_health_fails_closed_for_missing_unix_socket(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_INGRESS_MODE", "tailscale_uds")
-    monkeypatch.setenv("FRAMENEST_UDS_PATH", str(tmp_path / "absent.sock"))
-    monkeypatch.setenv("FRAMENEST_EXTERNAL_ORIGIN", "https://nuc-1.example.ts.net")
-    monkeypatch.setenv("FRAMENEST_IDENTITY_MAP", '{"admin@example.com": "admin"}')
+    monkeypatch.setenv("KRONIKA_INGRESS_MODE", "tailscale_uds")
+    monkeypatch.setenv("KRONIKA_UDS_PATH", str(tmp_path / "absent.sock"))
+    monkeypatch.setenv("KRONIKA_EXTERNAL_ORIGIN", "https://nuc-1.example.ts.net")
+    monkeypatch.setenv("KRONIKA_IDENTITY_MAP", '{"admin@example.com": "admin"}')
 
     assert production.main(["check-health"]) == 5
 
     output = capsys.readouterr()
     assert output.out == ""
     payload = _payload(output.err)
-    assert payload["error_code"] == "FRAMENEST_HEALTH_CHECK_FAILED"
+    assert payload["error_code"] == "KRONIKA_HEALTH_CHECK_FAILED"
     assert "Traceback" not in output.err
     assert str(tmp_path) not in output.err
 
@@ -145,8 +145,8 @@ def test_check_health_rejects_non_ok_payload(
     capsys: pytest.CaptureFixture[str],
     tcp_health_server: int,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.1")
-    monkeypatch.setenv("FRAMENEST_PORT", str(tcp_health_server))
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.1")
+    monkeypatch.setenv("KRONIKA_PORT", str(tcp_health_server))
 
     class _BrokenHandler(_HealthHandler):
         def do_GET(self) -> None:
@@ -161,7 +161,7 @@ def test_check_health_rejects_non_ok_payload(
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        monkeypatch.setenv("FRAMENEST_PORT", str(server.server_address[1]))
+        monkeypatch.setenv("KRONIKA_PORT", str(server.server_address[1]))
         assert production.main(["check-health"]) == 5
     finally:
         server.shutdown()
@@ -169,4 +169,4 @@ def test_check_health_rejects_non_ok_payload(
         thread.join(timeout=5)
 
     output = capsys.readouterr()
-    assert _payload(output.err)["error_code"] == "FRAMENEST_HEALTH_CHECK_FAILED"
+    assert _payload(output.err)["error_code"] == "KRONIKA_HEALTH_CHECK_FAILED"

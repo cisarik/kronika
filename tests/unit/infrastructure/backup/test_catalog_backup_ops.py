@@ -349,10 +349,10 @@ def test_symlink_and_root_escape_rejected(tmp_path: Path) -> None:
     with pytest.raises(CatalogBackupOpsError):
         load_catalog_backup_ops_config(
             {
-                "FRAMENEST_DATABASE_PATH": str(config.database_path),
-                "FRAMENEST_CATALOG_BACKUP_ROOT": "/mnt/umbrel-data/backups",
-                "FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT": str(config.restore_verify_root),
-                "FRAMENEST_CATALOG_BACKUP_OPS_ROOT": str(config.ops_root),
+                "KRONIKA_DATABASE_PATH": str(config.database_path),
+                "KRONIKA_CATALOG_BACKUP_ROOT": "/mnt/umbrel-data/backups",
+                "KRONIKA_CATALOG_RESTORE_VERIFY_ROOT": str(config.restore_verify_root),
+                "KRONIKA_CATALOG_BACKUP_OPS_ROOT": str(config.ops_root),
             }
         )
 

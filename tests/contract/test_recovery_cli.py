@@ -28,17 +28,17 @@ def _ops_env(tmp_path: Path) -> dict[str, str]:
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(tmp_path),
         "PYTHONNOUSERSITE": "1",
-        "FRAMENEST_DATABASE_PATH": str(db),
-        "FRAMENEST_CATALOG_BACKUP_ROOT": str(tmp_path / "catalog-backups"),
-        "FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT": str(tmp_path / "catalog-restore-verify"),
-        "FRAMENEST_CATALOG_BACKUP_OPS_ROOT": str(tmp_path / "catalog-backup-ops"),
-        "FRAMENEST_CATALOG_BACKUP_KEEP_AUTO": "30",
+        "KRONIKA_DATABASE_PATH": str(db),
+        "KRONIKA_CATALOG_BACKUP_ROOT": str(tmp_path / "catalog-backups"),
+        "KRONIKA_CATALOG_RESTORE_VERIFY_ROOT": str(tmp_path / "catalog-restore-verify"),
+        "KRONIKA_CATALOG_BACKUP_OPS_ROOT": str(tmp_path / "catalog-backup-ops"),
+        "KRONIKA_CATALOG_BACKUP_KEEP_AUTO": "30",
     }
 
 
 def _run(script: Path, *args: str, cwd: Path, env: dict[str, str], timeout: float = 60.0):
     merged = os.environ.copy()
-    merged.pop("FRAMENEST_API_KEY", None)
+    merged.pop("KRONIKA_API_KEY", None)
     merged.update(env)
     return subprocess.run(
         [str(script), *args],
@@ -68,7 +68,7 @@ def test_export_latest_rejects_arguments(tmp_path: Path) -> None:
     )
     assert result.returncode == 2
     payload = json.loads(result.stderr.decode("utf-8"))
-    assert payload["error_code"] == "FRAMENEST_BACKUP_INVALID_INPUT"
+    assert payload["error_code"] == "KRONIKA_BACKUP_INVALID_INPUT"
 
 
 def test_export_latest_streams_protocol_after_scheduled(tmp_path: Path) -> None:
@@ -140,35 +140,17 @@ def test_root_launcher_exposes_recovery_route() -> None:
     assert "export-latest" in launcher
 
 
-def test_pull_remote_layout_selection_is_fixed_and_explicit() -> None:
-    """The temporary selection chooses one fixed tuple and nothing else."""
-    from kronika.infrastructure.persistence.catalog_backup_workstation import (
-        FIXED_REMOTE_EXPORT_COMMAND,
-        REMOTE_LAYOUT_COMMANDS,
-        WorkstationError,
-        build_ssh_argv,
-        resolve_remote_layout_command,
-    )
+def test_pull_remote_command_is_fixed_and_canonical() -> None:
+    from kronika.infrastructure.persistence.catalog_backup_workstation import build_ssh_argv
 
-    old_argv = build_ssh_argv(target="nuc-alias")
-    assert old_argv[-len(FIXED_REMOTE_EXPORT_COMMAND):] == list(
-        FIXED_REMOTE_EXPORT_COMMAND
-    )
-    new_command = REMOTE_LAYOUT_COMMANDS["new"]
-    new_argv = build_ssh_argv(target="nuc-alias", remote_layout="new")
-    assert new_argv[-len(new_command):] == list(new_command)
-    assert new_argv[-1] == "/usr/local/libexec/kronika-catalog-export-v1"
-    assert "kronika" in new_command
-    assert "framenest" not in " ".join(new_command)
-
-    assert resolve_remote_layout_command("old") == FIXED_REMOTE_EXPORT_COMMAND
-    for rejected in ("anything", "", "; rm -rf /", "old new", "OLD"):
-        with pytest.raises(WorkstationError) as exc:
-            resolve_remote_layout_command(rejected)
-        assert exc.value.error_code == "WORKSTATION_REMOTE_LAYOUT_INVALID"
+    argv = build_ssh_argv(target="nuc-alias")
+    assert argv[-6:] == [
+        "sudo", "-n", "-u", "kronika", "--",
+        "/usr/local/libexec/kronika-catalog-export-v1",
+    ]
 
 
-def test_pull_parser_accepts_only_the_two_fixed_layout_choices() -> None:
+def test_pull_parser_rejects_the_removed_layout_option() -> None:
     from kronika.adapters.cli import recovery
 
     parser = recovery._build_parser()
@@ -183,13 +165,13 @@ def test_pull_parser_accepts_only_the_two_fixed_layout_choices() -> None:
         "--ssh-target",
         "nuc",
     ]
-    assert parser.parse_args(base).remote_layout == "old"
-    assert parser.parse_args([*base, "--remote-layout", "new"]).remote_layout == "new"
+    assert parser.parse_args(base).ssh_target == "nuc"
+    assert "--remote-layout" not in parser.format_help()
     with pytest.raises(recovery._UsageError):
         parser.parse_args([*base, "--remote-layout", "anything"])
 
 
-def test_recovery_pull_passes_the_selected_fixed_layout(
+def test_recovery_pull_preserves_other_arguments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from types import SimpleNamespace
@@ -221,9 +203,10 @@ def test_recovery_pull_passes_the_selected_fixed_layout(
             "0" * 32,
             "--ssh-target",
             "nuc",
-            "--remote-layout",
-            "new",
         ]
     )
     assert result == 0
-    assert captured["remote_layout"] == "new"
+    assert captured["ssh_target"] == "nuc"
+    assert captured["connect_timeout_seconds"] == 30
+    assert captured["transfer_timeout_seconds"] == 1800
+    assert "remote_layout" not in captured

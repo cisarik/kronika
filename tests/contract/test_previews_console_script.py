@@ -20,7 +20,7 @@ def _require_previews_console_script() -> Path:
 
 def _run_previews_command(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    env.pop("FRAMENEST_API_KEY", None)
+    env.pop("KRONIKA_API_KEY", None)
     return subprocess.run(
         [str(_require_previews_console_script()), *args],
         cwd=cwd,

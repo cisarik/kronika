@@ -44,7 +44,8 @@ def _configured_nvidia_client(
     initial_status: str | None = None,
 ) -> tuple[TestClient, Path]:
     config_path = tmp_path / "ai" / "config.json"
-    monkeypatch.setenv("FRAMENEST_AI_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("KRONIKA_AI_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("FRAMENEST_AI_CONFIG_PATH", str(tmp_path / "retired.json"))
     monkeypatch.setenv("NVIDIA_API_KEY", "synthetic-nvidia-key")
     monkeypatch.delenv("AI_GATEWAY_API_KEY", raising=False)
     test_state_path = default_ai_test_state_path(config_path)
@@ -182,7 +183,7 @@ def test_capability_reads_latest_connection_test_state_without_app_restart(
     }
     assert "synthetic" not in successful.text
     assert "NVIDIA_API_KEY" not in successful.text
-    assert "FRAMENEST_AI_CONFIG_PATH" not in successful.text
+    assert "KRONIKA_AI_CONFIG_PATH" not in successful.text
     assert str(test_state_path) not in successful.text
 
 
@@ -276,7 +277,8 @@ def test_capability_get_does_not_create_missing_test_state_directory(
 
 def _declared_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     config_path = tmp_path / "ai" / "config.json"
-    monkeypatch.setenv("FRAMENEST_AI_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("KRONIKA_AI_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("FRAMENEST_AI_CONFIG_PATH", str(tmp_path / "retired.json"))
     monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     monkeypatch.delenv("AI_GATEWAY_API_KEY", raising=False)
@@ -332,4 +334,4 @@ def test_declared_provider_resolves_at_startup_with_credential_unavailable(
     assert payload["status"] == "credential_unavailable"
     assert "synthetic" not in response.text
     assert DECLARED_CREDENTIAL_ENV not in response.text
-    assert "FRAMENEST_AI_CONFIG_PATH" not in response.text
+    assert "KRONIKA_AI_CONFIG_PATH" not in response.text

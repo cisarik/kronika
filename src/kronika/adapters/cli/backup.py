@@ -37,8 +37,8 @@ from kronika.infrastructure.persistence.catalog_backup_offdevice import (
 )
 from kronika.infrastructure.persistence.catalog_backup_transfer import TransferError
 
-INVALID_INPUT_CODE = "FRAMENEST_BACKUP_INVALID_INPUT"
-COMMAND_FAILED_CODE = "FRAMENEST_BACKUP_COMMAND_FAILED"
+INVALID_INPUT_CODE = "KRONIKA_BACKUP_INVALID_INPUT"
+COMMAND_FAILED_CODE = "KRONIKA_BACKUP_COMMAND_FAILED"
 BUSY_CODE = "BACKUP_OPS_BUSY"
 PROTECTED_OPERATIONS = frozenset(
     {

@@ -98,7 +98,7 @@ def _client(
     configured: bool = False,
 ) -> tuple[TestClient, KronikaSettings, _FakeTransport, Path]:
     config_path = _config_path(tmp_path)
-    monkeypatch.setenv("FRAMENEST_AI_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("KRONIKA_AI_CONFIG_PATH", str(config_path))
     monkeypatch.setenv(CREDENTIAL_ENV, CREDENTIAL_VALUE)
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     monkeypatch.delenv("AI_GATEWAY_API_KEY", raising=False)

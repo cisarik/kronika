@@ -975,9 +975,25 @@ class LocalStateMigration:
         return resolved
 
     def _assert_managed_server_stopped(self) -> None:
+        environments = [self._environ]
+        if _resolved_override_value(self._environ, RUNTIME_DIRECTORY_SUFFIX) is None:
+            legacy_runtime = next(
+                entry.source for entry in self._plan.entries
+                if entry.override_suffix == RUNTIME_DIRECTORY_SUFFIX
+            )
+            # After the default switch, the old launcher can still own its
+            # recorded process. Inspect that location before copying its state.
+            environments.append(
+                dict(self._environ)
+                | {"KRONIKA_DEVELOPMENT_RUNTIME_DIR": str(legacy_runtime)}
+            )
+        for environment in environments:
+            self._assert_runtime_stopped(environment)
+
+    def _assert_runtime_stopped(self, environment: Mapping[str, str]) -> None:
         try:
             runtime = self._runtime_factory(
-                environ=self._environ,
+                environ=environment,
                 platform_name=self._platform_name,
                 home=self._home,
             )
@@ -1352,6 +1368,7 @@ def refuse_silent_legacy_state_replacement(
     platform_name: str | None = None,
     home: Path | None = None,
     temp_root: Path | None = None,
+    development_only: bool = False,
 ) -> None:
     """Refuse to silently create an empty replacement over existing state.
 
@@ -1371,6 +1388,9 @@ def refuse_silent_legacy_state_replacement(
     )
     offenders: list[str] = []
     for entry in plan.entries:
+        # The development default cut precedes the AI configuration default cut.
+        if development_only and entry.override_suffix == AI_CONFIG_PATH_SUFFIX:
+            continue
         if _resolved_override_value(env, entry.override_suffix) is not None:
             continue
         if not _lexists(entry.source):

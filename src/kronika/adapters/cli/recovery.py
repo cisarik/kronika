@@ -17,8 +17,8 @@ from kronika.infrastructure.persistence.catalog_backup_workstation import (
     verify_workstation_snapshot,
 )
 
-INVALID_INPUT_CODE = "FRAMENEST_RECOVERY_INVALID_INPUT"
-COMMAND_FAILED_CODE = "FRAMENEST_RECOVERY_COMMAND_FAILED"
+INVALID_INPUT_CODE = "KRONIKA_RECOVERY_INVALID_INPUT"
+COMMAND_FAILED_CODE = "KRONIKA_RECOVERY_COMMAND_FAILED"
 
 
 class _UsageError(Exception):
@@ -85,7 +85,6 @@ def _dispatch(operation: str, args: argparse.Namespace) -> int:
             ssh_port=args.ssh_port,
             connect_timeout_seconds=args.connect_timeout_seconds,
             transfer_timeout_seconds=args.transfer_timeout_seconds,
-            remote_layout=args.remote_layout,
         )
         _write_payload(
             {
@@ -151,15 +150,6 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_store_root_args(pull, require_expected_id=True)
     pull.add_argument("--ssh-target", required=True, help="OpenSSH destination (user@host or alias).")
     pull.add_argument("--ssh-port", type=int, default=None, help="Optional SSH port.")
-    pull.add_argument(
-        "--remote-layout",
-        choices=("old", "new"),
-        default="old",
-        help=(
-            "Temporary explicit NUC layout selection for the fixed export "
-            "command; defaults to the former layout during preparation."
-        ),
-    )
     pull.add_argument(
         "--connect-timeout-seconds",
         type=int,

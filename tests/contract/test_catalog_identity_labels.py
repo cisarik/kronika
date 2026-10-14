@@ -211,7 +211,7 @@ def _run_in_process(
     database_path: Path,
     *args: str,
 ) -> tuple[int, str, str]:
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
     exit_code = catalog.main(list(args))
     captured = capsys.readouterr()
     return exit_code, captured.out, captured.err
@@ -370,7 +370,7 @@ def test_check_refuses_to_overwrite_an_existing_receipt(
     assert exit_code == 5
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_EXISTS"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_RECEIPT_EXISTS"
     assert receipt_file.read_bytes() == original_bytes
     assert first.receipt_digest == hashlib.sha256(original_bytes).hexdigest()
 
@@ -475,7 +475,7 @@ def test_apply_requires_explicit_confirmation(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_CONFIRMATION_REQUIRED"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_CONFIRMATION_REQUIRED"
     )
     assert _snapshot(database_path) == before
 
@@ -496,7 +496,7 @@ def test_apply_refuses_when_the_receipt_is_missing(
     assert exit_code == 3
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_NOT_FOUND"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_RECEIPT_NOT_FOUND"
     assert _snapshot(database_path) == before
 
 
@@ -519,7 +519,7 @@ def test_apply_refuses_a_receipt_that_is_not_privately_stored(
     assert exit_code == 2
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_INVALID"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_RECEIPT_INVALID"
     assert _snapshot(database_path) == before
 
 
@@ -562,7 +562,7 @@ def test_apply_refuses_a_tampered_receipt_inverse_value(
     assert exit_code == 2
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_INVALID"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_RECEIPT_INVALID"
     assert _snapshot(database_path) == before
 
 
@@ -673,7 +673,7 @@ def test_apply_refuses_libraries_without_a_positive_selection(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_SELECTION_NOT_APPROVED"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_SELECTION_NOT_APPROVED"
     )
     assert _snapshot(database_path) == before
 
@@ -700,7 +700,7 @@ def test_apply_refuses_when_nothing_is_selected(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_SELECTION_NOT_APPROVED"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_SELECTION_NOT_APPROVED"
     )
     assert _snapshot(database_path) == before
 
@@ -722,7 +722,7 @@ def test_apply_refuses_a_stale_receipt_when_the_selected_row_changed(
     assert exit_code == 5
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
     assert _snapshot(database_path)["devices"] == (
         (DEVICE_ID, "Renamed By Someone"),
     )
@@ -745,7 +745,7 @@ def test_apply_refuses_a_stale_receipt_when_the_candidate_set_grew(
     assert exit_code == 5
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
     assert _snapshot(database_path)["devices"] == (
         (DEVICE_ID, RETIRED_DEVICE_LABEL),
         (EXTRA_DEVICE_ID, RETIRED_DEVICE_LABEL),
@@ -775,7 +775,7 @@ def test_apply_refuses_a_stale_receipt_when_a_library_candidate_changed(
     assert exit_code == 5
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
     assert _snapshot(database_path)["devices"] == (
         (DEVICE_ID, RETIRED_DEVICE_LABEL),
     )
@@ -806,7 +806,7 @@ def test_apply_refuses_an_ambiguous_device_candidate_receipt(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_AMBIGUOUS_CANDIDATE"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_AMBIGUOUS_CANDIDATE"
     )
     assert _snapshot(database_path) == before
 
@@ -851,7 +851,7 @@ def test_apply_rolls_back_every_change_when_a_late_update_fails(
     assert exit_code == 1
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_COMMAND_FAILED"
+    assert payload["error_code"] == "KRONIKA_CATALOG_COMMAND_FAILED"
     assert _snapshot(database_path) == before
 
 
@@ -909,7 +909,7 @@ def test_apply_maps_catalog_busy_to_exit_6(
     assert exit_code == 6
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_CATALOG_BUSY"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_CATALOG_BUSY"
     assert _snapshot(database_path) == before
 
 
@@ -973,7 +973,7 @@ def test_apply_fails_loudly_when_a_writer_does_not_reach_the_target(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_VERIFICATION_FAILED"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_VERIFICATION_FAILED"
     )
     assert _snapshot(database_path)["devices"] == (
         (DEVICE_ID, CANONICAL_DEVICE_LABEL + "!"),
@@ -1043,7 +1043,7 @@ def test_apply_is_not_repeatable_after_verified_completion(
     assert second_exit == 5
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
     assert _snapshot(database_path) == completed
 
 
@@ -1112,7 +1112,7 @@ def test_rollback_requires_explicit_confirmation(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_CONFIRMATION_REQUIRED"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_CONFIRMATION_REQUIRED"
     )
     assert _snapshot(database_path) == before
 
@@ -1132,7 +1132,7 @@ def test_rollback_refuses_when_the_receipt_is_missing(
     assert exit_code == 3
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_RECEIPT_NOT_FOUND"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_RECEIPT_NOT_FOUND"
 
 
 def test_device_only_rollback_after_device_only_apply_restores_the_catalog(
@@ -1317,7 +1317,7 @@ def test_rollback_refuses_a_stale_receipt(
     assert exit_code == 5
     assert stdout == ""
     payload = _error_payload(stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
+    assert payload["error_code"] == "KRONIKA_CATALOG_IDENTITY_LABELS_STALE_RECEIPT"
     assert _snapshot(database_path)["devices"] == (
         (DEVICE_ID, "Renamed After Apply"),
     )
@@ -1346,7 +1346,7 @@ def test_rollback_refuses_a_label_collision_on_the_device(
     payload = _error_payload(stderr)
     assert (
         payload["error_code"]
-        == "FRAMENEST_CATALOG_IDENTITY_LABELS_AMBIGUOUS_CANDIDATE"
+        == "KRONIKA_CATALOG_IDENTITY_LABELS_AMBIGUOUS_CANDIDATE"
     )
     assert _snapshot(database_path)["devices"] == (
         (DEVICE_ID, CANONICAL_DEVICE_LABEL),
@@ -1359,9 +1359,9 @@ def test_console_check_without_a_database_setting_is_not_ready(
 ) -> None:
     env = os.environ.copy()
     for name in (
-        "FRAMENEST_DATABASE_PATH",
         "KRONIKA_DATABASE_PATH",
-        "FRAMENEST_ENV_FILE",
+        "KRONIKA_DATABASE_PATH",
+        "KRONIKA_ENV_FILE",
         "KRONIKA_ENV_FILE",
     ):
         env.pop(name, None)
@@ -1380,7 +1380,7 @@ def test_console_check_without_a_database_setting_is_not_ready(
     assert result.returncode == 4
     assert result.stdout == ""
     payload = _error_payload(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_CATALOG_NOT_READY"
+    assert payload["error_code"] == "KRONIKA_CATALOG_NOT_READY"
     assert not (tmp_path / "framenest-development").exists()
 
 
@@ -1406,7 +1406,7 @@ def test_console_script_output_is_sanitized_and_matches_the_receipt(
     database_path = _migrate(tmp_path)
     _seed_standard_catalog(database_path)
     env = os.environ.copy()
-    env["FRAMENEST_DATABASE_PATH"] = str(database_path)
+    env["KRONIKA_DATABASE_PATH"] = str(database_path)
 
     result = subprocess.run(
         [str(CATALOG_CONSOLE_SCRIPT), "identity-labels", "check"],

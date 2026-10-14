@@ -551,10 +551,10 @@ class _LoopbackServer:
 
 
 def _run_cli(port: int, argv: list[str]) -> tuple[int, str, str]:
-    previous_host = os.environ.get("FRAMENEST_HOST")
-    previous_port = os.environ.get("FRAMENEST_PORT")
-    os.environ["FRAMENEST_HOST"] = HOST
-    os.environ["FRAMENEST_PORT"] = str(port)
+    previous_host = os.environ.get("KRONIKA_HOST")
+    previous_port = os.environ.get("KRONIKA_PORT")
+    os.environ["KRONIKA_HOST"] = HOST
+    os.environ["KRONIKA_PORT"] = str(port)
     stdout = io.StringIO()
     stderr = io.StringIO()
     try:
@@ -562,13 +562,13 @@ def _run_cli(port: int, argv: list[str]) -> tuple[int, str, str]:
             result = youtube_cli.main(argv)
     finally:
         if previous_host is None:
-            os.environ.pop("FRAMENEST_HOST", None)
+            os.environ.pop("KRONIKA_HOST", None)
         else:
-            os.environ["FRAMENEST_HOST"] = previous_host
+            os.environ["KRONIKA_HOST"] = previous_host
         if previous_port is None:
-            os.environ.pop("FRAMENEST_PORT", None)
+            os.environ.pop("KRONIKA_PORT", None)
         else:
-            os.environ["FRAMENEST_PORT"] = previous_port
+            os.environ["KRONIKA_PORT"] = previous_port
     output = stdout.getvalue()
     error = stderr.getvalue()
     print(output, end="")

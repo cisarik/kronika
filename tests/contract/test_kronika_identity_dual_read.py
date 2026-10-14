@@ -1,8 +1,7 @@
-"""Contract tests for the ADR-0085 dual-prefix settings read boundary.
+"""Canonical settings boundary after retirement of FRAMENEST_ inputs.
 
-Every test here proves one clause of the C1 organizing rule: readers learn the
-``KRONIKA_`` spelling, writers keep emitting the ``FRAMENEST_`` one. No test in
-this module asserts that a writer changed.
+Old inputs are ignored in both channels, including file selection; mixed inputs
+use the canonical value. Source order, coercion and secret containment persist.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from kronika.configuration import (
     KronikaSettings,
     load_settings,
 )
-from kronika.identity_env import IdentityEnvironmentConflictError, lookup_env
+from kronika.identity_env import lookup_env
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 INSTALLED_ENV_FILE_EXAMPLE = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.env.example"
@@ -87,7 +86,7 @@ def test_kronika_prefix_alone_configures_a_settings_field(
     assert settings.port == 9123
 
 
-def test_framenest_prefix_alone_still_configures_the_same_field(
+def test_framenest_prefix_alone_is_ignored(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -96,7 +95,7 @@ def test_framenest_prefix_alone_still_configures_the_same_field(
 
     settings = load_settings(env_file=None)
 
-    assert settings.port == 9124
+    assert settings.port == 8000
 
 
 def test_identical_values_in_both_prefixes_are_accepted(
@@ -112,7 +111,7 @@ def test_identical_values_in_both_prefixes_are_accepted(
     assert settings.port == 9125
 
 
-def test_conflicting_field_values_fail_closed_without_revealing_a_value(
+def test_conflicting_field_values_use_canonical_value_without_logging(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -121,13 +120,8 @@ def test_conflicting_field_values_fail_closed_without_revealing_a_value(
     monkeypatch.setenv(f"{PRIMARY}PORT", "9126")
     monkeypatch.setenv(f"{COMPATIBLE}PORT", "9127")
 
-    with caplog.at_level(logging.DEBUG), pytest.raises(FrameNestConfigurationError) as excinfo:
-        load_settings(env_file=None)
-
-    rendered = str(excinfo.value)
-    assert "9126" not in rendered
-    assert "9127" not in rendered
-    assert "PORT" in rendered
+    with caplog.at_level(logging.DEBUG):
+        assert load_settings(env_file=None).port == 9126
     assert caplog.records == []
 
 
@@ -197,12 +191,12 @@ def test_environment_file_still_applies_without_a_process_override(
             f"{COMPATIBLE}PORT",
             "7008",
             f"{PRIMARY}PORT=7007\n",
-            7008,
+            7007,
             id="compatible-spelling-in-the-process-environment",
         ),
     ],
 )
-def test_the_conflict_rule_is_per_channel_and_the_process_environment_wins(
+def test_canonical_input_wins_across_channels(
     process_name: str,
     process_value: str,
     file_line: str,
@@ -210,13 +204,7 @@ def test_the_conflict_rule_is_per_channel_and_the_process_environment_wins(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A cross-channel pair is not a conflict, in either arrangement.
-
-    The conflict check runs once per source over that source's mapping only, so
-    one spelling in the process environment and the other spelling in the
-    environment file never meet in one call. Reaching this assertion is the
-    evidence that no conflict was raised.
-    """
+    """A retired input in either channel cannot displace a canonical value."""
     env_file = tmp_path / "framenest.env"
     env_file.write_text(file_line, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
@@ -227,29 +215,23 @@ def test_the_conflict_rule_is_per_channel_and_the_process_environment_wins(
     assert settings.port == expected
 
 
-def test_the_two_spellings_inside_one_channel_still_fail_closed(
+def test_the_two_spellings_inside_one_channel_use_canonical_input(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The silent cross-channel resolution must not weaken the same-channel rule."""
+    """A file containing both names uses only the canonical name."""
     env_file = tmp_path / "framenest.env"
     env_file.write_text(f"{PRIMARY}PORT=7009\n{COMPATIBLE}PORT=7010\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(FrameNestConfigurationError) as excinfo:
-        load_settings(env_file=env_file)
-
-    assert "PORT" in str(excinfo.value)
-    assert "7009" not in str(excinfo.value)
-    assert "7010" not in str(excinfo.value)
-    assert excinfo.value.exit_status == 2
+    assert load_settings(env_file=env_file).port == 7009
 
 
 def test_extra_ignore_is_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / "framenest.env"
     env_file.write_text(
-        f"{COMPATIBLE}PORT=7004\n{COMPATIBLE}NOT_A_SETTING=x\n",
+        f"{PRIMARY}PORT=7004\n{PRIMARY}NOT_A_SETTING=x\n",
         encoding="utf-8",
     )
 
@@ -310,6 +292,9 @@ def test_secret_field_value_never_appears_in_a_validation_error(
 ) -> None:
     monkeypatch.setenv(f"{prefix}API_KEY", "k3y")
 
+    if prefix == COMPATIBLE:
+        assert _SecretLengthSettings(_env_file=None).api_key is None
+        return
     with pytest.raises(ValidationError) as excinfo:
         _SecretLengthSettings(_env_file=None)
 
@@ -319,7 +304,7 @@ def test_secret_field_value_never_appears_in_a_validation_error(
 
 
 @pytest.mark.parametrize("prefix", [PRIMARY, COMPATIBLE])
-def test_secret_field_resolves_under_both_prefixes(
+def test_secret_field_resolves_only_under_the_canonical_prefix(
     prefix: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -329,13 +314,16 @@ def test_secret_field_resolves_under_both_prefixes(
 
     settings = load_settings(env_file=None)
 
+    if prefix == COMPATIBLE:
+        assert settings.api_key is None
+        return
     assert settings.api_key is not None
     assert settings.api_key.get_secret_value() == "sufficiently-long-secret"
     assert "sufficiently-long-secret" not in repr(settings)
     assert "sufficiently-long-secret" not in str(settings)
 
 
-def test_secret_field_conflict_never_appears_in_a_validation_error(
+def test_secret_field_mixed_input_is_canonical_and_redacted(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -343,13 +331,10 @@ def test_secret_field_conflict_never_appears_in_a_validation_error(
     monkeypatch.setenv(f"{PRIMARY}API_KEY", "primary-secret-value")
     monkeypatch.setenv(f"{COMPATIBLE}API_KEY", "compatible-secret-value")
 
-    with pytest.raises(FrameNestConfigurationError) as excinfo:
-        load_settings(env_file=None)
-
-    rendered = str(excinfo.value)
-    assert "primary-secret-value" not in rendered
-    assert "compatible-secret-value" not in rendered
-
+    settings = load_settings(env_file=None)
+    assert settings.api_key.get_secret_value() == "primary-secret-value"
+    assert "primary-secret-value" not in repr(settings)
+    assert "compatible-secret-value" not in repr(settings)
 
 # ---------------------------------------------------------------------------
 # Environment-file selection
@@ -370,18 +355,18 @@ def test_kronika_env_file_selects_the_file(
     assert settings.port == 7101
 
 
-def test_framenest_env_file_still_selects_the_file(
+def test_framenest_env_file_is_ignored(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     env_file = tmp_path / "framenest.env"
-    env_file.write_text(f"{COMPATIBLE}PORT=7102\n", encoding="utf-8")
+    env_file.write_text(f"{PRIMARY}PORT=7102\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(f"{COMPATIBLE}ENV_FILE", str(env_file))
 
     settings = load_settings()
 
-    assert settings.port == 7102
+    assert settings.port == 8000
 
 
 def test_identical_env_file_selection_in_both_prefixes_is_accepted(
@@ -389,7 +374,7 @@ def test_identical_env_file_selection_in_both_prefixes_is_accepted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     env_file = tmp_path / "framenest.env"
-    env_file.write_text(f"{COMPATIBLE}PORT=7103\n", encoding="utf-8")
+    env_file.write_text(f"{PRIMARY}PORT=7103\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(f"{PRIMARY}ENV_FILE", str(env_file))
     monkeypatch.setenv(f"{COMPATIBLE}ENV_FILE", str(env_file))
@@ -399,25 +384,19 @@ def test_identical_env_file_selection_in_both_prefixes_is_accepted(
     assert settings.port == 7103
 
 
-def test_conflicting_env_file_selection_fails_closed_before_the_file_opens(
+def test_conflicting_env_file_selection_uses_only_the_canonical_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     opened = tmp_path / "opened.env"
-    opened.write_text(f"{COMPATIBLE}PORT=7104\n", encoding="utf-8")
+    opened.write_text(f"{PRIMARY}PORT=7104\n", encoding="utf-8")
     other = tmp_path / "other.env"
-    other.write_text(f"{COMPATIBLE}PORT=7105\n", encoding="utf-8")
+    other.write_text(f"{PRIMARY}PORT=7105\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(f"{PRIMARY}ENV_FILE", str(opened))
     monkeypatch.setenv(f"{COMPATIBLE}ENV_FILE", str(other))
 
-    with pytest.raises(FrameNestConfigurationError) as excinfo:
-        load_settings()
-
-    rendered = str(excinfo.value)
-    assert rendered != EXPLICIT_ENV_FILE_MESSAGE
-    assert str(opened) not in rendered
-    assert str(other) not in rendered
+    assert load_settings().port == 7104
 
 
 def test_empty_env_file_selection_behaves_as_unset(
@@ -440,11 +419,11 @@ def test_empty_env_file_selection_behaves_as_unset(
 # ---------------------------------------------------------------------------
 
 
-def test_installed_environment_file_shape_keeps_working_unchanged(
+def test_retired_environment_file_shape_is_ignored(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The installed ``/etc/framenest/framenest.env`` shape is still readable."""
+    """The retired environment file does not configure any field."""
     env_file = tmp_path / "framenest.env"
     env_file.write_text(
         INSTALLED_ENV_FILE_EXAMPLE.read_text(encoding="utf-8"),
@@ -456,16 +435,14 @@ def test_installed_environment_file_shape_keeps_working_unchanged(
 
     assert settings.host == "127.0.0.1"
     assert settings.port == 8000
-    assert settings.database_path == Path("/var/lib/framenest/catalog.sqlite3")
-    assert settings.gallery_preview_cache_path == Path("/var/cache/framenest/gallery-previews")
-    assert settings.cover_storage_root == Path("/var/lib/framenest/covers")
+    assert settings.model_dump() == KronikaSettings(_env_file=None).model_dump()
 
 
-def test_every_uncommented_key_in_the_installed_shape_is_still_accepted(
+def test_every_uncommented_key_in_the_installed_shape_is_retired(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """No installed key becomes unreadable, so nothing silently reverts."""
+    """Every uncommented legacy key is explicitly outside the canonical prefix."""
     text = INSTALLED_ENV_FILE_EXAMPLE.read_text(encoding="utf-8")
     keys = [
         line.split("=", 1)[0]
@@ -480,7 +457,7 @@ def test_every_uncommented_key_in_the_installed_shape_is_still_accepted(
 
     assert keys
     assert all(key.startswith(COMPATIBLE) for key in keys)
-    assert settings.host == "127.0.0.1"
+    assert settings.model_dump() == KronikaSettings(_env_file=None).model_dump()
 
 
 def test_the_same_shape_with_the_new_prefix_also_works(
@@ -506,25 +483,20 @@ def test_the_same_shape_with_the_new_prefix_also_works(
 def test_settings_source_resolves_each_field_through_the_resolver(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from kronika.configuration import _DualPrefixEnvSettingsSource
+    from kronika.configuration import _CanonicalEnvSettingsSource
 
     monkeypatch.setenv(f"{PRIMARY}PORT", "7201")
     monkeypatch.setenv(f"{COMPATIBLE}DATABASE_PATH", "/srv/catalog.sqlite3")
 
-    loaded = _DualPrefixEnvSettingsSource(KronikaSettings)._load_env_vars()
+    loaded = _CanonicalEnvSettingsSource(KronikaSettings)._load_env_vars()
 
     assert loaded == {
-        "framenest_port": "7201",
-        "framenest_database_path": "/srv/catalog.sqlite3",
+        "kronika_port": "7201",
     }
 
 
-def test_resolver_conflict_type_is_the_one_the_settings_boundary_translates() -> None:
-    with pytest.raises(IdentityEnvironmentConflictError) as excinfo:
-        lookup_env("API_KEY", environ={f"{PRIMARY}API_KEY": "a", f"{COMPATIBLE}API_KEY": "b"})
-
-    assert excinfo.value.suffix == "API_KEY"
-
+def test_resolver_ignores_the_retired_half_of_a_mixed_pair() -> None:
+    assert lookup_env("API_KEY", environ={f"{PRIMARY}API_KEY": "a", f"{COMPATIBLE}API_KEY": "b"}) == "a"
 
 # ---------------------------------------------------------------------------
 # The pinned settings library API this cut is written against
@@ -547,8 +519,8 @@ def test_configured_source_order_keeps_process_environment_over_env_file() -> No
     from pydantic_settings.sources import DotEnvSettingsSource, EnvSettingsSource
 
     from kronika.configuration import (
-        _DualPrefixDotEnvSettingsSource,
-        _DualPrefixEnvSettingsSource,
+        _CanonicalDotEnvSettingsSource,
+        _CanonicalEnvSettingsSource,
     )
 
     placeholder = object()
@@ -563,10 +535,10 @@ def test_configured_source_order_keeps_process_environment_over_env_file() -> No
 
     assert [type(source) for source in sources] == [
         object,
-        _DualPrefixEnvSettingsSource,
-        _DualPrefixDotEnvSettingsSource,
+        _CanonicalEnvSettingsSource,
+        _CanonicalDotEnvSettingsSource,
         object,
     ]
     assert sources[2].env_file is None
-    assert issubclass(_DualPrefixEnvSettingsSource, EnvSettingsSource)
-    assert issubclass(_DualPrefixDotEnvSettingsSource, DotEnvSettingsSource)
+    assert issubclass(_CanonicalEnvSettingsSource, EnvSettingsSource)
+    assert issubclass(_CanonicalDotEnvSettingsSource, DotEnvSettingsSource)

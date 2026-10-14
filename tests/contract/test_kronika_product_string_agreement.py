@@ -174,9 +174,13 @@ def measured_product_strings() -> dict[tuple[str, str, str, int], str]:
 
 
 MEASURED = measured_product_strings()
-OCCURRENCE_COUNT = 57
+# Six canonical development path-component constants joined the measured
+# inventory (two Constant nodes in each of _database_path, _runtime_dir and
+# _log_path). 57 + 6 = 63. The two excluded prompt openings stay outside
+# EXPECTED, so the in-scope pin is 55 + 6 = 61 and 63 = 61 + 2.
+OCCURRENCE_COUNT = 63
 
-IN_SCOPE_OCCURRENCE_COUNT = 55
+IN_SCOPE_OCCURRENCE_COUNT = 61
 EXCLUDED_PROMPT_OCCURRENCE_COUNT = 2
 
 EXPECTED: dict[tuple[str, str, str, int], str] = {
@@ -254,6 +258,14 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "JoinedStr", 1): "Kronika is running at {_url(state.port)}",
     ("src/kronika/infrastructure/runtime/development.py", "_status_with_state", "Constant", 2): "Managed Kronika process is running but health is not ready.",
     ("src/kronika/infrastructure/runtime/development.py", "_operation_lock", "Constant", 0): "Another Kronika runtime operation is in progress.",
+    # Canonical development defaults. Each helper spells the path component
+    # once for the macOS layout and once for the XDG layout.
+    ("src/kronika/infrastructure/runtime/development.py", "_database_path", "Constant", 0): "Kronika",
+    ("src/kronika/infrastructure/runtime/development.py", "_database_path", "Constant", 1): "Kronika",
+    ("src/kronika/infrastructure/runtime/development.py", "_runtime_dir", "Constant", 0): "Kronika",
+    ("src/kronika/infrastructure/runtime/development.py", "_runtime_dir", "Constant", 1): "Kronika",
+    ("src/kronika/infrastructure/runtime/development.py", "_log_path", "Constant", 0): "Kronika",
+    ("src/kronika/infrastructure/runtime/development.py", "_log_path", "Constant", 1): "Kronika",
     # src/kronika/infrastructure/runtime/local_state_migration.py
     # The one canonical brand component the migration spells literally; every
     # other canonical spelling is built from this constant or is lowercase.
@@ -270,7 +282,8 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
 
 EXPECTED_DUPLICATE_LITERALS: dict[str, int] = {
     "Invalid Kronika media user alias.": 3,
-    "Kronika": 2,
+    # Two existing module constants plus the six development path components.
+    "Kronika": 8,
     "Kronika configuration could not be loaded.": 3,
     "Kronika is stopped.": 3,
     "KronikaSettings": 3,

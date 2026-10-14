@@ -45,7 +45,7 @@ def test_check_database_ready_succeeds_only_at_head(
 ) -> None:
     database_path = tmp_path / "catalog.sqlite3"
     upgrade_database_to_head(KronikaSettings(database_path=database_path))
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 0
 
@@ -65,14 +65,14 @@ def test_check_database_ready_rejects_missing_database_without_creating_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database_path = tmp_path / "missing" / "catalog.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 4
 
     output = capsys.readouterr()
     assert output.out == ""
     payload = _payload(output.err)
-    assert payload["error_code"] == "FRAMENEST_DATABASE_NOT_READY"
+    assert payload["error_code"] == "KRONIKA_DATABASE_NOT_READY"
     assert str(database_path) not in output.err
     assert not database_path.exists()
 
@@ -83,7 +83,7 @@ def test_check_database_ready_leaves_missing_parent_absent(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     database_path = tmp_path / "missing-parent" / "catalog.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 4
 
@@ -100,12 +100,12 @@ def test_check_database_ready_rejects_empty_sqlite_database_without_schema_chang
     with sqlite3.connect(database_path):
         pass
     before_tables = _table_names(database_path)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 4
 
     output = capsys.readouterr()
-    assert _payload(output.err)["error_code"] == "FRAMENEST_DATABASE_NOT_READY"
+    assert _payload(output.err)["error_code"] == "KRONIKA_DATABASE_NOT_READY"
     assert _table_names(database_path) == before_tables
 
 
@@ -116,13 +116,13 @@ def test_check_database_ready_rejects_behind_database_without_migrating_it(
 ) -> None:
     database_path = tmp_path / "behind.sqlite3"
     _write_revision(database_path, "0006")
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 4
 
     output = capsys.readouterr()
     assert output.out == ""
-    assert _payload(output.err)["error_code"] == "FRAMENEST_DATABASE_NOT_READY"
+    assert _payload(output.err)["error_code"] == "KRONIKA_DATABASE_NOT_READY"
     assert _database_revision(database_path) == "0006"
     assert str(database_path) not in output.err
 
@@ -134,12 +134,12 @@ def test_check_database_ready_rejects_unknown_ahead_database_without_mutating_it
 ) -> None:
     database_path = tmp_path / "ahead.sqlite3"
     _write_revision(database_path, "9999")
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(database_path))
 
     assert production.main(["check-database-ready"]) == 4
 
     output = capsys.readouterr()
-    assert _payload(output.err)["error_code"] == "FRAMENEST_DATABASE_NOT_READY"
+    assert _payload(output.err)["error_code"] == "KRONIKA_DATABASE_NOT_READY"
     assert _database_revision(database_path) == "9999"
     assert "9999" not in output.err
 
@@ -149,7 +149,7 @@ def test_check_database_ready_sanitizes_inspection_failure(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     private_path = "/private/catalog.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", private_path)
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", private_path)
 
     def fail_inspection(settings: KronikaSettings) -> MigrationStatus:
         raise FrameNestMigrationError(
@@ -165,7 +165,7 @@ def test_check_database_ready_sanitizes_inspection_failure(
     output = capsys.readouterr()
     assert output.out == ""
     payload = _payload(output.err)
-    assert payload["error_code"] == "FRAMENEST_PRODUCTION_COMMAND_FAILED"
+    assert payload["error_code"] == "KRONIKA_PRODUCTION_COMMAND_FAILED"
     assert private_path not in output.err
     _assert_no_traceback(output.err)
 
@@ -177,14 +177,14 @@ def test_invalid_database_path_error_is_sanitized(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     supplied_path = "relative/private/catalog.sqlite3"
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", supplied_path)
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", supplied_path)
 
     assert production.main(["check-database-ready"]) == 1
 
     output = capsys.readouterr()
     assert output.out == ""
     payload = _payload(output.err)
-    assert payload["error_code"] == "FRAMENEST_PRODUCTION_COMMAND_FAILED"
+    assert payload["error_code"] == "KRONIKA_PRODUCTION_COMMAND_FAILED"
     assert supplied_path not in output.err
     assert "relative/private" not in output.err
     _assert_no_traceback(output.err)
@@ -204,7 +204,7 @@ def test_expected_failures_do_not_emit_tracebacks(
     argv: list[str],
     expected_code: int,
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "missing.sqlite3"))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(tmp_path / "missing.sqlite3"))
 
     assert production.main(argv) == expected_code
 
@@ -239,7 +239,7 @@ def test_check_database_ready_never_calls_migration_operation(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "missing.sqlite3"))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(tmp_path / "missing.sqlite3"))
     sentinel = Mock(side_effect=AssertionError("migration must not run"))
     monkeypatch.setattr(
         "kronika.infrastructure.persistence.migrations.upgrade_database_to_head",
@@ -305,7 +305,7 @@ def test_serve_usage_errors_are_sanitized(capsys: pytest.CaptureFixture[str]) ->
     assert output.out == ""
     payload = _payload(output.err)
     assert payload["operation"] == "unknown"
-    assert payload["error_code"] == "FRAMENEST_PRODUCTION_COMMAND_FAILED"
+    assert payload["error_code"] == "KRONIKA_PRODUCTION_COMMAND_FAILED"
     _assert_no_traceback(output.err)
 
 
@@ -322,7 +322,7 @@ def test_serve_unexpected_failure_is_sanitized(
     assert output.out == ""
     payload = _payload(output.err)
     assert payload["operation"] == "serve"
-    assert payload["error_code"] == "FRAMENEST_PRODUCTION_COMMAND_FAILED"
+    assert payload["error_code"] == "KRONIKA_PRODUCTION_COMMAND_FAILED"
     assert "private failure" not in output.err
     _assert_no_traceback(output.err)
 

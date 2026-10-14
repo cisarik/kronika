@@ -72,7 +72,7 @@ def test_db_status_succeeds_from_unrelated_cwd_with_explicit_env(
     caller_cwd.mkdir()
     env_file = _write_env_file(
         tmp_path / "operator.env",
-        f"FRAMENEST_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
+        f"KRONIKA_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
     )
 
     result = _run_module(
@@ -96,12 +96,12 @@ def test_db_status_ignores_random_caller_cwd_dotenv(tmp_path: Path) -> None:
     # Positive control: this file would fail validation if it were consumed.
     _write_env_file(
         caller_cwd / ".env",
-        "FRAMENEST_PORT=not-a-number\n"
-        "FRAMENEST_DATABASE_PATH=/nonexistent/arbitrary.sqlite3\n",
+        "KRONIKA_PORT=not-a-number\n"
+        "KRONIKA_DATABASE_PATH=/nonexistent/arbitrary.sqlite3\n",
     )
     env_file = _write_env_file(
         tmp_path / "operator.env",
-        f"FRAMENEST_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
+        f"KRONIKA_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
     )
 
     result = _run_module(
@@ -119,11 +119,11 @@ def test_db_status_ignores_random_caller_cwd_dotenv(tmp_path: Path) -> None:
 def test_db_status_ignores_unreadable_caller_cwd_dotenv(tmp_path: Path) -> None:
     caller_cwd = tmp_path / "unrelated"
     caller_cwd.mkdir()
-    unreadable = _write_env_file(caller_cwd / ".env", "FRAMENEST_PORT=9999\n")
+    unreadable = _write_env_file(caller_cwd / ".env", "KRONIKA_PORT=9999\n")
     unreadable.chmod(0o000)
     env_file = _write_env_file(
         tmp_path / "operator.env",
-        f"FRAMENEST_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
+        f"KRONIKA_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
     )
 
     result = _run_module(
@@ -151,7 +151,7 @@ def test_db_status_explicit_missing_env_file_fails_closed_sanitized(
     assert result.returncode == 1
     assert result.stdout == ""
     payload = json.loads(result.stderr)
-    assert payload["error_code"] == "FRAMENEST_DB_CONFIGURATION_FAILED"
+    assert payload["error_code"] == "KRONIKA_DB_CONFIGURATION_FAILED"
     assert payload["message"] == "Kronika configuration could not be loaded."
     assert str(missing) not in result.stderr
     assert "Traceback" not in result.stderr
@@ -209,7 +209,7 @@ def test_cli_module_import_has_no_configuration_side_effects(tmp_path: Path) -> 
     # Imports must not load settings, probe the caller CWD, or touch the
     # explicit environment file; a missing explicit file must be survivable
     # at import time.
-    unreadable = _write_env_file(tmp_path / ".env", "FRAMENEST_PORT=9999\n")
+    unreadable = _write_env_file(tmp_path / ".env", "KRONIKA_PORT=9999\n")
     if os.geteuid() != 0:
         unreadable.chmod(0o000)
     imports = "; ".join(f"import {module}" for module in CLI_MODULES)
@@ -240,10 +240,10 @@ def test_db_command_succeeds_when_cwd_becomes_unresolvable(
     outer = tmp_path / "outer"
     inner = outer / "inner"
     inner.mkdir(parents=True)
-    _write_env_file(inner / ".env", "FRAMENEST_PORT=not-a-number\n")
+    _write_env_file(inner / ".env", "KRONIKA_PORT=not-a-number\n")
     env_file = _write_env_file(
         tmp_path / "operator.env",
-        f"FRAMENEST_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
+        f"KRONIKA_DATABASE_PATH={tmp_path / 'state' / 'catalog.sqlite3'}\n",
     )
     monkeypatch.setenv(ENV_FILE_ENVIRONMENT_VARIABLE, str(env_file))
     monkeypatch.chdir(inner)
@@ -274,5 +274,5 @@ def test_db_command_explicit_env_file_unreadable_fails_closed_in_process(
     captured = capsys.readouterr()
     assert captured.out == ""
     payload = json.loads(captured.err)
-    assert payload["error_code"] == "FRAMENEST_DB_CONFIGURATION_FAILED"
+    assert payload["error_code"] == "KRONIKA_DB_CONFIGURATION_FAILED"
     assert str(missing) not in captured.err

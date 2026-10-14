@@ -829,7 +829,7 @@ def service_account_prefix(
 ) -> str:
     return (
         f"sudo -n -u {layout.user} --chdir={shlex.quote(release_path)} "
-        f"env FRAMENEST_ENV_FILE={layout.env_file} "
+        f"env KRONIKA_ENV_FILE={layout.env_file} "
         f"{shlex.quote(release_path)}/.venv/bin"
     )
 
@@ -852,7 +852,7 @@ def cmd_remote_production_cli(
     """Run ``framenest-production`` with the unit EnvironmentFile.
 
     ``framenest-production`` calls ``load_settings(env_file=None)`` and therefore
-    ignores ``FRAMENEST_ENV_FILE``. The systemd unit supplies process
+    ignores ``KRONIKA_ENV_FILE``. The systemd unit supplies process
     environment via ``EnvironmentFile=``; this helper uses the same contract
     through a oneshot ``systemd-run`` so secrets never enter argv.
     """

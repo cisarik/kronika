@@ -41,8 +41,8 @@ def _run_db_command(
     database_path: str,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    env["FRAMENEST_DATABASE_PATH"] = database_path
-    env.pop("FRAMENEST_API_KEY", None)
+    env["KRONIKA_DATABASE_PATH"] = database_path
+    env.pop("KRONIKA_API_KEY", None)
     return subprocess.run(
         [str(_require_db_console_script()), subcommand],
         cwd=cwd,
@@ -161,7 +161,7 @@ def test_framenest_db_failure_output_is_sanitized_and_stable(
     payload = _parse_single_json_line(result.stderr)
     assert payload["operation"] == "status"
     assert payload["state"] == "error"
-    assert payload["error_code"] == "FRAMENEST_DB_COMMAND_FAILED"
+    assert payload["error_code"] == "KRONIKA_DB_COMMAND_FAILED"
     combined = result.stdout + result.stderr
     assert supplied_path not in combined
     assert "relative/private" not in combined
@@ -186,7 +186,7 @@ def test_framenest_db_status_dispatch_does_not_bind_socket(
     from kronika.infrastructure.persistence.cli import main
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("FRAMENEST_DATABASE_PATH", str(tmp_path / "no-bind.sqlite3"))
+    monkeypatch.setenv("KRONIKA_DATABASE_PATH", str(tmp_path / "no-bind.sqlite3"))
 
     with patch("socket.socket.bind", side_effect=AssertionError("socket bind must not run")):
         assert main(["status"]) == 0
@@ -222,9 +222,9 @@ def test_framenest_server_startup_does_not_apply_migrations(tmp_path: Path) -> N
     database_path = tmp_path / "server" / "catalog.sqlite3"
     port = _find_free_loopback_port()
     env = os.environ.copy()
-    env["FRAMENEST_HOST"] = "127.0.0.1"
-    env["FRAMENEST_PORT"] = str(port)
-    env["FRAMENEST_DATABASE_PATH"] = str(database_path)
+    env["KRONIKA_HOST"] = "127.0.0.1"
+    env["KRONIKA_PORT"] = str(port)
+    env["KRONIKA_DATABASE_PATH"] = str(database_path)
 
     proc = subprocess.Popen(
         [str(server_script)],

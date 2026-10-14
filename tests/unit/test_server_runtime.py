@@ -154,8 +154,8 @@ def test_framenest_host_and_port_overrides_propagate(
 ) -> None:
     from kronika.server import create_server
 
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.5")
-    monkeypatch.setenv("FRAMENEST_PORT", "8765")
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.5")
+    monkeypatch.setenv("KRONIKA_PORT", "8765")
     server = create_server()
     assert server.config.host == "127.0.0.5"
     assert server.config.port == 8765
@@ -166,8 +166,8 @@ def test_uvicorn_host_and_port_env_vars_do_not_override_framenest_settings(
 ) -> None:
     from kronika.server import create_server
 
-    monkeypatch.setenv("FRAMENEST_HOST", "127.0.0.1")
-    monkeypatch.setenv("FRAMENEST_PORT", "8000")
+    monkeypatch.setenv("KRONIKA_HOST", "127.0.0.1")
+    monkeypatch.setenv("KRONIKA_PORT", "8000")
     monkeypatch.setenv("UVICORN_HOST", "0.0.0.0")
     monkeypatch.setenv("UVICORN_PORT", "9999")
     server = create_server()
