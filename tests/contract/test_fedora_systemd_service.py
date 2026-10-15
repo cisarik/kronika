@@ -8,13 +8,13 @@ import tomllib
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.service"
-ENV_TEMPLATE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.env.example"
+SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika.service"
+ENV_TEMPLATE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika.env.example"
 NVIDIA_CREDENTIAL_DROPIN_PATH = (
-    REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-ai-credential-nvidia-nim.conf"
+    REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-ai-credential-nvidia-nim.conf"
 )
 VERCEL_CREDENTIAL_DROPIN_PATH = (
-    REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-ai-credential-vercel-ai-gateway.conf"
+    REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-ai-credential-vercel-ai-gateway.conf"
 )
 FEDORA_DOC_PATH = REPOSITORY_ROOT / "docs" / "FEDORA_SERVICE.md"
 UBUNTU_DOC_PATH = REPOSITORY_ROOT / "docs" / "UBUNTU_NUC_DEPLOYMENT.md"
@@ -23,8 +23,8 @@ UBUNTU_ADR_PATH = REPOSITORY_ROOT / "docs" / "adr" / "0032-ubuntu-nuc-deployment
 ADR_INDEX_PATH = REPOSITORY_ROOT / "docs" / "adr" / "README.md"
 UBUNTU_SUPPORT_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "README.md"
 
-INSTALL_ROOT = "/opt/framenest/current"
-PRODUCTION_BIN = f"{INSTALL_ROOT}/.venv/bin/framenest-production"
+INSTALL_ROOT = "/opt/kronika/current"
+PRODUCTION_BIN = f"{INSTALL_ROOT}/.venv/bin/kronika-production"
 SUPERSEDED_INSTALL_BIN = "/opt/" + "framenest/.venv"
 SUPERSEDED_AI_CONFIG = "/etc/" + "framenest/ai/config.json"
 REMOVED_SECRET_ENVIRONMENT = "framenest-" + "secrets.env"
@@ -56,8 +56,8 @@ def _env_template_values() -> dict[str, str]:
 def test_systemd_service_uses_current_release_working_directory() -> None:
     service = _read_service()["Service"]
 
-    assert service["User"] == "framenest"
-    assert service["Group"] == "framenest"
+    assert service["User"] == "kronika"
+    assert service["Group"] == "kronika"
     assert service["WorkingDirectory"] == INSTALL_ROOT
 
 
@@ -74,8 +74,8 @@ def test_systemd_service_avoids_development_wrappers_and_shells() -> None:
     text = _service_text()
 
     forbidden = [
-        "./framenest",
-        "framenest-server",
+        "./kronika",
+        "kronika-server",
         "poetry",
         "uv ",
         "fish",
@@ -91,7 +91,7 @@ def test_systemd_service_avoids_development_wrappers_and_shells() -> None:
 def test_systemd_environment_file_contract_contains_no_secret_file() -> None:
     text = _service_text()
 
-    assert "EnvironmentFile=/etc/framenest/framenest.env" in text
+    assert "EnvironmentFile=/etc/kronika/kronika.env" in text
     assert "LoadCredential" not in text
     assert OPTIONAL_ENVIRONMENT_FILE_PREFIX not in text
     assert REMOVED_SECRET_ENVIRONMENT not in text
@@ -103,10 +103,10 @@ def test_systemd_service_directory_boundaries_are_mutable_state_cache_runtime_on
     service = _read_service()["Service"]
     text = _service_text()
 
-    assert service["StateDirectory"] == "framenest"
+    assert service["StateDirectory"] == "kronika"
     assert service["StateDirectoryMode"] == "0700"
-    assert service["CacheDirectory"] == "framenest"
-    assert service["RuntimeDirectory"] == "framenest"
+    assert service["CacheDirectory"] == "kronika"
+    assert service["RuntimeDirectory"] == "kronika"
     assert "ConfigurationDirectory" not in service
     assert "LogsDirectory" not in service
     assert "ReadWritePaths" not in text
@@ -152,17 +152,17 @@ def test_non_secret_environment_template_is_loopback_first_and_path_explicit() -
     values = _env_template_values()
 
     assert values == {
-        "FRAMENEST_HOST": "127.0.0.1",
-        "FRAMENEST_PORT": "8000",
-        "FRAMENEST_DATABASE_PATH": "/var/lib/framenest/catalog.sqlite3",
-        "FRAMENEST_GALLERY_PREVIEW_CACHE_PATH": "/var/cache/framenest/gallery-previews",
-        "FRAMENEST_COVER_STORAGE_ROOT": "/var/lib/framenest/covers",
-        "FRAMENEST_COVER_THUMBNAIL_CACHE_PATH": "/var/cache/framenest/cover-thumbnails",
-        "FRAMENEST_AI_CONFIG_PATH": "/var/lib/framenest/ai/config.json",
-        "FRAMENEST_CATALOG_BACKUP_ROOT": "/var/lib/framenest/catalog-backups",
-        "FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT": "/var/lib/framenest/catalog-restore-verify",
-        "FRAMENEST_CATALOG_BACKUP_OPS_ROOT": "/var/lib/framenest/catalog-backup-ops",
-        "FRAMENEST_CATALOG_BACKUP_KEEP_AUTO": "30",
+        "KRONIKA_HOST": "127.0.0.1",
+        "KRONIKA_PORT": "8000",
+        "KRONIKA_DATABASE_PATH": "/var/lib/kronika/catalog.sqlite3",
+        "KRONIKA_GALLERY_PREVIEW_CACHE_PATH": "/var/cache/kronika/gallery-previews",
+        "KRONIKA_COVER_STORAGE_ROOT": "/var/lib/kronika/covers",
+        "KRONIKA_COVER_THUMBNAIL_CACHE_PATH": "/var/cache/kronika/cover-thumbnails",
+        "KRONIKA_AI_CONFIG_PATH": "/var/lib/kronika/ai/config.json",
+        "KRONIKA_CATALOG_BACKUP_ROOT": "/var/lib/kronika/catalog-backups",
+        "KRONIKA_CATALOG_RESTORE_VERIFY_ROOT": "/var/lib/kronika/catalog-restore-verify",
+        "KRONIKA_CATALOG_BACKUP_OPS_ROOT": "/var/lib/kronika/catalog-backup-ops",
+        "KRONIKA_CATALOG_BACKUP_KEEP_AUTO": "30",
     }
 
 
@@ -171,10 +171,10 @@ def test_youtube_staging_uses_existing_state_directory_without_unit_broadening()
     text = _service_text()
     environment_text = ENV_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    assert service["StateDirectory"] == "framenest"
+    assert service["StateDirectory"] == "kronika"
     assert (
-        "# FRAMENEST_YOUTUBE_ACQUISITION_ROOT="
-        "/var/lib/framenest/youtube-acquisition"
+        "# KRONIKA_YOUTUBE_ACQUISITION_ROOT="
+        "/var/lib/kronika/youtube-acquisition"
         in environment_text
     )
     assert "ReadWritePaths" not in text
@@ -200,18 +200,18 @@ def test_service_artifacts_do_not_encode_public_network_or_proxy_shortcuts() -> 
 def test_environment_template_documents_tailscale_ingress_as_commented_options() -> None:
     text = ENV_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    assert "# FRAMENEST_INGRESS_MODE=tailscale_uds" in text
-    assert "# FRAMENEST_UDS_PATH=/run/framenest/framenest.sock" in text
-    assert "# FRAMENEST_EXTERNAL_ORIGIN=https://<node>.<tailnet>.ts.net" in text
-    assert "# FRAMENEST_IDENTITY_MAP=" in text
-    assert "# FRAMENEST_COMPANION_EXTENSION_ORIGINS=" in text
+    assert "# KRONIKA_INGRESS_MODE=tailscale_uds" in text
+    assert "# KRONIKA_UDS_PATH=/run/kronika/kronika.sock" in text
+    assert "# KRONIKA_EXTERNAL_ORIGIN=https://<node>.<tailnet>.ts.net" in text
+    assert "# KRONIKA_IDENTITY_MAP=" in text
+    assert "# KRONIKA_COMPANION_EXTENSION_ORIGINS=" in text
     assert "funnel" not in text.lower()
     for line in text.splitlines():
-        assert not line.startswith("FRAMENEST_INGRESS_MODE")
-        assert not line.startswith("FRAMENEST_UDS_PATH")
-        assert not line.startswith("FRAMENEST_EXTERNAL_ORIGIN")
-        assert not line.startswith("FRAMENEST_IDENTITY_MAP")
-        assert not line.startswith("FRAMENEST_COMPANION_EXTENSION_ORIGINS")
+        assert not line.startswith("KRONIKA_INGRESS_MODE")
+        assert not line.startswith("KRONIKA_UDS_PATH")
+        assert not line.startswith("KRONIKA_EXTERNAL_ORIGIN")
+        assert not line.startswith("KRONIKA_IDENTITY_MAP")
+        assert not line.startswith("KRONIKA_COMPANION_EXTENSION_ORIGINS")
 
 
 def test_non_secret_environment_template_contains_no_secret_variables() -> None:
@@ -236,11 +236,11 @@ def test_optional_systemd_ai_credential_dropins_are_provider_specific_and_secret
     dropins = {
         NVIDIA_CREDENTIAL_DROPIN_PATH: (
             "NVIDIA_API_KEY",
-            "/etc/framenest/credentials/NVIDIA_API_KEY",
+            "/etc/kronika/credentials/NVIDIA_API_KEY",
         ),
         VERCEL_CREDENTIAL_DROPIN_PATH: (
             "AI_GATEWAY_API_KEY",
-            "/etc/framenest/credentials/AI_GATEWAY_API_KEY",
+            "/etc/kronika/credentials/AI_GATEWAY_API_KEY",
         ),
     }
 
@@ -266,7 +266,7 @@ def test_production_console_script_is_declared() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
     assert (
-        pyproject["project"]["scripts"]["framenest-production"]
+        pyproject["project"]["scripts"]["kronika-production"]
         == "kronika.infrastructure.runtime.production:main"
     )
 
@@ -280,8 +280,8 @@ def test_fedora_operator_documentation_is_clearly_superseded() -> None:
     assert "ADR-0032" in text
     assert "not an installer" in text
     assert "install, enable, start, stop,\nreload, or inspect a real service" in text
-    assert INSTALL_ROOT in text
-    assert f"{PRODUCTION_BIN} serve" in text
+    assert "/opt/framenest/current" in text
+    assert f"/opt/framenest/current/.venv/bin/framenest-production serve" in text
     assert "/var/lib/framenest/catalog.sqlite3" in text
     assert "/var/cache/framenest/gallery-previews" in text
     assert "/var/lib/framenest/ai/config.json" in text
@@ -305,9 +305,9 @@ def test_fedora_adr_remains_historical_and_ubuntu_adr_supersedes_it() -> None:
     assert "Ubuntu Server 24.04" in ubuntu_text
     assert "Intel NUC6i5SYH" in ubuntu_text
     assert "personal production server" in ubuntu_text
-    assert INSTALL_ROOT in ubuntu_text
-    assert f"{PRODUCTION_BIN} check-database-ready" in ubuntu_text
-    assert f"{PRODUCTION_BIN} serve" in ubuntu_text
+    assert "/opt/framenest/current" in ubuntu_text
+    assert f"/opt/framenest/current/.venv/bin/framenest-production check-database-ready" in ubuntu_text
+    assert f"/opt/framenest/current/.venv/bin/framenest-production serve" in ubuntu_text
     assert "read-only readiness gate" in ubuntu_text
     assert "env_file=None" in fedora_text
     assert "/var/lib/framenest/ai/config.json" in ubuntu_text

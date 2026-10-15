@@ -14,7 +14,7 @@ from kronika.configuration import KronikaSettings
 from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-backup"
+BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-backup"
 PYTHON_EXECUTABLE = REPOSITORY_ROOT / ".venv" / "bin" / "python"
 
 

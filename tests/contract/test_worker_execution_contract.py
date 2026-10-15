@@ -12,9 +12,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_PATH = REPOSITORY_ROOT / "AGENTS.md"
 CONTRACT_PATH = REPOSITORY_ROOT / "docs" / "WORKER_EXECUTION_CONTRACT.md"
 LEDGER_PATH = REPOSITORY_ROOT / "docs" / "AP_UPGRADE_OBSERVATIONS.md"
-GATE_SCRIPT = (
-    REPOSITORY_ROOT / "scripts" / "operator" / "network" / "framenest_nuc_worker_gate.fish"
-)
 CANONICAL_GATE_SCRIPT = (
     REPOSITORY_ROOT / "scripts" / "operator" / "network" / "kronika_nuc_worker_gate.fish"
 )
@@ -35,7 +32,7 @@ def test_agents_declares_untrusted_cursor_routes() -> None:
     assert "untrusted" in collapsed
     assert "./.ap/ap exec" in collapsed
     assert "kronika_nuc_worker_gate.fish" in collapsed
-    assert "framenest_nuc_worker_gate.fish" in collapsed
+    assert "framenest_nuc_worker_gate.fish" not in collapsed
     assert "KRONIKA_NUC_SSH_*" in collapsed
     assert "sudo -K" in collapsed
     assert "sudo -v" in collapsed
@@ -65,13 +62,12 @@ def test_contract_owns_encodings_ssh_and_sudo_classification() -> None:
     assert "ambient-route violation" in text
     assert "Do not inventory Pythons" in text
     assert "kronika_nuc_worker_gate.fish --probe" in text
-    assert "framenest_nuc_worker_gate.fish" in text
+    assert "framenest_nuc_worker_gate.fish" not in text
     assert "KRONIKA_NUC_SSH_TARGET" in text
     assert "ssh-agent: ready" in text
     assert "expected lifecycle state" in text
     assert "timestamp_timeout=1440" in text
     assert "Workers must not run `sudo -v`" in text
-    assert GATE_SCRIPT.is_file()
     assert CANONICAL_GATE_SCRIPT.is_file()
 
 

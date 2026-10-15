@@ -106,7 +106,7 @@ ROOT_NOT_USABLE_MESSAGE = "Library root is not usable."
 ROOT_ALREADY_REGISTERED_CODE = "KRONIKA_LIBRARY_ROOT_ALREADY_REGISTERED"
 ROOT_ALREADY_REGISTERED_MESSAGE = "Library root is already registered."
 NOT_READY_CODE = "KRONIKA_CATALOG_NOT_READY"
-NOT_READY_MESSAGE = "Catalog database is not ready. Run framenest-db migrate."
+NOT_READY_MESSAGE = "Catalog database is not ready. Run kronika-db migrate."
 COMMAND_FAILED_CODE = "KRONIKA_CATALOG_COMMAND_FAILED"
 COMMAND_FAILED_MESSAGE = "Catalog command failed."
 SCAN_UNAVAILABLE_CODE = "KRONIKA_LIBRARY_SCAN_UNAVAILABLE"
@@ -485,7 +485,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-catalog", add_help=True)
+    parser = _ArgumentParser(prog="kronika-catalog", add_help=True)
     resources = parser.add_subparsers(dest="resource", required=True)
 
     device = resources.add_parser("device")

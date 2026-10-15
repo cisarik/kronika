@@ -16,8 +16,8 @@ from unittest.mock import patch
 import pytest
 
 INTERPRETER_BIN = Path(sys.executable).parent
-DB_CONSOLE_SCRIPT = INTERPRETER_BIN / "framenest-db"
-SERVER_CONSOLE_SCRIPT = INTERPRETER_BIN / "framenest-server"
+DB_CONSOLE_SCRIPT = INTERPRETER_BIN / "kronika-db"
+SERVER_CONSOLE_SCRIPT = INTERPRETER_BIN / "kronika-server"
 STARTUP_TIMEOUT_SECONDS = 8.0
 SHUTDOWN_TIMEOUT_SECONDS = 8.0
 

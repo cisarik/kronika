@@ -134,7 +134,7 @@ def _dispatch(operation: str, args: argparse.Namespace) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-recovery", add_help=True)
+    parser = _ArgumentParser(prog="kronika-recovery", add_help=True)
     subcommands = parser.add_subparsers(dest="operation", required=True)
 
     init_store = subcommands.add_parser(

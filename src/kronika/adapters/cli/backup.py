@@ -274,7 +274,7 @@ def _dispatch_readonly(operation: str, args: argparse.Namespace) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-backup", add_help=True)
+    parser = _ArgumentParser(prog="kronika-backup", add_help=True)
     subcommands = parser.add_subparsers(dest="operation", required=True)
 
     create = subcommands.add_parser("create", help="Create a catalog backup bundle.")

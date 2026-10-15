@@ -39,7 +39,7 @@ class _ArgumentParser(argparse.ArgumentParser):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = _ArgumentParser(
-        prog="framenest-dev",
+        prog="kronika-dev",
         description="Control the local Kronika browser-development server.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)

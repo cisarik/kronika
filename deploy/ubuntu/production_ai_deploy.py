@@ -14,17 +14,10 @@ import subprocess
 import sys
 from typing import Callable, Mapping, Sequence
 
-# Accepted identity environment prefixes for the operator SSH target this helper
-# reads. This is a local standard-library mirror of
-# ``framenest.identity_env.lookup_env``: the helper runs from the repository
-# deploy directory without the application package on ``sys.path``. The rule is
-# identical: one spelling wins, both unset means unset, an empty value means
-# unset, and both set to different values fails closed with status 2 and the two
-# variable names only.
+# Standard-library mirror of kronika.identity_env.lookup_env.
+# Canonical variables only; empty values count as unset.
 IDENTITY_ENVIRONMENT_PREFIX = "KRONIKA_"
-COMPATIBLE_ENVIRONMENT_PREFIX = "FRAMENEST_"
 SSH_TARGET_ENVIRONMENT_SUFFIX = "PRODUCTION_SSH_TARGET"
-IDENTITY_ENVIRONMENT_CONFLICT_EXIT = 2
 
 AI_CREDENTIAL_MAX_BYTES = 4096
 AI_DROPIN_TEMPLATE_MAX_BYTES = 1024
@@ -42,13 +35,13 @@ LOADED_CREDENTIAL_EXIT = 83
 CAPABILITY_UNAVAILABLE_EXIT = 84
 CAPABILITY_MALFORMED_EXIT = 85
 CAPABILITY_VALIDATION_EXIT = 86
-SERVICE_NAME = "framenest.service"
-REMOTE_CREDENTIAL_DIR = "/etc/framenest/credentials"
-REMOTE_DROPIN_PATH = "/etc/systemd/system/framenest.service.d/20-ai-credential.conf"
-REMOTE_AI_CONFIG_PATH = "/var/lib/framenest/ai/config.json"
-REMOTE_RELEASE_ROOT = "/opt/framenest/current"
-REMOTE_AI_BIN = "/opt/framenest/current/.venv/bin/framenest-ai"
-REMOTE_ROLLBACK_DIR = "/run/framenest-ai-credential-deploy"
+SERVICE_NAME = "kronika.service"
+REMOTE_CREDENTIAL_DIR = "/etc/kronika/credentials"
+REMOTE_DROPIN_PATH = "/etc/systemd/system/kronika.service.d/20-ai-credential.conf"
+REMOTE_AI_CONFIG_PATH = "/var/lib/kronika/ai/config.json"
+REMOTE_RELEASE_ROOT = "/opt/kronika/current"
+REMOTE_AI_BIN = "/opt/kronika/current/.venv/bin/kronika-ai"
+REMOTE_ROLLBACK_DIR = "/run/kronika-ai-credential-deploy"
 HELPER_DIR = Path(__file__).resolve().parent
 DEPLOY_SYSTEMD_DIR = HELPER_DIR.parent / "systemd"
 REMOTE_SERVICE_UNIT_PATH = f"/etc/systemd/system/{SERVICE_NAME}"
@@ -61,10 +54,10 @@ PROVIDER_CREDENTIALS = {
 }
 
 PROVIDER_DROPIN_TEMPLATES = {
-    "nvidia-nim": DEPLOY_SYSTEMD_DIR / "framenest-ai-credential-nvidia-nim.conf",
+    "nvidia-nim": DEPLOY_SYSTEMD_DIR / "kronika-ai-credential-nvidia-nim.conf",
     "vercel-ai-gateway": DEPLOY_SYSTEMD_DIR
-    / "framenest-ai-credential-vercel-ai-gateway.conf",
-    "opencode-go": DEPLOY_SYSTEMD_DIR / "framenest-ai-credential-opencode-go.conf",
+    / "kronika-ai-credential-vercel-ai-gateway.conf",
+    "opencode-go": DEPLOY_SYSTEMD_DIR / "kronika-ai-credential-opencode-go.conf",
 }
 
 
@@ -80,39 +73,14 @@ class DeploymentRollbackError(DeploymentCommandError):
     """Sanitized rollback failure with recovery material retained."""
 
 
-class IdentityEnvironmentConflictError(DeploymentInputError):
-    """Both accepted prefixes set one operator variable to different values.
-
-    The message names the two variable names only. No value, length, hash or
-    repr of either value appears in the message, the exception or any log.
-    """
-
-    def __init__(self, suffix: str) -> None:
-        self.suffix = suffix
-        super().__init__(
-            f"conflicting environment variables {IDENTITY_ENVIRONMENT_PREFIX}{suffix} "
-            f"and {COMPATIBLE_ENVIRONMENT_PREFIX}{suffix} are set to different values"
-        )
-
-
 def lookup_env(
     suffix: str,
     *,
     environ: Mapping[str, str] | None = None,
 ) -> str | None:
-    """Resolve one operator variable under both accepted identity prefixes."""
+    """Resolve a canonical operator variable; an empty value is unset."""
     env = os.environ if environ is None else environ
-    primary = env.get(f"{IDENTITY_ENVIRONMENT_PREFIX}{suffix}")
-    compatible = env.get(f"{COMPATIBLE_ENVIRONMENT_PREFIX}{suffix}")
-    if primary == "":
-        primary = None
-    if compatible == "":
-        compatible = None
-    if primary is None:
-        return compatible
-    if compatible is None or primary == compatible:
-        return primary
-    raise IdentityEnvironmentConflictError(suffix)
+    return env.get(f"{IDENTITY_ENVIRONMENT_PREFIX}{suffix}") or None
 
 
 SANITIZED_COMMAND_ERRORS = {
@@ -181,11 +149,8 @@ def main(
             health_url=args.health_url,
             runner=command_runner,
         )
-    except IdentityEnvironmentConflictError as exc:
-        print(f"FrameNest production AI deployment failed: {exc}", file=sys.stderr)
-        return IDENTITY_ENVIRONMENT_CONFLICT_EXIT
     except (DeploymentInputError, DeploymentCommandError) as exc:
-        print(f"FrameNest production AI deployment failed: {exc}", file=sys.stderr)
+        print(f"Kronika production AI deployment failed: {exc}", file=sys.stderr)
         return 1
     return 0
 
@@ -513,7 +478,7 @@ def _extract_fish_secret(path: Path, identity: str) -> str:
 
 def _print_plan(*, args: argparse.Namespace, target: str, secret: LocalSecret) -> None:
     mode = "check" if args.check else "deploy"
-    print(f"FrameNest production AI credential {mode}")
+    print(f"Kronika production AI credential {mode}")
     print(f"Target: {target}")
     print(f"Expected hostname: {args.expected_hostname}")
     print(f"Provider: {args.provider}")
@@ -530,7 +495,7 @@ def _remote_identity_check(expected_hostname: str) -> str:
         [
             "set -e",
             f'test "$(hostname)" = {quoted_hostname}',
-            "sudo -n test -n \"$(id -u framenest 2>/dev/null)\"",
+            "sudo -n test -n \"$(id -u kronika 2>/dev/null)\"",
             f"sudo -n systemctl show --property=FragmentPath --value {SERVICE_NAME} >/dev/null",
         ]
     )
@@ -571,7 +536,7 @@ def _remote_install_dropin(dropin: DropinTemplate) -> str:
     return "\n".join(
         [
             "set -e",
-            "sudo -n install -d -o root -g root -m 0755 /etc/systemd/system/framenest.service.d",
+            "sudo -n install -d -o root -g root -m 0755 /etc/systemd/system/kronika.service.d",
             f"sudo -n sh -c 'umask 022; cat > {next_path}; chown root:root {next_path}; chmod 0644 {next_path}'",
             f"sudo -n test -f {next_path}",
             f"sudo -n test ! -L {next_path}",
@@ -595,7 +560,7 @@ def _remote_configure_ai(*, provider_id: str, model_id: str) -> str:
     return "\n".join(
         [
             "set -e",
-            f"sudo -n -u framenest --chdir={REMOTE_RELEASE_ROOT} {REMOTE_AI_BIN} --config-path {REMOTE_AI_CONFIG_PATH} configure --provider-id {quoted_provider} --model-id {quoted_model} --yes",
+            f"sudo -n -u kronika --chdir={REMOTE_RELEASE_ROOT} {REMOTE_AI_BIN} --config-path {REMOTE_AI_CONFIG_PATH} configure --provider-id {quoted_provider} --model-id {quoted_model} --yes",
         ]
     )
 
@@ -691,7 +656,7 @@ def _remote_validate_capability(*, provider_id: str, model_id: str) -> str:
             "if not isinstance(payload, dict):",
             f"    raise SystemExit({CAPABILITY_MALFORMED_EXIT})",
             "raw_text = raw.decode('utf-8', errors='ignore')",
-            "for forbidden in ('/etc/framenest/credentials', 'Authorization', 'Bearer '):",
+            "for forbidden in ('/etc/kronika/credentials', 'Authorization', 'Bearer '):",
             "    if forbidden in raw_text:",
             f"        raise SystemExit({CAPABILITY_VALIDATION_EXIT})",
             "if payload.get('provider_id') != expected_provider:",
@@ -718,7 +683,7 @@ def _remote_wait_ready(health_url: str) -> str:
     return "\n".join(
         [
             "set -e",
-            "# FrameNest readiness probe",
+            "# Kronika readiness probe",
             f"READINESS_DEADLINE_SECONDS={READINESS_DEADLINE_SECONDS}",
             f"READINESS_POLL_INTERVAL_SECONDS={READINESS_POLL_INTERVAL_SECONDS}",
             "deadline_epoch=$(($(date +%s) + READINESS_DEADLINE_SECONDS))",
@@ -759,7 +724,7 @@ def _remote_restore(identity: str) -> str:
             "# restore deployment-controlled files",
             f"sudo -n test -e {REMOTE_ROLLBACK_DIR}/transaction.complete",
             f"if sudo -n test -e {REMOTE_ROLLBACK_DIR}/{identity}.present; then sudo -n install -d -o root -g root -m 0700 {REMOTE_CREDENTIAL_DIR}; sudo -n cp -a {REMOTE_ROLLBACK_DIR}/{identity} {credential_path}; elif sudo -n test -e {REMOTE_ROLLBACK_DIR}/{identity}.absent; then sudo -n rm -f {credential_path}; else exit 42; fi",
-            f"if sudo -n test -e {REMOTE_ROLLBACK_DIR}/20-ai-credential.conf.present; then sudo -n install -d -o root -g root -m 0755 /etc/systemd/system/framenest.service.d; sudo -n cp -a {REMOTE_ROLLBACK_DIR}/20-ai-credential.conf {REMOTE_DROPIN_PATH}; elif sudo -n test -e {REMOTE_ROLLBACK_DIR}/20-ai-credential.conf.absent; then sudo -n rm -f {REMOTE_DROPIN_PATH}; else exit 42; fi",
+            f"if sudo -n test -e {REMOTE_ROLLBACK_DIR}/20-ai-credential.conf.present; then sudo -n install -d -o root -g root -m 0755 /etc/systemd/system/kronika.service.d; sudo -n cp -a {REMOTE_ROLLBACK_DIR}/20-ai-credential.conf {REMOTE_DROPIN_PATH}; elif sudo -n test -e {REMOTE_ROLLBACK_DIR}/20-ai-credential.conf.absent; then sudo -n rm -f {REMOTE_DROPIN_PATH}; else exit 42; fi",
             f"if sudo -n test -e {REMOTE_ROLLBACK_DIR}/config.json.present; then sudo -n cp -a {REMOTE_ROLLBACK_DIR}/config.json {REMOTE_AI_CONFIG_PATH}; elif sudo -n test -e {REMOTE_ROLLBACK_DIR}/config.json.absent; then sudo -n rm -f {REMOTE_AI_CONFIG_PATH}; else exit 42; fi",
             f"sudo -n rm -f {REMOTE_CREDENTIAL_DIR}/{identity}.next {REMOTE_DROPIN_PATH}.next {REMOTE_AI_CONFIG_PATH}.next",
         ]

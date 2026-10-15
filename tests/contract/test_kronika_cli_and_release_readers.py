@@ -2,13 +2,12 @@
 
 The release helper and the AI credential helper are standard-library-only engines
 that run without the application package on ``sys.path``. These tests prove their
-local mirror of the resolver fails closed with exit status 2 and the two variable
-names only, and that release markers and manifest keys are read under both
-accepted spellings while their writers stay unchanged.
+local resolver accepts canonical operator variables only. Historical release
+markers and manifest keys remain readable under both accepted spellings.
 
 The second part covers every in-package command line entry point. One
-identity-environment conflict must exit 2 everywhere it can surface, name the two
-variable suffixes only, and change no other exit status. The enumeration is
+retired environment input must leave canonical behavior and exit status intact.
+The enumeration is
 derived from the declared console scripts, so a newly declared script fails the
 classification test instead of escaping the ledger.
 """
@@ -29,7 +28,6 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika_release.py"
-LEGACY_RELEASE_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
 AI_DEPLOY_HELPER = REPOSITORY_ROOT / "deploy" / "ubuntu" / "production_ai_deploy.py"
 
 SUFFIX = "NUC_SSH_TARGET"
@@ -62,108 +60,20 @@ def ai_deploy_helper() -> Any:
 
 
 @pytest.mark.parametrize("helper_name", ["release_helper", "ai_deploy_helper"])
-def test_both_helpers_mirror_the_same_prefix_pair(
-    helper_name: str,
+@pytest.mark.parametrize("canonical", [None, "", "canonical-value"])
+@pytest.mark.parametrize("retired", [None, "", "retired-value"])
+def test_helpers_ignore_retired_prefix_and_preserve_empty_semantics(
+    helper_name: str, canonical: str | None, retired: str | None,
     request: pytest.FixtureRequest,
 ) -> None:
     helper = request.getfixturevalue(helper_name)
-
-    assert helper.IDENTITY_ENVIRONMENT_PREFIX == PRIMARY
-    assert helper.COMPATIBLE_ENVIRONMENT_PREFIX == COMPATIBLE
-
-
-def test_release_helper_resolves_either_prefix(release_helper: Any) -> None:
-    assert release_helper.lookup_env(SUFFIX, environ={f"{PRIMARY}{SUFFIX}": "a"}) == "a"
-    assert release_helper.lookup_env(SUFFIX, environ={f"{COMPATIBLE}{SUFFIX}": "b"}) == "b"
-    assert release_helper.lookup_env(SUFFIX, environ={}) is None
-    assert (
-        release_helper.lookup_env(
-            SUFFIX, environ={f"{PRIMARY}{SUFFIX}": "c", f"{COMPATIBLE}{SUFFIX}": "c"}
-        )
-        == "c"
-    )
-    assert release_helper.lookup_env(SUFFIX, environ={f"{PRIMARY}{SUFFIX}": ""}) is None
-
-
-def test_release_helper_conflict_fails_closed_with_status_two(release_helper: Any) -> None:
-    with pytest.raises(release_helper.ReleaseError) as excinfo:
-        release_helper.lookup_env(
-            SUFFIX, environ={f"{PRIMARY}{SUFFIX}": "alpha", f"{COMPATIBLE}{SUFFIX}": "beta"}
-        )
-
-    error = excinfo.value
-    assert error.exit_code == 2
-    rendered = str(error)
-    assert f"{PRIMARY}{SUFFIX}" in rendered
-    assert f"{COMPATIBLE}{SUFFIX}" in rendered
-    assert "alpha" not in rendered
-    assert "beta" not in rendered
-
-
-def test_release_helper_transport_conflict_is_reported_not_raised_as_traceback(
-    release_helper: Any,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import argparse
-
-    monkeypatch.setenv(f"{PRIMARY}{SUFFIX}", "alpha-host")
-    monkeypatch.setenv(f"{COMPATIBLE}{SUFFIX}", "beta-host")
-    args = argparse.Namespace(target=None, user=None, identity="/nonexistent")
-
-    with pytest.raises(release_helper.ReleaseError) as excinfo:
-        release_helper._resolve_transport(args)
-
-    assert excinfo.value.exit_code == 2
-    assert "alpha-host" not in str(excinfo.value)
-    assert "beta-host" not in str(excinfo.value)
-
-
-def test_ai_deploy_helper_conflict_exits_two(
-    ai_deploy_helper: Any,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    monkeypatch.setenv(f"{PRIMARY}{ai_deploy_helper.SSH_TARGET_ENVIRONMENT_SUFFIX}", "alpha-host")
-    monkeypatch.setenv(
-        f"{COMPATIBLE}{ai_deploy_helper.SSH_TARGET_ENVIRONMENT_SUFFIX}", "beta-host"
-    )
-    argv = [
-        "--expected-hostname",
-        "nuc",
-        "--provider",
-        "nvidia-nim",
-        "--model",
-        "example-model",
-        "--credential-file",
-        "/nonexistent",
-    ]
-
-    exit_code = ai_deploy_helper.main(argv)
-    captured = capsys.readouterr()
-
-    assert exit_code == 2
-    suffix = ai_deploy_helper.SSH_TARGET_ENVIRONMENT_SUFFIX
-    assert f"{PRIMARY}{suffix}" in captured.err
-    assert f"{COMPATIBLE}{suffix}" in captured.err
-    assert "alpha-host" not in captured.err
-    assert "beta-host" not in captured.err
-    assert "alpha-host" not in captured.out
-    assert "beta-host" not in captured.out
-
-
-def test_ai_deploy_helper_accepts_either_prefix_alone(
-    ai_deploy_helper: Any,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    suffix = ai_deploy_helper.SSH_TARGET_ENVIRONMENT_SUFFIX
-    monkeypatch.setenv(f"{PRIMARY}{suffix}", "alpha-host")
-
-    assert ai_deploy_helper.lookup_env(suffix) == "alpha-host"
-
-    monkeypatch.delenv(f"{PRIMARY}{suffix}")
-    monkeypatch.setenv(f"{COMPATIBLE}{suffix}", "beta-host")
-
-    assert ai_deploy_helper.lookup_env(suffix) == "beta-host"
+    suffix = getattr(helper, "SSH_TARGET_ENVIRONMENT_SUFFIX", SUFFIX)
+    environ = {}
+    if canonical is not None:
+        environ[f"{PRIMARY}{suffix}"] = canonical
+    if retired is not None:
+        environ[f"{COMPATIBLE}{suffix}"] = retired
+    assert helper.lookup_env(suffix, environ=environ) == (canonical or None)
 
 
 # ---------------------------------------------------------------------------
@@ -492,7 +402,7 @@ ENTRY_POINT_CASES: dict[str, dict[str, Any]] = {
 #: pair cannot change its status.
 SETTINGS_FREE_ENTRY_POINT = "adapters.cli.recovery"
 
-#: Both parked capture scripts target ``kronika_capture.cli``, whose module path
+#: The parked capture script targets ``kronika_capture.cli``, whose module path
 #: under the distribution package is therefore just ``cli``.
 CAPTURE_MODULE_KEY = "cli"
 CAPTURE_SOURCE_ROOT = REPOSITORY_ROOT / "src" / "kronika_capture"
@@ -586,6 +496,12 @@ def test_every_declared_console_script_is_classified() -> None:
     )
 
     assert classified == {_module_key(target) for target in DECLARED_CONSOLE_SCRIPTS.values()}
+    assert set(DECLARED_CONSOLE_SCRIPTS) == {
+        "kronika-server", "kronika-db", "kronika-catalog", "kronika-library",
+        "kronika-dev", "kronika-ai", "kronika-production", "kronika-backup",
+        "kronika-youtube", "kronika-previews", "kronika-covers",
+        "kronika-recovery", "kronika-sidecar", "kronika-capture",
+    }
 
 
 def test_the_parked_capture_package_cannot_surface_the_conflict() -> None:

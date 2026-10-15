@@ -23,9 +23,7 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika_release.py"
-LEGACY_ENGINE_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest_release.py"
 CANONICAL_ENTRY_POINT = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika-release"
-LEGACY_ENTRY_POINT = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest-release"
 
 _SPEC = importlib.util.spec_from_file_location("kronika_release", ENGINE_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
@@ -232,25 +230,25 @@ class FakeRunner:
         return json.dumps(payload)
 
     def _ssh_respond(self, combined: str, input_bytes: bytes | None) -> str:
-        if "mkdir -m 0700 /run/framenest-release-deploy" in combined:
+        if "mkdir -m 0700 /run/kronika-release-deploy" in combined:
             if self.locked:
                 raise engine.ReleaseError("exists", engine.EXIT_EXISTS)
             self.locked = True
             return ""
-        if "/run/framenest-release-deploy.owner" in combined and "cat >" in combined:
+        if "/run/kronika-release-deploy.owner" in combined and "cat >" in combined:
             return ""
-        if "/run/framenest-release-deploy.owner" in combined and "cat " in combined:
+        if "/run/kronika-release-deploy.owner" in combined and "cat " in combined:
             if self.lock_owner is None:
                 raise engine.ReleaseError("no such file", engine.EXIT_TRANSPORT)
             return self.lock_owner
-        if "/run/framenest-release-deploy.owner" in combined and "rm -f" in combined:
+        if "/run/kronika-release-deploy.owner" in combined and "rm -f" in combined:
             return ""
-        if "mv -T /run/framenest-release-deploy" in combined:
+        if "mv -T /run/kronika-release-deploy" in combined:
             if self.reclaim_fails:
                 raise engine.ReleaseError("busy", engine.EXIT_EXISTS)
             self.locked = False
             return ""
-        if "/run/framenest-release-deploy.reclaimed-" in combined and "rm -rf" in combined:
+        if "/run/kronika-release-deploy.reclaimed-" in combined and "rm -rf" in combined:
             return ""
         if "systemctl show --property=LoadState" in combined:
             for service, payload in self.layout_shows.items():
@@ -286,11 +284,11 @@ class FakeRunner:
             return "Python 3.13.14"
         if "df -Pk /opt/framenest" in combined:
             return "/dev/sda1 100000000 1000 99999000 1% /opt/framenest"
-        if "cat > /run/framenest-release-deploy/framenest_release.py" in combined:
+        if "cat > /run/kronika-release-deploy/kronika_release.py" in combined:
             return ""
-        if "cat > /run/framenest-release-deploy/superproject.tar" in combined:
+        if "cat > /run/kronika-release-deploy/superproject.tar" in combined:
             return ""
-        if "cat > /run/framenest-release-deploy/ap.tar" in combined:
+        if "cat > /run/kronika-release-deploy/ap.tar" in combined:
             return ""
         if "install -d -o root -g root -m 0755" in combined:
             return ""
@@ -324,11 +322,11 @@ class FakeRunner:
             return ""
         if "mv /opt/framenest/releases/" in combined and ".staging" in combined:
             return ""
-        if "framenest-db status" in combined:
+        if "kronika-db status" in combined:
             return '{"operation":"status","state":"at_head","current_revision":"0028","head_revision":"0028"}'
-        if "framenest-backup status" in combined:
+        if "kronika-backup status" in combined:
             return '{"operation":"status","restore_readiness":"ready"}'
-        if "framenest-backup run-scheduled" in combined:
+        if "kronika-backup run-scheduled" in combined:
             return '{"operation":"run-scheduled","state":"succeeded","bundle_id":"b1"}'
         if "test -L /opt/framenest/capture-current" in combined:
             return "absent"
@@ -362,15 +360,15 @@ class FakeRunner:
             return '{"operation":"check-health","state":"ready"}'
         if "journalctl -u framenest.service" in combined:
             return ""
-        if "rm -f /run/framenest-release-deploy" in combined:
+        if "rm -f /run/kronika-release-deploy" in combined:
             self.locked = False
             return ""
-        if "rmdir /run/framenest-release-deploy" in combined:
+        if "rmdir /run/kronika-release-deploy" in combined:
             self.locked = False
             return ""
-        if "cat /run/framenest-release-deploy/previous-release" in combined:
+        if "cat /run/kronika-release-deploy/previous-release" in combined:
             return PREV_PATH
-        if "cat /run/framenest-release-deploy/rollback-previous-release" in combined:
+        if "cat /run/kronika-release-deploy/rollback-previous-release" in combined:
             return PREV_PATH
         raise AssertionError(f"unexpected ssh command: {combined}")
 
@@ -486,7 +484,7 @@ def test_cmd_remote_extract_emits_nested_private_argv_and_extracts(
     destination = tmp_path / "out"
     destination.mkdir()
     _write_tar(str(archive))
-    remote_engine = str(tmp_path / "framenest_release.py")
+    remote_engine = str(tmp_path / "kronika_release.py")
 
     command = engine.cmd_remote_extract(str(archive), str(destination), remote_engine)
     argv = shlex.split(command)
@@ -524,13 +522,13 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
     final = tmp_path / sha
     bindir = staging / ".venv" / "bin"
     bindir.mkdir(parents=True)
-    (bindir / "framenest-db").write_text(
+    (bindir / "kronika-db").write_text(
         f"#!{staging}/.venv/bin/python\nprint('db')\n", encoding="utf-8"
     )
-    (bindir / "framenest-backup").write_text(
+    (bindir / "kronika-backup").write_text(
         f"#!{staging}/.venv/bin/python\nprint('backup')\n", encoding="utf-8"
     )
-    remote_engine = str(tmp_path / "framenest_release.py")
+    remote_engine = str(tmp_path / "kronika_release.py")
 
     command = engine.cmd_remote_relocate_venv_shebangs(
         str(staging), str(final), remote_engine
@@ -547,7 +545,7 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
 
     result = engine.main(remaining)
     assert result == engine.EXIT_OK
-    assert (bindir / "framenest-db").read_text(encoding="utf-8").startswith(
+    assert (bindir / "kronika-db").read_text(encoding="utf-8").startswith(
         f"#!{final}/.venv/bin/python"
     )
 
@@ -632,7 +630,7 @@ def test_status_positive_path(capsys: pytest.CaptureFixture) -> None:
     assert "database_revision: 0028" in captured.out
     assert "backup_restore_readiness: ready" in captured.out
     # Status never transfers a helper or mutates.
-    assert not any("cat > /run/framenest-release-deploy" in " ".join(a) for a, _ in runner.calls)
+    assert not any("cat > /run/kronika-release-deploy" in " ".join(a) for a, _ in runner.calls)
 
 
 class _PreManifest(FakeRunner):
@@ -669,7 +667,7 @@ def test_check_pre_manifest_uses_current_path_for_backup(
     assert "backup_restore_readiness: ready" in captured.out
     assert f"current_release: {PREV_PATH}" in captured.out
     assert any(
-        "framenest-backup status" in " ".join(argv) for argv, _ in runner.calls
+        "kronika-backup status" in " ".join(argv) for argv, _ in runner.calls
     )
 
 
@@ -716,7 +714,7 @@ def test_check_positive_path_passes_all_gates(tmp_path: Path, capsys: pytest.Cap
 def test_check_requires_backup_ready(capsys: pytest.CaptureFixture) -> None:
     class _BackupNotReady(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "framenest-backup status" in combined:
+            if "kronika-backup status" in combined:
                 return '{"operation":"status","restore_readiness":"stale"}'
             return super()._ssh_respond(combined, input_bytes)
 
@@ -744,9 +742,9 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert "deploy complete" in capsys.readouterr().out
 
     # Lock and pre-existence gates precede any transfer.
-    assert _index(runner, "mkdir -m 0700 /run/framenest-release-deploy") < _index(runner, "cat > /run/framenest-release-deploy/framenest_release.py")
+    assert _index(runner, "mkdir -m 0700 /run/kronika-release-deploy") < _index(runner, "cat > /run/kronika-release-deploy/kronika_release.py")
     # Engine transfer precedes archive transfers.
-    assert _index(runner, "framenest_release.py") < _index(runner, "superproject.tar")
+    assert _index(runner, "kronika_release.py") < _index(runner, "superproject.tar")
     assert _index(runner, "superproject.tar") < _index(runner, "ap.tar")
     # Poetry install, then shebang rewrite, then chown/chmod, then rename.
     assert _index(runner, "install --only main") < _index(
@@ -761,17 +759,17 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert _index(runner, "chown -R root:root") < _index(runner, "mv /opt/framenest/releases/")
     assert _index(runner, "chmod -R a-w") < _index(runner, "mv /opt/framenest/releases/")
     assert _index(runner, "mv /opt/framenest/releases/") < _index(
-        runner, "framenest-db status"
+        runner, "kronika-db status"
     )
     # Schema and checkpoint before atomic switch.
-    assert _index(runner, "framenest-db status") < _index(runner, "ln -s")
-    assert _index(runner, "framenest-backup run-scheduled") < _index(runner, "ln -s")
+    assert _index(runner, "kronika-db status") < _index(runner, "ln -s")
+    assert _index(runner, "kronika-backup run-scheduled") < _index(runner, "ln -s")
     # Single restart.
     assert _ssh_combined(runner).count("restart framenest.service") == 1
     assert "capture-current.next" not in _ssh_combined(runner)
     assert "restart kronika-capture-runner.service" not in _ssh_combined(runner)
     # Cleanup present.
-    assert _index(runner, "rmdir /run/framenest-release-deploy") > _index(runner, "restart framenest.service")
+    assert _index(runner, "rmdir /run/kronika-release-deploy") > _index(runner, "restart framenest.service")
 
 
 def test_deploy_transfers_engine_and_both_archives_as_stdin() -> None:
@@ -779,7 +777,7 @@ def test_deploy_transfers_engine_and_both_archives_as_stdin() -> None:
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_OK
     payloads = [(argv, data) for argv, data in runner.calls if data is not None]
     transferred = [" ".join(argv) for argv, _ in payloads]
-    assert any("framenest_release.py" in c for c in transferred)
+    assert any("kronika_release.py" in c for c in transferred)
     assert any("superproject.tar" in c for c in transferred)
     assert any("ap.tar" in c for c in transferred)
     poetry = next(data for argv, data in payloads if any("poetry.toml" in part for part in argv))
@@ -804,9 +802,9 @@ def test_deploy_verifies_archive_hashes_remotely() -> None:
     runner = FakeRunner()
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_OK
     combined = _ssh_combined(runner)
-    assert "sha256sum /run/framenest-release-deploy/framenest_release.py" in combined
-    assert "sha256sum /run/framenest-release-deploy/superproject.tar" in combined
-    assert "sha256sum /run/framenest-release-deploy/ap.tar" in combined
+    assert "sha256sum /run/kronika-release-deploy/kronika_release.py" in combined
+    assert "sha256sum /run/kronika-release-deploy/superproject.tar" in combined
+    assert "sha256sum /run/kronika-release-deploy/ap.tar" in combined
 
 
 def test_deploy_verifies_committed_lock_unchanged() -> None:
@@ -862,7 +860,7 @@ def test_deploy_refuses_a_lock_owned_by_another_live_run(
 
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_EXISTS
     assert "existing remote lock owned by another run" in capsys.readouterr().err
-    assert "mv -T /run/framenest-release-deploy" not in _ssh_combined(runner)
+    assert "mv -T /run/kronika-release-deploy" not in _ssh_combined(runner)
 
 
 def test_deploy_reclaims_a_lock_whose_recorded_process_is_gone(
@@ -877,8 +875,8 @@ def test_deploy_reclaims_a_lock_whose_recorded_process_is_gone(
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_OK
     output = capsys.readouterr().out
     assert "remote_lock: reclaimed (abandoned-owner)" in output
-    assert "mv -T /run/framenest-release-deploy" in _ssh_combined(runner)
-    assert "rm -rf /run/framenest-release-deploy.reclaimed-abandoned-owner" in _ssh_combined(runner)
+    assert "mv -T /run/kronika-release-deploy" in _ssh_combined(runner)
+    assert "rm -rf /run/kronika-release-deploy.reclaimed-abandoned-owner" in _ssh_combined(runner)
 
 
 def test_deploy_reclaims_only_its_own_recorded_identity(
@@ -912,14 +910,14 @@ def test_deploy_releases_the_lock_on_a_failure_inside_the_operation() -> None:
 
     class _SchemaDiff(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "framenest-db status" in combined:
+            if "kronika-db status" in combined:
                 return '{"operation":"status","state":"behind","current_revision":"0027","head_revision":"0028"}'
             return super()._ssh_respond(combined, input_bytes)
 
     runner = _SchemaDiff()
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_MIGRATION_REQUIRED
     assert runner.locked is False
-    assert "rm -f /run/framenest-release-deploy.owner" in _ssh_combined(runner)
+    assert "rm -f /run/kronika-release-deploy.owner" in _ssh_combined(runner)
 
 
 def test_deploy_rejects_insufficient_capacity() -> None:
@@ -935,7 +933,7 @@ def test_deploy_rejects_insufficient_capacity() -> None:
 def test_deploy_schema_mismatch_stops_before_cutover() -> None:
     class _SchemaDiff(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "framenest-db status" in combined:
+            if "kronika-db status" in combined:
                 return '{"operation":"status","state":"behind","current_revision":"0027","head_revision":"0028"}'
             return super()._ssh_respond(combined, input_bytes)
 
@@ -948,7 +946,7 @@ def test_deploy_schema_mismatch_stops_before_cutover() -> None:
 def test_deploy_checkpoint_failure_stops_before_cutover() -> None:
     class _BadCheckpoint(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "framenest-backup run-scheduled" in combined:
+            if "kronika-backup run-scheduled" in combined:
                 return '{"operation":"run-scheduled","state":"failed"}'
             return super()._ssh_respond(combined, input_bytes)
 
@@ -990,7 +988,7 @@ def test_deploy_post_switch_failure_rolls_back(capsys: pytest.CaptureFixture) ->
     assert result == engine.EXIT_SERVICE_TERMINAL
     # Rollback restores the previous release symlink and restarts once more.
     assert _ssh_combined(runner).count("restart framenest.service") == 2
-    assert _index(runner, "cat /run/framenest-release-deploy/previous-release") > 0
+    assert _index(runner, "cat /run/kronika-release-deploy/previous-release") > 0
 
 
 def test_deploy_rollback_failure_is_distinct(capsys: pytest.CaptureFixture) -> None:
@@ -1014,7 +1012,7 @@ def test_deploy_rollback_failure_is_distinct(capsys: pytest.CaptureFixture) -> N
 def test_deploy_cleanup_failure_is_distinct(capsys: pytest.CaptureFixture) -> None:
     class _CleanupFail(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "rmdir /run/framenest-release-deploy" in combined:
+            if "rmdir /run/kronika-release-deploy" in combined:
                 raise engine.ReleaseError("cleanup failed", engine.EXIT_CLEANUP)
             return super()._ssh_respond(combined, input_bytes)
 
@@ -1154,7 +1152,7 @@ def test_output_never_contains_secrets_or_identity() -> None:
 def test_first_causal_error_is_preserved(capsys: pytest.CaptureFixture) -> None:
     class _SchemaDiff(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "framenest-db status" in combined:
+            if "kronika-db status" in combined:
                 return '{"operation":"status","state":"behind","current_revision":"0027","head_revision":"0028"}'
             return super()._ssh_respond(combined, input_bytes)
 

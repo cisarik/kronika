@@ -307,7 +307,7 @@ def _run(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-youtube")
+    parser = _ArgumentParser(prog="kronika-youtube")
     commands = parser.add_subparsers(dest="operation", required=True)
 
     ingest = commands.add_parser("ingest")

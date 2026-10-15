@@ -94,7 +94,7 @@ class _CliContext:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-ai", add_help=True)
+    parser = _ArgumentParser(prog="kronika-ai", add_help=True)
     parser.add_argument(
         "--config-path",
         type=Path,

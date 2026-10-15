@@ -52,7 +52,7 @@ from kronika.infrastructure.persistence.media_repository import SqliteMediaRepos
 from kronika.infrastructure.persistence.migrations import inspect_database_migration_status
 
 INVALID_INPUT_MESSAGE = "Invalid library command."
-NOT_READY_MESSAGE = "Catalog database is not ready. Run poetry run framenest-db migrate."
+NOT_READY_MESSAGE = "Catalog database is not ready. Run poetry run kronika-db migrate."
 DEVICE_SELECTION_REQUIRED_MESSAGE = "Multiple devices are registered; pass --device-id."
 DEVICE_NOT_FOUND_MESSAGE = "Device not found."
 LIBRARY_SELECTION_REQUIRED_MESSAGE = "Multiple libraries are registered; pass --library-id."
@@ -133,7 +133,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-library")
+    parser = _ArgumentParser(prog="kronika-library")
     commands = parser.add_subparsers(dest="operation", required=True)
 
     commands.add_parser("status")

@@ -229,8 +229,8 @@ def test_relocate_venv_shebangs_rewrites_staging_prefix_only(
     final = tmp_path / RELEASE
     bindir = staging / ".venv" / "bin"
     bindir.mkdir(parents=True)
-    db = bindir / "framenest-db"
-    backup = bindir / "framenest-backup"
+    db = bindir / "kronika-db"
+    backup = bindir / "kronika-backup"
     untouched = bindir / "other-tool"
     original_untouched = "#!/usr/bin/env python3\nprint('leave me')\n"
     db.write_text(f"#!{staging}/.venv/bin/python\nprint('db')\n", encoding="utf-8")
@@ -256,8 +256,8 @@ def test_relocate_venv_shebangs_fails_closed_when_none_rewritten(
     final = tmp_path / RELEASE
     bindir = staging / ".venv" / "bin"
     bindir.mkdir(parents=True)
-    (bindir / "framenest-db").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-    (bindir / "framenest-backup").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    (bindir / "kronika-db").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    (bindir / "kronika-backup").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
 
     with pytest.raises(engine.ReleaseError) as exc:
         engine.relocate_venv_shebangs(str(staging), str(final))
@@ -272,8 +272,8 @@ def _editable_metadata_tree(tmp_path: Path) -> tuple[Path, Path, Path, Path, Pat
     dist = site / "framenest-0.1.0.dist-info"
     bindir.mkdir(parents=True)
     dist.mkdir(parents=True)
-    db = bindir / "framenest-db"
-    backup = bindir / "framenest-backup"
+    db = bindir / "kronika-db"
+    backup = bindir / "kronika-backup"
     db.write_text(f"#!{staging}/.venv/bin/python\nprint('db')\n", encoding="utf-8")
     backup.write_text(f"#!{staging}/.venv/bin/python\nprint('backup')\n", encoding="utf-8")
     pth = site / "framenest.pth"

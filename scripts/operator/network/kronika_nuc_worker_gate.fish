@@ -1,20 +1,14 @@
 #!/usr/bin/env fish
 # Strict noninteractive SSH gate for bounded NUC operator commands.
 #
-# This file is the canonical gate (ADR-0085). The retained
-# framenest_nuc_worker_gate.fish is a wrapper that forwards to this same file.
+# Canonical gate (ADR-0085).
 
 set -e APPIMAGE APPDIR ARGV0 LD_LIBRARY_PATH LD_PRELOAD
 
 set -g trusted_path /usr/sbin:/usr/bin:/sbin:/bin
 
-# Accepted identity environment prefixes for every operator variable this gate
-# reads. The rule is identical to the Python mirror in
-# kronika.identity_env.lookup_env and in the release engine: one spelling wins,
-# an empty value counts as unset, both unset means unset, and both set to
-# different values exits 2 naming the two variable names and never a value.
+# Read canonical operator variables only; empty values count as unset.
 set -g identity_env_prefix KRONIKA_
-set -g compatible_env_prefix FRAMENEST_
 
 set -g gate_name (basename (status filename))
 
@@ -24,38 +18,14 @@ function _gate_usage
 end
 
 function _resolve_env
-    set -l suffix $argv[1]
-    set -l primary_name "$identity_env_prefix$suffix"
-    set -l compatible_name "$compatible_env_prefix$suffix"
-    set -l primary ""
-    set -l compatible ""
+    set -l primary_name "$identity_env_prefix$argv[1]"
     if set -q $primary_name
-        set primary $$primary_name
+        printf '%s' "$$primary_name"
     end
-    if set -q $compatible_name
-        set compatible $$compatible_name
-    end
-    if test -z "$primary"
-        set primary ""
-    end
-    if test -z "$compatible"
-        set compatible ""
-    end
-    if test -z "$primary"
-        printf '%s' "$compatible"
-        return 0
-    end
-    if test -z "$compatible"; or test "$primary" = "$compatible"
-        printf '%s' "$primary"
-        return 0
-    end
-    echo "Conflicting environment variables $primary_name and $compatible_name are set to different values" >&2
-    return 2
+    return 0
 end
 
-# Resolve every test hook once, under the same two prefixes, before any logic
-# reads one. A conflicting pair exits 2 through the same message as an operator
-# variable, because a hook value is still an operator value.
+# Resolve each canonical test hook once before use.
 set -l _hook_names NETWORK_TEST_HOOKS NETWORK_TEST_SSH NETWORK_TEST_UNAME \
     NETWORK_TEST_GPGCONF NETWORK_TEST_SSH_AUTH_SOCK NETWORK_TEST_AGENT_IS_SOCKET \
     NETWORK_TEST_AGENT_OWNER_MATCH NETWORK_TEST_AGENT_RESOLVED NETWORK_TEST_SSH_ADD_STATUS

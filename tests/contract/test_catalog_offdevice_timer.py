@@ -10,20 +10,20 @@ from pathlib import Path
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-backup"
+BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-backup"
 OFFDEVICE_SERVICE_PATH = (
-    REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-catalog-offdevice.service"
+    REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-catalog-offdevice.service"
 )
 OFFDEVICE_TIMER_PATH = (
-    REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-catalog-offdevice.timer"
+    REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-catalog-offdevice.timer"
 )
 LOCAL_BACKUP_SERVICE_PATH = (
-    REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-catalog-backup.service"
+    REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-catalog-backup.service"
 )
 LOCAL_BACKUP_TIMER_PATH = (
-    REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-catalog-backup.timer"
+    REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-catalog-backup.timer"
 )
-ENV_TEMPLATE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.env.example"
+ENV_TEMPLATE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika.env.example"
 SYSTEMD_DIR = REPOSITORY_ROOT / "deploy" / "systemd"
 
 
@@ -57,8 +57,8 @@ def _read_unit(path: Path) -> configparser.ConfigParser:
 
 
 def test_exactly_one_offdevice_timer_pair_exists() -> None:
-    services = sorted(SYSTEMD_DIR.glob("framenest-catalog-offdevice*.service"))
-    timers = sorted(SYSTEMD_DIR.glob("framenest-catalog-offdevice*.timer"))
+    services = sorted(SYSTEMD_DIR.glob("kronika-catalog-offdevice*.service"))
+    timers = sorted(SYSTEMD_DIR.glob("kronika-catalog-offdevice*.timer"))
     assert services == [OFFDEVICE_SERVICE_PATH]
     assert timers == [OFFDEVICE_TIMER_PATH]
 
@@ -67,17 +67,17 @@ def test_offdevice_service_contract() -> None:
     parser = _read_unit(OFFDEVICE_SERVICE_PATH)
     service = parser["Service"]
     assert service["Type"] == "oneshot"
-    assert service["User"] == "framenest"
-    assert service["Group"] == "framenest"
-    assert service["WorkingDirectory"] == "/opt/framenest/current"
-    assert service["EnvironmentFile"] == "/etc/framenest/framenest.env"
+    assert service["User"] == "kronika"
+    assert service["Group"] == "kronika"
+    assert service["WorkingDirectory"] == "/opt/kronika/current"
+    assert service["EnvironmentFile"] == "/etc/kronika/kronika.env"
     assert (
         service["ExecStart"]
-        == "/opt/framenest/current/.venv/bin/framenest-backup run-offdevice"
+        == "/opt/kronika/current/.venv/bin/kronika-backup run-offdevice"
     )
     assert service["TimeoutStartSec"] == "30min"
     assert service["ProtectSystem"] == "strict"
-    assert service["StateDirectory"] == "framenest"
+    assert service["StateDirectory"] == "kronika"
     assert service["StateDirectoryMode"] == "0700"
     assert service["RestrictAddressFamilies"] == "AF_UNIX"
     assert service["IPAddressDeny"] == "any"
@@ -87,7 +87,7 @@ def test_offdevice_service_contract() -> None:
     unit = parser["Unit"]
     requires_mounts = unit["RequiresMountsFor"]
     assert "/mnt/framenest-catalog-offdevice" in requires_mounts
-    assert "/var/lib/framenest" in requires_mounts
+    assert "/var/lib/kronika" in requires_mounts
 
     text = OFFDEVICE_SERVICE_PATH.read_text(encoding="utf-8")
     assert "ListenStream" not in text
@@ -106,7 +106,7 @@ def test_offdevice_timer_schedule_contract() -> None:
     assert timer["Persistent"] == "yes"
     assert timer["RandomizedDelaySec"] == "900"
     assert timer["AccuracySec"] == "1min"
-    assert timer["Unit"] == "framenest-catalog-offdevice.service"
+    assert timer["Unit"] == "kronika-catalog-offdevice.service"
 
 
 def test_local_catalog_backup_timer_unchanged() -> None:
@@ -119,22 +119,22 @@ def test_local_catalog_backup_timer_unchanged() -> None:
     assert timer["Persistent"] == "yes"
     assert timer["RandomizedDelaySec"] == "900"
     assert timer["AccuracySec"] == "1min"
-    assert timer["Unit"] == "framenest-catalog-backup.service"
+    assert timer["Unit"] == "kronika-catalog-backup.service"
 
     local_service = _read_unit(LOCAL_BACKUP_SERVICE_PATH)["Service"]
     assert (
         local_service["ExecStart"]
-        == "/opt/framenest/current/.venv/bin/framenest-backup run-scheduled"
+        == "/opt/kronika/current/.venv/bin/kronika-backup run-scheduled"
     )
 
 
 def test_env_template_mentions_offdevice_destination_id() -> None:
     text = ENV_TEMPLATE_PATH.read_text(encoding="utf-8")
-    assert "FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID" in text
+    assert "KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID" in text
     assert "/mnt/framenest-catalog-offdevice" in text
     # Existing local backup settings remain documented.
-    assert "FRAMENEST_CATALOG_BACKUP_ROOT=/var/lib/framenest/catalog-backups" in text
-    assert "FRAMENEST_CATALOG_BACKUP_KEEP_AUTO=30" in text
+    assert "KRONIKA_CATALOG_BACKUP_ROOT=/var/lib/kronika/catalog-backups" in text
+    assert "KRONIKA_CATALOG_BACKUP_KEEP_AUTO=30" in text
 
 
 def test_cli_help_includes_run_offdevice(tmp_path: Path) -> None:

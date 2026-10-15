@@ -18,11 +18,11 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPOSITORY_ROOT / "scripts" / "operator" / "network"
-BASH_SCRIPT = SCRIPT_DIR / "framenest_mullvad_egress.sh"
-FISH_SCRIPT = SCRIPT_DIR / "framenest_mullvad_egress.fish"
+BASH_SCRIPT = SCRIPT_DIR / "kronika_mullvad_egress.sh"
+FISH_SCRIPT = SCRIPT_DIR / "kronika_mullvad_egress.fish"
 CANONICAL_BASH_SCRIPT = SCRIPT_DIR / "kronika_mullvad_egress.sh"
 CANONICAL_FISH_SCRIPT = SCRIPT_DIR / "kronika_mullvad_egress.fish"
-GATE_SCRIPT = SCRIPT_DIR / "framenest_nuc_worker_gate.fish"
+GATE_SCRIPT = SCRIPT_DIR / "kronika_nuc_worker_gate.fish"
 CANONICAL_GATE_SCRIPT = SCRIPT_DIR / "kronika_nuc_worker_gate.fish"
 SCRIPT_README = SCRIPT_DIR / "README.md"
 ADR_PATH = (
@@ -374,7 +374,7 @@ def _hook_env(
     paths: dict[str, Path],
     *,
     include_mullvad: bool = True,
-    prefix: str = "FRAMENEST_",
+    prefix: str = "KRONIKA_",
 ) -> dict[str, str]:
     """Build the synthetic hook environment under one identity prefix.
 
@@ -412,7 +412,7 @@ def _run_bash_script(
     paths: dict[str, Path],
     args: list[str],
     *,
-    prefix: str = "FRAMENEST_",
+    prefix: str = "KRONIKA_",
     extra_env: dict[str, str] | None = None,
     include_mullvad: bool = True,
 ) -> subprocess.CompletedProcess[str]:
@@ -499,6 +499,19 @@ def _run_fish(
         env.pop(name, None)
     if extra_env:
         env.update(extra_env)
+    if script == CANONICAL_GATE_SCRIPT:
+        # Verify hook resolution without executing the gate. A broken resolver
+        # must fail here, before it could fall through to system SSH/gpgconf.
+        source = script.read_text(encoding="utf-8")
+        resolver = source.split("function _resolve_env\n", 1)[1].split("\nend\n", 1)[0]
+        probe = subprocess.run(
+            [fish, "--no-config", "-c",
+             'set -g identity_env_prefix KRONIKA_;\nfunction _resolve_env\n'
+             + resolver + '\nend\n_resolve_env NETWORK_TEST_HOOKS'],
+            env=env, text=True, capture_output=True, check=False,
+        )
+        assert probe.returncode == 0, probe.stderr
+        assert probe.stdout == "1", "gate must use synthetic tools before execution"
     return subprocess.run(
         [fish, "--no-config", str(script), *args],
         cwd=paths["cwd"],
@@ -547,7 +560,7 @@ def test_bash_and_fish_surfaces_expose_only_intended_interface() -> None:
     for token in ("status", "enable", "disable", "verify", "recover"):
         assert token in bash_text
     assert "enable --node" in bash_text
-    assert "framenest_mullvad_egress.sh" in fish_text
+    assert "kronika_mullvad_egress.sh" in fish_text
     assert "$argv" in fish_text
     assert "tailscale set" not in fish_text
     assert "tailscale up" not in bash_text
@@ -980,7 +993,7 @@ def test_run_fish_ignores_injected_startup_configuration(tmp_path: Path) -> None
     assert "Usage: kronika_nuc_worker_gate.fish --probe" in result.stderr
 
 
-@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT])
 def test_either_gate_path_never_sees_the_operator_configuration_root(
     tmp_path: Path, script: Path
 ) -> None:
@@ -1004,27 +1017,18 @@ def test_either_gate_path_never_sees_the_operator_configuration_root(
 # --- canonical gate name and the two accepted identity prefixes ---
 
 
-@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
-def test_both_gate_paths_reach_the_same_gate(
-    tmp_path: Path, script: Path
-) -> None:
-    """The retained wrapper and the canonical gate behave identically."""
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT])
+def test_canonical_gate_probe_does_not_contact_ssh(tmp_path: Path, script: Path) -> None:
     paths = _install_fakes(tmp_path)
-    canonical = _run_fish(
-        CANONICAL_GATE_SCRIPT, paths, ["--probe"], clear_env=_AMBIENT_NUC_SSH_NAMES
-    )
-    retained = _run_fish(
-        GATE_SCRIPT, paths, ["--probe"], clear_env=_AMBIENT_NUC_SSH_NAMES
-    )
-
-    assert retained.returncode == canonical.returncode
-    assert retained.stdout == canonical.stdout
-    assert retained.stderr == canonical.stderr
+    result = _run_fish(script, paths, ["--probe"], clear_env=_AMBIENT_NUC_SSH_NAMES)
+    assert result.returncode == 1
+    assert result.stdout == "ssh-agent: absent\n"
     assert paths["ssh_log"].read_text(encoding="utf-8") == ""
 
 
-@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
-@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT])
+@pytest.mark.parametrize("prefix", ["KRONIKA_"])
 def test_gate_reads_either_identity_prefix_for_its_operator_variables(
     tmp_path: Path, script: Path, prefix: str
 ) -> None:
@@ -1058,8 +1062,8 @@ def test_gate_reads_either_identity_prefix_for_its_operator_variables(
     )
 
 
-@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
-@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT])
+@pytest.mark.parametrize("prefix", ["KRONIKA_"])
 def test_gate_reads_either_identity_prefix_for_its_test_hooks(
     tmp_path: Path, script: Path, prefix: str
 ) -> None:
@@ -1088,35 +1092,39 @@ def test_gate_reads_either_identity_prefix_for_its_test_hooks(
     assert paths["ssh_log"].read_text(encoding="utf-8") == ""
 
 
-@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
-def test_gate_exits_two_on_a_conflicting_pair_naming_only_the_variables(
-    tmp_path: Path, script: Path
-) -> None:
-    """Both set to different values exits 2 and discloses no value."""
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT])
+def test_gate_ignores_retired_transport_values(tmp_path: Path, script: Path) -> None:
     paths = _install_fakes(tmp_path)
-    result = _run_fish(
-        script,
-        paths,
-        ["--probe"],
-        extra_env={
-            "KRONIKA_NUC_SSH_TARGET": "alpha-host",
-            "FRAMENEST_NUC_SSH_TARGET": "beta-host",
-        },
-        clear_env=_AMBIENT_NUC_SSH_NAMES,
-    )
-    combined = _combined(result)
+    env = {
+        "KRONIKA_NUC_SSH_TARGET": "canonical-host",
+        "KRONIKA_NUC_SSH_USER": "operator-user",
+        "KRONIKA_NUC_SSH_IDENTITY": str(paths["identity"]),
+        "KRONIKA_NUC_SSH_COMMAND": "true",
+        "FRAMENEST_NUC_SSH_TARGET": "retired-host",
+        "FRAMENEST_NUC_SSH_USER": "retired-user",
+        "FRAMENEST_NUC_SSH_IDENTITY": "/nonexistent",
+        "FRAMENEST_NUC_SSH_COMMAND": "retired-command",
+    }
+    result = _run_fish(script, paths, [], extra_env=env, clear_env=_AMBIENT_NUC_SSH_NAMES)
+    assert result.returncode == 0, _combined(result)
+    assert "operator-user@canonical-host" in paths["ssh_log"].read_text(encoding="utf-8")
+    # Old-only inputs must not rescue an empty or absent canonical setting.
+    for suffix in ("TARGET", "USER", "IDENTITY", "COMMAND"):
+        for empty in (None, ""):
+            candidate = env.copy()
+            candidate.pop(f"KRONIKA_NUC_SSH_{suffix}")
+            if empty is not None:
+                candidate[f"KRONIKA_NUC_SSH_{suffix}"] = empty
+            before = paths["ssh_log"].read_text(encoding="utf-8")
+            refused = _run_fish(script, paths, [], extra_env=candidate,
+                                clear_env=_AMBIENT_NUC_SSH_NAMES)
+            assert refused.returncode == 2, _combined(refused)
+            assert paths["ssh_log"].read_text(encoding="utf-8") == before
+            assert "retired-" not in _combined(refused)
 
-    assert result.returncode == 2, combined
-    assert "KRONIKA_NUC_SSH_TARGET" in combined
-    assert "FRAMENEST_NUC_SSH_TARGET" in combined
-    assert "alpha-host" not in combined
-    assert "beta-host" not in combined
-    assert "Conflicting environment variables " in combined
-    assert "are set to different values" in combined
-    assert paths["ssh_log"].read_text(encoding="utf-8") == ""
 
 
-@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT, GATE_SCRIPT])
+@pytest.mark.parametrize("script", [CANONICAL_GATE_SCRIPT])
 def test_gate_accepts_identical_values_in_both_prefixes(
     tmp_path: Path, script: Path
 ) -> None:
@@ -1217,10 +1225,10 @@ def test_ssh_gate_probe_ignores_env_ssh_defaults(tmp_path: Path) -> None:
         paths,
         ["--probe"],
         extra_env={
-            "FRAMENEST_NUC_SSH_TARGET": "nuc-magicdns-name",
-            "FRAMENEST_NUC_SSH_USER": "operator-user",
-            "FRAMENEST_NUC_SSH_IDENTITY": str(paths["identity"]),
-            "FRAMENEST_NUC_SSH_COMMAND": "true",
+            "KRONIKA_NUC_SSH_TARGET": "nuc-magicdns-name",
+            "KRONIKA_NUC_SSH_USER": "operator-user",
+            "KRONIKA_NUC_SSH_IDENTITY": str(paths["identity"]),
+            "KRONIKA_NUC_SSH_COMMAND": "true",
         },
     )
     assert result.returncode == 1
@@ -1286,13 +1294,13 @@ _DARWIN_AGENT_RESOLVED = "/private/var/run/com.apple.launchd.fixture/Listeners"
 
 def _darwin_agent_env(**overrides: str) -> dict[str, str]:
     env = {
-        "FRAMENEST_NETWORK_TEST_GPGCONF": "",
-        "FRAMENEST_NETWORK_TEST_UNAME": "Darwin",
-        "FRAMENEST_NETWORK_TEST_SSH_AUTH_SOCK": _DARWIN_AGENT_SOCKET,
-        "FRAMENEST_NETWORK_TEST_AGENT_IS_SOCKET": "1",
-        "FRAMENEST_NETWORK_TEST_AGENT_OWNER_MATCH": "1",
-        "FRAMENEST_NETWORK_TEST_AGENT_RESOLVED": _DARWIN_AGENT_RESOLVED,
-        "FRAMENEST_NETWORK_TEST_SSH_ADD_STATUS": "0",
+        "KRONIKA_NETWORK_TEST_GPGCONF": "",
+        "KRONIKA_NETWORK_TEST_UNAME": "Darwin",
+        "KRONIKA_NETWORK_TEST_SSH_AUTH_SOCK": _DARWIN_AGENT_SOCKET,
+        "KRONIKA_NETWORK_TEST_AGENT_IS_SOCKET": "1",
+        "KRONIKA_NETWORK_TEST_AGENT_OWNER_MATCH": "1",
+        "KRONIKA_NETWORK_TEST_AGENT_RESOLVED": _DARWIN_AGENT_RESOLVED,
+        "KRONIKA_NETWORK_TEST_SSH_ADD_STATUS": "0",
     }
     env.update(overrides)
     return env
@@ -1328,7 +1336,7 @@ def test_ssh_gate_probe_accepts_darwin_agent_with_no_identities(tmp_path: Path) 
         GATE_SCRIPT,
         paths,
         ["--probe"],
-        extra_env=_darwin_agent_env(FRAMENEST_NETWORK_TEST_SSH_ADD_STATUS="1"),
+        extra_env=_darwin_agent_env(KRONIKA_NETWORK_TEST_SSH_ADD_STATUS="1"),
         clear_env=("SSH_AUTH_SOCK",),
     )
     _assert_probe_line(result, "ssh-agent: ready")
@@ -1338,16 +1346,16 @@ def test_ssh_gate_probe_accepts_darwin_agent_with_no_identities(tmp_path: Path) 
 @pytest.mark.parametrize(
     ("case", "overrides"),
     [
-        ("relative-path", {"FRAMENEST_NETWORK_TEST_SSH_AUTH_SOCK": "relative.sock"}),
-        ("dotdot-segment", {"FRAMENEST_NETWORK_TEST_SSH_AUTH_SOCK": "/tmp/../agent.sock"}),
-        ("non-socket", {"FRAMENEST_NETWORK_TEST_AGENT_IS_SOCKET": "0"}),
-        ("foreign-owner", {"FRAMENEST_NETWORK_TEST_AGENT_OWNER_MATCH": "0"}),
+        ("relative-path", {"KRONIKA_NETWORK_TEST_SSH_AUTH_SOCK": "relative.sock"}),
+        ("dotdot-segment", {"KRONIKA_NETWORK_TEST_SSH_AUTH_SOCK": "/tmp/../agent.sock"}),
+        ("non-socket", {"KRONIKA_NETWORK_TEST_AGENT_IS_SOCKET": "0"}),
+        ("foreign-owner", {"KRONIKA_NETWORK_TEST_AGENT_OWNER_MATCH": "0"}),
         (
             "outside-launchd",
-            {"FRAMENEST_NETWORK_TEST_AGENT_RESOLVED": "/tmp/not-launchd/Listeners"},
+            {"KRONIKA_NETWORK_TEST_AGENT_RESOLVED": "/tmp/not-launchd/Listeners"},
         ),
-        ("dead-agent", {"FRAMENEST_NETWORK_TEST_SSH_ADD_STATUS": "2"}),
-        ("empty-sock", {"FRAMENEST_NETWORK_TEST_SSH_AUTH_SOCK": ""}),
+        ("dead-agent", {"KRONIKA_NETWORK_TEST_SSH_ADD_STATUS": "2"}),
+        ("empty-sock", {"KRONIKA_NETWORK_TEST_SSH_AUTH_SOCK": ""}),
     ],
 )
 def test_ssh_gate_probe_rejects_invalid_darwin_agent(
@@ -1365,10 +1373,10 @@ def test_ssh_gate_probe_rejects_invalid_darwin_agent(
         clear_env=("SSH_AUTH_SOCK",),
     )
     _assert_probe_line(result, "ssh-agent: absent")
-    leaked = overrides.get("FRAMENEST_NETWORK_TEST_SSH_AUTH_SOCK", "")
+    leaked = overrides.get("KRONIKA_NETWORK_TEST_SSH_AUTH_SOCK", "")
     if leaked:
         assert leaked not in _combined(result)
-    resolved = overrides.get("FRAMENEST_NETWORK_TEST_AGENT_RESOLVED", "")
+    resolved = overrides.get("KRONIKA_NETWORK_TEST_AGENT_RESOLVED", "")
     if resolved:
         assert resolved not in _combined(result)
     assert paths["ssh_log"].read_text(encoding="utf-8") == ""
@@ -1380,7 +1388,7 @@ def test_ssh_gate_probe_ignores_darwin_fallback_on_linux(tmp_path: Path) -> None
         GATE_SCRIPT,
         paths,
         ["--probe"],
-        extra_env=_darwin_agent_env(FRAMENEST_NETWORK_TEST_UNAME="Linux"),
+        extra_env=_darwin_agent_env(KRONIKA_NETWORK_TEST_UNAME="Linux"),
         clear_env=("SSH_AUTH_SOCK",),
     )
     _assert_probe_line(result, "ssh-agent: absent")
@@ -1390,7 +1398,7 @@ def test_ssh_gate_probe_ignores_darwin_fallback_on_linux(tmp_path: Path) -> None
 def test_ssh_gate_probe_does_not_fall_back_when_gpgconf_fails(tmp_path: Path) -> None:
     paths = _install_fakes(tmp_path)
     env = _darwin_agent_env()
-    del env["FRAMENEST_NETWORK_TEST_GPGCONF"]
+    del env["KRONIKA_NETWORK_TEST_GPGCONF"]
     result = _run_fish(
         GATE_SCRIPT,
         paths,
@@ -1409,8 +1417,8 @@ def test_ssh_gate_probe_prefers_present_gpgconf_over_darwin_fallback(
     agent = _bind_unix_socket(socket_path)
     try:
         paths = _install_fakes(tmp_path, gpgconf_socket=socket_path)
-        env = _darwin_agent_env(FRAMENEST_NETWORK_TEST_SSH_AUTH_SOCK="relative.sock")
-        del env["FRAMENEST_NETWORK_TEST_GPGCONF"]
+        env = _darwin_agent_env(KRONIKA_NETWORK_TEST_SSH_AUTH_SOCK="relative.sock")
+        del env["KRONIKA_NETWORK_TEST_GPGCONF"]
         result = _run_fish(
             GATE_SCRIPT,
             paths,
@@ -1433,7 +1441,7 @@ def test_ssh_gate_probe_darwin_fallback_inert_without_hook_values(
         GATE_SCRIPT,
         paths,
         ["--probe"],
-        extra_env={"FRAMENEST_NETWORK_TEST_GPGCONF": ""},
+        extra_env={"KRONIKA_NETWORK_TEST_GPGCONF": ""},
     )
     _assert_probe_line(result, "ssh-agent: absent")
     assert paths["ssh_log"].read_text(encoding="utf-8") == ""
@@ -1509,6 +1517,7 @@ def test_scripts_contain_no_forbidden_commands() -> None:
         CANONICAL_GATE_SCRIPT,
     ):
         text = path.read_text(encoding="utf-8")
+        assert "FRAMENEST_" not in text
         for token in FORBIDDEN_SCRIPT_TOKENS:
             assert token not in text, f"{path.name} contains {token}"
         assert "auto:any" not in text or "explicit" in text
@@ -1562,7 +1571,7 @@ def test_operator_network_doc_requires_ten_minute_nuc_rollback() -> None:
 # --- canonical Mullvad counterparts and the dual-prefix contract ---
 
 
-@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+@pytest.mark.parametrize("prefix", ["KRONIKA_"])
 def test_canonical_mullvad_bash_reads_either_identity_prefix(
     tmp_path: Path, prefix: str
 ) -> None:
@@ -1599,27 +1608,16 @@ def test_canonical_mullvad_accepts_identical_values_in_both_prefixes(
     assert "Conflicting environment variables " not in _combined(result)
 
 
-def test_canonical_mullvad_exits_two_on_a_conflicting_pair_naming_only_names(
-    tmp_path: Path,
-) -> None:
-    """A conflicting hook pair exits 2 and discloses no value."""
+def test_canonical_mullvad_ignores_retired_hook_value(tmp_path: Path) -> None:
     paths = _install_fakes(tmp_path)
     result = _run_bash_script(
-        CANONICAL_BASH_SCRIPT,
-        paths,
-        ["status"],
-        prefix="KRONIKA_",
-        extra_env={"FRAMENEST_NETWORK_TEST_TAILSCALE": "/nonexistent/retained-value"},
+        CANONICAL_BASH_SCRIPT, paths, ["status"],
+        extra_env={"FRAMENEST_NETWORK_TEST_TAILSCALE": "/nonexistent/retired-value"},
     )
-    combined = _combined(result)
-    assert result.returncode == 2, combined
-    assert "KRONIKA_NETWORK_TEST_TAILSCALE" in combined
-    assert "FRAMENEST_NETWORK_TEST_TAILSCALE" in combined
-    assert "retained-value" not in combined
-    assert str(paths["tailscale"]) not in combined
-    assert "Conflicting environment variables " in combined
-    assert "are set to different values" in combined
-    assert paths["argv_log"].read_text(encoding="utf-8") == ""
+    assert result.returncode == 0, _combined(result)
+    assert "retired-value" not in _combined(result)
+    assert paths["argv_log"].read_text(encoding="utf-8")
+
 
 
 def test_canonical_mullvad_treats_an_empty_value_as_unset(tmp_path: Path) -> None:
@@ -1634,7 +1632,7 @@ def test_canonical_mullvad_treats_an_empty_value_as_unset(tmp_path: Path) -> Non
             "FRAMENEST_NETWORK_TEST_TAILSCALE": str(paths["tailscale"]),
         },
     )
-    assert fallback.returncode == 0, fallback.stderr
+    assert fallback.returncode == 1, fallback.stderr
     assert "Conflicting environment variables " not in _combined(fallback)
 
     before_both_empty = paths["argv_log"].read_text(encoding="utf-8")
@@ -1734,29 +1732,16 @@ def test_canonical_mullvad_preserves_success_and_verify_exit_codes(
     assert "unknown" in _combined(failed)
 
 
-def test_canonical_fish_wrapper_reaches_the_canonical_bash_implementation(
-    tmp_path: Path,
-) -> None:
-    """Only the canonical Bash implementation owns the dual-prefix contract.
-
-    The wrapper is driven with a conflicting hook pair while every fake tool is
-    present through the retained prefix. The retained Bash implementation would
-    ignore the canonical spelling and succeed; the observed exit 2 can only
-    come from the canonical implementation.
-    """
+def test_canonical_fish_wrapper_reaches_the_canonical_bash_implementation(tmp_path: Path) -> None:
     paths = _install_fakes(tmp_path)
     result = _run_fish(
-        CANONICAL_FISH_SCRIPT,
-        paths,
-        ["status"],
+        CANONICAL_FISH_SCRIPT, paths, ["status"],
         extra_env={"KRONIKA_NETWORK_TEST_TAILSCALE": "/nonexistent/canonical-only"},
     )
-    combined = _combined(result)
-    assert result.returncode == 2, combined
-    assert "KRONIKA_NETWORK_TEST_TAILSCALE" in combined
-    assert "FRAMENEST_NETWORK_TEST_TAILSCALE" in combined
-    assert "Conflicting environment variables " in combined
+    assert result.returncode == 1, _combined(result)
+    assert "Test hook tool path is not a trusted absolute executable." in result.stderr
     assert paths["argv_log"].read_text(encoding="utf-8") == ""
+
 
 
 def test_canonical_fish_wrapper_sanitizes_loader_environment(tmp_path: Path) -> None:

@@ -168,7 +168,7 @@ def _install_fake_service(
 
 def test_console_script_registration_points_to_sidecar_main() -> None:
     text = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'framenest-sidecar = "kronika.adapters.cli.sidecar:main"' in text
+    assert 'kronika-sidecar = "kronika.adapters.cli.sidecar:main"' in text
 
 
 def test_missing_command_is_invalid_input(capsys: pytest.CaptureFixture[str]) -> None:

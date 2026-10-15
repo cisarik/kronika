@@ -163,28 +163,31 @@ FROZEN_ALEMBIC_SHA256: dict[str, str] = {
     "__init__.py": "481b131444236a2cc2544f8a83585f28c52da320c73bbb94181edd5b1bc8447c",
 }
 
-EXPECTED_FRAMENEST_BASENAME_PATHS: frozenset[str] = frozenset(
+# KSI-IMPL-C7B2B removes all twenty temporary compatibility paths.
+# Pin their surviving replacements so the empty retired set cannot waive coverage.
+EXPECTED_FRAMENEST_BASENAME_PATHS: frozenset[str] = frozenset()
+CANONICAL_REPLACEMENT_PATHS: frozenset[str] = frozenset(
     {
-        "deploy/systemd/framenest-ai-credential-nvidia-nim.conf",
-        "deploy/systemd/framenest-ai-credential-opencode-go.conf",
-        "deploy/systemd/framenest-ai-credential-vercel-ai-gateway.conf",
-        "deploy/systemd/framenest-catalog-backup.service",
-        "deploy/systemd/framenest-catalog-backup.timer",
-        "deploy/systemd/framenest-catalog-offdevice.service",
-        "deploy/systemd/framenest-catalog-offdevice.timer",
-        "deploy/systemd/framenest.env.example",
-        "deploy/systemd/framenest-research-credential.conf",
-        "deploy/systemd/framenest.service",
-        "deploy/ubuntu/framenest-catalog-export-v1",
-        "deploy/ubuntu/framenest-release",
-        "deploy/ubuntu/framenest_release.py",
-        "framenest",
-        "scripts/operator/infosec/framenest_log_triage.sh",
-        "scripts/operator/infosec/framenest_public_surface_check.sh",
-        "scripts/operator/infosec/framenest_socket_permissions_check.sh",
-        "scripts/operator/network/framenest_mullvad_egress.fish",
-        "scripts/operator/network/framenest_mullvad_egress.sh",
-        "scripts/operator/network/framenest_nuc_worker_gate.fish",
+        "deploy/systemd/kronika-ai-credential-nvidia-nim.conf",
+        "deploy/systemd/kronika-ai-credential-opencode-go.conf",
+        "deploy/systemd/kronika-ai-credential-vercel-ai-gateway.conf",
+        "deploy/systemd/kronika-catalog-backup.service",
+        "deploy/systemd/kronika-catalog-backup.timer",
+        "deploy/systemd/kronika-catalog-offdevice.service",
+        "deploy/systemd/kronika-catalog-offdevice.timer",
+        "deploy/systemd/kronika.env.example",
+        "deploy/systemd/kronika-research-credential.conf",
+        "deploy/systemd/kronika.service",
+        "deploy/ubuntu/kronika-catalog-export-v1",
+        "deploy/ubuntu/kronika-release",
+        "deploy/ubuntu/kronika_release.py",
+        "kronika",
+        "scripts/operator/infosec/kronika_log_triage.sh",
+        "scripts/operator/infosec/kronika_public_surface_check.sh",
+        "scripts/operator/infosec/kronika_socket_permissions_check.sh",
+        "scripts/operator/network/kronika_mullvad_egress.fish",
+        "scripts/operator/network/kronika_mullvad_egress.sh",
+        "scripts/operator/network/kronika_nuc_worker_gate.fish",
     }
 )
 
@@ -240,7 +243,7 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # KSI-IMPL-C7B2A: src -1 (186 -> 185), extension -2 (2 -> 0).
     # The host protocol asset and both extension reader files lose their last
     # retired occurrence; exact content-path departures are recorded below.
-    "src": 185,
+    "src": 184,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -330,9 +333,9 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # The exact four content-only departures are recorded beside the set below.
     # Fixture-input edits remove no further file. All other per-tree file
     # counts stay unchanged.
-    "tests": 181,
-    "deploy": 22,
-    "scripts": 11,
+    "tests": 178,
+    "deploy": 7,
+    "scripts": 1,
     "docs": 88,
     "extension": 0,
 }
@@ -556,7 +559,7 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C7B2A: src -3 (1630 -> 1627): tailscale_ingress.py -2
     # (retired header constant and dual-acceptance error message),
     # adapters/api/web/companion_host.js -1 (retired protocol literal).
-    "src": 1627,
+    "src": 1606,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -817,7 +820,7 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # test_kronika_product_string_agreement -1 (canonical rejection-message pin).
     # companion_web_bridge and x_companion_extension each net 0. No test
     # loses its last case-insensitive retired occurrence; file count stays 181.
-    "tests": 1810,
+    "tests": 1445,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -832,8 +835,8 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # spelling from the guard source.
     # KSI-IMPL-C7B1: deploy -2, both in kronika_release.py: the injected
     # environment-file variable and its explanatory comment. Other trees stay.
-    "deploy": 246,
-    "scripts": 98,
+    "deploy": 95,
+    "scripts": 9,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # corrected runbook adds fifteen occurrences and removes two: the new
@@ -858,7 +861,7 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # -6: the A7, A9 and B4 commands plus the annex paragraph name the
     # canonical scripts and variables, with two retained-spelling notes added
     # back. No document left or entered this tree.
-    "docs": 1206,
+    "docs": 1184,
     # KSI-IMPL-C7AC moved `extension` by -141 (145 -> 4). Per file:
     # `content/x_adapter.js` -101, `content/x_adapter_contract_v1.js` -10,
     # `ui/sidebar.js` -9, `background/service_worker.js` -7,
@@ -1014,28 +1017,13 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "SECURITY.md",
         "SERVER.md",
         "SPEC.md",
-        "deploy/systemd/framenest-ai-credential-nvidia-nim.conf",
-        "deploy/systemd/framenest-ai-credential-opencode-go.conf",
-        "deploy/systemd/framenest-ai-credential-vercel-ai-gateway.conf",
-        "deploy/systemd/framenest-catalog-backup.service",
-        "deploy/systemd/framenest-catalog-backup.timer",
-        "deploy/systemd/framenest-catalog-offdevice.service",
-        "deploy/systemd/framenest-catalog-offdevice.timer",
-        "deploy/systemd/framenest-research-credential.conf",
-        "deploy/systemd/framenest.env.example",
-        "deploy/systemd/framenest.service",
         "deploy/systemd/kronika-capture-bridge.service",
         "deploy/systemd/kronika-capture-runner.service",
         "deploy/systemd/kronika-capture.env.example",
         "deploy/systemd/kronika-catalog-offdevice.service",
         "deploy/systemd/kronika.env.example",
         "deploy/ubuntu/README.md",
-        "deploy/ubuntu/fn-production-env-deploy",
-        "deploy/ubuntu/framenest-catalog-export-v1",
-        "deploy/ubuntu/framenest_release.py",
-        "deploy/ubuntu/kronika-release",
         "deploy/ubuntu/kronika_release.py",
-        "deploy/ubuntu/production_ai_deploy.py",
         "docs/ACCEPTANCE_DUAL_AUDIENCE.md",
         "docs/ARCHITECTURE_FOUNDATION_EVIDENCE.md",
         "docs/BACKUP_AND_RECOVERY.md",
@@ -1124,19 +1112,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "docs/adr/0085-kronika-sole-identity.md",
         "docs/adr/README.md",
         "docs/provenance/kronika-capture.json",
-        "kronika",
-        "pyproject.toml",
-        "scripts/operator/infosec/framenest_log_triage.sh",
-        "scripts/operator/infosec/framenest_public_surface_check.sh",
-        "scripts/operator/infosec/framenest_socket_permissions_check.sh",
-        "scripts/operator/infosec/kronika_log_triage.sh",
-        "scripts/operator/infosec/kronika_public_surface_check.sh",
-        "scripts/operator/infosec/kronika_socket_permissions_check.sh",
         "scripts/operator/network/README.md",
-        "scripts/operator/network/framenest_mullvad_egress.fish",
-        "scripts/operator/network/framenest_mullvad_egress.sh",
-        "scripts/operator/network/kronika_mullvad_egress.sh",
-        "scripts/operator/network/kronika_nuc_worker_gate.fish",
         "src/kronika/__init__.py",
         "src/kronika/adapters/api/analysis_proposal_api.py",
         "src/kronika/adapters/api/application.py",
@@ -1283,7 +1259,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/infrastructure/persistence/analysis_proposal_repository.py",
         "src/kronika/infrastructure/persistence/catalog_backup.py",
         "src/kronika/infrastructure/persistence/catalog_backup_offdevice.py",
-        "src/kronika/infrastructure/persistence/catalog_backup_ops.py",
         "src/kronika/infrastructure/persistence/catalog_backup_workstation.py",
         "src/kronika/infrastructure/persistence/catalog_removal_repository.py",
         "src/kronika/infrastructure/persistence/catalog_schema.py",
@@ -1342,7 +1317,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_automatic_analysis_privacy_contract.py",
         "tests/contract/test_automatic_analysis_settings_api.py",
         "tests/contract/test_backup_cli.py",
-        "tests/contract/test_catalog_backup_timer.py",
         "tests/contract/test_catalog_cli.py",
         "tests/contract/test_catalog_identity_labels.py",
         "tests/contract/test_catalog_offdevice_timer.py",
@@ -1389,7 +1363,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_persistence_cli.py",
         "tests/contract/test_persistence_package_resources.py",
         "tests/contract/test_previews_console_script.py",
-        "tests/contract/test_production_ai_deployment.py",
         "tests/contract/test_public_published_uds.py",
         "tests/contract/test_recovery_cli.py",
         "tests/contract/test_requester_private_youtube_details.py",
@@ -1431,7 +1404,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/tailscale_identity_frontend.test.js",
         "tests/unit/application/test_companion_review.py",
         "tests/unit/application/test_companion_x_tag.py",
-        "tests/unit/application/test_in_process_lifecycle.py",
         "tests/unit/application/test_library_scan.py",
         "tests/unit/application/test_media_analysis.py",
         "tests/unit/application/test_media_analysis_lifecycle.py",
@@ -1607,9 +1579,9 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # Bare prefixes -9 (53 -> 44) = src -5 (configuration -2, resolver -3) and
 # tests -4 (CLI/release readers -1, parity -1, development runtime units -2).
 # The fixture-input edits add no bare spelling.
-ENV_PREFIX_TOKEN_COUNT = 373
-ENV_PREFIX_DISTINCT_NAME_COUNT = 74
-ENV_PREFIX_BARE_SPELLING_COUNT = 44
+ENV_PREFIX_TOKEN_COUNT = 228
+ENV_PREFIX_DISTINCT_NAME_COUNT = 57
+ENV_PREFIX_BARE_SPELLING_COUNT = 22
 
 MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C2 kept every occurrence that existed before it and added 14:
@@ -1708,13 +1680,13 @@ MUTATION_HEADER_FILE_COUNT = 19
 # `/var/lib/framenest`. The foreign fixtures sit under `/srv/audit34` and are
 # not keys of this ledger. The engine adds and removes no host literal.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 231,
+    "/opt/framenest": 214,
     # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
     # /var/cache -1. No production host path or frozen mount changes.
-    "/etc/framenest": 86,
-    "/var/lib/framenest": 126,
-    "/var/cache/framenest": 30,
-    "/mnt/framenest-catalog-offdevice": 26,
+    "/etc/framenest": 51,
+    "/var/lib/framenest": 87,
+    "/var/cache/framenest": 26,
+    "/mnt/framenest-catalog-offdevice": 23,
 }
 
 # KSI-IMPL-C4B moved each of these by +3: one `User=framenest` and
@@ -1726,8 +1698,8 @@ HOST_PATH_OCCURRENCE_COUNT = {
 # transformation fixture in `test_kronika_identity_migration.py` names both
 # the retired `User=framenest` and `Group=framenest` directives it rewrites.
 UNIT_ACCOUNT_OCCURRENCE_COUNT = {
-    "User=framenest": 9,
-    "Group=framenest": 9,
+    "User=framenest": 6,
+    "Group=framenest": 6,
 }
 
 # KSI-IMPL-C2 moved this by +15: -2 where the service worker stopped spelling the
@@ -1876,15 +1848,79 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # They keep lowercase tokens and
 # remain in the content-path set. Environment, host, unit and console pins
 # are unchanged, as are deploy, scripts and docs per-tree measurements.
-CAPITALIZED_OCCURRENCE_COUNT = 2635
-CAPITALIZED_FILE_COUNT = 379
+CAPITALIZED_OCCURRENCE_COUNT = 2607
+CAPITALIZED_FILE_COUNT = 365
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds
 # twenty-eight entries while this count stays 14: the pattern names retired
 # spellings only, and the thirteen aliases plus `framenest-chatgpt-page` are
-# exactly those. C7-B removes the aliases and this count becomes 1.
-CONSOLE_SCRIPT_ENTRY_COUNT = 14
+# exactly those. C7-B/2b removes all fourteen aliases; this count is now zero.
+CONSOLE_SCRIPT_ENTRY_COUNT = 0
+
+# KSI-IMPL-C7B2B measured delta from 6dd72f65976412bf92d672f9349bbd74752b0f39.
+# Cause: remove temporary paths and live fallbacks, move active consumers and
+# CLI/default/credential/lock names, retain historical host and artifact readers.
+# Per tree: content files before + delta = after; occurrences likewise.
+# src: files 185 -1 = 184; occurrences 1627 -21 = 1606.
+# tests: files 181 -3 = 178; occurrences 1810 -365 = 1445.
+# deploy: files 22 -15 = 7; occurrences 246 -151 = 95.
+# scripts: files 11 -10 = 1; occurrences 98 -89 = 9.
+# docs: files 88 0 = 88; occurrences 1206 -22 = 1184.
+# extension: files 0 0 = 0; occurrences 0 0 = 0.
+# Content-path departures (no additions):
+# deploy/systemd/framenest-ai-credential-nvidia-nim.conf
+# deploy/systemd/framenest-ai-credential-opencode-go.conf
+# deploy/systemd/framenest-ai-credential-vercel-ai-gateway.conf
+# deploy/systemd/framenest-catalog-backup.service
+# deploy/systemd/framenest-catalog-backup.timer
+# deploy/systemd/framenest-catalog-offdevice.service
+# deploy/systemd/framenest-catalog-offdevice.timer
+# deploy/systemd/framenest-research-credential.conf
+# deploy/systemd/framenest.env.example
+# deploy/systemd/framenest.service
+# deploy/ubuntu/fn-production-env-deploy
+# deploy/ubuntu/framenest-catalog-export-v1
+# deploy/ubuntu/framenest_release.py
+# deploy/ubuntu/kronika-release
+# deploy/ubuntu/production_ai_deploy.py
+# kronika
+# pyproject.toml
+# scripts/operator/infosec/framenest_log_triage.sh
+# scripts/operator/infosec/framenest_public_surface_check.sh
+# scripts/operator/infosec/framenest_socket_permissions_check.sh
+# scripts/operator/infosec/kronika_log_triage.sh
+# scripts/operator/infosec/kronika_public_surface_check.sh
+# scripts/operator/infosec/kronika_socket_permissions_check.sh
+# scripts/operator/network/framenest_mullvad_egress.fish
+# scripts/operator/network/framenest_mullvad_egress.sh
+# scripts/operator/network/kronika_mullvad_egress.sh
+# scripts/operator/network/kronika_nuc_worker_gate.fish
+# src/kronika/infrastructure/persistence/catalog_backup_ops.py
+# tests/contract/test_catalog_backup_timer.py
+# tests/contract/test_production_ai_deployment.py
+# tests/unit/application/test_in_process_lifecycle.py
+# tokens: 373 -145 = 228.
+# distinct: 74 -17 = 57.
+# bare: 44 -22 = 22.
+# capitalized: 2635 -28 = 2607.
+# capitalizedFiles: 379 -14 = 365.
+# header: 43 0 = 43.
+# headerFiles: 19 0 = 19.
+# root scalar deltas: token -4, bare 0, capitalized 0, capitalizedFiles 0.
+# deploy scalar deltas: token -33, bare -1, capitalized -14, capitalizedFiles -9.
+# docs scalar deltas: token -1, bare 0, capitalized 0, capitalizedFiles 0.
+# extension scalar deltas: token 0, bare 0, capitalized 0, capitalizedFiles 0.
+# scripts scalar deltas: token -44, bare -12, capitalized -7, capitalizedFiles -3.
+# src scalar deltas: token 0, bare 0, capitalized 0, capitalizedFiles 0.
+# tests scalar deltas: token -63, bare -9, capitalized -7, capitalizedFiles -2.
+# /opt/framenest: 231 -17 = 214 (deploy -11, tests -6).
+# /etc/framenest: 86 -35 = 51 (deploy -10, tests -25).
+# /var/lib/framenest: 126 -39 = 87 (deploy -19, src -4, tests -16).
+# /var/cache/framenest: 30 -4 = 26 (deploy -2, tests -2).
+# /mnt/framenest-catalog-offdevice: 26 -3 = 23 (deploy -3).
+# User=framenest: 9 -3 = 6 (deploy -3).
+# Group=framenest: 9 -3 = 6 (deploy -3).
 
 ENV_PREFIX_TOKEN_PATTERN = re.compile(r"FRAMENEST_[A-Z0-9_]+")
 ENV_PREFIX_BARE_PATTERN = re.compile(r"FRAMENEST_(?![A-Z0-9_])")
@@ -2001,11 +2037,17 @@ def test_frozen_alembic_revision_set_is_complete() -> None:
 
 
 def test_framenest_basename_path_ledger_matches_exactly() -> None:
-    measured = {
-        relative
-        for relative in _tracked_paths()
-        if "framenest" in relative.rsplit("/", 1)[-1].lower()
+    paths = _tracked_paths()
+    assert len(CANONICAL_REPLACEMENT_PATHS) == 20
+    assert CANONICAL_REPLACEMENT_PATHS <= set(paths)
+    def retired_names(candidates: list[str]) -> set[str]:
+        return {path for path in candidates
+                if "framenest" in path.rsplit("/", 1)[-1].lower()}
+    # Positive sentinel and impossible control exercise the exact same matcher.
+    assert retired_names(["control/FrAmEnEsT-sentinel", "control/kronika"]) == {
+        "control/FrAmEnEsT-sentinel"
     }
+    measured = retired_names(paths)
 
     assert measured == set(EXPECTED_FRAMENEST_BASENAME_PATHS), (
         "path-name ledger drifted: "

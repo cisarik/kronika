@@ -2,8 +2,8 @@
 
 Synthetic fake tools only. These tests must not read a real journal, contact a
 real origin, inspect real service sockets, or invoke a real journalctl, curl or
-stat. They drive the canonical `kronika_*` counterparts and the retained
-`framenest_*` entry points through fixtures so the dual-prefix contract and
+stat. They drive the canonical `kronika_*` entry points through fixtures so
+retired-input rejection and
 every refusal path are exercised without host side effects.
 """
 
@@ -22,9 +22,6 @@ INFOSEC_DIR = REPOSITORY_ROOT / "scripts" / "operator" / "infosec"
 CANONICAL_LOG_TRIAGE = INFOSEC_DIR / "kronika_log_triage.sh"
 CANONICAL_PUBLIC_SURFACE = INFOSEC_DIR / "kronika_public_surface_check.sh"
 CANONICAL_SOCKET_CHECK = INFOSEC_DIR / "kronika_socket_permissions_check.sh"
-RETAINED_LOG_TRIAGE = INFOSEC_DIR / "framenest_log_triage.sh"
-RETAINED_PUBLIC_SURFACE = INFOSEC_DIR / "framenest_public_surface_check.sh"
-RETAINED_SOCKET_CHECK = INFOSEC_DIR / "framenest_socket_permissions_check.sh"
 
 FAKE_SECRET_A = "ksi-fixture-alpha-value"
 FAKE_SECRET_B = "ksi-fixture-beta-value"
@@ -296,15 +293,13 @@ def test_expected_infosec_files_exist_and_are_executable() -> None:
         CANONICAL_LOG_TRIAGE,
         CANONICAL_PUBLIC_SURFACE,
         CANONICAL_SOCKET_CHECK,
-        RETAINED_LOG_TRIAGE,
-        RETAINED_PUBLIC_SURFACE,
-        RETAINED_SOCKET_CHECK,
     ):
         assert path.is_file(), path
         mode = path.stat().st_mode
         assert mode & stat.S_IXUSR
         assert mode & stat.S_IXGRP
         assert mode & stat.S_IXOTH
+        assert "FRAMENEST_" not in path.read_text(encoding="utf-8")
 
 
 def test_infosec_scripts_do_not_invoke_sudo() -> None:
@@ -312,9 +307,6 @@ def test_infosec_scripts_do_not_invoke_sudo() -> None:
         CANONICAL_LOG_TRIAGE,
         CANONICAL_PUBLIC_SURFACE,
         CANONICAL_SOCKET_CHECK,
-        RETAINED_LOG_TRIAGE,
-        RETAINED_PUBLIC_SURFACE,
-        RETAINED_SOCKET_CHECK,
     ):
         text = path.read_text(encoding="utf-8")
         assert re.search(r"^\s*sudo\b", text, re.MULTILINE) is None, path
@@ -324,7 +316,7 @@ def test_infosec_scripts_do_not_invoke_sudo() -> None:
 # --- log triage ---
 
 
-@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+@pytest.mark.parametrize("prefix", ["KRONIKA_"])
 def test_canonical_log_triage_reads_either_identity_prefix(
     tmp_path: Path, prefix: str
 ) -> None:
@@ -370,7 +362,7 @@ def test_canonical_log_triage_mixes_prefixes_per_variable(tmp_path: Path) -> Non
     assert result.returncode == 1
     assert "SPIKE(>2)" in result.stdout
     argv = fake["argv_log"].read_text(encoding="utf-8")
-    assert "--since 24h ago" in argv
+    assert "--since" not in argv
 
 
 def test_canonical_log_triage_empty_value_is_unset(tmp_path: Path) -> None:
@@ -381,29 +373,18 @@ def test_canonical_log_triage_empty_value_is_unset(tmp_path: Path) -> None:
         extra_env={"KRONIKA_LOG_UNIT": "", "FRAMENEST_LOG_UNIT": "kronika-alt.service"},
     )
     assert result.returncode == 0, result.stderr
-    assert "-u kronika-alt.service" in fake["argv_log"].read_text(encoding="utf-8")
+    assert "-u kronika.service" in fake["argv_log"].read_text(encoding="utf-8")
 
 
-def test_canonical_log_triage_conflicting_pair_exits_two_naming_only_names(
-    tmp_path: Path,
-) -> None:
+def test_canonical_log_triage_ignores_retired_input(tmp_path: Path) -> None:
     result, fake = _run_log_triage(
-        CANONICAL_LOG_TRIAGE,
-        tmp_path,
-        journal_lines="x\n",
-        extra_env={
-            "KRONIKA_LOG_UNIT": FAKE_SECRET_A,
-            "FRAMENEST_LOG_UNIT": FAKE_SECRET_B,
-        },
+        CANONICAL_LOG_TRIAGE, tmp_path, journal_lines="x\n",
+        extra_env={"KRONIKA_LOG_UNIT": "canonical.service", "FRAMENEST_LOG_UNIT": FAKE_SECRET_B},
     )
-    combined = _combined(result)
-    assert result.returncode == 2, combined
-    assert "KRONIKA_LOG_UNIT" in combined
-    assert "FRAMENEST_LOG_UNIT" in combined
-    assert FAKE_SECRET_A not in combined
-    assert FAKE_SECRET_B not in combined
-    assert "Conflicting environment variables " in combined
-    assert fake["argv_log"].read_text(encoding="utf-8") == ""
+    assert result.returncode == 0, _combined(result)
+    assert FAKE_SECRET_B not in _combined(result)
+    assert "-u canonical.service" in fake["argv_log"].read_text(encoding="utf-8")
+
 
 
 def test_canonical_log_triage_refuses_invalid_threshold(tmp_path: Path) -> None:
@@ -448,21 +429,15 @@ def test_canonical_log_triage_usage_and_unknown_argument(tmp_path: Path) -> None
     assert "Usage: kronika_log_triage.sh [-h]" in bad.stderr
 
 
-def test_retained_log_triage_defaults_to_its_own_unit(tmp_path: Path) -> None:
-    result, fake = _run_log_triage(
-        RETAINED_LOG_TRIAGE,
-        tmp_path,
-        prefix="FRAMENEST_",
-        journal_lines="x\n",
-    )
-    assert result.returncode == 0, result.stderr
-    assert "-u framenest.service" in fake["argv_log"].read_text(encoding="utf-8")
+def test_removed_log_triage_defaults_to_its_own_unit(tmp_path: Path) -> None:
+    assert not (INFOSEC_DIR / "framenest_log_triage.sh").exists()
+
 
 
 # --- public surface ---
 
 
-@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+@pytest.mark.parametrize("prefix", ["KRONIKA_"])
 def test_canonical_public_surface_reads_either_identity_prefix(
     tmp_path: Path, prefix: str
 ) -> None:
@@ -556,37 +531,25 @@ def test_canonical_public_surface_missing_curl_refuses(tmp_path: Path) -> None:
 
 
 def test_canonical_public_surface_empty_value_is_unset(tmp_path: Path) -> None:
-    result, _ = _run_public_surface(
-        CANONICAL_PUBLIC_SURFACE,
-        tmp_path,
-        extra_env={
-            "KRONIKA_PUBLIC_BASE_URL": "",
-            "FRAMENEST_PUBLIC_BASE_URL": "http://origin.invalid",
-        },
-    )
-    assert result.returncode == 0, result.stderr
-    assert "RESULT: PASS" in result.stdout
-
-
-def test_canonical_public_surface_conflicting_pair_exits_two_naming_only_names(
-    tmp_path: Path,
-) -> None:
     result, fake = _run_public_surface(
-        CANONICAL_PUBLIC_SURFACE,
-        tmp_path,
-        extra_env={
-            "KRONIKA_PUBLIC_BASE_URL": FAKE_SECRET_A,
-            "FRAMENEST_PUBLIC_BASE_URL": FAKE_SECRET_B,
-        },
+        CANONICAL_PUBLIC_SURFACE, tmp_path,
+        extra_env={"KRONIKA_PUBLIC_BASE_URL": "", "FRAMENEST_PUBLIC_BASE_URL": "http://retired.invalid"},
     )
-    combined = _combined(result)
-    assert result.returncode == 2, combined
-    assert "KRONIKA_PUBLIC_BASE_URL" in combined
-    assert "FRAMENEST_PUBLIC_BASE_URL" in combined
-    assert FAKE_SECRET_A not in combined
-    assert FAKE_SECRET_B not in combined
-    assert "Conflicting environment variables " in combined
+    assert result.returncode == 64
+    assert "KRONIKA_PUBLIC_BASE_URL is required" in result.stderr
     assert fake["argv_log"].read_text(encoding="utf-8") == ""
+
+
+
+def test_canonical_public_surface_ignores_retired_input(tmp_path: Path) -> None:
+    result, fake = _run_public_surface(
+        CANONICAL_PUBLIC_SURFACE, tmp_path,
+        extra_env={"FRAMENEST_PUBLIC_BASE_URL": FAKE_SECRET_B},
+    )
+    assert result.returncode == 0, _combined(result)
+    assert FAKE_SECRET_B not in _combined(result)
+    assert "origin.invalid" in fake["argv_log"].read_text(encoding="utf-8")
+
 
 
 def test_canonical_public_surface_help_prints_canonical_usage(tmp_path: Path) -> None:
@@ -596,19 +559,15 @@ def test_canonical_public_surface_help_prints_canonical_usage(tmp_path: Path) ->
     assert "Usage: kronika_public_surface_check.sh [-h]" in result.stdout
 
 
-def test_retained_public_surface_reads_its_own_variables(tmp_path: Path) -> None:
-    result, fake = _run_public_surface(
-        RETAINED_PUBLIC_SURFACE, tmp_path, prefix="FRAMENEST_"
-    )
-    assert result.returncode == 0, result.stderr
-    assert "FrameNest public surface check: http://origin.invalid" in result.stdout
-    assert fake["argv_log"].read_text(encoding="utf-8") != ""
+def test_removed_public_surface_reads_its_own_variables(tmp_path: Path) -> None:
+    assert not (INFOSEC_DIR / "framenest_public_surface_check.sh").exists()
+
 
 
 # --- socket permissions ---
 
 
-@pytest.mark.parametrize("prefix", ["KRONIKA_", "FRAMENEST_"])
+@pytest.mark.parametrize("prefix", ["KRONIKA_"])
 def test_canonical_socket_check_reads_either_identity_prefix(
     tmp_path: Path, prefix: str
 ) -> None:
@@ -722,28 +681,18 @@ def test_canonical_socket_check_empty_value_is_unset(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     argv = fake["argv_log"].read_text(encoding="utf-8")
     assert "/run/kronika/kronika.sock" in argv
-    assert "kronika-public.sock" not in argv
+    assert "kronika-public.sock" in argv
 
 
-def test_canonical_socket_check_conflicting_pair_exits_two_naming_only_names(
-    tmp_path: Path,
-) -> None:
+def test_canonical_socket_check_ignores_retired_input(tmp_path: Path) -> None:
     result, fake = _run_socket_check(
-        CANONICAL_SOCKET_CHECK,
-        tmp_path,
-        extra_env={
-            "KRONIKA_SOCKET_PATHS": FAKE_SECRET_A,
-            "FRAMENEST_SOCKET_PATHS": FAKE_SECRET_B,
-        },
+        CANONICAL_SOCKET_CHECK, tmp_path,
+        extra_env={"FRAMENEST_SOCKET_PATHS": FAKE_SECRET_B},
     )
-    combined = _combined(result)
-    assert result.returncode == 2, combined
-    assert "KRONIKA_SOCKET_PATHS" in combined
-    assert "FRAMENEST_SOCKET_PATHS" in combined
-    assert FAKE_SECRET_A not in combined
-    assert FAKE_SECRET_B not in combined
-    assert "Conflicting environment variables " in combined
-    assert fake["argv_log"].read_text(encoding="utf-8") == ""
+    assert result.returncode == 0, _combined(result)
+    assert FAKE_SECRET_B not in _combined(result)
+    assert "kronika.sock" in fake["argv_log"].read_text(encoding="utf-8")
+
 
 
 def test_canonical_socket_check_refuses_empty_path_list(tmp_path: Path) -> None:
@@ -773,15 +722,5 @@ def test_canonical_socket_check_help_prints_canonical_usage(tmp_path: Path) -> N
     assert "^(root|kronika)$" in result.stdout
 
 
-def test_retained_socket_check_reads_its_own_variables(tmp_path: Path) -> None:
-    result, fake = _run_socket_check(
-        RETAINED_SOCKET_CHECK,
-        tmp_path,
-        prefix="FRAMENEST_",
-        mapping={"/run/framenest/framenest.sock": "socket|660|framenest"},
-    )
-    assert result.returncode == 0, result.stderr
-    assert "RESULT: PASS" in result.stdout
-    assert "/run/framenest/framenest.sock" in fake["argv_log"].read_text(
-        encoding="utf-8"
-    )
+def test_removed_socket_check_reads_its_own_variables(tmp_path: Path) -> None:
+    assert not (INFOSEC_DIR / "framenest_socket_permissions_check.sh").exists()

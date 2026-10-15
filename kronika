@@ -141,8 +141,8 @@ end
 function _kronika_use_repo_env_file
     # Development convenience: expose the repository-root .env only as an
     # explicit, deterministic configuration file. An operator-supplied
-    # FRAMENEST_ENV_FILE always wins and is never overridden here.
-    if set -q FRAMENEST_ENV_FILE
+    # KRONIKA_ENV_FILE always wins and is never overridden here.
+    if set -q KRONIKA_ENV_FILE
         return 0
     end
     if not test -e "$local_dotenv"
@@ -156,7 +156,7 @@ function _kronika_use_repo_env_file
         echo "Kronika repository .env file is unsafe." >&2
         return 1
     end
-    set -gx FRAMENEST_ENV_FILE "$local_dotenv"
+    set -gx KRONIKA_ENV_FILE "$local_dotenv"
     return 0
 end
 

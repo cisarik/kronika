@@ -588,7 +588,7 @@ when the session remains available; if the session is lost first, privilege
 release is reported unknown rather than fabricated.
 
 Interrupted, ambiguous, or failed state retains bounded recovery evidence under
-`/run/framenest-release-deploy` and provides an exact operator recovery
+`/run/kronika-release-deploy` and provides an exact operator recovery
 instruction. A partial target is never deployable; final release publication is
 atomic; no wildcard deletion occurs.
 
@@ -887,24 +887,24 @@ Evidence:
 
 Every routine mutating operation (`deploy` and `rollback`) holds one shared
 remote release lock before it transfers or mutates anything. The lock is the
-remote directory `/run/framenest-release-deploy`; its owner record is the
-sibling file `/run/framenest-release-deploy.owner`. The owner record carries
+remote directory `/run/kronika-release-deploy`; its owner record is the
+sibling file `/run/kronika-release-deploy.owner`. The owner record carries
 only this run's identity - a nonce, its process id, its start time and the
 workstation host name - and no secret.
 
 The lock directory is created with a non-recursive command; there is no `-p`:
 
 ```text
-sudo -n mkdir -m 0700 /run/framenest-release-deploy
+sudo -n mkdir -m 0700 /run/kronika-release-deploy
 ```
 
 The deploy phase can create these exact objects in that directory:
-`/run/framenest-release-deploy/ap.tar`,
-`/run/framenest-release-deploy/framenest_release.py`, and
-`/run/framenest-release-deploy/superproject.tar` before the schema gate, and
-`/run/framenest-release-deploy/previous-release` after a successful
+`/run/kronika-release-deploy/ap.tar`,
+`/run/kronika-release-deploy/kronika_release.py`, and
+`/run/kronika-release-deploy/superproject.tar` before the schema gate, and
+`/run/kronika-release-deploy/previous-release` after a successful
 checkpoint. `rollback` records
-`/run/framenest-release-deploy/rollback-previous-release` in the same
+`/run/kronika-release-deploy/rollback-previous-release` in the same
 directory. After a completed operation, the engine removes each exact
 transferred file, removes the empty lock directory, and then removes the
 owner record. An interrupted cleanup can
@@ -919,8 +919,8 @@ operation:
 
 | Existing lock | Engine decision | Quarantine |
 |---|---|---|
-| Owner record names this exact run | reclaim, reason `own-identity` | `/run/framenest-release-deploy.reclaimed-own-identity` |
-| Record written on this workstation, at least 60 seconds old, recorded process no longer alive | reclaim, reason `abandoned-owner` | `/run/framenest-release-deploy.reclaimed-abandoned-owner` |
+| Owner record names this exact run | reclaim, reason `own-identity` | `/run/kronika-release-deploy.reclaimed-own-identity` |
+| Record written on this workstation, at least 60 seconds old, recorded process no longer alive | reclaim, reason `abandoned-owner` | `/run/kronika-release-deploy.reclaimed-abandoned-owner` |
 | Live owner, foreign host, unreadable or absent owner record, or a failed reclaim rename | refuse; stop the run | none |
 
 Three recovery cases:
@@ -980,7 +980,7 @@ sudo readlink -n /opt/framenest/current
 sudo systemctl is-active framenest.service
 sudo cat /opt/framenest/releases/<T>/.framenest-release-sha
 sudo test -x /opt/framenest/releases/<T>/.venv/bin/framenest-db && echo executable
-sudo ls -1 /run/framenest-release-deploy
+sudo ls -1 /run/kronika-release-deploy
 sudo -u framenest --chdir=/opt/framenest/releases/<T> \
   env FRAMENEST_ENV_FILE=/etc/framenest/framenest.env \
   /opt/framenest/releases/<T>/.venv/bin/framenest-db status
@@ -996,7 +996,7 @@ Required evidence:
 - Target `.venv/bin/framenest-db` is executable.
 - Target-tree `framenest-db status` shows the recorded live revision
   `current_revision=<C>` and the packaged target head `head_revision=<H>`.
-- `/run/framenest-release-deploy` contains only the known pre-schema-gate
+- `/run/kronika-release-deploy` contains only the known pre-schema-gate
   artifacts `ap.tar`, `framenest_release.py`, and `superproject.tar`. A
   failure after the checkpoint can instead leave a fourth artifact,
   `previous-release`, and the owner record; inspect the exact contents before
@@ -1011,11 +1011,11 @@ Required evidence:
 
 ```text
 # [NUC / bash]
-sudo rm -f /run/framenest-release-deploy/ap.tar
-sudo rm -f /run/framenest-release-deploy/framenest_release.py
-sudo rm -f /run/framenest-release-deploy/superproject.tar
-sudo rmdir /run/framenest-release-deploy
-sudo rm -f /run/framenest-release-deploy.owner
+sudo rm -f /run/kronika-release-deploy/ap.tar
+sudo rm -f /run/kronika-release-deploy/kronika_release.py
+sudo rm -f /run/kronika-release-deploy/superproject.tar
+sudo rmdir /run/kronika-release-deploy
+sudo rm -f /run/kronika-release-deploy.owner
 #------------------------------------------------------
 ```
 

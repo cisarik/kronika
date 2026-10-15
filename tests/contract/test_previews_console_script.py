@@ -8,7 +8,7 @@ import tomllib
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PREVIEWS_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-previews"
+PREVIEWS_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-previews"
 PYTHON_EXECUTABLE = REPOSITORY_ROOT / ".venv" / "bin" / "python"
 
 
@@ -36,7 +36,7 @@ def test_previews_console_script_is_declared() -> None:
     metadata = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
     assert (
-        metadata["project"]["scripts"]["framenest-previews"]
+        metadata["project"]["scripts"]["kronika-previews"]
         == "kronika.adapters.cli.previews:main"
     )
 
@@ -64,7 +64,7 @@ def test_previews_help_succeeds(tmp_path: Path) -> None:
     result = _run_previews_command("--help", cwd=tmp_path)
 
     assert result.returncode == 0
-    assert "framenest-previews" in result.stdout
+    assert "kronika-previews" in result.stdout
     assert "status" in result.stdout
     assert "generate" in result.stdout
 

@@ -124,7 +124,7 @@ def _peek_operation(argv: Sequence[str] | None) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-sidecar", add_help=True)
+    parser = _ArgumentParser(prog="kronika-sidecar", add_help=True)
     subcommands = parser.add_subparsers(dest="operation", required=True)
 
     export_parser = subcommands.add_parser("export", help="Export one catalog location to an adjacent sidecar.")

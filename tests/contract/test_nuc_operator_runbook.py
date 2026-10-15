@@ -16,7 +16,7 @@ SPEC_PATH = REPOSITORY_ROOT / "SPEC.md"
 DEVELOPMENT_DOC_PATH = REPOSITORY_ROOT / "DEVELOPMENT.md"
 LAUNCHER_PATH = REPOSITORY_ROOT / "kronika"
 DEPLOY_HELPER_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "production_ai_deploy.py"
-SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.service"
+SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika.service"
 ADR_PATH = (
     REPOSITORY_ROOT
     / "docs"
@@ -187,8 +187,8 @@ def test_readme_and_spec_record_explicit_env_file_authority() -> None:
 def test_systemd_unit_keeps_working_directory_and_hardening_contract() -> None:
     text = SERVICE_PATH.read_text(encoding="utf-8")
 
-    assert "WorkingDirectory=/opt/framenest/current" in text
-    assert "EnvironmentFile=/etc/framenest/framenest.env" in text
+    assert "WorkingDirectory=/opt/kronika/current" in text
+    assert "EnvironmentFile=/etc/kronika/kronika.env" in text
     assert "ProtectHome=read-only" in text
     assert "ProtectSystem=strict" in text
     assert "NoNewPrivileges=true" in text
@@ -196,7 +196,7 @@ def test_systemd_unit_keeps_working_directory_and_hardening_contract() -> None:
 
 def test_deploy_helper_privilege_switch_establishes_explicit_cwd() -> None:
     text = DEPLOY_HELPER_PATH.read_text(encoding="utf-8")
-    lines = [line for line in text.splitlines() if "sudo -n -u framenest" in line]
+    lines = [line for line in text.splitlines() if "sudo -n -u kronika" in line]
 
     assert lines, "deploy helper service-account command must remain tracked"
     for line in lines:
@@ -205,7 +205,7 @@ def test_deploy_helper_privilege_switch_establishes_explicit_cwd() -> None:
 
 def test_deploy_helper_privilege_switch_uses_no_unquoted_interpolation() -> None:
     text = DEPLOY_HELPER_PATH.read_text(encoding="utf-8")
-    lines = [line for line in text.splitlines() if "sudo -n -u framenest" in line]
+    lines = [line for line in text.splitlines() if "sudo -n -u kronika" in line]
 
     for line in lines:
         assert "{quoted_provider}" in line
@@ -235,8 +235,8 @@ def test_fish_launcher_remains_development_only_and_repo_rooted() -> None:
     assert "_kronika_use_repo_env_file" in text
     assert 'set -g local_dotenv "$repo_root/.env"' in text
     # The launcher never overrides an operator-supplied explicit env file.
-    assert "if set -q FRAMENEST_ENV_FILE" in text
-    assert 'set -gx FRAMENEST_ENV_FILE "$local_dotenv"' in text
+    assert "if set -q KRONIKA_ENV_FILE" in text
+    assert 'set -gx KRONIKA_ENV_FILE "$local_dotenv"' in text
     # The repository-root .env must be a regular non-symlink file.
     assert 'test -L "$local_dotenv"' in text
     assert "./kronika youtube ingest URL" in text

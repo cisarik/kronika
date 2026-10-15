@@ -1,8 +1,9 @@
-"""Capture resources, provenance and both entry points in the built wheel."""
+"""Capture resources, provenance and canonical entry points in the built wheel."""
 
 from __future__ import annotations
 from tests.support.tooling import resolve_tool
 
+import configparser
 import json
 import subprocess
 import sys
@@ -116,8 +117,14 @@ def test_wheel_contains_kernel_assets_and_entry_point(tmp_path: Path) -> None:
     for relative in ASSET_PATHS:
         assert f"kronika_capture/{relative}" in names
     assert "kronika_capture/__init__.py" in names
-    for command in ("kronika-capture", "framenest-chatgpt-page"):
+    for command in ("kronika-capture",):
         assert f"{command}=kronika_capture.cli:main" in entry_points.replace(" ", "")
+
+    assert "framenest-" not in entry_points
+    console_metadata = configparser.ConfigParser()
+    console_metadata.read_string(entry_points)
+    assert len(console_metadata["console_scripts"]) == 14
+    assert all(name.startswith("kronika-") for name in console_metadata["console_scripts"])
 
     # Import the built artifact without checkout paths or installed packages.
     # No command, browser or provider is started.
@@ -138,7 +145,9 @@ entries = {
     if ep.group == "console_scripts"
 }
 assert entries["kronika-capture"].load() is main
-assert entries["framenest-chatgpt-page"].load() is main
+assert len(entries) == 14
+assert all(name.startswith("kronika-") for name in entries)
+assert "framenest-chatgpt-page" not in entries
 for relative in sys.argv[2:]:
     data = resources.files("kronika_capture").joinpath(relative).read_bytes()
     assert packaged_extension_path(*Path(relative).parts[3:]).read_bytes() == data

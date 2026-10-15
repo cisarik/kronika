@@ -2,15 +2,10 @@
 # Shared operator control for independent Mullvad egress.
 # Host mutation remains separately authorized.
 #
-# Canonical implementation. The retained framenest_mullvad_egress.sh keeps
-# working unchanged until the compatibility window closes.
-#
-# Test-hook variables use the dual-prefix contract: every hook below accepts
-# the canonical KRONIKA_ prefix and the retained FRAMENEST_ prefix. An empty
-# value counts as unset; when both spellings are set to different non-empty
-# values the script prints only the two variable names and exits 2 without
-# using either value. Hooks: NETWORK_TEST_HOOKS, NETWORK_TEST_PYTHON,
-# NETWORK_TEST_TAILSCALE, NETWORK_TEST_CURL, NETWORK_TEST_MULLVAD.
+# Canonical test hooks: KRONIKA_NETWORK_TEST_HOOKS,
+# KRONIKA_NETWORK_TEST_PYTHON, KRONIKA_NETWORK_TEST_TAILSCALE,
+# KRONIKA_NETWORK_TEST_CURL, KRONIKA_NETWORK_TEST_MULLVAD.
+# Empty values count as unset.
 
 set -euo pipefail
 
@@ -31,22 +26,8 @@ PYTHON_BIN=""
 HAVE_TAILSCALE_GET=""
 
 resolve_identity_env() {
-  local suffix="$1"
-  local primary_name="KRONIKA_${suffix}"
-  local compatible_name="FRAMENEST_${suffix}"
-  local primary="${!primary_name-}"
-  local compatible="${!compatible_name-}"
-  if [[ -z "${primary}" ]]; then
-    printf '%s' "${compatible}"
-    return 0
-  fi
-  if [[ -z "${compatible}" || "${primary}" == "${compatible}" ]]; then
-    printf '%s' "${primary}"
-    return 0
-  fi
-  printf '%s\n' \
-    "Conflicting environment variables ${primary_name} and ${compatible_name} are set to different values" >&2
-  return 2
+    local primary_name="KRONIKA_${1}"
+    printf '%s' "${!primary_name-}"
 }
 
 TEST_HOOKS="$(resolve_identity_env NETWORK_TEST_HOOKS)" || exit $?

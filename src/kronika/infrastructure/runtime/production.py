@@ -76,7 +76,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_error(
             operation=operation,
             error_code=DATABASE_NOT_READY_CODE,
-            message="Catalog database is not ready. Run framenest-db migrate first.",
+            message="Catalog database is not ready. Run kronika-db migrate first.",
         )
         return 4
     except _HealthCheckFailedError:
@@ -103,7 +103,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-production", add_help=True)
+    parser = _ArgumentParser(prog="kronika-production", add_help=True)
     subcommands = parser.add_subparsers(dest="operation", required=True)
     subcommands.add_parser(
         "check-database-ready",

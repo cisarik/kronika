@@ -211,7 +211,7 @@ def test_runbook_lock_lifecycle_matches_the_engine() -> None:
     assert deploy_artifacts == {
         "superproject.tar",
         "ap.tar",
-        "framenest_release.py",
+        "kronika_release.py",
         "previous-release",
     }
     rollback_artifacts = set(
@@ -272,7 +272,7 @@ def test_engine_exit_13_residue_is_the_documented_three_artifacts() -> None:
         def _ssh_respond(self, combined, input_bytes):
             if f"rmdir {engine.REMOTE_DEPLOY_DIR}" in combined:
                 raise engine.ReleaseError("directory not empty", engine.EXIT_TRANSPORT)
-            if "framenest-db status" in combined:
+            if "kronika-db status" in combined:
                 return (
                     '{"operation":"status","state":"behind",'
                     '"current_revision":"0026","head_revision":"0031"}'
@@ -284,7 +284,7 @@ def test_engine_exit_13_residue_is_the_documented_three_artifacts() -> None:
 
     assert result == engine.EXIT_MIGRATION_REQUIRED
     commands = remote._ssh_combined(runner)
-    for name in ("ap.tar", "framenest_release.py", "superproject.tar"):
+    for name in ("ap.tar", "kronika_release.py", "superproject.tar"):
         assert f"cat > {engine.REMOTE_DEPLOY_DIR}/{name}" in commands
     assert "previous-release" not in commands
     assert runner.locked is True
@@ -325,23 +325,23 @@ def test_engine_post_checkpoint_residue_adds_the_documented_previous_release() -
 
 
 def test_engine_and_entry_point_are_committed_together() -> None:
-    assert FISH_PATH.exists()
-    assert ENGINE_PATH.exists()
+    assert not FISH_PATH.exists()
+    assert not ENGINE_PATH.exists()
     assert CANONICAL_FISH_PATH.exists()
     assert CANONICAL_ENGINE_PATH.exists()
 
 
-def test_the_retained_entry_points_forward_to_the_canonical_ones() -> None:
-    entry = _text(FISH_PATH)
-    assert "kronika-release" in entry
-    assert "framenest_release.py" not in entry
-    module = _text(ENGINE_PATH)
-    assert "kronika_release.py" in module
-    assert "Kronika release engine is unavailable." in module
+def test_retired_release_entry_points_are_absent() -> None:
+    assert not FISH_PATH.exists()
+    assert not ENGINE_PATH.exists()
+    entry = _text(CANONICAL_FISH_PATH)
+    assert "kronika_release.py" in entry
+    assert "framenest" not in entry
+
 
 
 def test_engine_documents_never_uv_or_migrate() -> None:
-    for path in (ENGINE_PATH, CANONICAL_ENGINE_PATH):
+    for path in (CANONICAL_ENGINE_PATH,):
         text = _text(path)
         # The engine must not shell out to uv or run migrations anywhere.
         assert "framenest-db migrate" not in text
@@ -427,33 +427,25 @@ def test_runbook_and_deploy_readme_document_capture_activation() -> None:
 
 
 def test_canonical_and_retained_entry_points_are_executable() -> None:
-    for path in (CANONICAL_FISH_PATH, FISH_PATH, REPOSITORY_ROOT / "kronika"):
+    for path in (CANONICAL_FISH_PATH, REPOSITORY_ROOT / "kronika"):
         assert path.is_file(), path
         mode = path.stat().st_mode
         assert mode & stat.S_IXUSR, path
     for path in (
         REPOSITORY_ROOT / "scripts" / "operator" / "network" / "kronika_nuc_worker_gate.fish",
-        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "framenest_nuc_worker_gate.fish",
     ):
         assert path.is_file(), path
         assert path.stat().st_mode & stat.S_IXUSR, path
 
 
-def test_the_retained_gate_wrapper_forwards_to_the_canonical_gate() -> None:
-    wrapper = _text(
-        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "framenest_nuc_worker_gate.fish"
-    )
-    canonical = _text(
-        REPOSITORY_ROOT / "scripts" / "operator" / "network" / "kronika_nuc_worker_gate.fish"
-    )
-
-    assert "kronika_nuc_worker_gate.fish" in wrapper
-    assert "exec" in wrapper
-    # The retained wrapper carries no gate logic of its own.
-    assert "_resolve_env" not in wrapper
+def test_retired_gate_is_absent_and_canonical_gate_has_no_fallback() -> None:
+    network = REPOSITORY_ROOT / "scripts" / "operator" / "network"
+    assert not (network / "framenest_nuc_worker_gate.fish").exists()
+    canonical = _text(network / "kronika_nuc_worker_gate.fish")
     assert "_resolve_env" in canonical
     assert "KRONIKA_" in canonical
-    assert "FRAMENEST_" in canonical
+    assert "FRAMENEST_" not in canonical
+
 
 
 def test_the_canonical_entry_point_reports_the_canonical_program_name() -> None:

@@ -219,7 +219,7 @@ def test_engine_disposal_remains_in_the_final_cleanup_path() -> None:
 
 
 def test_systemd_timeout_stop_remains_thirty_seconds() -> None:
-    service_path = Path(__file__).resolve().parents[3] / "deploy" / "systemd" / "framenest.service"
+    service_path = Path(__file__).resolve().parents[3] / "deploy" / "systemd" / "kronika.service"
     text = service_path.read_text(encoding="utf-8")
     assert "TimeoutStopSec=30s" in text
     assert "KillSignal=SIGTERM" in text

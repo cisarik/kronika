@@ -8,7 +8,7 @@
 # Read-only: stat only. No chmod, no chown, no service interaction, no writes
 # outside stdout.
 #
-# Environment variables (dual-prefix contract):
+# Environment variables:
 #   KRONIKA_SOCKET_PATHS              Optional. Colon-separated socket paths.
 #                                     Default placeholders:
 #                                     /run/kronika/kronika.sock:/run/kronika/kronika-public.sock
@@ -16,10 +16,7 @@
 #                                     user must match. Default: ^(root|kronika)$
 #   KRONIKA_STAT_BIN                  Optional. GNU stat binary. Default: stat.
 #
-# Every variable also accepts the retained FRAMENEST_ spelling until the
-# compatibility window closes. An empty value counts as unset. When both
-# spellings are set to different non-empty values, the script prints only the
-# two variable names and exits 2 without using either value.
+# Empty canonical values count as unset.
 #
 # Usage:
 #   kronika_socket_permissions_check.sh [-h]
@@ -30,22 +27,8 @@ set -euo pipefail
 export LC_ALL=C
 
 resolve_identity_env() {
-    local suffix="$1"
-    local primary_name="KRONIKA_${suffix}"
-    local compatible_name="FRAMENEST_${suffix}"
-    local primary="${!primary_name-}"
-    local compatible="${!compatible_name-}"
-    if [[ -z "${primary}" ]]; then
-        printf '%s' "${compatible}"
-        return 0
-    fi
-    if [[ -z "${compatible}" || "${primary}" == "${compatible}" ]]; then
-        printf '%s' "${primary}"
-        return 0
-    fi
-    printf '%s\n' \
-        "Conflicting environment variables ${primary_name} and ${compatible_name} are set to different values" >&2
-    return 2
+    local primary_name="KRONIKA_${1}"
+    printf '%s' "${!primary_name-}"
 }
 
 DEFAULT_OWNER_PATTERN='^(root|kronika)$'
@@ -63,8 +46,7 @@ Usage: kronika_socket_permissions_check.sh [-h]
 Verifies Kronika UDS paths exist, are sockets, carry no world-read/world-
 write bits, and have an owner matching the expected pattern.
 
-Optional environment (canonical spelling; the retained FRAMENEST_ spelling is
-also accepted until the compatibility window closes):
+Optional environment (canonical spelling only):
   KRONIKA_SOCKET_PATHS=<colon-separated paths>
   KRONIKA_EXPECTED_OWNER_PATTERN=<extended regex>   (default: ^(root|kronika)$)
   KRONIKA_STAT_BIN=<stat binary>                    (default: stat)

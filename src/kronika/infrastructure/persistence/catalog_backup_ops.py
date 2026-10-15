@@ -52,10 +52,10 @@ from kronika.identity_env import (
     lookup_env,
 )
 
-DEFAULT_BACKUP_ROOT = Path("/var/lib/framenest/catalog-backups")
-DEFAULT_RESTORE_VERIFY_ROOT = Path("/var/lib/framenest/catalog-restore-verify")
-DEFAULT_OPS_ROOT = Path("/var/lib/framenest/catalog-backup-ops")
-DEFAULT_DATABASE_PATH = Path("/var/lib/framenest/catalog.sqlite3")
+DEFAULT_BACKUP_ROOT = Path("/var/lib/kronika/catalog-backups")
+DEFAULT_RESTORE_VERIFY_ROOT = Path("/var/lib/kronika/catalog-restore-verify")
+DEFAULT_OPS_ROOT = Path("/var/lib/kronika/catalog-backup-ops")
+DEFAULT_DATABASE_PATH = Path("/var/lib/kronika/catalog.sqlite3")
 DEFAULT_KEEP_AUTO = 30
 MIN_KEEP_AUTO = 3
 MAX_KEEP_AUTO = 3650

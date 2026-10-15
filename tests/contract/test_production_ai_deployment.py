@@ -47,7 +47,7 @@ class _Runner:
     def __call__(self, argv: list[str], input_bytes: bytes | None = None) -> str:
         self.calls.append((argv, input_bytes))
         combined = " ".join(argv)
-        if "FrameNest readiness probe" in combined and self.readiness_plan:
+        if "Kronika readiness probe" in combined and self.readiness_plan:
             outcome = self.readiness_plan.pop(0)
             if outcome == "terminal":
                 raise production_ai_deploy.DeploymentCommandError(
@@ -66,7 +66,7 @@ class _Runner:
         if self.fail_on is not None and self.fail_on in combined:
             self._matches += 1
             if self._matches == self.fail_on_occurrence:
-                if self.fail_on == "mkdir -m 0700 /run/framenest-ai-credential-deploy":
+                if self.fail_on == "mkdir -m 0700 /run/kronika-ai-credential-deploy":
                     raise production_ai_deploy.DeploymentCommandError(
                         "retained recovery material exists; independent recovery is required"
                     )
@@ -84,9 +84,9 @@ def _credential_file(tmp_path: Path) -> Path:
 def _base_args(tmp_path: Path) -> list[str]:
     return [
         "--target",
-        "framenest-nuc",
+        "kronika-nuc",
         "--expected-hostname",
-        "framenest-nuc",
+        "kronika-nuc",
         "--provider",
         "vercel-ai-gateway",
         "--model",
@@ -112,7 +112,7 @@ def _template_bytes(provider_id: str) -> bytes:
         REPOSITORY_ROOT
         / "deploy"
         / "systemd"
-        / f"framenest-ai-credential-{provider_id}.conf"
+        / f"kronika-ai-credential-{provider_id}.conf"
     ).read_bytes()
 
 
@@ -176,9 +176,9 @@ def test_exact_provider_to_credential_mapping(tmp_path: Path, capsys: Any) -> No
         production_ai_deploy.main(
             [
                 "--target",
-                "framenest-nuc",
+                "kronika-nuc",
                 "--expected-hostname",
-                "framenest-nuc",
+                "kronika-nuc",
                 "--provider",
                 "nvidia-nim",
                 "--model",
@@ -212,7 +212,7 @@ def test_opencode_go_credential_template_is_exact_two_line_contract() -> None:
     assert template.identity == "OPENCODE_API_KEY"
     assert template.payload == (
         b"[Service]\n"
-        b"LoadCredential=OPENCODE_API_KEY:/etc/framenest/credentials/OPENCODE_API_KEY\n"
+        b"LoadCredential=OPENCODE_API_KEY:/etc/kronika/credentials/OPENCODE_API_KEY\n"
     )
 
 
@@ -220,9 +220,9 @@ def test_check_mode_reports_opencode_go_credential_identity(tmp_path: Path, caps
     result = production_ai_deploy.main(
         [
             "--target",
-            "framenest-nuc",
+            "kronika-nuc",
             "--expected-hostname",
-            "framenest-nuc",
+            "kronika-nuc",
             "--provider",
             "opencode-go",
             "--model",
@@ -280,14 +280,14 @@ def test_unsupported_provider_cannot_select_a_template() -> None:
 @pytest.mark.parametrize(
     ("payload", "reason"),
     [
-        (b"[Service]\\nLoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY\\n", "literal"),
-        (b"[Service]\r\nLoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY\r\n", "crlf"),
-        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY", "final"),
-        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY\n\n", "blank"),
-        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY\n[Install]\n", "section"),
+        (b"[Service]\\nLoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY\\n", "literal"),
+        (b"[Service]\r\nLoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY\r\n", "crlf"),
+        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY", "final"),
+        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY\n\n", "blank"),
+        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY\n[Install]\n", "section"),
         (b"[Service]\nEnvironment=AI_GATEWAY_API_KEY=secret\n", "secret"),
-        (b"[Service]\nLoadCredential=UNKNOWN:/etc/framenest/credentials/UNKNOWN\n", "unknown"),
-        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY\x00\n", "nul"),
+        (b"[Service]\nLoadCredential=UNKNOWN:/etc/kronika/credentials/UNKNOWN\n", "unknown"),
+        (b"[Service]\nLoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY\x00\n", "nul"),
     ],
 )
 def test_template_validation_rejects_malformed_or_secret_bearing_payloads(
@@ -355,9 +355,9 @@ def test_model_punctuation_is_quoted_and_shell_metacharacters_are_rejected(
         production_ai_deploy.main(
             [
                 "--target",
-                "framenest-nuc",
+                "kronika-nuc",
                 "--expected-hostname",
-                "framenest-nuc",
+                "kronika-nuc",
                 "--provider",
                 "vercel-ai-gateway",
                 "--model",
@@ -375,9 +375,9 @@ def test_model_punctuation_is_quoted_and_shell_metacharacters_are_rejected(
     blocked = production_ai_deploy.main(
         [
             "--target",
-            "framenest-nuc",
+            "kronika-nuc",
             "--expected-hostname",
-            "framenest-nuc",
+            "kronika-nuc",
             "--provider",
             "vercel-ai-gateway",
             "--model",
@@ -437,7 +437,7 @@ def test_remote_command_text_contains_neither_secret_nor_reconstructed_template(
     template_text = _template_bytes("vercel-ai-gateway").decode("utf-8")
     assert SYNTHETIC_SECRET not in combined
     assert template_text not in combined
-    assert "LoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY" not in combined
+    assert "LoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY" not in combined
     assert "printf '%s' '[Service]\\\\n" not in combined
     assert "printf %b" not in combined
     assert "echo -e" not in combined
@@ -462,19 +462,19 @@ def test_deploy_sequences_atomic_installation_and_cleanup(tmp_path: Path) -> Non
     assert production_ai_deploy.main(_base_args(tmp_path), runner=runner) == 0
 
     combined = _combined(runner)
-    assert "install -d -o root -g root -m 0700 /etc/framenest/credentials" in combined
-    assert "mv /etc/framenest/credentials/AI_GATEWAY_API_KEY.next" in combined
-    assert "cat > /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next" in combined
+    assert "install -d -o root -g root -m 0700 /etc/kronika/credentials" in combined
+    assert "mv /etc/kronika/credentials/AI_GATEWAY_API_KEY.next" in combined
+    assert "cat > /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next" in combined
     assert (
-        combined.index("cat > /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next")
-        < combined.index("mv /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next")
+        combined.index("cat > /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next")
+        < combined.index("mv /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next")
     )
-    assert "mv /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next" in combined
-    assert "sha256sum /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next" in combined
-    assert "sha256sum /etc/systemd/system/framenest.service.d/20-ai-credential.conf" in combined
-    assert "rm -f /etc/framenest/credentials/AI_GATEWAY_API_KEY.next" in combined
-    assert "rm -f /etc/framenest/credentials/AI_GATEWAY_API_KEY.next /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next" in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
+    assert "mv /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next" in combined
+    assert "sha256sum /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next" in combined
+    assert "sha256sum /etc/systemd/system/kronika.service.d/20-ai-credential.conf" in combined
+    assert "rm -f /etc/kronika/credentials/AI_GATEWAY_API_KEY.next" in combined
+    assert "rm -f /etc/kronika/credentials/AI_GATEWAY_API_KEY.next /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next" in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
 
 
 def test_systemd_acceptance_occurs_before_single_restart(tmp_path: Path) -> None:
@@ -484,12 +484,12 @@ def test_systemd_acceptance_occurs_before_single_restart(tmp_path: Path) -> None
 
     verify_index = _call_index(runner, "systemd-analyze verify")
     daemon_index = _call_index(runner, "systemctl daemon-reload")
-    enabled_index = _call_index(runner, "systemctl is-enabled framenest.service")
+    enabled_index = _call_index(runner, "systemctl is-enabled kronika.service")
     dropin_index = _call_index(runner, "DropInPaths")
     credential_index = _call_index(runner, "Verify LoadCredential mapping without redacted systemctl show")
-    restart_index = _call_index(runner, "systemctl restart framenest.service")
+    restart_index = _call_index(runner, "systemctl restart kronika.service")
     assert verify_index < daemon_index < enabled_index < dropin_index < credential_index < restart_index
-    assert _combined(runner).count("systemctl restart framenest.service") == 1
+    assert _combined(runner).count("systemctl restart kronika.service") == 1
 
 
 def test_successful_deployment_validates_running_capability_before_cleanup(
@@ -499,9 +499,9 @@ def test_successful_deployment_validates_running_capability_before_cleanup(
 
     assert production_ai_deploy.main(_base_args(tmp_path), runner=runner) == 0
 
-    readiness_index = _call_index(runner, "FrameNest readiness probe")
+    readiness_index = _call_index(runner, "Kronika readiness probe")
     capability_index = _call_index(runner, "/api/ai/media-suggestion-capability")
-    cleanup_index = _call_index(runner, "rm -rf /run/framenest-ai-credential-deploy")
+    cleanup_index = _call_index(runner, "rm -rf /run/kronika-ai-credential-deploy")
     capability_command = " ".join(runner.calls[capability_index][0])
     assert readiness_index < capability_index < cleanup_index
     assert "vercel-ai-gateway" in capability_command
@@ -509,7 +509,7 @@ def test_successful_deployment_validates_running_capability_before_cleanup(
     assert "credential_available" in capability_command
     assert "configured_unverified" not in capability_command
     assert "last_connection_test') is not None" not in capability_command
-    assert "framenest-ai test" not in capability_command
+    assert "kronika-ai test" not in capability_command
     assert "integrate.api.nvidia.com" not in capability_command
     assert "ai-gateway.vercel.sh" not in capability_command
 
@@ -522,7 +522,7 @@ def test_identity_failure_performs_no_rollback_command(tmp_path: Path) -> None:
     combined = _combined(runner)
     assert result == 1
     assert "restore deployment-controlled files" not in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
 
 
 def test_backup_failure_performs_no_production_state_rollback(tmp_path: Path) -> None:
@@ -533,25 +533,25 @@ def test_backup_failure_performs_no_production_state_rollback(tmp_path: Path) ->
     combined = _combined(runner)
     assert result == 1
     assert "restore deployment-controlled files" not in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
 
 
 def test_backup_records_credential_dropin_config_and_complete_marker() -> None:
     command = production_ai_deploy._remote_backup("AI_GATEWAY_API_KEY")
 
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in command
-    assert "mkdir -m 0700 /run/framenest-ai-credential-deploy" in command
-    assert command.index("/run/framenest-ai-credential-deploy/config.json.absent") < command.index(
-        "/run/framenest-ai-credential-deploy/transaction.complete"
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in command
+    assert "mkdir -m 0700 /run/kronika-ai-credential-deploy" in command
+    assert command.index("/run/kronika-ai-credential-deploy/config.json.absent") < command.index(
+        "/run/kronika-ai-credential-deploy/transaction.complete"
     )
-    assert "/run/framenest-ai-credential-deploy/AI_GATEWAY_API_KEY.present" in command
-    assert "/run/framenest-ai-credential-deploy/AI_GATEWAY_API_KEY.absent" in command
-    assert "/run/framenest-ai-credential-deploy/20-ai-credential.conf.present" in command
-    assert "/run/framenest-ai-credential-deploy/20-ai-credential.conf.absent" in command
-    assert "/run/framenest-ai-credential-deploy/config.json.present" in command
-    assert "/run/framenest-ai-credential-deploy/config.json.absent" in command
-    assert "/run/framenest-ai-credential-deploy/transaction.complete" in command
-    assert "/var/lib/framenest/ai/config.json" in command
+    assert "/run/kronika-ai-credential-deploy/AI_GATEWAY_API_KEY.present" in command
+    assert "/run/kronika-ai-credential-deploy/AI_GATEWAY_API_KEY.absent" in command
+    assert "/run/kronika-ai-credential-deploy/20-ai-credential.conf.present" in command
+    assert "/run/kronika-ai-credential-deploy/20-ai-credential.conf.absent" in command
+    assert "/run/kronika-ai-credential-deploy/config.json.present" in command
+    assert "/run/kronika-ai-credential-deploy/config.json.absent" in command
+    assert "/run/kronika-ai-credential-deploy/transaction.complete" in command
+    assert "/var/lib/kronika/ai/config.json" in command
 
 
 def test_service_account_configure_establishes_explicit_release_cwd() -> None:
@@ -560,9 +560,9 @@ def test_service_account_configure_establishes_explicit_release_cwd() -> None:
         model_id="google/gemini-3.1-flash-lite",
     )
 
-    assert "sudo -n -u framenest --chdir=/opt/framenest/current" in command
-    assert "/opt/framenest/current/.venv/bin/framenest-ai" in command
-    assert "--config-path /var/lib/framenest/ai/config.json" in command
+    assert "sudo -n -u kronika --chdir=/opt/kronika/current" in command
+    assert "/opt/kronika/current/.venv/bin/kronika-ai" in command
+    assert "--config-path /var/lib/kronika/ai/config.json" in command
 
 
 def test_service_account_configure_quotes_operator_values() -> None:
@@ -572,14 +572,14 @@ def test_service_account_configure_quotes_operator_values() -> None:
     )
 
     assert "'model with spaces'" in command
-    assert "--chdir=/opt/framenest/current" in command
+    assert "--chdir=/opt/kronika/current" in command
 
 
 def test_pre_existing_recovery_fails_closed_before_mutation(
     tmp_path: Path,
     capsys: Any,
 ) -> None:
-    runner = _Runner(fail_on="mkdir -m 0700 /run/framenest-ai-credential-deploy")
+    runner = _Runner(fail_on="mkdir -m 0700 /run/kronika-ai-credential-deploy")
 
     result = production_ai_deploy.main(_base_args(tmp_path), runner=runner)
 
@@ -587,11 +587,11 @@ def test_pre_existing_recovery_fails_closed_before_mutation(
     captured = capsys.readouterr()
     assert result == 1
     assert "retained recovery material exists; independent recovery is required" in captured.err
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
-    assert "cat > /etc/framenest/credentials/AI_GATEWAY_API_KEY.next" not in combined
-    assert "framenest-ai --config-path" not in combined
-    assert "systemctl restart framenest.service" not in combined
-    assert "FrameNest readiness probe" not in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
+    assert "cat > /etc/kronika/credentials/AI_GATEWAY_API_KEY.next" not in combined
+    assert "kronika-ai --config-path" not in combined
+    assert "systemctl restart kronika.service" not in combined
+    assert "Kronika readiness probe" not in combined
     assert "restore deployment-controlled files" not in combined
     assert all(input_bytes is None for _argv, input_bytes in runner.calls)
 
@@ -599,10 +599,10 @@ def test_pre_existing_recovery_fails_closed_before_mutation(
 def test_atomic_transaction_acquisition_allows_only_one_winner() -> None:
     command = production_ai_deploy._remote_backup("AI_GATEWAY_API_KEY")
 
-    assert "test -e /run/framenest-ai-credential-deploy" not in command
-    assert command.count("mkdir -m 0700 /run/framenest-ai-credential-deploy") == 1
+    assert "test -e /run/kronika-ai-credential-deploy" not in command
+    assert command.count("mkdir -m 0700 /run/kronika-ai-credential-deploy") == 1
     assert "|| exit" in command
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in command
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in command
 
 
 def test_credential_is_transmitted_only_after_complete_backup(tmp_path: Path) -> None:
@@ -635,20 +635,20 @@ def test_deploy_rolls_back_on_restart_or_health_failure(
     combined = _combined(runner)
     assert result == 1
     assert "restore deployment-controlled files" in combined
-    assert "/run/framenest-ai-credential-deploy/AI_GATEWAY_API_KEY.present" in combined
-    assert "/run/framenest-ai-credential-deploy/AI_GATEWAY_API_KEY.absent" in combined
-    assert "rm -f /etc/framenest/credentials/AI_GATEWAY_API_KEY" in combined
-    assert "/run/framenest-ai-credential-deploy/20-ai-credential.conf.present" in combined
-    assert "/run/framenest-ai-credential-deploy/20-ai-credential.conf.absent" in combined
-    assert "rm -f /etc/systemd/system/framenest.service.d/20-ai-credential.conf" in combined
-    assert "/run/framenest-ai-credential-deploy/config.json.present" in combined
-    assert "/run/framenest-ai-credential-deploy/config.json.absent" in combined
-    assert "rm -f /var/lib/framenest/ai/config.json" in combined
+    assert "/run/kronika-ai-credential-deploy/AI_GATEWAY_API_KEY.present" in combined
+    assert "/run/kronika-ai-credential-deploy/AI_GATEWAY_API_KEY.absent" in combined
+    assert "rm -f /etc/kronika/credentials/AI_GATEWAY_API_KEY" in combined
+    assert "/run/kronika-ai-credential-deploy/20-ai-credential.conf.present" in combined
+    assert "/run/kronika-ai-credential-deploy/20-ai-credential.conf.absent" in combined
+    assert "rm -f /etc/systemd/system/kronika.service.d/20-ai-credential.conf" in combined
+    assert "/run/kronika-ai-credential-deploy/config.json.present" in combined
+    assert "/run/kronika-ai-credential-deploy/config.json.absent" in combined
+    assert "rm -f /var/lib/kronika/ai/config.json" in combined
     assert "systemctl daemon-reload" in combined
-    assert "systemctl restart framenest.service" in combined
-    assert "FrameNest readiness probe" in combined
-    assert "rm -f /etc/framenest/credentials/AI_GATEWAY_API_KEY.next /etc/systemd/system/framenest.service.d/20-ai-credential.conf.next" in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
+    assert "systemctl restart kronika.service" in combined
+    assert "Kronika readiness probe" in combined
+    assert "rm -f /etc/kronika/credentials/AI_GATEWAY_API_KEY.next /etc/systemd/system/kronika.service.d/20-ai-credential.conf.next" in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
 
 
 @pytest.mark.parametrize(
@@ -657,7 +657,7 @@ def test_deploy_rolls_back_on_restart_or_health_failure(
         ("drop-in byte equivalence failed", "drop-in byte equivalence failed"),
         ("systemd-analyze verify", "systemd drop-in verification failed"),
         ("systemctl daemon-reload", "daemon reload failed"),
-        ("systemctl is-enabled framenest.service", "service enabled-state validation failed"),
+        ("systemctl is-enabled kronika.service", "service enabled-state validation failed"),
         ("DropInPaths", "loaded drop-in mismatch"),
         ("Verify LoadCredential mapping without redacted systemctl show", "loaded credential identity mismatch"),
         ("/api/ai/media-suggestion-capability", "running capability validation failed"),
@@ -678,7 +678,7 @@ def test_deploy_rolls_back_when_acceptance_or_capability_gates_fail(
     assert result == 1
     assert message in captured.err
     assert "restore deployment-controlled files" in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
 
 
 @pytest.mark.parametrize(
@@ -699,7 +699,7 @@ def test_capability_failure_prevents_cleanup_until_rollback_succeeds(
 
     capability_index = _call_index(runner, "/api/ai/media-suggestion-capability")
     rollback_index = _call_index(runner, "restore deployment-controlled files")
-    cleanup_index = _call_index(runner, "rm -rf /run/framenest-ai-credential-deploy")
+    cleanup_index = _call_index(runner, "rm -rf /run/kronika-ai-credential-deploy")
     assert capability_index < rollback_index < cleanup_index
 
 
@@ -716,13 +716,13 @@ def test_deploy_readiness_timeout_is_distinct_and_rolls_back(
     assert result == 1
     assert "service readiness deadline exceeded" in captured.err
     assert "restore deployment-controlled files" in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
 
 
 def test_readiness_command_has_bounded_polling_and_strict_health_validation() -> None:
     command = production_ai_deploy._remote_wait_ready("http://127.0.0.1:8000/health")
 
-    assert "FrameNest readiness probe" in command
+    assert "Kronika readiness probe" in command
     assert "READINESS_DEADLINE_SECONDS=30" in command
     assert "READINESS_POLL_INTERVAL_SECONDS=1" in command
     assert "curl --silent --max-time" in command
@@ -734,7 +734,7 @@ def test_readiness_command_has_bounded_polling_and_strict_health_validation() ->
 def test_rollback_restore_failure_preserves_recovery_directory(tmp_path: Path, capsys: Any) -> None:
     runner = _Runner(
         fail_plan=[
-            "systemctl restart framenest.service",
+            "systemctl restart kronika.service",
             "restore deployment-controlled files",
         ]
     )
@@ -746,15 +746,15 @@ def test_rollback_restore_failure_preserves_recovery_directory(tmp_path: Path, c
     assert result == 1
     assert "rollback failed" in captured.err
     assert "restore" in captured.err
-    assert "/run/framenest-ai-credential-deploy" in captured.err
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
+    assert "/run/kronika-ai-credential-deploy" in captured.err
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
 
 
 def test_rollback_restart_failure_preserves_recovery_directory(tmp_path: Path, capsys: Any) -> None:
     runner = _Runner(
         fail_plan=[
-            "systemctl restart framenest.service",
-            "systemctl restart framenest.service",
+            "systemctl restart kronika.service",
+            "systemctl restart kronika.service",
         ]
     )
 
@@ -765,8 +765,8 @@ def test_rollback_restart_failure_preserves_recovery_directory(tmp_path: Path, c
     assert result == 1
     assert "rollback failed" in captured.err
     assert "restart" in captured.err
-    assert "/run/framenest-ai-credential-deploy" in captured.err
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
+    assert "/run/kronika-ai-credential-deploy" in captured.err
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
 
 
 def test_rollback_health_failure_preserves_recovery_directory(tmp_path: Path, capsys: Any) -> None:
@@ -778,8 +778,8 @@ def test_rollback_health_failure_preserves_recovery_directory(tmp_path: Path, ca
     captured = capsys.readouterr()
     assert result == 1
     assert "rollback failed during terminal service state" in captured.err
-    assert "/run/framenest-ai-credential-deploy" in captured.err
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
+    assert "/run/kronika-ai-credential-deploy" in captured.err
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
 
 
 def test_rollback_readiness_timeout_preserves_recovery_directory(
@@ -794,8 +794,8 @@ def test_rollback_readiness_timeout_preserves_recovery_directory(
     captured = capsys.readouterr()
     assert result == 1
     assert "rollback readiness deadline exceeded" in captured.err
-    assert "/run/framenest-ai-credential-deploy" in captured.err
-    assert "rm -rf /run/framenest-ai-credential-deploy" not in combined
+    assert "/run/kronika-ai-credential-deploy" in captured.err
+    assert "rm -rf /run/kronika-ai-credential-deploy" not in combined
 
 
 def test_rollback_transient_readiness_success_cleans_recovery_directory(tmp_path: Path) -> None:
@@ -805,22 +805,22 @@ def test_rollback_transient_readiness_success_cleans_recovery_directory(tmp_path
 
     combined = _combined(runner)
     assert result == 1
-    assert combined.count("FrameNest readiness probe") == 2
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
+    assert combined.count("Kronika readiness probe") == 2
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
 
 
 def test_successful_deployment_cleanup_failure_reports_sanitized_failure(
     tmp_path: Path,
     capsys: Any,
 ) -> None:
-    runner = _Runner(fail_on="rm -rf /run/framenest-ai-credential-deploy")
+    runner = _Runner(fail_on="rm -rf /run/kronika-ai-credential-deploy")
 
     result = production_ai_deploy.main(_base_args(tmp_path), runner=runner)
 
     captured = capsys.readouterr()
     assert result == 1
     assert "cleanup failed" in captured.err
-    assert "/run/framenest-ai-credential-deploy" in captured.err
+    assert "/run/kronika-ai-credential-deploy" in captured.err
 
 
 def test_successful_rollback_cleans_recovery_directory(tmp_path: Path) -> None:
@@ -830,7 +830,7 @@ def test_successful_rollback_cleans_recovery_directory(tmp_path: Path) -> None:
 
     combined = _combined(runner)
     assert result == 1
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
 
 
 def test_readiness_polling_does_not_restart_service(tmp_path: Path) -> None:
@@ -839,12 +839,12 @@ def test_readiness_polling_does_not_restart_service(tmp_path: Path) -> None:
     assert production_ai_deploy.main(_base_args(tmp_path), runner=runner) == 0
 
     combined = _combined(runner)
-    assert combined.count("systemctl restart framenest.service") == 1
-    assert "systemctl restart framenest.service\nsleep" not in combined
+    assert combined.count("systemctl restart kronika.service") == 1
+    assert "systemctl restart kronika.service\nsleep" not in combined
 
 
 def test_runner_errors_expose_only_sanitized_categories(tmp_path: Path, capsys: Any) -> None:
-    runner = _Runner(fail_on="framenest-ai --config-path")
+    runner = _Runner(fail_on="kronika-ai --config-path")
 
     result = production_ai_deploy.main(_base_args(tmp_path), runner=runner)
 
@@ -927,7 +927,7 @@ def test_no_provider_or_nuc_network_call_occurs_in_contract_tests(tmp_path: Path
     assert "api.vercel.com" not in combined
     assert "integrate.api.nvidia.com" not in combined
     assert "ai-gateway.vercel.sh" not in combined
-    assert "framenest-ai test" not in combined
+    assert "kronika-ai test" not in combined
 
 
 def test_loaded_credential_verification_tolerates_redacted_systemctl_show() -> None:
@@ -941,7 +941,7 @@ def test_loaded_credential_verification_tolerates_redacted_systemctl_show() -> N
     assert "cmp -s" in combined
     assert "DropInPaths" in combined
     assert 'expected_line="LoadCredential=${identity}:${cred_dir}/${identity}"' in combined
-    assert "LoadCredential=AI_GATEWAY_API_KEY:/etc/framenest/credentials/AI_GATEWAY_API_KEY" not in combined
+    assert "LoadCredential=AI_GATEWAY_API_KEY:/etc/kronika/credentials/AI_GATEWAY_API_KEY" not in combined
     assert "match_count=" in combined
     assert "other_count=" in combined
 
@@ -952,7 +952,7 @@ def test_loaded_credential_verification_requires_exact_identity_and_path() -> No
     combined = "\n".join(commands)
 
     assert 'identity="NVIDIA_API_KEY"' in combined or "identity=NVIDIA_API_KEY" in combined
-    assert 'cred_dir="/etc/framenest/credentials"' in combined or "cred_dir=/etc/framenest/credentials" in combined
+    assert 'cred_dir="/etc/kronika/credentials"' in combined or "cred_dir=/etc/kronika/credentials" in combined
     assert f'expected_sha="{dropin.sha256}"' in combined or f"expected_sha={dropin.sha256}" in combined
     assert "test \"$match_count\" = 1" in combined
     assert "test \"$other_count\" = 0" in combined
@@ -981,7 +981,7 @@ def test_capability_gate_ignores_historical_connection_test_and_requires_credent
     assert "configured_unverified" not in command
     assert "last_connection_test') is not None" not in command
     assert "payload.get('last_connection_test') is not None" not in command
-    assert "framenest-ai test" not in command
+    assert "kronika-ai test" not in command
     assert "integrate.api.nvidia.com" not in command
 
 
@@ -995,7 +995,7 @@ def test_helper_does_not_treat_historical_test_as_new_credential_proof(tmp_path:
     )
     assert "Historical connection-test state is ignored" in capability_command
     assert "last_connection_test') is not None" not in capability_command
-    assert "framenest-ai test" not in _combined(runner)
+    assert "kronika-ai test" not in _combined(runner)
 
 
 def test_loaded_credential_gate_failure_still_rolls_back(tmp_path: Path, capsys: Any) -> None:
@@ -1011,6 +1011,6 @@ def test_loaded_credential_gate_failure_still_rolls_back(tmp_path: Path, capsys:
     assert result == 1
     assert "loaded credential identity mismatch" in captured.err
     assert "restore deployment-controlled files" in combined
-    assert "rm -rf /run/framenest-ai-credential-deploy" in combined
-    assert "framenest-ai test" not in combined
+    assert "rm -rf /run/kronika-ai-credential-deploy" in combined
+    assert "kronika-ai test" not in combined
     assert "integrate.api.nvidia.com" not in combined

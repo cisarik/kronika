@@ -24,7 +24,7 @@ from kronika.configuration import (
 from kronika.identity_env import lookup_env
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-INSTALLED_ENV_FILE_EXAMPLE = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.env.example"
+INSTALLED_ENV_FILE_EXAMPLE = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika.env.example"
 
 PRIMARY = "KRONIKA_"
 COMPATIBLE = "FRAMENEST_"
@@ -426,7 +426,7 @@ def test_retired_environment_file_shape_is_ignored(
     """The retired environment file does not configure any field."""
     env_file = tmp_path / "framenest.env"
     env_file.write_text(
-        INSTALLED_ENV_FILE_EXAMPLE.read_text(encoding="utf-8"),
+        INSTALLED_ENV_FILE_EXAMPLE.read_text(encoding="utf-8").replace(PRIMARY, COMPATIBLE),
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
@@ -443,7 +443,7 @@ def test_every_uncommented_key_in_the_installed_shape_is_retired(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Every uncommented legacy key is explicitly outside the canonical prefix."""
-    text = INSTALLED_ENV_FILE_EXAMPLE.read_text(encoding="utf-8")
+    text = INSTALLED_ENV_FILE_EXAMPLE.read_text(encoding="utf-8").replace(PRIMARY, COMPATIBLE)
     keys = [
         line.split("=", 1)[0]
         for line in text.splitlines()
@@ -472,7 +472,7 @@ def test_the_same_shape_with_the_new_prefix_also_works(
 
     settings = load_settings(env_file=env_file)
 
-    assert settings.database_path == Path("/var/lib/framenest/catalog.sqlite3")
+    assert settings.database_path == Path("/var/lib/kronika/catalog.sqlite3")
 
 
 # ---------------------------------------------------------------------------

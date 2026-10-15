@@ -40,7 +40,7 @@ from kronika.infrastructure.persistence.media_repository import SqliteMediaRepos
 from kronika.infrastructure.persistence.migrations import inspect_database_migration_status
 
 INVALID_INPUT_MESSAGE = "Invalid covers command."
-NOT_READY_MESSAGE = "Catalog database is not ready. Run poetry run framenest-db migrate."
+NOT_READY_MESSAGE = "Catalog database is not ready. Run poetry run kronika-db migrate."
 NOT_FOUND_MESSAGE = "Library or media was not found."
 UNAVAILABLE_MESSAGE = "Cover operation is not available."
 COMMAND_FAILED_MESSAGE = "Cover command failed."
@@ -92,7 +92,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-covers")
+    parser = _ArgumentParser(prog="kronika-covers")
     commands = parser.add_subparsers(dest="operation", required=True)
 
     status = commands.add_parser("status")

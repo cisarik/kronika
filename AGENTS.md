@@ -61,11 +61,8 @@ Python evidence.
   with an exact authorized `--baseline`.
 - NUC SSH goes through `scripts/operator/network/kronika_nuc_worker_gate.fish`
   (`--probe` for agent capability; BatchMode SSH only when a later task grants
-  NUC access). Do not reconstruct `gpgconf` or print agent sockets. The retained
-  `scripts/operator/network/framenest_nuc_worker_gate.fish` wrapper and the
-  `FRAMENEST_NUC_SSH_*` variable names keep working, with the canonical
-  `KRONIKA_NUC_SSH_*` names taking precedence and a conflicting pair failing
-  closed with exit 2; both spellings are removed only in the C7-B window.
+  NUC access). Do not reconstruct `gpgconf` or print agent sockets. The
+  `KRONIKA_NUC_SSH_*` variables are the sole accepted operator names.
 - Remote sudo lifecycle is Cooperator timestamp (`sudo -v`, then `sudo -n true`)
   outside the Worker, plus Worker terminal `sudo -K`. Workers must not run
   `sudo -v` or handle a password. Password-required after predecessor `sudo -K`

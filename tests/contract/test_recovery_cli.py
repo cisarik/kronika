@@ -14,10 +14,10 @@ from kronika.configuration import KronikaSettings
 from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-backup"
-RECOVERY_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-recovery"
+BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-backup"
+RECOVERY_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-recovery"
 PYTHON_EXECUTABLE = REPOSITORY_ROOT / ".venv" / "bin" / "python"
-LAUNCHER_SOURCE = REPOSITORY_ROOT / "deploy" / "ubuntu" / "framenest-catalog-export-v1"
+LAUNCHER_SOURCE = REPOSITORY_ROOT / "deploy" / "ubuntu" / "kronika-catalog-export-v1"
 BACKUP_DOC = REPOSITORY_ROOT / "docs" / "BACKUP_AND_RECOVERY.md"
 
 
@@ -53,7 +53,7 @@ def _run(script: Path, *args: str, cwd: Path, env: dict[str, str], timeout: floa
 def test_recovery_and_backup_console_scripts_installed() -> None:
     assert BACKUP_CONSOLE_SCRIPT.is_file()
     assert RECOVERY_CONSOLE_SCRIPT.is_file()
-    assert "framenest-recovery" in (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "kronika-recovery" in (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_export_latest_rejects_arguments(tmp_path: Path) -> None:
@@ -87,11 +87,11 @@ def test_launcher_source_contract() -> None:
     mode = LAUNCHER_SOURCE.stat().st_mode
     assert mode & stat.S_IXUSR
     assert "export-latest" in text
-    assert "/opt/framenest/current/.venv/bin/framenest-backup" in text
+    assert "/opt/kronika/current/.venv/bin/kronika-backup" in text
     assert 'if [ "$#" -ne 0 ]' in text
     assert "exec </dev/null" in text
     assert "umask 077" in text
-    assert "FRAMENEST_CATALOG_BACKUP_ROOT" in text
+    assert "KRONIKA_CATALOG_BACKUP_ROOT" in text
     assert "ProxyCommand" not in text
     assert "ssh" not in text.lower() or "OpenSSH" in text  # comments only ok
     assert "/mnt/umbrel-data" not in text

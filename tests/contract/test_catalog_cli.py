@@ -17,8 +17,8 @@ import pytest
 from tests.support.tooling import resolve_tool
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-CATALOG_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-catalog"
-DB_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-db"
+CATALOG_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-catalog"
+DB_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-db"
 PYTHON_EXECUTABLE = REPOSITORY_ROOT / ".venv" / "bin" / "python"
 PRIVATE_DATABASE_PATH = "/Users/agile/private/catalog.sqlite3"
 CANONICAL_UUID4_TEXT = "12345678-1234-4234-9234-123456789abc"
@@ -186,7 +186,7 @@ def test_nonexistent_database_returns_exit_4_without_creating_file(tmp_path: Pat
         "operation": "device.list",
         "state": "error",
         "error_code": "KRONIKA_CATALOG_NOT_READY",
-        "message": "Catalog database is not ready. Run framenest-db migrate.",
+        "message": "Catalog database is not ready. Run kronika-db migrate.",
     }
     assert not database_path.exists()
     assert not database_path.parent.exists()

@@ -20,24 +20,7 @@ kronika-previews = "kronika.adapters.cli.previews:main"
 kronika-covers = "kronika.adapters.cli.covers:main"
 kronika-recovery = "kronika.adapters.cli.recovery:main"
 kronika-sidecar = "kronika.adapters.cli.sidecar:main"
-# Compatibility aliases: the thirteen `framenest-*` names below resolve to the
-# same callables as their `kronika-*` counterparts and are removed at C7-B.
-framenest-server = "kronika.server:main"
-framenest-db = "kronika.infrastructure.persistence.cli:main"
-framenest-catalog = "kronika.adapters.cli.catalog:main"
-framenest-library = "kronika.adapters.cli.library:main"
-framenest-dev = "kronika.adapters.cli.development:main"
-framenest-ai = "kronika.adapters.cli.ai:main"
-framenest-production = "kronika.infrastructure.runtime.production:main"
-framenest-backup = "kronika.adapters.cli.backup:main"
-framenest-youtube = "kronika.adapters.cli.youtube:main"
-framenest-previews = "kronika.adapters.cli.previews:main"
-framenest-covers = "kronika.adapters.cli.covers:main"
-framenest-recovery = "kronika.adapters.cli.recovery:main"
-framenest-sidecar = "kronika.adapters.cli.sidecar:main"
 kronika-capture = "kronika_capture.cli:main"
-# Compatibility alias: both commands use the same capture implementation.
-framenest-chatgpt-page = "kronika_capture.cli:main"
 
 [tool.poetry]
 package-mode = true

@@ -6,11 +6,6 @@ executed locally by the operator through the thin Fish entry point
 paths, the same file is transferred to the NUC and run in a private remote mode
 under Ubuntu system Python 3.12. It uses only the Python standard library.
 
-``deploy/ubuntu/framenest-release`` and
-``deploy/ubuntu/framenest_release.py`` are retained compatibility entry points
-for the same engine and forward identical arguments until the compatibility
-removal cut. They are not a second deployment system.
-
 It never stores, prints, or transmits secrets; never invokes ``uv``; never
 runs migrations; and never accepts user-supplied remote shell commands.
 Web deploy and rollback move only ``/opt/framenest/current`` and
@@ -39,14 +34,11 @@ import uuid
 
 PROGRAM = "kronika-release"
 
-# Accepted identity environment prefixes for the operator variables this engine
-# reads. This is a local standard-library mirror of
-# ``framenest.identity_env.lookup_env``: this file runs from the Git checkout
-# under Ubuntu system Python without the installed package on ``sys.path``, and
-# it must not import the application package. The rule is identical: one spelling
-# wins, both unset means unset, an empty value means unset, and both set to
-# different values fails closed with status 2 and the two variable names only.
+# Standard-library mirror of kronika.identity_env.lookup_env.
+# Canonical variables only; empty values count as unset.
 IDENTITY_ENVIRONMENT_PREFIX = "KRONIKA_"
+# Historical migration inputs still carry the former prefix. Live operator
+# lookup deliberately does not consult it.
 COMPATIBLE_ENVIRONMENT_PREFIX = "FRAMENEST_"
 
 RELEASE_SHA_MARKER = ".kronika-release-sha"
@@ -94,7 +86,7 @@ CPYTHON_BIN = (
 )
 EXPECTED_POETRY_VERSION = "2.4.1"
 EXPECTED_CPYTHON_VERSION = "3.13.14"
-REMOTE_DEPLOY_DIR = "/run/framenest-release-deploy"
+REMOTE_DEPLOY_DIR = "/run/kronika-release-deploy"
 # The lock owner record is a sibling of the deploy directory rather than a file
 # inside it, so the documented artefact set inside the deploy directory stays
 # exactly the one the runbook publishes.
@@ -312,10 +304,8 @@ MIGRATION_PHASES = (
 # recovery side, even though the migration itself is not finished.
 MIGRATION_CUTOVER_PHASE = MIGRATION_PHASE_START_SERVICE
 
-# Repository source artifacts the migration installs for the canonical target
-# layout. The mapping is derived from the retention ledger's retired-basename
-# set; entries whose canonical counterpart already exists are listed with
-# ``None`` and are not copied.
+# Installed legacy host names mapped to canonical repository artifacts.
+# The first column is host observation data, not a repository source path.
 MIGRATION_UNIT_ARTIFACTS = (
     ("framenest.service", "kronika.service", True),
     ("framenest-catalog-backup.service", "kronika-catalog-backup.service", False),
@@ -329,7 +319,7 @@ MIGRATION_UNIT_ARTIFACTS = (
 )
 MIGRATION_ENVIRONMENT_ARTIFACT = ("framenest.env.example", "kronika.env.example")
 MIGRATION_EXPORT_ARTIFACT = (
-    "deploy/ubuntu/framenest-catalog-export-v1",
+    "/usr/local/libexec/framenest-catalog-export-v1",
     "deploy/ubuntu/kronika-catalog-export-v1",
 )
 # Installed host paths of the export facility, existence-only preflight facts.
@@ -448,29 +438,9 @@ def lookup_env(
     *,
     environ: Mapping[str, str] | None = None,
 ) -> str | None:
-    """Resolve one operator variable under both accepted identity prefixes.
-
-    ``suffix`` is the part of the variable name after the prefix. An empty value
-    counts as unset. A pair of different values fails closed with
-    ``EXIT_USAGE`` and a message naming the two variable names only; no value,
-    length, hash or repr of either value appears in the message or the exit.
-    """
+    """Resolve a canonical operator variable; an empty value is unset."""
     env = os.environ if environ is None else environ
-    primary = env.get(f"{IDENTITY_ENVIRONMENT_PREFIX}{suffix}")
-    compatible = env.get(f"{COMPATIBLE_ENVIRONMENT_PREFIX}{suffix}")
-    if primary == "":
-        primary = None
-    if compatible == "":
-        compatible = None
-    if primary is None:
-        return compatible
-    if compatible is None or primary == compatible:
-        return primary
-    raise ReleaseError(
-        f"conflicting environment variables {IDENTITY_ENVIRONMENT_PREFIX}{suffix} "
-        f"and {COMPATIBLE_ENVIRONMENT_PREFIX}{suffix} are set to different values",
-        EXIT_USAGE,
-    )
+    return env.get(f"{IDENTITY_ENVIRONMENT_PREFIX}{suffix}") or None
 
 
 # A command runner executes ``argv`` with optional stdin bytes and returns the
@@ -837,21 +807,21 @@ def service_account_prefix(
 def cmd_remote_db_status(
     release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
 ) -> str:
-    return f"{service_account_prefix(release_path, layout)}/framenest-db status"
+    return f"{service_account_prefix(release_path, layout)}/kronika-db status"
 
 
 def cmd_remote_backup_status(
     release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
 ) -> str:
-    return f"{service_account_prefix(release_path, layout)}/framenest-backup status"
+    return f"{service_account_prefix(release_path, layout)}/kronika-backup status"
 
 
 def cmd_remote_production_cli(
     release_path: str, operation: str, layout: WebLayout = OLD_WEB_LAYOUT
 ) -> str:
-    """Run ``framenest-production`` with the unit EnvironmentFile.
+    """Run ``kronika-production`` with the unit EnvironmentFile.
 
-    ``framenest-production`` calls ``load_settings(env_file=None)`` and therefore
+    ``kronika-production`` calls ``load_settings(env_file=None)`` and therefore
     ignores ``KRONIKA_ENV_FILE``. The systemd unit supplies process
     environment via ``EnvironmentFile=``; this helper uses the same contract
     through a oneshot ``systemd-run`` so secrets never enter argv.
@@ -863,7 +833,7 @@ def cmd_remote_production_cli(
         f"--uid={layout.user} --gid={layout.group} "
         f"--working-directory={shlex.quote(release_path)} "
         f"--property=EnvironmentFile={shlex.quote(layout.env_file)} "
-        f"{shlex.quote(f'{release_path}/.venv/bin/framenest-production')} "
+        f"{shlex.quote(f'{release_path}/.venv/bin/kronika-production')} "
         f"{operation}"
     )
 
@@ -883,7 +853,7 @@ def cmd_remote_check_health(
 def cmd_remote_run_scheduled_backup(
     release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
 ) -> str:
-    return f"{service_account_prefix(release_path, layout)}/framenest-backup run-scheduled"
+    return f"{service_account_prefix(release_path, layout)}/kronika-backup run-scheduled"
 
 
 def cmd_remote_prepare_dir(release_path: str) -> str:
@@ -1385,7 +1355,7 @@ def relocate_venv_shebangs(staging_path: str, final_path: str) -> None:
         raise ReleaseError("venv staging paths were not relocated", EXIT_POETRY)
 
     venv_bin = venv_root / "bin"
-    for name in ("framenest-db", "framenest-backup"):
+    for name in ("kronika-db", "kronika-backup"):
         script = venv_bin / name
         if not script.is_file() or script.is_symlink():
             raise ReleaseError("required console script is missing", EXIT_POETRY)
@@ -2708,12 +2678,15 @@ def cmd_remote_prepare_migration_release(old_release: str, staging: str) -> str:
 def cmd_remote_verify_migration_release(
     staging: str, final_path: str
 ) -> str:
-    """The final release must carry no staging prefix in its venv metadata."""
+    """The final release must carry no staging prefix in its venv metadata.
+
+    The required-script guard validates canonical executables separately with
+    EXIT_MIGRATION; this metadata check must not require a retired alias.
+    """
     return (
         "set -e\n"
         f"test -d {shlex.quote(final_path)}/.venv\n"
         f"! sudo -n grep -RFq {shlex.quote(staging)} {shlex.quote(final_path)}/.venv\n"
-        f"sudo -n test -x {shlex.quote(final_path)}/.venv/bin/framenest-production\n"
     )
 
 
@@ -5416,7 +5389,7 @@ def _cmd_deploy(args: argparse.Namespace, runner: Runner) -> int:
         staging = staging_dir(release_sha, layout)
         remote_super = f"{REMOTE_DEPLOY_DIR}/superproject.tar"
         remote_ap = f"{REMOTE_DEPLOY_DIR}/ap.tar"
-        remote_engine = f"{REMOTE_DEPLOY_DIR}/framenest_release.py"
+        remote_engine = f"{REMOTE_DEPLOY_DIR}/kronika_release.py"
         remote_prev = f"{REMOTE_DEPLOY_DIR}/previous-release"
 
         # Remote lock and pre-existence gates. The lock is held for the whole

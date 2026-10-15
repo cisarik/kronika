@@ -41,6 +41,7 @@ _SPEC.loader.exec_module(engine)
 
 from tests.contract.test_kronika_identity_retention import (  # noqa: E402
     EXPECTED_FRAMENEST_BASENAME_PATHS,
+    CANONICAL_REPLACEMENT_PATHS,
 )
 
 RELEASE = "a" * 40
@@ -75,45 +76,25 @@ def _tracked_text(path: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Derivation A: canonical artifacts from the retention ledger's Part B set
+# Derivation A: canonical replacements after the retired Part B set is empty
 # ---------------------------------------------------------------------------
 
 
-def _canonical_counterpart(part_b_path: str) -> str:
-    parent, _, name = part_b_path.rpartition("/")
-    canonical = name.replace("framenest_", "kronika_").replace("framenest", "kronika")
-    return f"{parent}/{canonical}" if parent else canonical
+def test_web_replacement_artifacts_are_present() -> None:
+    paths = {path for path in CANONICAL_REPLACEMENT_PATHS
+             if path.startswith(WEB_ARTIFACT_FAMILIES)}
+    assert len(paths) == 13
+    assert all((REPOSITORY_ROOT / path).is_file() for path in paths)
 
 
-def test_web_family_part_b_paths_have_canonical_counterparts() -> None:
-    """Rule: replace the retired basename component, add the canonical file.
 
-    Derived from the ledger's live Part B pin, never from a hand-built list.
-    Every deploy/systemd and deploy/ubuntu retired-basename path must have its
-    canonical counterpart present. The canonical counterpart of an artifact
-    the previous cut already moved (``kronika-release``, ``kronika_release.py``)
-    exists for the same reason.
-    """
-    measured = {
-        path
-        for path in EXPECTED_FRAMENEST_BASENAME_PATHS
-        if path.startswith(WEB_ARTIFACT_FAMILIES)
-    }
-    missing = {
-        _canonical_counterpart(path): path
-        for path in measured
-        if not (REPOSITORY_ROOT / _canonical_counterpart(path)).is_file()
-    }
-    assert not missing, f"canonical counterparts are missing: {missing}"
+def test_retired_artifacts_are_absent() -> None:
+    assert EXPECTED_FRAMENEST_BASENAME_PATHS == frozenset()
+    assert CANONICAL_REPLACEMENT_PATHS
+    for canonical in CANONICAL_REPLACEMENT_PATHS:
+        retired = canonical.replace("kronika", "framenest")
+        assert not (REPOSITORY_ROOT / retired).exists(), retired
 
-
-def test_every_part_b_artifact_remains_in_place() -> None:
-    missing = {
-        path
-        for path in EXPECTED_FRAMENEST_BASENAME_PATHS
-        if not (REPOSITORY_ROOT / path).is_file()
-    }
-    assert not missing, f"Part B moved: {missing}"
 
 
 def test_canonical_web_artifact_set_matches_the_issued_sample() -> None:
@@ -136,24 +117,12 @@ def test_canonical_web_artifact_set_matches_the_issued_sample() -> None:
     assert created == expected
 
 
-def test_operator_script_families_are_outside_this_cuts_web_artifact_scope() -> None:
-    """The infosec/mullvad diagnostics are not web host layout artifacts.
+def test_operator_replacements_are_present() -> None:
+    paths = {path for path in CANONICAL_REPLACEMENT_PATHS
+             if path.startswith("scripts/operator/")}
+    assert len(paths) == 6
+    assert all((REPOSITORY_ROOT / path).is_file() for path in paths)
 
-    Their canonical counterparts belong to the cut that owns the workstation
-    operator surface; this cut derives only the web-side artifact set. Their
-    retired spellings stay in place and Part B stays whole.
-    """
-    operator = {
-        path
-        for path in EXPECTED_FRAMENEST_BASENAME_PATHS
-        if path.startswith("scripts/operator/")
-    }
-    assert operator
-    assert all(
-        (REPOSITORY_ROOT / _canonical_counterpart(path)).is_file()
-        for path in operator
-        if _canonical_counterpart(path) in {"scripts/operator/network/kronika_nuc_worker_gate.fish"}
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -1084,10 +1053,10 @@ def test_relocated_environment_resolves_and_leaves_the_old_release_alone(
     staging.mkdir()
     bindir = staging / ".venv" / "bin"
     bindir.mkdir(parents=True)
-    (bindir / "framenest-db").write_text(
+    (bindir / "kronika-db").write_text(
         f"#!{staging}/.venv/bin/python\nprint('db')\n", encoding="utf-8"
     )
-    (bindir / "framenest-backup").write_text(
+    (bindir / "kronika-backup").write_text(
         f"#!{staging}/.venv/bin/python\nprint('backup')\n", encoding="utf-8"
     )
     site = staging / ".venv" / "lib" / "site-packages"
@@ -1099,7 +1068,7 @@ def test_relocated_environment_resolves_and_leaves_the_old_release_alone(
 
     engine.relocate_venv_shebangs(str(staging), str(final))
 
-    for name in ("framenest-db", "framenest-backup"):
+    for name in ("kronika-db", "kronika-backup"):
         text = (bindir / name).read_text(encoding="utf-8")
         assert text.splitlines()[0] == f"#!{final}/.venv/bin/python"
     assert f"{final}/src" in (site / "editable.pth").read_text(encoding="utf-8")
@@ -1953,9 +1922,7 @@ class RemoteBoundary:
         for name in (
             "kronika-production",
             "kronika-backup",
-            "framenest-production",
-            "framenest-db",
-            "framenest-backup",
+            "kronika-db",
         ):
             mode = 0o644 if (self.fail_required_script and name == "kronika-production") else 0o755
             self.add_file(
@@ -1995,7 +1962,7 @@ class RemoteBoundary:
             raise engine.ReleaseError(
                 "venv staging paths were not relocated", engine.EXIT_POETRY
             )
-        for name in ("framenest-db", "framenest-backup"):
+        for name in ("kronika-db", "kronika-backup"):
             script = f"{venv}/bin/{name}"
             value = self.paths.get(script)
             if value is None or value["kind"] != "file":
@@ -2038,16 +2005,6 @@ class RemoteBoundary:
                 raise engine.ReleaseError(
                     "venv staging paths were not relocated", engine.EXIT_POETRY
                 )
-        script = f"{venv}/bin/framenest-production"
-        value = self.paths.get(script)
-        if value is None or value["kind"] != "file":
-            raise engine.ReleaseError(
-                "required console script is missing", engine.EXIT_POETRY
-            )
-        if not (int(value["mode"]) & 0o111):
-            raise engine.ReleaseError(
-                "required console script is not executable", engine.EXIT_POETRY
-            )
 
     # -- command execution ------------------------------------------------
 
@@ -2158,7 +2115,7 @@ class RemoteBoundary:
             return str(value["target"])
         if "visudo -cf " in combined:
             return ""
-        if "framenest-backup run-scheduled" in combined:
+        if "kronika-backup run-scheduled" in combined:
             if not self.privilege_ok:
                 return "query-failed"
             return json.dumps(
@@ -4105,8 +4062,7 @@ def test_prepared_release_console_scripts_execute_in_an_isolated_fixture(
     venv_bin.mkdir(parents=True)
     os.symlink(sys.executable, venv_bin / "python")
     scripts = {
-        "framenest-db": "prepared-db-ok",
-        "framenest-backup": "prepared-backup-ok",
+        "kronika-db": "prepared-db-ok",
         "kronika-production": "prepared-production-ok",
         "kronika-backup": "prepared-backup-ok",
     }
@@ -4310,7 +4266,7 @@ def test_production_create_checkpoint_returns_the_bundle_and_refuses_non_success
 
     assert host.create_checkpoint() == "b1"
     assert any(
-        "framenest-backup run-scheduled" in call for call in boundary.calls
+        "kronika-backup run-scheduled" in call for call in boundary.calls
     )
 
     boundary.backup_state = "failed"
@@ -4380,7 +4336,7 @@ def test_migration_unit_artifacts_exact_membership() -> None:
         "kronika.env.example",
     )
     assert engine.MIGRATION_EXPORT_ARTIFACT == (
-        "deploy/ubuntu/framenest-catalog-export-v1",
+        "/usr/local/libexec/framenest-catalog-export-v1",
         "deploy/ubuntu/kronika-catalog-export-v1",
     )
 

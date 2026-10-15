@@ -15,10 +15,10 @@ from kronika.configuration import KronikaSettings
 from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-backup"
-SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-catalog-backup.service"
-TIMER_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest-catalog-backup.timer"
-ENV_TEMPLATE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "framenest.env.example"
+BACKUP_CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-backup"
+SERVICE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-catalog-backup.service"
+TIMER_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika-catalog-backup.timer"
+ENV_TEMPLATE_PATH = REPOSITORY_ROOT / "deploy" / "systemd" / "kronika.env.example"
 SYSTEMD_DIR = REPOSITORY_ROOT / "deploy" / "systemd"
 
 
@@ -68,8 +68,8 @@ def _ops_env(tmp_path: Path, database: Path) -> dict[str, str]:
 
 
 def test_exactly_one_catalog_backup_timer_pair_exists() -> None:
-    services = sorted(SYSTEMD_DIR.glob("framenest-catalog-backup*.service"))
-    timers = sorted(SYSTEMD_DIR.glob("framenest-catalog-backup*.timer"))
+    services = sorted(SYSTEMD_DIR.glob("kronika-catalog-backup*.service"))
+    timers = sorted(SYSTEMD_DIR.glob("kronika-catalog-backup*.timer"))
     assert services == [SERVICE_PATH]
     assert timers == [TIMER_PATH]
 
@@ -80,17 +80,17 @@ def test_catalog_backup_service_contract() -> None:
     assert parser.read(SERVICE_PATH, encoding="utf-8") == [str(SERVICE_PATH)]
     service = parser["Service"]
     assert service["Type"] == "oneshot"
-    assert service["User"] == "framenest"
-    assert service["Group"] == "framenest"
-    assert service["WorkingDirectory"] == "/opt/framenest/current"
-    assert service["EnvironmentFile"] == "/etc/framenest/framenest.env"
+    assert service["User"] == "kronika"
+    assert service["Group"] == "kronika"
+    assert service["WorkingDirectory"] == "/opt/kronika/current"
+    assert service["EnvironmentFile"] == "/etc/kronika/kronika.env"
     assert (
         service["ExecStart"]
-        == "/opt/framenest/current/.venv/bin/framenest-backup run-scheduled"
+        == "/opt/kronika/current/.venv/bin/kronika-backup run-scheduled"
     )
     assert service["TimeoutStartSec"] == "30min"
     assert service["ProtectSystem"] == "strict"
-    assert service["StateDirectory"] == "framenest"
+    assert service["StateDirectory"] == "kronika"
     assert service["StateDirectoryMode"] == "0700"
     assert "ListenStream" not in service
     text = SERVICE_PATH.read_text(encoding="utf-8")
@@ -108,15 +108,21 @@ def test_catalog_backup_timer_schedule_contract() -> None:
     assert timer["Persistent"] == "yes"
     assert timer["RandomizedDelaySec"] == "900"
     assert timer["AccuracySec"] == "1min"
-    assert timer["Unit"] == "framenest-catalog-backup.service"
+    assert timer["Unit"] == "kronika-catalog-backup.service"
 
 
 def test_env_template_includes_catalog_backup_settings() -> None:
+    from kronika.infrastructure.persistence import catalog_backup_ops as ops
+
+    assert ops.DEFAULT_DATABASE_PATH == Path("/var/lib/kronika/catalog.sqlite3")
+    assert ops.DEFAULT_BACKUP_ROOT == Path("/var/lib/kronika/catalog-backups")
+    assert ops.DEFAULT_RESTORE_VERIFY_ROOT == Path("/var/lib/kronika/catalog-restore-verify")
+    assert ops.DEFAULT_OPS_ROOT == Path("/var/lib/kronika/catalog-backup-ops")
     text = ENV_TEMPLATE_PATH.read_text(encoding="utf-8")
-    assert "FRAMENEST_CATALOG_BACKUP_ROOT=/var/lib/framenest/catalog-backups" in text
-    assert "FRAMENEST_CATALOG_BACKUP_KEEP_AUTO=30" in text
-    assert "FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT=/var/lib/framenest/catalog-restore-verify" in text
-    assert "FRAMENEST_CATALOG_BACKUP_OPS_ROOT=/var/lib/framenest/catalog-backup-ops" in text
+    assert "KRONIKA_CATALOG_BACKUP_ROOT=/var/lib/kronika/catalog-backups" in text
+    assert "KRONIKA_CATALOG_BACKUP_KEEP_AUTO=30" in text
+    assert "KRONIKA_CATALOG_RESTORE_VERIFY_ROOT=/var/lib/kronika/catalog-restore-verify" in text
+    assert "KRONIKA_CATALOG_BACKUP_OPS_ROOT=/var/lib/kronika/catalog-backup-ops" in text
 
 
 def test_new_cli_commands_and_scheduled_pipeline(tmp_path: Path) -> None:

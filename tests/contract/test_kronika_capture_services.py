@@ -431,7 +431,7 @@ def test_capture_activation_switches_once_and_reports_both_shas(
     transcript = _ssh(runner)
     assert transcript.count("restart kronika-capture-runner.service") == 1
     assert "restart framenest.service" not in transcript
-    assert "framenest-db" not in transcript
+    assert "kronika-db" not in transcript
     assert "migrate" not in transcript
     assert _index(runner, "kronika-capture-work-gate") < _index(runner, "kronika-capture-brake-gate")
     assert _index(runner, "kronika-capture-brake-gate") < _index(runner, "kronika-capture-identity-snapshot")

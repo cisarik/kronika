@@ -4,7 +4,7 @@ set -l script_dir (dirname (status filename))
 set -l helper "$script_dir/production_ai_deploy.py"
 
 if not test -f "$helper"
-    echo "FrameNest production AI deployment helper is unavailable." >&2
+    echo "Kronika production AI deployment helper is unavailable." >&2
     exit 1
 end
 

@@ -80,7 +80,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="framenest-db", add_help=True)
+    parser = _ArgumentParser(prog="kronika-db", add_help=True)
     subcommands = parser.add_subparsers(dest="operation", required=True)
     subcommands.add_parser("migrate", help="Upgrade the Kronika database to head.")
     subcommands.add_parser("status", help="Inspect the Kronika database revision.")

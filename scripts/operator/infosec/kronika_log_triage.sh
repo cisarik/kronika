@@ -19,17 +19,14 @@
 # Read-only: runs journalctl without elevation; the invoking user needs the
 # usual journal read membership. No sudo, no writes outside its own temp dir.
 #
-# Environment variables (dual-prefix contract):
+# Environment variables:
 #   KRONIKA_LOG_UNIT            Optional. systemd unit name filter.
 #                               Default: kronika.service.
 #   KRONIKA_LOG_SINCE           Optional. Passed to journalctl --since.
 #   KRONIKA_SPIKE_THRESHOLD     Optional. Flag count above this. Default: 50.
 #   KRONIKA_JOURNALCTL_BIN      Optional. Default: journalctl.
 #
-# Every variable also accepts the retained FRAMENEST_ spelling until the
-# compatibility window closes. An empty value counts as unset. When both
-# spellings are set to different non-empty values, the script prints only the
-# two variable names and exits 2 without using either value.
+# Empty canonical values count as unset.
 #
 # Usage:
 #   kronika_log_triage.sh [-h]
@@ -41,22 +38,8 @@ set -euo pipefail
 export LC_ALL=C
 
 resolve_identity_env() {
-    local suffix="$1"
-    local primary_name="KRONIKA_${suffix}"
-    local compatible_name="FRAMENEST_${suffix}"
-    local primary="${!primary_name-}"
-    local compatible="${!compatible_name-}"
-    if [[ -z "${primary}" ]]; then
-        printf '%s' "${compatible}"
-        return 0
-    fi
-    if [[ -z "${compatible}" || "${primary}" == "${compatible}" ]]; then
-        printf '%s' "${primary}"
-        return 0
-    fi
-    printf '%s\n' \
-        "Conflicting environment variables ${primary_name} and ${compatible_name} are set to different values" >&2
-    return 2
+    local primary_name="KRONIKA_${1}"
+    printf '%s' "${!primary_name-}"
 }
 
 UNIT="$(resolve_identity_env LOG_UNIT)" || exit $?
@@ -74,8 +57,7 @@ Usage: kronika_log_triage.sh [-h]
 Summarizes security-relevant Kronika log-event and audit-marker counts from
 journalctl for one unit and optional time window. Prints counts only.
 
-Optional environment (canonical spelling; the retained FRAMENEST_ spelling is
-also accepted until the compatibility window closes):
+Optional environment (canonical spelling only):
   KRONIKA_LOG_UNIT=<unit>              (default: kronika.service)
   KRONIKA_LOG_SINCE=<journalctl --since value>
   KRONIKA_SPIKE_THRESHOLD=<count>      (default: 50)

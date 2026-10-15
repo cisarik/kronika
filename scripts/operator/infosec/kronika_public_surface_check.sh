@@ -12,16 +12,13 @@
 # This tool performs strictly unauthenticated read-only probes. It is source
 # material and grants no operational authority by itself.
 #
-# Environment variables (dual-prefix contract):
+# Environment variables:
 #   KRONIKA_PUBLIC_BASE_URL        Required. Origin base URL (http/https).
 #   KRONIKA_CURL_BIN               Optional. Default: curl.
 #   KRONIKA_SURFACE_CHECK_TIMEOUT  Optional. Per-request timeout seconds.
 #                                  Default: 10.
 #
-# Every variable also accepts the retained FRAMENEST_ spelling until the
-# compatibility window closes. An empty value counts as unset. When both
-# spellings are set to different non-empty values, the script prints only the
-# two variable names and exits 2 without using either value.
+# Empty canonical values count as unset.
 #
 # Usage:
 #   kronika_public_surface_check.sh [-h]
@@ -32,22 +29,8 @@ set -euo pipefail
 export LC_ALL=C
 
 resolve_identity_env() {
-    local suffix="$1"
-    local primary_name="KRONIKA_${suffix}"
-    local compatible_name="FRAMENEST_${suffix}"
-    local primary="${!primary_name-}"
-    local compatible="${!compatible_name-}"
-    if [[ -z "${primary}" ]]; then
-        printf '%s' "${compatible}"
-        return 0
-    fi
-    if [[ -z "${compatible}" || "${primary}" == "${compatible}" ]]; then
-        printf '%s' "${primary}"
-        return 0
-    fi
-    printf '%s\n' \
-        "Conflicting environment variables ${primary_name} and ${compatible_name} are set to different values" >&2
-    return 2
+    local primary_name="KRONIKA_${1}"
+    printf '%s' "${!primary_name-}"
 }
 
 BASE_URL="$(resolve_identity_env PUBLIC_BASE_URL)" || exit $?
@@ -65,8 +48,7 @@ unsafe-method, and malformed-UUID probes with one byte-identical sanitized
 404 envelope carrying Cache-Control: no-store and X-Content-Type-Options:
 nosniff.
 
-Required environment (canonical spelling; the retained FRAMENEST_ spelling is
-also accepted until the compatibility window closes):
+Required environment (canonical spelling only):
   KRONIKA_PUBLIC_BASE_URL=<origin base url>
 
 Optional environment:

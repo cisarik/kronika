@@ -9,7 +9,7 @@ import time
 from urllib.request import urlopen
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "framenest-dev"
+CONSOLE_SCRIPT = REPOSITORY_ROOT / ".venv" / "bin" / "kronika-dev"
 
 
 def _free_loopback_port() -> int:
