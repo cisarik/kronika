@@ -77,13 +77,11 @@ HEADER_X_FORWARDED_FOR = b"x-forwarded-for"
 HEADER_X_FORWARDED_PROTO = b"x-forwarded-proto"
 HEADER_X_FORWARDED_HOST = b"x-forwarded-host"
 HEADER_ORIGIN = b"origin"
-HEADER_MUTATION = b"x-framenest-request"
 HEADER_MUTATION_KRONIKA = b"x-kronika-request"
 HEADER_REQUEST_ID = b"x-request-id"
 
-#: Both accepted spellings of the mutation request header. A mutation gate only;
-#: neither spelling is an origin, CORS, or companion-origin credential.
-MUTATION_HEADERS = (HEADER_MUTATION, HEADER_MUTATION_KRONIKA)
+#: A mutation gate only, not an origin, CORS, or companion-origin credential.
+MUTATION_HEADERS = (HEADER_MUTATION_KRONIKA,)
 
 _REMOTE_MARKER_HEADERS = frozenset(
     {
@@ -866,7 +864,7 @@ class TailscaleIngressMiddleware:
                     status=403,
                     code=ERROR_MUTATION_HEADER_REQUIRED,
                     message=(
-                        "The FrameNest or Kronika mutation header is required "
+                        "The X-Kronika-Request mutation header is required "
                         "and must be exactly 1."
                     ),
                     request_id=request_id,
@@ -1134,21 +1132,13 @@ def _single_value(header_map: dict[bytes, list[bytes]], name: bytes) -> bytes | 
 def _mutation_header_authorized(header_map: dict[bytes, list[bytes]]) -> bool:
     """Return True when the mutation gate accepts the request headers.
 
-    Either accepted spelling authorizes a mutation on its own, and a spelling
-    that is present must carry exactly ``EXPECTED_MUTATION_HEADER_VALUE``. When
-    both spellings are present, both must carry it, so a request cannot present
-    one authorized spelling alongside a rejected one. A header that is absent
-    entirely never authorizes, exactly as before.
+    Only the canonical header carrying exactly ``EXPECTED_MUTATION_HEADER_VALUE``
+    authorizes. An absent header never authorizes; unrelated headers are ignored.
     """
-    present = False
-    for name in MUTATION_HEADERS:
-        value = _single_value(header_map, name)
-        if value is None:
-            continue
-        present = True
-        if value != EXPECTED_MUTATION_HEADER_VALUE:
-            return False
-    return present
+    return (
+        _single_value(header_map, HEADER_MUTATION_KRONIKA)
+        == EXPECTED_MUTATION_HEADER_VALUE
+    )
 
 
 def _decode_text(value: bytes | None) -> str | None:

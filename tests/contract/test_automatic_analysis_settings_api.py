@@ -56,7 +56,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
     return {
         **_serve_headers(login),
         "Origin": EXTERNAL_ORIGIN,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 
@@ -64,7 +64,7 @@ def _companion_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
     return {
         **_serve_headers(login, "User"),
         "Origin": COMPANION_ORIGIN,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 

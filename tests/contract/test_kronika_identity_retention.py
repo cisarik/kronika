@@ -237,7 +237,10 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # macOS, XDG and temporary layouts alongside their canonical counterparts.
     # No existing file left either content set: this cut renamed no path and
     # retired no spelling.
-    "src": 186,
+    # KSI-IMPL-C7B2A: src -1 (186 -> 185), extension -2 (2 -> 0).
+    # The host protocol asset and both extension reader files lose their last
+    # retired occurrence; exact content-path departures are recorded below.
+    "src": 185,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -331,7 +334,7 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     "deploy": 22,
     "scripts": 11,
     "docs": 88,
-    "extension": 2,
+    "extension": 0,
 }
 
 # Occurrence counts, not file counts. A content-only rename inside an already
@@ -550,7 +553,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # variable/message/default occurrences, -6 configuration occurrences,
     # -7 resolver occurrences and -2 retired recovery-command components.
     # The caller-free helper cleanup adds no retired spelling.
-    "src": 1630,
+    # KSI-IMPL-C7B2A: src -3 (1630 -> 1627): tailscale_ingress.py -2
+    # (retired header constant and dual-acceptance error message),
+    # adapters/api/web/companion_host.js -1 (retired protocol literal).
+    "src": 1627,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -794,7 +800,24 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # Part C scalar. Its six new pins are canonical brand literals in
     # tests/contract/test_kronika_product_string_agreement.py; that file was
     # already a content-path member, and the pins add no retired token.
-    "tests": 1883,
+    # KSI-IMPL-C7B2A: tests -73 (1883 -> 1810), from the exact file deltas:
+    # companion_review_extension -40 (canonical fixtures and migration/gate
+    # retirement, offset by the refusal and absence checks);
+    # browser_catalog_removal_evidence -1 and browser_companion_evidence -4
+    # (canonical synthetic request/probe fields, browser suites not activated);
+    # companion_settings_automatic_analysis -2 (canonical origin fixtures);
+    # tailscale_identity_frontend -4 (retired historical gate-model test);
+    # contract/test_kronika_mutation_header -3 (canonical-only contract and
+    # refusal matrix); test_local_web_application -1 (accepted-set pin);
+    # test_tailscale_ingress_security -6; test_ai_provider_admin_api -2;
+    # test_analysis_proposal -2; test_automatic_analysis_settings_api -2;
+    # test_companion_review_api -1; test_content_publication_unpublish -1;
+    # test_cover_ingress -1; test_ordinary_upload_ownership_boundary -1;
+    # test_public_published_uds -1 (canonical mutation request fixtures).
+    # test_kronika_product_string_agreement -1 (canonical rejection-message pin).
+    # companion_web_bridge and x_companion_extension each net 0. No test
+    # loses its last case-insensitive retired occurrence; file count stays 181.
+    "tests": 1810,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -843,7 +866,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # `ui/review.js` -2. The four that remain are the three retired readers in
     # `shared/messages.js` (API version, review alarm, origin key) and the
     # retired web-protocol literal in `ui/sidebar.js`.
-    "extension": 4,
+    # KSI-IMPL-C7B2A: extension -4 (4 -> 0): shared/messages.js -3
+    # (API version, origin key, alarm name) and ui/sidebar.js -1 (web protocol).
+    # The worker and picker simplify their callers without spelling the token.
+    "extension": 0,
 }
 
 # The exact tracked text paths, this ledger excluded, whose decoded content
@@ -969,6 +995,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # lines. The product-string inventory completion adds no entry and removes
 # none, so these four departures stay exact. This membership movement is
 # separate from the occurrence and capitalized-count movements.
+# KSI-IMPL-C7B2A removes exactly three content paths, with no additions:
+# extension/shared/messages.js, extension/ui/sidebar.js and
+# src/kronika/adapters/api/web/companion_host.js. Each loses its final retired
+# reader literal. All remain tracked; Part B stays at 20 and Part A is unmoved.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1094,8 +1124,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "docs/adr/0085-kronika-sole-identity.md",
         "docs/adr/README.md",
         "docs/provenance/kronika-capture.json",
-        "extension/shared/messages.js",
-        "extension/ui/sidebar.js",
         "kronika",
         "pyproject.toml",
         "scripts/operator/infosec/framenest_log_triage.sh",
@@ -1134,7 +1162,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/adapters/api/upload_api.py",
         "src/kronika/adapters/api/web/__init__.py",
         "src/kronika/adapters/api/web/app.js",
-        "src/kronika/adapters/api/web/companion_host.js",
         "src/kronika/adapters/api/workspace_media_api.py",
         "src/kronika/adapters/api/x_companion_api.py",
         "src/kronika/adapters/api/x_request_api.py",
@@ -1603,8 +1630,16 @@ MUTATION_HEADER = "X-FrameNest-Request"
 # `tests/companion_review_extension.test.js` -3: three request assertions now
 # name only the canonical header. The Class 1 absence check and the
 # server-gate model still name the retired header, so the test file stays.
-MUTATION_HEADER_OCCURRENCE_COUNT = 69
-MUTATION_HEADER_FILE_COUNT = 29
+# KSI-IMPL-C7B2A: occurrences -26 (69 -> 43), files -10 (29 -> 19).
+# All occurrence deltas are in tests: ingress -6; companion_review_extension
+# and tailscale_identity_frontend -3 each; mutation-header, provider-admin,
+# analysis-proposal and automatic-analysis-settings contracts -2 each;
+# companion-review, publication-unpublish, cover-ingress, ordinary-upload,
+# public-UDS and browser-catalog-removal fixtures -1 each. The ten file exits
+# are those fixture modules except mutation-header and the two JS contracts,
+# which retain refusal or deliberately retained shell-emission assertions.
+MUTATION_HEADER_OCCURRENCE_COUNT = 43
+MUTATION_HEADER_FILE_COUNT = 19
 
 # KSI-IMPL-C4A moved `/opt/framenest` by +6 and moved every other literal
 # nothing. The move itself is neutral: `framenest_release.py` loses 12 and
@@ -1830,8 +1865,19 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # (dual-read tests -4, parity -1, development-runtime defaults -6).
 # Files -1 (389 -> 388): only test_development_runtime.py loses its last
 # capitalized spelling. It retains lowercase tokens and stays in the content set.
-CAPITALIZED_OCCURRENCE_COUNT = 2663
-CAPITALIZED_FILE_COUNT = 388
+# KSI-IMPL-C7B2A: capitalized occurrences -28 (2663 -> 2635): src -1
+# (the ingress rejection message) plus tests -27 (the exact header deltas
+# recorded above and the product-string message pin -1).
+# Files -9 (388 -> 379): browser_catalog_removal_evidence,
+# test_ai_provider_admin_api, test_analysis_proposal,
+# test_automatic_analysis_settings_api, test_companion_review_api,
+# test_content_publication_unpublish, test_cover_ingress and
+# test_ordinary_upload_ownership_boundary and test_kronika_product_string_agreement.
+# They keep lowercase tokens and
+# remain in the content-path set. Environment, host, unit and console pins
+# are unchanged, as are deploy, scripts and docs per-tree measurements.
+CAPITALIZED_OCCURRENCE_COUNT = 2635
+CAPITALIZED_FILE_COUNT = 379
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

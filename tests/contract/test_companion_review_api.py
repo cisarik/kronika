@@ -94,7 +94,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN, origin: str = EXTERNAL_ORIGIN) -
     return {
         **_serve_headers(login, "Admin"),
         "Origin": origin,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 

@@ -49,7 +49,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
     return {
         **_serve_headers(login),
         "Origin": EXTERNAL_ORIGIN,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 
@@ -328,7 +328,7 @@ def test_authorization_matrix_and_audited_denial(
         headers={
             **_serve_headers(),
             "Origin": "https://attacker.example.ts.net",
-            "X-FrameNest-Request": "1",
+            "X-Kronika-Request": "1",
         },
         json=body,
     )

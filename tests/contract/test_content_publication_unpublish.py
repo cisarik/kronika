@@ -36,7 +36,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
     return {
         **_serve_headers(login, "Admin"),
         "Origin": EXTERNAL_ORIGIN,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 

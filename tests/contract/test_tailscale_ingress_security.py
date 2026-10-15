@@ -79,7 +79,7 @@ def _mutation_headers(login: str = ADMIN_LOGIN) -> dict[str, str]:
     return {
         **_serve_headers(login),
         "Origin": EXTERNAL_ORIGIN,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 
@@ -806,7 +806,7 @@ def test_duplicate_origin_is_rejected(tailscale_client) -> None:
             ("X-Forwarded-Host", EXTERNAL_HOST),
             ("Origin", EXTERNAL_ORIGIN),
             ("Origin", EXTERNAL_ORIGIN),
-            ("X-FrameNest-Request", "1"),
+            ("X-Kronika-Request", "1"),
             ("Content-Type", "application/json"),
         ],
         content=b'{"key": "epsilon", "display_name": "Epsilon"}',
@@ -818,7 +818,7 @@ def test_duplicate_origin_is_rejected(tailscale_client) -> None:
 def test_missing_mutation_header_is_rejected(tailscale_client) -> None:
     client, _ = tailscale_client
     headers = _mutation_headers()
-    del headers["X-FrameNest-Request"]
+    del headers["X-Kronika-Request"]
     response = client.post(
         "/api/canonical-tags",
         headers=headers,
@@ -1467,7 +1467,7 @@ def _companion_mutation_headers(login: str = USER_LOGIN) -> dict[str, str]:
     return {
         **_serve_headers(login, "User"),
         "Origin": COMPANION_ORIGIN,
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
     }
 
 
@@ -1582,7 +1582,7 @@ def test_spoofed_or_absent_companion_origin_is_rejected(companion_client) -> Non
         headers={
             **_serve_headers(USER_LOGIN, "User"),
             "Origin": SPOOFED_COMPANION_ORIGIN,
-            "X-FrameNest-Request": "1",
+            "X-Kronika-Request": "1",
         },
         json={"url": "https://x.com/a/status/123456789"},
     )
@@ -1590,7 +1590,7 @@ def test_spoofed_or_absent_companion_origin_is_rejected(companion_client) -> Non
         "/api/x/requests",
         headers={
             **_serve_headers(USER_LOGIN, "User"),
-            "X-FrameNest-Request": "1",
+            "X-Kronika-Request": "1",
         },
         json={"url": "https://x.com/a/status/123456789"},
     )

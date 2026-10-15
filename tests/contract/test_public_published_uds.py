@@ -347,7 +347,7 @@ def test_spoofed_tailscale_and_mutation_headers_do_not_widen_access(
         "Tailscale-User-Name": "Admin",
         "X-Forwarded-Proto": "https",
         "X-Forwarded-Host": "example.ts.net",
-        "X-FrameNest-Request": "1",
+        "X-Kronika-Request": "1",
         "Origin": "https://example.ts.net",
     }
     _not_found(client.get(f"/api/media/{UNPUBLISHED_ID}", headers=headers))

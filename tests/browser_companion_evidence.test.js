@@ -44,7 +44,7 @@ function startProbe(port, fixtureHtml) {
     probes.push({
       method: request.method,
       origin: request.headers.origin || "",
-      framenest: request.headers["x-framenest-request"] || "",
+      kronika: request.headers["x-kronika-request"] || "",
     });
     response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     response.end(JSON.stringify({ ok: true }));
@@ -253,13 +253,13 @@ test("synthetic browser evidence: extension Origin and composer DataTransfer", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-framenest-request": "1"
+          "x-kronika-request": "1"
         },
         body: "{}"
       }).then((r) => r.ok).catch((e) => String(e))`
     );
     assert.equal(fetched, true, `extension page fetch failed: ${fetched}`);
-    const originProbe = probe.probes.find((row) => row.method === "POST" && row.framenest === "1");
+    const originProbe = probe.probes.find((row) => row.method === "POST" && row.kronika === "1");
     assert.ok(originProbe, `companion POST probe missing: ${JSON.stringify(probe.probes)}`);
     assert.equal(originProbe.origin, expectedOrigin);
   } finally {

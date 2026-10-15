@@ -187,7 +187,7 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     # src/kronika/adapters/api/media_alias_api.py
     ("src/kronika/adapters/api/media_alias_api.py", "<module>", "Constant", 0): "Invalid Kronika media user alias.",
     # src/kronika/adapters/api/tailscale_ingress.py
-    ("src/kronika/adapters/api/tailscale_ingress.py", "__call__", "Constant", 0): "The FrameNest or Kronika mutation header is required and must be exactly 1.",
+    ("src/kronika/adapters/api/tailscale_ingress.py", "__call__", "Constant", 0): "The X-Kronika-Request mutation header is required and must be exactly 1.",
     # src/kronika/adapters/api/x_request_api.py
     ("src/kronika/adapters/api/x_request_api.py", "create_x_request_api_router.submit_x_request", "Constant", 0): "Invalid Kronika media user alias.",
     ("src/kronika/adapters/api/x_request_api.py", "create_x_request_api_router.submit_x_request", "Constant", 1): "Requested category conflicts with the existing Kronika save.",

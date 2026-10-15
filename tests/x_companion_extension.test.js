@@ -2576,16 +2576,16 @@ test("Save overlay pathFor uses companion seed surface and preselects X once", a
   assert.deepEqual(absent.chipLabels(), []);
 });
 
-test("Class 4: the shared origin resolver takes the current key, then the retired key, then nothing", () => {
+test("Class 4: the shared origin resolver reads only the canonical key", () => {
   const entry = companion.STORAGE.origin;
   assert.equal(entry.name, "kronikaOrigin");
-  assert.equal(entry.retiredName, "frameNestOrigin");
-  assert.deepEqual(companion.storageKeyRequest(entry), ["kronikaOrigin", "frameNestOrigin"]);
+  assert.equal(Object.hasOwn(entry, "retiredName"), false);
+  assert.deepEqual(companion.storageKeyRequest(entry), ["kronikaOrigin"]);
 
   assert.equal(
     companion.storageValue({ frameNestOrigin: "https://retired.example.ts.net" }, entry),
-    "https://retired.example.ts.net",
-    "retired only"
+    undefined,
+    "retired only is ignored"
   );
   assert.equal(
     companion.storageValue(
@@ -2599,13 +2599,26 @@ test("Class 4: the shared origin resolver takes the current key, then the retire
   assert.equal(companion.storageValue(null, entry), undefined, "no store at all");
   assert.equal(
     companion.storageValue({ kronikaOrigin: undefined, frameNestOrigin: "https://retired.example.ts.net" }, entry),
-    "https://retired.example.ts.net",
-    "an absent current key falls through to the retired key"
+    undefined,
+    "an absent canonical key never falls back"
   );
   assert.equal(
     companion.storageValue({ kronikaOrigin: "https://now.example.ts.net", frameNestOrigin: undefined }, entry),
     "https://now.example.ts.net"
   );
+});
+
+test("origin changes ignore the retired key and preserve canonical change values", () => {
+  const entry = companion.STORAGE.origin;
+  const canonical = { newValue: "https://now.example.ts.net" };
+  const retired = { newValue: "https://retired.example.ts.net" };
+  assert.equal(companion.storageChangeFor({ frameNestOrigin: retired }, entry), null);
+  assert.equal(companion.storageChangeFor({ kronikaOrigin: canonical }, entry), canonical);
+  assert.equal(companion.storageChangeFor({ kronikaOrigin: canonical, frameNestOrigin: retired }, entry), canonical);
+  assert.equal(companion.storageChangeFor({}, entry), null);
+  assert.equal(companion.storageChangeFor(null, entry), null);
+  const deletion = { oldValue: canonical.newValue };
+  assert.equal(companion.storageChangeFor({ kronikaOrigin: deletion }, entry), deletion);
 });
 
 test("Class 4: the picker and the side panel both read the origin through the shared resolver", () => {
@@ -2618,7 +2631,7 @@ test("Class 4: the picker and the side panel both read the origin through the sh
   assert.match(
     pickerSource,
     /storageChangeFor\(changes, companion\.STORAGE\.origin\)/,
-    "the picker must react to a write under either spelling"
+    "the picker reacts through the canonical change resolver"
   );
   assert.doesNotMatch(pickerSource, /changes\.frameNestOrigin/);
   assert.doesNotMatch(sidebarSource, /stored\.frameNestOrigin/);

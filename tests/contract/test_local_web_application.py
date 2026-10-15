@@ -267,7 +267,7 @@ def test_companion_host_asset_omits_wildcard_cors_and_wildcard_postmessage(
     body = response.text
     assert 'const PROTOCOL = "kronika.companion.web.v1";' in body
     assert (
-        'const ACCEPTED_WEB_PROTOCOLS = Object.freeze([PROTOCOL, "framenest.companion.web.v1"]);'
+        'const ACCEPTED_WEB_PROTOCOLS = Object.freeze([PROTOCOL]);'
         in body
     )
     assert "chrome-extension://omiihmnlkmieaafaphohakcgmbggppap" in body

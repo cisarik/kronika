@@ -173,7 +173,7 @@ def _prepare(tmp_path: Path) -> KronikaSettings:
 
 
 def _propose_headers() -> dict[str, str]:
-    return {"X-FrameNest-Request": "1", "Accept": "application/json"}
+    return {"X-Kronika-Request": "1", "Accept": "application/json"}
 
 
 def test_propose_creates_durable_row_visible_to_admin_after_fresh_engine(
@@ -422,7 +422,7 @@ def test_trusted_ingress_records_propose_audit_event(tmp_path: Path) -> None:
                 "X-Forwarded-Proto": "https",
                 "X-Forwarded-Host": "nuc-1.example.ts.net",
                 "Origin": "https://nuc-1.example.ts.net",
-                "X-FrameNest-Request": "1",
+                "X-Kronika-Request": "1",
                 "Accept": "application/json",
             },
         )

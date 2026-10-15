@@ -328,7 +328,7 @@ test("real browser: admin catalog removal retain-all flow", { skip: gated, timeo
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
-          "X-FrameNest-Request": "1",
+          "X-Kronika-Request": "1",
         },
         body: JSON.stringify({
           acknowledge_consequences: true,

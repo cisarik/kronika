@@ -102,7 +102,7 @@ function loadWorker(options) {
     storage: {
       local: {
         get() {
-          return Promise.resolve({ frameNestOrigin: state.origin });
+          return Promise.resolve({ kronikaOrigin: state.origin });
         },
         set() {
           return Promise.resolve();
@@ -278,7 +278,7 @@ function loadSidebar(options) {
     storage: {
       local: {
         get(keys, callback) {
-          const stored = { frameNestOrigin: opts.origin || "" };
+          const stored = { kronikaOrigin: opts.origin || "" };
           if (typeof callback === "function") {
             callback(stored);
           }

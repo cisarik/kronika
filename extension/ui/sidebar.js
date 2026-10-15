@@ -1,12 +1,9 @@
 (function () {
   const companion = globalThis.KronikaCompanion;
-  // The extension emits the canonical companion web protocol. The receive side
-  // still accepts the retired spelling so an un-refreshed server keeps working.
+  // The extension emits and accepts only the canonical companion web protocol.
   // Handshake, attach, hosted details and recovery are otherwise unchanged.
-  // Retired readers are removed in the removal cut.
   const WEB_PROTOCOL = "kronika.companion.web.v1";
-  const RETIRED_WEB_PROTOCOL = "framenest.companion.web.v1";
-  const ACCEPTED_WEB_PROTOCOLS = Object.freeze([WEB_PROTOCOL, RETIRED_WEB_PROTOCOL]);
+  const ACCEPTED_WEB_PROTOCOLS = Object.freeze([WEB_PROTOCOL]);
   const WEB_TYPES = Object.freeze({
     WEB_READY: "web_ready",
     HOST_HELLO: "host_hello",
@@ -72,7 +69,6 @@
   globalThis.KronikaSidebarBridge = {
     WEB_PROTOCOL,
     CURRENT_WEB_PROTOCOL: WEB_PROTOCOL,
-    RETIRED_WEB_PROTOCOL,
     ACCEPTED_WEB_PROTOCOLS,
     acceptCompanionWebProtocol,
     WEB_TYPES,
@@ -1079,11 +1075,6 @@
     companion.storageKeyRequest(companion.STORAGE.origin),
     (stored) => {
       const origin = companion.storageValue(stored, companion.STORAGE.origin) || "";
-      if (typeof companion.completeStoredEntryMigration === "function") {
-        void companion
-          .completeStoredEntryMigration(chrome.storage.local, companion.STORAGE.origin)
-          .catch(() => {});
-      }
       if (companion.acceptKronikaOrigin(origin)) {
         storedOrigin = origin;
         originInput.value = origin;

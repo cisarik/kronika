@@ -6,12 +6,8 @@
   root.KronikaCompanion = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const PROTOCOL = "kronika.companion.v1";
-  // The server emits `kronika-companion.v1`. This reader still accepts the
-  // retired spelling as well, and only a value that is neither one still counts
-  // as version skew. The retired reader is removed in the removal cut.
+  // Only the canonical server API version is accepted; any other value is skew.
   const API_VERSION = "kronika-companion.v1";
-  const RETIRED_API_VERSION = "framenest-companion.v1";
-  const ACCEPTED_API_VERSIONS = Object.freeze([API_VERSION, RETIRED_API_VERSION]);
   const MAX_ATTACH_BYTES = 32 * 1024 * 1024;
   const FETCH_TIMEOUT_MS = 60 * 1000;
   const CHUNK_BYTES = 24 * 1024;
@@ -60,7 +56,6 @@
   });
   const REVIEW_INBOX = Object.freeze({
     alarmName: "kronika.review-inbox",
-    retiredAlarmName: "framenest.review-inbox",
     explicitCollapsedKey: "reviewInboxExplicitCollapsed",
     seenRunIdKey: "reviewInboxSeenRunId",
     awaitingKey: "reviewInboxAwaitingAnalysis",
@@ -73,22 +68,15 @@
     maxLimit: 100,
   });
 
-  // Persisted browser identifiers keep the retired spelling readable until the
-  // removal cut. A reader takes the current name when it is present and the
-  // retired name only when the current one is absent. When a retired value is
-  // present, completeStoredEntryMigration writes the canonical value if needed,
-  // reads it back, and only then removes the retired entry. The canonical value
-  // wins when both are present, and a missing or mismatched readback leaves the
-  // retired entry in place. The only retired counterpart today is the origin key.
+  // Browser state uses canonical identifiers after the completed migration.
   const STORAGE = Object.freeze({
     origin: Object.freeze({
       name: "kronikaOrigin",
-      retiredName: "frameNestOrigin",
     }),
   });
 
   function storageKeyRequest(entry) {
-    return entry.retiredName ? [entry.name, entry.retiredName] : [entry.name];
+    return [entry.name];
   }
 
   // `chrome.storage.local.get` omits absent keys, so an absent current name
@@ -101,9 +89,6 @@
     if (stored[entry.name] !== undefined) {
       return stored[entry.name];
     }
-    if (entry.retiredName && stored[entry.retiredName] !== undefined) {
-      return stored[entry.retiredName];
-    }
     return undefined;
   }
 
@@ -114,72 +99,11 @@
     if (Object.prototype.hasOwnProperty.call(changes, entry.name)) {
       return changes[entry.name];
     }
-    if (entry.retiredName && Object.prototype.hasOwnProperty.call(changes, entry.retiredName)) {
-      return changes[entry.retiredName];
-    }
     return null;
   }
 
-  function storedEntryPresent(stored, key) {
-    return Boolean(
-      stored &&
-        typeof stored === "object" &&
-        Object.prototype.hasOwnProperty.call(stored, key) &&
-        stored[key] !== undefined
-    );
-  }
-
-  // Copies a retired browser value to its canonical key, verifies that readback,
-  // and only then removes the retired key. A failed readback does not remove.
-  async function completeStoredEntryMigration(storage, entry) {
-    if (!storage || typeof storage.get !== "function" || !entry || typeof entry.name !== "string") {
-      return { value: undefined, removed: false, verified: false, copied: false };
-    }
-    const retiredName = typeof entry.retiredName === "string" ? entry.retiredName : "";
-    const keys = retiredName ? [entry.name, retiredName] : [entry.name];
-    const stored = await storage.get(keys);
-    const canonicalPresent = storedEntryPresent(stored, entry.name);
-    const retiredPresent = Boolean(retiredName) && storedEntryPresent(stored, retiredName);
-    if (!retiredPresent) {
-      return {
-        value: canonicalPresent ? stored[entry.name] : undefined,
-        removed: false,
-        verified: true,
-        copied: false,
-      };
-    }
-    let expected = canonicalPresent ? stored[entry.name] : stored[retiredName];
-    let copied = false;
-    if (!canonicalPresent) {
-      const again = await storage.get(keys);
-      if (storedEntryPresent(again, entry.name)) {
-        expected = again[entry.name];
-      } else if (!storedEntryPresent(again, retiredName)) {
-        return { value: undefined, removed: false, verified: true, copied: false };
-      } else {
-        expected = again[retiredName];
-        await storage.set({ [entry.name]: expected });
-        copied = true;
-      }
-    }
-    const readback = await storage.get(keys);
-    if (!storedEntryPresent(readback, entry.name) || readback[entry.name] !== expected) {
-      let fallback = expected;
-      if (storedEntryPresent(readback, entry.name)) {
-        fallback = readback[entry.name];
-      } else if (retiredName && storedEntryPresent(readback, retiredName)) {
-        fallback = readback[retiredName];
-      }
-      return { value: fallback, removed: false, verified: false, copied: copied };
-    }
-    if (retiredName && typeof storage.remove === "function") {
-      await storage.remove(retiredName);
-    }
-    return { value: readback[entry.name], removed: true, verified: true, copied: copied };
-  }
-
   function acceptCompanionApiVersion(value) {
-    return ACCEPTED_API_VERSIONS.indexOf(value) !== -1;
+    return value === API_VERSION;
   }
 
   function isProtocolMessage(value) {
@@ -756,8 +680,6 @@
   return {
     PROTOCOL,
     API_VERSION,
-    RETIRED_API_VERSION,
-    ACCEPTED_API_VERSIONS,
     acceptCompanionApiVersion,
     MAX_ATTACH_BYTES,
     FETCH_TIMEOUT_MS,
@@ -773,7 +695,6 @@
     storageKeyRequest,
     storageValue,
     storageChangeFor,
-    completeStoredEntryMigration,
     isProtocolMessage,
     dropUnknown,
     isUuid,

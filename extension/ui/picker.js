@@ -324,11 +324,6 @@
   attachSelected.addEventListener("click", () => attachCurrent());
   chrome.storage.local.get(companion.storageKeyRequest(companion.STORAGE.origin), (stored) => {
     const origin = companion.storageValue(stored, companion.STORAGE.origin) || "";
-    if (typeof companion.completeStoredEntryMigration === "function") {
-      void companion
-        .completeStoredEntryMigration(chrome.storage.local, companion.STORAGE.origin)
-        .catch(() => {});
-    }
     if (applyOrigin(origin)) {
       void refresh();
     }

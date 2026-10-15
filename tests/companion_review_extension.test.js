@@ -73,6 +73,11 @@ function createChromeFake(options) {
     badgeText: "",
     badgeWrites: [],
     fetchCalls: [],
+    storageReads: [],
+    storageWrites: [],
+    storageRemovals: [],
+    alarmCreates: [],
+    alarmClears: [],
     installed: [],
     startup: [],
     alarmListeners: [],
@@ -191,13 +196,16 @@ function createChromeFake(options) {
     storage: {
       local: {
         get(keys) {
+          state.storageReads.push(keys);
           return Promise.resolve(pickStorage(keys));
         },
         set(values) {
+          state.storageWrites.push(values);
           Object.assign(storage, values);
           return Promise.resolve();
         },
         remove(keys) {
+          state.storageRemovals.push(keys);
           (Array.isArray(keys) ? keys : [keys]).forEach((key) => {
             delete storage[key];
           });
@@ -218,10 +226,12 @@ function createChromeFake(options) {
     },
     alarms: {
       create(name, info) {
+        state.alarmCreates.push(name);
         alarms[name] = Object.assign({ name: name }, info || {});
         return Promise.resolve();
       },
       clear(name) {
+        state.alarmClears.push(name);
         const existed = Object.prototype.hasOwnProperty.call(alarms, name);
         delete alarms[name];
         return Promise.resolve(existed);
@@ -639,7 +649,7 @@ test("every companion and served-prose display surface carries the manifest bran
   // and the retained mutation-header spelling. C7 owns the hooks, C4 the keys,
   // C3 the protocol strings and C7 the header; none of them is display text, so
   // they are excluded here by exact spelling rather than by file. The match is
-  // deliberately case-sensitive: `frameNestOrigin` and `KronikaCompanion`
+  // deliberately case-sensitive: `kronikaOrigin` and `KronikaCompanion`
   // style camel-case names never contain `FrameNest`, so excluding them here
   // would only hide a display string that regressed to the retired brand.
   const MACHINE_READ = /framenest|X-FrameNest/;
@@ -897,7 +907,7 @@ test("named one-minute alarm is created on configure and cleared on reset", asyn
 });
 
 test("alarm is ensured on install and startup when a valid origin is stored", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   assert.ok(worker.state.installed.length >= 1);
   assert.ok(worker.state.startup.length >= 1);
   Object.keys(worker.state.alarms).forEach((name) => {
@@ -914,7 +924,7 @@ test("alarm is ensured on install and startup when a valid origin is stored", as
 });
 
 test("badge refresh uses unopened_count, limit=1, and clears on 0, 403, and failure", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   worker.state.inboxBody = {
     items: [
       {
@@ -969,7 +979,7 @@ test("badge refresh uses unopened_count, limit=1, and clears on 0, 403, and fail
 
 test("ordinary badge refresh uses own-history limit=1 and does not call inbox", async () => {
   const worker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN },
+    storage: { kronikaOrigin: ORIGIN },
     identityBody: { capabilities: ["x.request"] },
   });
   worker.state.inboxBody = { items: [], unopened_count: 3, next_cursor: null };
@@ -990,7 +1000,7 @@ test("ordinary badge refresh uses own-history limit=1 and does not call inbox", 
 });
 
 test("alarm handler refreshes the badge and ignores other alarm names", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   assert.equal(worker.state.alarmListeners.length, 1);
   worker.state.inboxBody = { items: [], unopened_count: 4, next_cursor: null };
   worker.state.badgeText = "stay";
@@ -1003,7 +1013,7 @@ test("alarm handler refreshes the badge and ignores other alarm names", async ()
 });
 
 test("REVIEW_INBOX hides titles on 403 and does not fetch caller URLs", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   worker.state.inboxBody = {
     items: [
       {
@@ -1051,7 +1061,7 @@ test("REVIEW_INBOX hides titles on 403 and does not fetch caller URLs", async ()
 test("REVIEW_INBOX aggregates encoded cursor pages in server order", async () => {
   const cursor = "next page +/&=";
   const worker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN },
+    storage: { kronikaOrigin: ORIGIN },
     inboxResponses: [
       {
         status: 200,
@@ -1138,7 +1148,7 @@ test("REVIEW_INBOX rejects cursor cycles and later-page failures without partial
     next_cursor: "repeat",
   };
   const cycleWorker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN },
+    storage: { kronikaOrigin: ORIGIN },
     inboxResponses: [
       { status: 200, body: firstPage },
       {
@@ -1160,7 +1170,7 @@ test("REVIEW_INBOX rejects cursor cycles and later-page failures without partial
   assert.equal(cycleWorker.state.badgeText, "");
 
   const failedWorker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN },
+    storage: { kronikaOrigin: ORIGIN },
     inboxResponses: [
       { status: 200, body: firstPage },
       { status: 500, body: { items: [{ title: "also private" }] } },
@@ -1176,7 +1186,7 @@ test("REVIEW_INBOX rejects cursor cycles and later-page failures without partial
 });
 
 test("awaiting-analysis stores media UUIDs for 30 minutes and does not change badge math", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   const now = Date.now();
   worker.state.claimBody = {
     state: "completed",
@@ -1766,7 +1776,7 @@ test("ordinary own-history compact is newest five of any state", () => {
   );
 });
 
-test("side panel accepts both web protocol spellings and emits the canonical one", async () => {
+test("side panel refuses the retired web protocol and preserves canonical round trips", async () => {
   const retired = "framenest.companion.web.v1";
   const current = "kronika.companion.web.v1";
   const shell = loadSidebarShell({
@@ -1782,9 +1792,8 @@ test("side panel accepts both web protocol spellings and emits the canonical one
     },
   });
 
-  // The retired spelling an un-refreshed host still emits is accepted, and the
-  // reply the side panel posts back carries the canonical spelling.
-  const hello = shell.deliverWebMessage(retired, "web_ready");
+  // A canonical handshake is the positive control for the refusal matrix.
+  const hello = shell.deliverWebMessage(current, "web_ready");
   assert.equal(hello.length, 1);
   assert.equal(hello[0].message.v, current);
   assert.equal(hello[0].message.type, "host_hello");
@@ -1795,7 +1804,7 @@ test("side panel accepts both web protocol spellings and emits the canonical one
   assert.equal(secondHello[0].message.v, current);
   assert.equal(secondHello[0].message.type, "host_hello");
 
-  const refused = shell.deliverWebMessage(retired, "attach_request", { mediaId: "not-a-uuid" });
+  const refused = shell.deliverWebMessage(current, "attach_request", { mediaId: "not-a-uuid" });
   assert.equal(refused.length, 1);
   assert.equal(refused[0].message.v, current);
   assert.equal(refused[0].message.type, "attach_result");
@@ -1819,8 +1828,9 @@ test("side panel accepts both web protocol spellings and emits the canonical one
   assert.equal(results[0].message.payload.error, "composer_unbound");
   assert.equal(results[0].targetOrigin, ORIGIN);
 
-  // Anything that is neither spelling is refused, and nothing is posted back.
+  // Retired and unknown spellings are refused without replying.
   [
+    retired,
     "framenest.companion.web.v2",
     "kronika.companion.web.v2",
     "framenest.companion.review.v1",
@@ -1923,7 +1933,7 @@ test("cataloged asset helper keeps only UUID media ids", () => {
 });
 
 test("worker GET detail and POST opened/apply send W04 JSON only", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   worker.state.detailBody = {
     suggestions: [{ analysis_run_id: RUN_NEW, title: "Secret title" }],
     canonical: { display_title: "Now" },
@@ -2472,7 +2482,7 @@ test("review receipts render tag sources without replacing field receipts", () =
 });
 
 // ---------------------------------------------------------------------------
-// KSI-IMPL-C2 - identity compatibility window
+// Canonical identity boundary
 // ---------------------------------------------------------------------------
 
 function headerSpellings(init) {
@@ -2484,7 +2494,7 @@ function headerSpellings(init) {
 }
 
 test("Class 1: every extension send site carries only the canonical mutation header", async () => {
-  const fetchJsonWorker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const fetchJsonWorker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   await fetchJsonWorker.context.handle({
     v: companion.PROTOCOL,
     type: companion.TYPES.IDENTITY,
@@ -2492,7 +2502,7 @@ test("Class 1: every extension send site carries only the canonical mutation hea
   const jsonCall = fetchJsonWorker.state.fetchCalls[fetchJsonWorker.state.fetchCalls.length - 1];
   assert.deepEqual(headerSpellings(jsonCall.init), { retired: undefined, current: "1" });
 
-  const previewWorker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const previewWorker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   const preview = await previewWorker.context.handle({
     v: companion.PROTOCOL,
     type: companion.TYPES.PREVIEW_FETCH,
@@ -2505,7 +2515,7 @@ test("Class 1: every extension send site carries only the canonical mutation hea
   const previewCall = previewWorker.state.fetchCalls[previewWorker.state.fetchCalls.length - 1];
   assert.deepEqual(headerSpellings(previewCall.init), { retired: undefined, current: "1" });
 
-  const attachWorker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
+  const attachWorker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   attachWorker.state.messageListeners[0](
     { v: companion.PROTOCOL, type: companion.TYPES.IDENTITY },
     { tab: { id: 7 }, origin: "https://x.com" },
@@ -2536,9 +2546,9 @@ test("Class 1: every extension send site carries only the canonical mutation hea
   );
 });
 
-test("Class 2: the retired companion API version is accepted", async () => {
+test("Class 2: the retired companion API version disables the picker", async () => {
   const worker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN },
+    storage: { kronikaOrigin: ORIGIN },
     companionMediaBody: { companion_api_version: "framenest-companion.v1", items: [] },
   });
   const result = await worker.context.handle({
@@ -2546,13 +2556,14 @@ test("Class 2: the retired companion API version is accepted", async () => {
     type: companion.TYPES.PICKER_QUERY,
     payload: {},
   });
-  assert.equal(result.ok, true);
-  assert.equal(result.page.companion_api_version, "framenest-companion.v1");
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "version_skew");
+  assert.equal(result.disable, true);
 });
 
 test("Class 2: the current companion API version is accepted", async () => {
   const worker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN },
+    storage: { kronikaOrigin: ORIGIN },
     companionMediaBody: { companion_api_version: "kronika-companion.v1", items: [] },
   });
   const result = await worker.context.handle({
@@ -2567,7 +2578,7 @@ test("Class 2: the current companion API version is accepted", async () => {
 test("Class 2: any other companion API version still disables the picker", async () => {
   for (const version of ["framenest-companion.v2", "kronika-companion.v0", "", null, undefined, 7]) {
     const worker = loadWorker({
-      storage: { frameNestOrigin: ORIGIN },
+      storage: { kronikaOrigin: ORIGIN },
       companionMediaBody: { companion_api_version: version, items: [] },
     });
     const result = await worker.context.handle({
@@ -2598,233 +2609,131 @@ test("Class 3: the internal protocol names carry the current spelling and no ret
   assert.match(messagesSource, /const PROTOCOL = "kronika\.companion\.v1";/);
 });
 
-function memoryStorage(initial) {
-  const data = Object.assign({}, initial || {});
-  const ops = [];
-  return {
-    data,
-    ops,
-    async get(keys) {
-      ops.push("get");
-      const out = {};
-      const list = typeof keys === "string" ? [keys] : keys;
-      list.forEach((key) => {
-        if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined) {
-          out[key] = data[key];
-        }
-      });
-      return out;
-    },
-    async set(values) {
-      ops.push("set");
-      Object.assign(data, values);
-    },
-    async remove(keys) {
-      ops.push("remove");
-      (Array.isArray(keys) ? keys : [keys]).forEach((key) => {
-        delete data[key];
-      });
-    },
-  };
-}
-
-test("stored-origin migration covers old-only, canonical-only, both, neither and a failed readback", async () => {
-  const entry = companion.STORAGE.origin;
-  assert.deepEqual(
-    Object.keys(companion.STORAGE).filter((key) => companion.STORAGE[key].retiredName),
-    ["origin"]
-  );
-  assert.equal(entry.name, "kronikaOrigin");
-  assert.equal(entry.retiredName, "frameNestOrigin");
+// The completed migration's copy/readback/remove test and its memoryStorage
+// harness are retired in C7-B/2a with the migration helper. These checks prove
+// the current read boundary instead of exercising a deleted migration.
+test("stored origin and API exports expose only canonical readers", () => {
+  assert.deepEqual(companion.STORAGE.origin, { name: "kronikaOrigin" });
+  assert.equal(Object.hasOwn(companion, "completeStoredEntryMigration"), false);
+  assert.equal(Object.hasOwn(companion, "RETIRED_API_VERSION"), false);
+  assert.equal(Object.hasOwn(companion, "ACCEPTED_API_VERSIONS"), false);
+  assert.equal(Object.hasOwn(companion.REVIEW_INBOX, "retiredAlarmName"), false);
   assert.equal(companion.REVIEW_INBOX.alarmName, "kronika.review-inbox");
-  assert.equal(companion.REVIEW_INBOX.retiredAlarmName, "framenest.review-inbox");
-
-  const oldOnly = memoryStorage({ frameNestOrigin: ORIGIN, unrelatedToken: "keep" });
-  const migrated = await companion.completeStoredEntryMigration(oldOnly, entry);
-  assert.equal(migrated.verified, true);
-  assert.equal(migrated.removed, true);
-  assert.equal(migrated.copied, true);
-  assert.equal(migrated.value, ORIGIN);
-  assert.equal(oldOnly.data.kronikaOrigin, ORIGIN);
-  assert.equal(oldOnly.data.frameNestOrigin, undefined);
-  assert.equal(oldOnly.data.unrelatedToken, "keep");
-  assert.deepEqual(oldOnly.ops, ["get", "get", "set", "get", "remove"]);
-
-  const canonicalOnly = memoryStorage({ kronikaOrigin: ORIGIN });
-  const kept = await companion.completeStoredEntryMigration(canonicalOnly, entry);
-  assert.equal(kept.value, ORIGIN);
-  assert.equal(kept.removed, false);
-  assert.equal(kept.copied, false);
-  assert.equal(canonicalOnly.data.frameNestOrigin, undefined);
-
-  const bothSame = memoryStorage({ kronikaOrigin: ORIGIN, frameNestOrigin: ORIGIN });
-  const same = await companion.completeStoredEntryMigration(bothSame, entry);
-  assert.equal(same.value, ORIGIN);
-  assert.equal(same.removed, true);
-  assert.equal(same.copied, false);
-  assert.equal(bothSame.data.frameNestOrigin, undefined);
-
-  const retiredOrigin = "https://retired.example.ts.net";
-  const conflict = memoryStorage({ kronikaOrigin: ORIGIN, frameNestOrigin: retiredOrigin });
-  const won = await companion.completeStoredEntryMigration(conflict, entry);
-  assert.equal(won.value, ORIGIN);
-  assert.equal(won.copied, false);
-  assert.equal(conflict.data.kronikaOrigin, ORIGIN);
-  assert.equal(conflict.data.frameNestOrigin, undefined);
-
-  const empty = memoryStorage({});
-  const neither = await companion.completeStoredEntryMigration(empty, entry);
-  assert.equal(neither.value, undefined);
-  assert.equal(neither.removed, false);
-  assert.deepEqual(empty.data, {});
-
-  let reads = 0;
-  const interrupted = memoryStorage({ frameNestOrigin: ORIGIN });
-  const originalGet = interrupted.get.bind(interrupted);
-  interrupted.get = async function failingReadback(keys) {
-    reads += 1;
-    const stored = await originalGet(keys);
-    if (reads >= 3) {
-      delete stored.kronikaOrigin;
-    }
-    return stored;
-  };
-  const failed = await companion.completeStoredEntryMigration(interrupted, entry);
-  assert.equal(failed.verified, false);
-  assert.equal(failed.removed, false);
-  assert.equal(failed.value, ORIGIN);
-  assert.equal(interrupted.data.kronikaOrigin, ORIGIN);
-  assert.equal(interrupted.data.frameNestOrigin, ORIGIN);
-  assert.equal(interrupted.ops.includes("remove"), false);
+  assert.equal(companion.REVIEW_INBOX.explicitCollapsedKey, "reviewInboxExplicitCollapsed");
+  assert.equal(companion.REVIEW_INBOX.seenRunIdKey, "reviewInboxSeenRunId");
+  assert.equal(companion.REVIEW_INBOX.awaitingKey, "reviewInboxAwaitingAnalysis");
+  for (const source of [messagesSource, workerSource, sidebarSource, pickerJsSource]) {
+    assert.doesNotMatch(source, /completeStoredEntryMigration|retiredName|retiredAlarmName/);
+    assert.doesNotMatch(source, /frameNestOrigin|framenest\.review-inbox/);
+  }
 });
 
-test("Class 4: a retired-only origin is migrated, and a conflicting canonical value wins", async () => {
+function assertCanonicalStorageAccess(state) {
+  assert.ok(state.storageReads.length > 0, "the real reader must run");
+  for (const keys of [...state.storageReads, ...state.storageRemovals]) {
+    const names = typeof keys === "string" ? [keys] : keys;
+    assert.ok(Array.isArray(names), "no unbounded read of all stored keys");
+    assert.equal(names.includes("frameNestOrigin"), false);
+  }
+  for (const values of state.storageWrites) {
+    assert.equal(Object.hasOwn(values, "frameNestOrigin"), false);
+  }
+}
+
+test("Class 4: a retired-only origin is ignored, while a canonical origin still works", async () => {
   const retiredOnly = loadWorker({ storage: { frameNestOrigin: ORIGIN, unrelatedToken: "keep" } });
   const identity = await retiredOnly.context.handle({
-    v: companion.PROTOCOL,
-    type: companion.TYPES.IDENTITY,
+    v: companion.PROTOCOL, type: companion.TYPES.IDENTITY,
   });
-  assert.equal(identity.ok, true);
-  assert.ok(
-    retiredOnly.state.fetchCalls.some((call) => call.url.indexOf(ORIGIN) === 0),
-    "a retired-only origin must still authorise a request"
-  );
-  assert.equal(retiredOnly.state.storage.kronikaOrigin, ORIGIN);
-  assert.equal(retiredOnly.state.storage.frameNestOrigin, undefined);
+  assert.equal(identity.ok, false);
+  assert.equal(identity.error, "not_configured");
+  assert.equal(retiredOnly.state.fetchCalls.length, 0);
+  assert.equal(retiredOnly.state.storage.kronikaOrigin, undefined);
+  assert.equal(retiredOnly.state.storage.frameNestOrigin, ORIGIN);
   assert.equal(retiredOnly.state.storage.unrelatedToken, "keep");
+  assertCanonicalStorageAccess(retiredOnly.state);
 
   const both = loadWorker({
     storage: { frameNestOrigin: "https://retired.example.ts.net", kronikaOrigin: ORIGIN },
   });
   const preferred = await both.context.handle({
-    v: companion.PROTOCOL,
-    type: companion.TYPES.IDENTITY,
+    v: companion.PROTOCOL, type: companion.TYPES.IDENTITY,
   });
   assert.equal(preferred.ok, true);
-  assert.ok(
-    both.state.fetchCalls.every((call) => call.url.indexOf("https://retired.example.ts.net") !== 0),
-    "the current spelling wins when both are present"
-  );
+  assert.ok(both.state.fetchCalls.length > 0);
+  assert.ok(both.state.fetchCalls.every((call) => call.url.startsWith(ORIGIN + "/")));
   assert.equal(both.state.storage.kronikaOrigin, ORIGIN);
-  assert.equal(both.state.storage.frameNestOrigin, undefined);
+  assert.equal(both.state.storage.frameNestOrigin, "https://retired.example.ts.net");
+  assertCanonicalStorageAccess(both.state);
 });
 
-test("Class 4: configuring the origin writes the canonical key and drops the retired duplicate", async () => {
+test("Class 4: configuring the origin writes only the canonical key", async () => {
   const worker = loadWorker({ storage: { frameNestOrigin: "https://retired.example.ts.net" } });
   const result = await worker.context.handle({
-    v: companion.PROTOCOL,
-    type: companion.TYPES.CONFIGURE_ORIGIN,
+    v: companion.PROTOCOL, type: companion.TYPES.CONFIGURE_ORIGIN,
     payload: { origin: ORIGIN },
   });
   assert.equal(result.ok, true);
   assert.equal(worker.state.storage.kronikaOrigin, ORIGIN);
-  assert.equal(worker.state.storage.frameNestOrigin, undefined);
+  assert.equal(worker.state.storage.frameNestOrigin, "https://retired.example.ts.net");
+  assertCanonicalStorageAccess(worker.state);
 });
 
-test("Class 4: an explicit reset removes both origin spellings and does not resurrect the retired one", async () => {
-  const worker = loadWorker({
-    storage: { frameNestOrigin: ORIGIN, unrelatedToken: "keep" },
-  });
-  worker.state.alarms["framenest.review-inbox"] = { name: "framenest.review-inbox", periodInMinutes: 1 };
-  await worker.context.ensureReviewInboxAlarm();
-  assert.equal(worker.state.storage.kronikaOrigin, ORIGIN);
-  assert.equal(worker.state.storage.frameNestOrigin, undefined);
-  await worker.context.handle({ v: companion.PROTOCOL, type: companion.TYPES.RESET });
-  assert.equal(worker.state.storage.kronikaOrigin, undefined);
-  assert.equal(worker.state.storage.frameNestOrigin, undefined);
-  assert.equal(worker.state.storage.unrelatedToken, "keep");
-  assert.equal(worker.state.alarms["framenest.review-inbox"], undefined);
-  assert.equal(worker.state.alarms["kronika.review-inbox"], undefined);
-  const again = await worker.context.configuredOrigin();
-  assert.equal(again, null);
-  assert.equal(worker.state.storage.kronikaOrigin, undefined);
-  assert.equal(worker.state.storage.frameNestOrigin, undefined);
-});
-
-test("Class 4: the review-inbox alarm is created under the current name and the retired name still refreshes", async () => {
-  const worker = loadWorker({ storage: { frameNestOrigin: ORIGIN } });
-  await worker.context.ensureReviewInboxAlarm();
-  assert.equal(worker.state.alarms["kronika.review-inbox"].periodInMinutes, 1);
-  assert.equal(worker.state.alarms["framenest.review-inbox"], undefined);
-  worker.state.alarms["framenest.review-inbox"] = {
-    name: "framenest.review-inbox",
-    periodInMinutes: 1,
+test("Class 4: reset removes all owned canonical keys and cannot resurrect a retired origin", async () => {
+  const owned = {
+    kronikaOrigin: ORIGIN,
+    inflightClaims: [], adapterAcknowledged: true,
+    reviewInboxExplicitCollapsed: true, reviewInboxSeenRunId: RUN_NEW,
+    reviewInboxAwaitingAnalysis: [],
   };
-  const before = worker.state.fetchCalls.length;
-  worker.state.alarmListeners[0]({ name: "framenest.review-inbox" });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.ok(
-    worker.state.fetchCalls.length > before,
-    "the retired alarm name must still drive the badge refresh"
-  );
+  const worker = loadWorker({
+    storage: { ...owned, frameNestOrigin: ORIGIN, unrelatedToken: "keep" },
+  });
+  await worker.context.ensureReviewInboxAlarm();
+  assert.equal(worker.state.alarms[ALARM].periodInMinutes, 1);
+  await worker.context.handle({ v: companion.PROTOCOL, type: companion.TYPES.RESET });
+  for (const name of Object.keys(owned)) assert.equal(worker.state.storage[name], undefined, name);
+  assert.equal(worker.state.storage.frameNestOrigin, ORIGIN);
+  assert.equal(worker.state.storage.unrelatedToken, "keep");
+  assert.equal(worker.state.alarms[ALARM], undefined);
+  assert.equal(await worker.context.configuredOrigin(), null);
+  assertCanonicalStorageAccess(worker.state);
 });
 
-test("a configured companion clears the retired review alarm without disturbing the canonical alarm or badge", async () => {
+test("Class 4: only the canonical review-inbox alarm refreshes the badge", async () => {
   const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   await worker.context.ensureReviewInboxAlarm();
-  worker.state.alarms["framenest.review-inbox"] = {
-    name: "framenest.review-inbox",
-    periodInMinutes: 1,
-  };
+  assert.equal(worker.state.alarms[ALARM].periodInMinutes, 1);
+  assert.equal(worker.state.alarmListeners.length, 1);
+  for (const name of ["framenest.review-inbox", "kronika.review-inbox ", "unknown", undefined]) {
+    const before = worker.state.fetchCalls.length;
+    worker.state.alarmListeners[0]({ name });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(worker.state.fetchCalls.length, before, "refused " + String(name));
+  }
+  const before = worker.state.fetchCalls.length;
+  worker.state.alarmListeners[0]({ name: ALARM });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(worker.state.fetchCalls.length > before, "canonical alarm still refreshes");
+});
+
+test("alarm creation and clearing touch only the canonical alarm and preserve badge behavior", async () => {
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
+  await worker.context.ensureReviewInboxAlarm();
+  const retired = "framenest.review-inbox";
+  worker.state.alarms[retired] = { name: retired, periodInMinutes: 1 };
   worker.state.badgeText = "4";
   const writes = worker.state.badgeWrites.length;
   await worker.context.ensureReviewInboxAlarm();
-  assert.equal(worker.state.alarms["framenest.review-inbox"], undefined);
-  assert.equal(worker.state.alarms["kronika.review-inbox"].periodInMinutes, 1);
+  assert.equal(worker.state.alarms[ALARM].periodInMinutes, 1);
   assert.equal(worker.state.badgeText, "4");
   assert.equal(worker.state.badgeWrites.length, writes);
-  await worker.context.ensureReviewInboxAlarm();
-  assert.equal(worker.state.alarms["framenest.review-inbox"], undefined);
-  assert.equal(worker.state.alarms["kronika.review-inbox"].periodInMinutes, 1);
-  assert.equal(worker.state.badgeText, "4");
-  assert.equal(worker.state.badgeWrites.length, writes);
-});
-
-test("Order independence: both spellings are authorised by the pre-C1 gate and by the C1 gate", () => {
-  // Modelled from tailscale_ingress: the pre-C1 gate compares only its own
-  // spelling and ignores any other header; the C1 gate accepts either spelling
-  // and requires both to be 1 when both are present.
-  function preC1Gate(headers) {
-    const names = Object.keys(headers).map((name) => name.toLowerCase());
-    return !names.includes("x-kronika-request") || headers["X-Kronika-Request"] === "1";
-  }
-  function c1Gate(headers) {
-    const present = ["X-FrameNest-Request", "X-Kronika-Request"].filter(
-      (name) => Object.prototype.hasOwnProperty.call(headers, name)
-    );
-    if (!present.length) {
-      return false;
-    }
-    return present.every((name) => headers[name] === "1");
-  }
-
-  const sent = { "X-FrameNest-Request": "1", "X-Kronika-Request": "1", Accept: "application/json" };
-  assert.equal(preC1Gate(sent), true, "the pre-C1 gate must still authorise the request");
-  assert.equal(c1Gate(sent), true, "the C1 gate must authorise the request");
-  assert.equal(c1Gate({ "X-Kronika-Request": "1" }), true, "a C1-era sender stays authorised");
-  assert.equal(
-    preC1Gate({ "X-FrameNest-Request": "1" }),
-    true,
-    "the pre-cut extension stays authorised against the pre-C1 gate"
-  );
+  await worker.context.clearReviewInboxAlarmAndBadge();
+  assert.equal(worker.state.alarms[ALARM], undefined);
+  assert.equal(worker.state.alarms[retired].periodInMinutes, 1);
+  assert.equal(worker.state.badgeText, "");
+  assert.ok(worker.state.alarmCreates.length > 0);
+  assert.ok(worker.state.alarmClears.length > 0);
+  assert.ok(worker.state.alarmCreates.every((name) => name === ALARM));
+  assert.ok(worker.state.alarmClears.every((name) => name === ALARM));
 });

@@ -3,8 +3,7 @@ importScripts(chrome.runtime.getURL("shared/messages.js"));
 
 const companion = self.KronikaCompanion;
 let boundTabId = null;
-// The extension emits only the canonical mutation header. The server still
-// accepts the retired spelling until the removal cut, and no other header changes.
+// The extension and server use only the canonical mutation header.
 const MUTATION_REQUEST_HEADERS = Object.freeze({
   "X-Kronika-Request": "1",
 });
@@ -12,7 +11,6 @@ const ATTACH_PORT = "kronika-attach";
 let originQueue = Promise.resolve();
 const STORAGE_KEYS = Object.freeze({
   origin: companion.STORAGE.origin.name,
-  retiredOrigin: companion.STORAGE.origin.retiredName,
   inflight: "inflightClaims",
   acknowledged: "adapterAcknowledged",
   explicitCollapsed: companion.REVIEW_INBOX.explicitCollapsedKey,
@@ -20,8 +18,6 @@ const STORAGE_KEYS = Object.freeze({
   awaiting: companion.REVIEW_INBOX.awaitingKey,
 });
 const REVIEW_INBOX_ALARM = companion.REVIEW_INBOX.alarmName;
-const RETIRED_REVIEW_INBOX_ALARM = companion.REVIEW_INBOX.retiredAlarmName;
-const REVIEW_INBOX_ALARMS = Object.freeze([REVIEW_INBOX_ALARM, RETIRED_REVIEW_INBOX_ALARM]);
 const SUCCESSFUL_CLAIM_STATES = Object.freeze({
   completed: true,
   completed_partial: true,
@@ -65,7 +61,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 if (chrome.alarms && chrome.alarms.onAlarm) {
   chrome.alarms.onAlarm.addListener((alarm) => {
-    if (!alarm || REVIEW_INBOX_ALARMS.indexOf(alarm.name) === -1) {
+    if (!alarm || alarm.name !== REVIEW_INBOX_ALARM) {
       return;
     }
     void refreshReviewInboxBadge();
@@ -180,7 +176,6 @@ async function configureOrigin(payload) {
   }
   await enqueueOriginWork(async () => {
     await chrome.storage.local.set({ [STORAGE_KEYS.origin]: origin });
-    await companion.completeStoredEntryMigration(chrome.storage.local, companion.STORAGE.origin);
   });
   await ensureReviewInboxAlarm();
   await refreshReviewInboxBadge();
@@ -200,8 +195,7 @@ async function resetState() {
         /* optional */
       }
     }
-    // Reset removes every key this worker owns, including the retired origin,
-    // and does not write that retired value back.
+    // Reset removes every key this worker owns.
     await chrome.storage.local.remove(Object.values(STORAGE_KEYS));
     await clearReviewInboxAlarmAndBadge();
     return { ok: true };
@@ -433,11 +427,10 @@ async function dropInflight(claimId) {
 
 async function configuredOrigin() {
   return enqueueOriginWork(async () => {
-    const migrated = await companion.completeStoredEntryMigration(
-      chrome.storage.local,
-      companion.STORAGE.origin
+    const stored = await chrome.storage.local.get(
+      companion.storageKeyRequest(companion.STORAGE.origin)
     );
-    const origin = migrated && migrated.value;
+    const origin = companion.storageValue(stored, companion.STORAGE.origin);
     if (!companion.acceptKronikaOrigin(origin)) {
       return null;
     }
@@ -468,13 +461,6 @@ async function ensureReviewInboxAlarm() {
   } catch {
     return false;
   }
-  if (typeof chrome.alarms.clear === "function") {
-    try {
-      await Promise.resolve(chrome.alarms.clear(RETIRED_REVIEW_INBOX_ALARM));
-    } catch {
-      /* clearing an absent retired alarm is idempotent */
-    }
-  }
   return true;
 }
 
@@ -491,12 +477,10 @@ async function clearBadgeText() {
 
 async function clearReviewInboxAlarmAndBadge() {
   if (chrome.alarms && typeof chrome.alarms.clear === "function") {
-    for (const name of REVIEW_INBOX_ALARMS) {
-      try {
-        await Promise.resolve(chrome.alarms.clear(name));
-      } catch {
-        /* alarm may already be absent */
-      }
+    try {
+      await Promise.resolve(chrome.alarms.clear(REVIEW_INBOX_ALARM));
+    } catch {
+      /* alarm may already be absent */
     }
   }
   await clearBadgeText();

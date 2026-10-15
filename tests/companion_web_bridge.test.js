@@ -24,6 +24,7 @@ const CURRENT_WEB_PROTOCOL = "kronika.companion.web.v1";
 const MEDIA_ID = "11111111-1111-4111-8111-111111111111";
 const LOCATION_ID = "22222222-2222-4222-8222-222222222222";
 const REFUSED_WEB_PROTOCOLS = [
+  RETIRED_WEB_PROTOCOL,
   "framenest.companion.web.v2",
   "kronika.companion.web.v2",
   "framenest.companion.web",
@@ -110,15 +111,14 @@ function loadSidebarBridge() {
   return loadSidebarBridgeContext().KronikaSidebarBridge;
 }
 
-test("host and extension emit canonical and both still accept the retired spelling", () => {
+test("host and extension emit and accept only the canonical spelling", () => {
   const bridge = loadSidebarBridge();
   assert.equal(webHost.PROTOCOL, CURRENT_WEB_PROTOCOL);
   assert.equal(bridge.WEB_PROTOCOL, CURRENT_WEB_PROTOCOL);
-  assert.equal(bridge.RETIRED_WEB_PROTOCOL, RETIRED_WEB_PROTOCOL);
-  assert.deepEqual(webHost.ACCEPTED_WEB_PROTOCOLS, [CURRENT_WEB_PROTOCOL, RETIRED_WEB_PROTOCOL]);
+  assert.equal(Object.hasOwn(bridge, "RETIRED_WEB_PROTOCOL"), false);
+  assert.deepEqual(webHost.ACCEPTED_WEB_PROTOCOLS, [CURRENT_WEB_PROTOCOL]);
   assert.deepEqual(Array.from(bridge.ACCEPTED_WEB_PROTOCOLS), [
     CURRENT_WEB_PROTOCOL,
-    RETIRED_WEB_PROTOCOL,
   ]);
   assert.equal(Object.isFrozen(webHost.ACCEPTED_WEB_PROTOCOLS), true);
   assert.notEqual(webHost.PROTOCOL, companion.PROTOCOL);
@@ -318,13 +318,12 @@ test("shell accepts only the framed stored origin and UUID attach ids", () => {
   assert.doesNotMatch(sidebarSource, /payload\.url/);
 });
 
-test("the extension emits canonical and retains acceptance of the retired companion web protocol", () => {
+test("the extension refuses the retired companion web protocol", () => {
   const bridge = loadSidebarBridge();
   assert.equal(bridge.WEB_PROTOCOL, CURRENT_WEB_PROTOCOL);
-  assert.equal(bridge.RETIRED_WEB_PROTOCOL, RETIRED_WEB_PROTOCOL);
+  assert.equal(Object.hasOwn(bridge, "RETIRED_WEB_PROTOCOL"), false);
   assert.deepEqual(Array.from(bridge.ACCEPTED_WEB_PROTOCOLS), [
     CURRENT_WEB_PROTOCOL,
-    RETIRED_WEB_PROTOCOL,
   ]);
   const iframeWindow = {};
   const accepted = bridge.acceptIncomingWebMessage(
@@ -332,10 +331,8 @@ test("the extension emits canonical and retains acceptance of the retired compan
     iframeWindow,
     ORIGIN
   );
-  assert.ok(accepted);
-  assert.equal(accepted.v, RETIRED_WEB_PROTOCOL);
-  assert.equal(accepted.type, bridge.WEB_TYPES.WEB_READY);
-  assert.equal(bridge.acceptCompanionWebProtocol(RETIRED_WEB_PROTOCOL), true);
+  assert.equal(accepted, null);
+  assert.equal(bridge.acceptCompanionWebProtocol(RETIRED_WEB_PROTOCOL), false);
 });
 
 test("the extension accepts the canonical companion web protocol emitted by the host", () => {
@@ -372,9 +369,9 @@ test("any other companion web protocol spelling is refused with the existing sha
 
 test("every host send site emits canonical messages accepted by the extension", async (t) => {
   const { host, posted, send } = createHostHarness();
-  send(RETIRED_WEB_PROTOCOL, "host_hello");
+  send(CURRENT_WEB_PROTOCOL, "host_hello");
   const pending = host.attach(MEDIA_ID, LOCATION_ID);
-  send(RETIRED_WEB_PROTOCOL, "attach_result", { ok: true });
+  send(CURRENT_WEB_PROTOCOL, "attach_result", { ok: true });
   assert.deepEqual(await pending, { ok: true, error: undefined });
   assert.deepEqual(posted.map(({ message }) => message.type), [
     "web_ready", "host_ack", "attach_request",
@@ -412,7 +409,7 @@ test("extension open_details emits the canonical spelling and reaches the host",
   assert.deepEqual(opened, [MEDIA_ID]);
 });
 
-for (const protocol of [RETIRED_WEB_PROTOCOL, CURRENT_WEB_PROTOCOL]) {
+for (const protocol of [CURRENT_WEB_PROTOCOL]) {
   test(`host accepts HOST_HELLO with ${protocol} and contains listener failures`, () => {
     const { host, posted, send } = createHostHarness();
     const changes = [];
@@ -428,7 +425,7 @@ for (const protocol of [RETIRED_WEB_PROTOCOL, CURRENT_WEB_PROTOCOL]) {
 
   test(`host accepts ATTACH_RESULT with ${protocol} without coercing payloads`, async () => {
     const { host, posted, send } = createHostHarness();
-    send(RETIRED_WEB_PROTOCOL, "host_hello");
+    send(CURRENT_WEB_PROTOCOL, "host_hello");
     for (const ids of [[MEDIA_ID, "not-a-uuid"], ["not-a-uuid", LOCATION_ID]]) {
       assert.deepEqual(await host.attach(...ids), { ok: false, error: "invalid_attach" });
       assert.equal(posted.length, 2, "neither invalid identifier emits an attach request");
@@ -491,7 +488,7 @@ async function assertHostRefuses(protocol, overrides) {
   assert.deepEqual(await host.attach(MEDIA_ID, LOCATION_ID), { ok: false, error: "not_hosted" });
 
   // A valid control establishes a waiter; a refused result must leave it intact.
-  send(RETIRED_WEB_PROTOCOL, "host_hello");
+  send(CURRENT_WEB_PROTOCOL, "host_hello");
   assert.equal(host.isHosted(), true);
   let settled = false;
   const pending = host.attach(MEDIA_ID, LOCATION_ID).then((result) => {
@@ -504,13 +501,13 @@ async function assertHostRefuses(protocol, overrides) {
   assert.equal(settled, false, "refused result does not consume the waiter");
   assert.deepEqual(opened, [], "refused details does not notify listeners");
   assert.equal(posted.length, 3, "refused messages emit nothing");
-  send(RETIRED_WEB_PROTOCOL, "attach_result", { ok: false, error: "composer_unbound" });
+  send(CURRENT_WEB_PROTOCOL, "attach_result", { ok: false, error: "composer_unbound" });
   assert.deepEqual(await pending, { ok: false, error: "composer_unbound" });
-  send(RETIRED_WEB_PROTOCOL, "open_details", { mediaId: MEDIA_ID });
+  send(CURRENT_WEB_PROTOCOL, "open_details", { mediaId: MEDIA_ID });
   assert.deepEqual(opened, [MEDIA_ID], "a valid details control still opens");
 }
 
-test("host refuses every near-miss and unknown protocol on all three inbound branches", async () => {
+test("host refuses the retired protocol, every near-miss and unknown on all three inbound branches", async () => {
   for (const protocol of REFUSED_WEB_PROTOCOLS) {
     await assertHostRefuses(protocol);
   }
