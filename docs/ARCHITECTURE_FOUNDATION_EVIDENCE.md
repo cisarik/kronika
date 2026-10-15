@@ -1,8 +1,8 @@
-# FrameNest Architecture Foundation Evidence
+# Kronika Architecture Foundation Evidence
 
 ## 1. Document Status
 
-This document is an **evidence package** for the first FrameNest architecture decisions.
+This document is an **evidence package** for the first Kronika architecture decisions.
 
 It is **not** an Architecture Decision Record (ADR). It does **not** approve, select, or commit the project to any architecture option. The Orchestrator and Cooperator will decide **one question at a time**. No option in this document may be treated as accepted until an explicit ADR is later authorized and committed.
 
@@ -42,7 +42,7 @@ All five initial scaffold-gating decisions are now accepted. No application impl
 
 ---
 
-## 2. FrameNest Constraints Used for Evaluation
+## 2. Kronika Constraints Used for Evaluation
 
 The following approved constraints from committed project documentation frame this comparison:
 
@@ -137,7 +137,7 @@ Decision 1 is accepted per [ADR-0001](adr/0001-supported-python-version.md). Dec
 
 **Key unknowns**
 
-- Whether any FrameNest-specific dependency will require features added after 3.12.
+- Whether any Kronika-specific dependency will require features added after 3.12.
 
 #### Python 3.13
 
@@ -171,7 +171,7 @@ Decision 1 is accepted per [ADR-0001](adr/0001-supported-python-version.md). Dec
 
 - Newest runtime; highest risk of ecosystem lag for binary wheels and downstream testing.
 - Not the default `python3` on Fedora 42; deployment docs must be explicit about version selection.
-- Free-threading and other new runtime features are optional and not required by current FrameNest direction; they add review surface without current product benefit.
+- Free-threading and other new runtime features are optional and not required by current Kronika direction; they add review surface without current product benefit.
 
 **Key unknowns**
 
@@ -259,7 +259,7 @@ Decision 1 is accepted per [ADR-0001](adr/0001-supported-python-version.md). Dec
 
 **Verified fact:** FastAPI documentation states it uses Starlette for web parts and Pydantic for data parts.
 
-**Assessment (analysis):** Starlette should be treated as an **underlying ASGI component**, not the preferred application framework for FrameNest's first server skeleton. Choosing Starlette directly would require more manual composition for routing, validation, OpenAPI, and dependency patterns that FastAPI already integrates.
+**Assessment (analysis):** Starlette should be treated as an **underlying ASGI component**, not the preferred application framework for Kronika's first server skeleton. Choosing Starlette directly would require more manual composition for routing, validation, OpenAPI, and dependency patterns that FastAPI already integrates.
 
 ### 6.3 Comparison table
 
@@ -332,7 +332,7 @@ No directories may be created by this task. This section compares conceptual lay
 
 ```
 pyproject.toml
-src/framenest/
+src/kronika/
 tests/
 docs/
 # future: web/, desktop/ added later
@@ -360,7 +360,7 @@ pyproject.toml or per-app manifests
 
 ```
 pyproject.toml
-src/framenest/
+src/kronika/
 tests/
 docs/
 # reserved but not scaffolded: apps/web/, apps/desktop/ or frontend/
@@ -388,7 +388,7 @@ docs/
 
 **Strongest alternative:** **Option A** if the Cooperator wants the absolute minimum structure and accepts a later move.
 
-**Migration implications:** If web/desktop arrive later, add dedicated directories and optionally convert to a workspace managed by the selected Python tooling. Domain code should remain importable from `src/framenest/` to avoid server/UI coupling.
+**Migration implications:** If web/desktop arrive later, add dedicated directories and optionally convert to a workspace managed by the selected Python tooling. Domain code should remain importable from `src/kronika/` to avoid server/UI coupling.
 
 **Status:** Not accepted
 
@@ -422,7 +422,7 @@ This section compares strategies only. It does **not** choose a configuration li
 
 **Disadvantages:** More design work up front; precedence must be documented and tested.
 
-### 8.4 Assessment against FrameNest constraints
+### 8.4 Assessment against Kronika constraints
 
 | Criterion | A | B | C |
 |---|---|---|---|
@@ -482,7 +482,7 @@ Provisional recommendations only. Nothing here is accepted.
 | Framework overreach | Medium | High | Django+DRF breadth vs localhost API skeleton need | Prefer API-first framework; defer ORM/admin choices | Decision 3 ADR |
 | Premature monorepo complexity | Medium | Medium | Current repo is documentation-only; roadmap warns against oversized first implementation | Hybrid staged layout; no empty apps | Decision 4 ADR |
 | Hidden server dependency violating local-first | Low now; Medium later | Critical | Product invariants in `SPEC.md` | Keep desktop catalog path independent in layout and config boundaries | Domain ADR + scaffold task |
-| Configuration-secret leakage | Medium | Critical | Twelve-factor config guidance; FrameNest security rules | Layered config, ignored local env files, no secrets in Git | Decision 5 ADR |
+| Configuration-secret leakage | Medium | Critical | Twelve-factor config guidance; Kronika security rules | Layered config, ignored local env files, no secrets in Git | Decision 5 ADR |
 | macOS/Fedora divergence | Medium | Medium | Fedora 42 default `python3` is 3.13; macOS has system and python.org interpreters | Pin one project version; document both platforms explicitly | Decision 1 + deployment ADR |
 | Media-tool subprocess and packaging risk | Medium | High | yt-dlp requires Python >=3.10 and external ffmpeg binary; not a framework concern alone | Keep media integration behind adapters per `SPEC.md` | Acquisition-phase ADR |
 
@@ -569,7 +569,7 @@ Provisional recommendations only. Nothing here is accepted.
 
 ## 14. Questions for the Orchestrator and Cooperator
 
-1. **Supported Python version:** Should FrameNest standardize on Python 3.12, 3.13, or 3.14 for the first implementation phase, given the support-phase and Fedora/macOS evidence above?
+1. **Supported Python version:** Should Kronika standardize on Python 3.12, 3.13, or 3.14 for the first implementation phase, given the support-phase and Fedora/macOS evidence above?
 
 Future decision questions (not to be decided in this document):
 

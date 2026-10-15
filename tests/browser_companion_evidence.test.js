@@ -1,6 +1,6 @@
 // Gated synthetic browser evidence for the X companion origin and attach path.
 //
-// FRAMENEST_RUN_BROWSER_EVIDENCE=1. System Chrome / FRAMENEST_CHROME_BIN, loopback
+// KRONIKA_RUN_BROWSER_EVIDENCE=1. System Chrome / KRONIKA_CHROME_BIN, loopback
 // only, disposable profile, no Playwright, no saved user profile, no signed-in X.
 //
 // Chrome 137+ branded builds ignore --load-extension. Origin evidence uses
@@ -16,8 +16,8 @@ const net = require("node:net");
 const test = require("node:test");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
-const CHROME = process.env.FRAMENEST_CHROME_BIN || "google-chrome-stable";
-const gated = process.env.FRAMENEST_RUN_BROWSER_EVIDENCE !== "1";
+const CHROME = process.env.KRONIKA_CHROME_BIN || "google-chrome-stable";
+const gated = process.env.KRONIKA_RUN_BROWSER_EVIDENCE !== "1";
 const EXPECTED_EXTENSION_ID = "omiihmnlkmieaafaphohakcgmbggppap";
 
 function freePort() {

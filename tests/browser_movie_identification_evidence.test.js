@@ -1,6 +1,6 @@
 // Real-browser rendered evidence for movie identification status UX.
 //
-// Gated behind FRAMENEST_RUN_BROWSER_EVIDENCE=1. Uses system google-chrome-stable
+// Gated behind KRONIKA_RUN_BROWSER_EVIDENCE=1. Uses system google-chrome-stable
 // via DevTools Protocol over Node's built-in WebSocket. Synthetic media only.
 // No live NVIDIA calls. Loopback origin only.
 
@@ -14,10 +14,10 @@ const test = require("node:test");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const VENV_PYTHON = path.join(REPO_ROOT, ".venv", "bin", "python");
-const CHROME = process.env.FRAMENEST_CHROME_BIN || "google-chrome-stable";
+const CHROME = process.env.KRONIKA_CHROME_BIN || "google-chrome-stable";
 const MEDIA_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const LOC_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-const gated = process.env.FRAMENEST_RUN_BROWSER_EVIDENCE !== "1";
+const gated = process.env.KRONIKA_RUN_BROWSER_EVIDENCE !== "1";
 
 function freePort() {
   return new Promise((resolve, reject) => {

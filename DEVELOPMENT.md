@@ -1,17 +1,17 @@
-# FrameNest Development Launcher
+# Kronika Development Launcher
 
 ## Status
 
 This is the current browser-development workflow guide. It documents the local
 launcher that runs the pre-alpha web application in an external browser.
-Optional `FRAMENEST_LOCAL_OWNER_LOGIN` names a login that is already present
+Optional `KRONIKA_LOCAL_OWNER_LOGIN` names a login that is already present
 in the identity map. Loopback TCP and the local operator channel can use that
 mapped role. It does not create an administrator by itself, and it does not
 apply to the public published composition.
 
 Classification: development operator guide.
 
-Consumers: Cooperator, Orchestrator, Worker, and local FrameNest developers.
+Consumers: Cooperator, Orchestrator, Worker, and local Kronika developers.
 
 Retention: remains while the browser-development launcher exists.
 
@@ -32,7 +32,7 @@ launcher guide does not replace that contract.
 [ADR-0082](docs/adr/0082-kronika-one-product-and-private-records.md) and
 [ADR-0083](docs/adr/0083-modular-research-providers-and-administrator-curated-timeline.md)
 accept one Kronika in this repository. The commands below still describe the
-existing FrameNest development launcher. They do not start a research provider,
+existing Kronika development launcher. They do not start a research provider,
 start the parked capture service, or prove browser or provider readiness.
 
 The capture module is `src/kronika_capture`, command `kronika-capture`, and
@@ -61,7 +61,7 @@ Worker Python evidence uses that AP route, as recorded in
 local `poetry run pytest` command later in this guide is the operator launcher
 workflow, not a second Worker route. JavaScript evidence uses `node --test`.
 
-NUC releases continue through `deploy/ubuntu/framenest-release`. Do not add
+NUC releases continue through `deploy/ubuntu/kronika-release`. Do not add
 another deployment system. Host tooling, services, ports, browser readiness
 and research-credential provisioning require separately authorized preflight
 before host changes. Login and profile operations belong to the Cooperator.
@@ -76,8 +76,8 @@ From the repository root:
 ```text
 git submodule update --init --recursive
 ./.ap/ap doctor
-./framenest setup
-./framenest start
+./kronika setup
+./kronika start
 ```
 
 The AP doctor validates the pinned canonical Analytic Programming submodule and
@@ -85,7 +85,7 @@ the managed block in [AGENTS.md](AGENTS.md). It does not replace product tests.
 
 `setup` locates the uv-managed CPython `3.13.14`, installs it with `uv` if it is
 missing, configures Poetry to use that interpreter with `.venv/`, and runs
-`poetry install --no-interaction`. Re-run `./framenest setup` after committed
+`poetry install --no-interaction`. Re-run `./kronika setup` after committed
 dependency or lockfile changes. `uv` here is only the interpreter provider;
 Poetry remains the dependency and lockfile authority. Do not adopt an untracked
 `uv.lock`. Ordinary Workers must not casually recreate, move, symlink, or
@@ -98,22 +98,22 @@ project environment or installed controller is missing.
 ## Commands
 
 ```text
-./framenest setup              Prepare the Poetry environment.
-./framenest start              Start, migrate, wait for health, and open a browser.
-./framenest start --no-open    Start without opening a browser.
-./framenest stop               Stop only the verified launcher-owned server.
-./framenest restart            Verified stop, then start.
-./framenest restart --no-open  Restart without opening a browser.
-./framenest status             Show managed process, database, and log state.
-./framenest open               Open the healthy managed server.
-./framenest logs               Show recent server log lines.
-./framenest logs --follow      Follow the development server log.
-./framenest --help             Show wrapper help.
-./framenest <command> --help   Show command help.
+./kronika setup              Prepare the Poetry environment.
+./kronika start              Start, migrate, wait for health, and open a browser.
+./kronika start --no-open    Start without opening a browser.
+./kronika stop               Stop only the verified launcher-owned server.
+./kronika restart            Verified stop, then start.
+./kronika restart --no-open  Restart without opening a browser.
+./kronika status             Show managed process, database, and log state.
+./kronika open               Open the healthy managed server.
+./kronika logs               Show recent server log lines.
+./kronika logs --follow      Follow the development server log.
+./kronika --help             Show wrapper help.
+./kronika <command> --help   Show command help.
 ```
 
 The launcher does not implement client start/stop commands. The current client
-is an external browser tab, and FrameNest does not close browser processes.
+is an external browser tab, and Kronika does not close browser processes.
 
 ## Runtime Locations
 
@@ -121,22 +121,22 @@ On ordinary macOS development hosts, launcher-owned data is outside the Git
 worktree:
 
 ```text
-~/Library/Application Support/FrameNest/development/catalog.sqlite3
-~/Library/Application Support/FrameNest/development/runtime/
-~/Library/Logs/FrameNest/development/server.log
+~/Library/Application Support/Kronika/development/catalog.sqlite3
+~/Library/Application Support/Kronika/development/runtime/
+~/Library/Logs/Kronika/development/server.log
 ```
 
 The runtime state directory stores the managed process state and operation lock.
-The log file contains the managed child process output used by `./framenest
+The log file contains the managed child process output used by `./kronika
 logs`.
 
-The launcher honors an existing absolute `FRAMENEST_DATABASE_PATH`. Tests and
+The launcher honors an existing absolute `KRONIKA_DATABASE_PATH`. Tests and
 manual disposable runs may also use:
 
 ```text
-FRAMENEST_DEVELOPMENT_RUNTIME_DIR=/absolute/path/to/runtime
-FRAMENEST_DEVELOPMENT_LOG_DIR=/absolute/path/to/log-directory
-FRAMENEST_PORT=8123
+KRONIKA_DEVELOPMENT_RUNTIME_DIR=/absolute/path/to/runtime
+KRONIKA_DEVELOPMENT_LOG_DIR=/absolute/path/to/log-directory
+KRONIKA_PORT=8123
 ```
 
 Overrides must be absolute paths. They are launcher/runtime inputs only and are
@@ -161,31 +161,31 @@ receipts are the evidence required before that switch.
 
 ## Local `.env` And Explicit Environment Files
 
-FrameNest commands never read a `.env` file from the caller's current working
+Kronika commands never read a `.env` file from the caller's current working
 directory. An environment file is applied only when explicitly requested
-through the `FRAMENEST_ENV_FILE` environment variable or the explicit
+through the `KRONIKA_ENV_FILE` environment variable or the explicit
 `load_settings(env_file=...)` parameter. A missing or unreadable explicit
 file fails closed with a sanitized error; process environment variables keep
 the highest precedence.
 
 For launcher-driven development commands (`ai`, `backup`, `library`,
 `previews`, `youtube`), the launcher deterministically exposes a regular
-non-symlink repository-root `.env` as `FRAMENEST_ENV_FILE` when one exists
+non-symlink repository-root `.env` as `KRONIKA_ENV_FILE` when one exists
 and the operator has not already set the variable. An ignored local `.env`
 anywhere else is never discovered implicitly. Direct `poetry run` usage can
 opt in explicitly:
 
 ```text
-FRAMENEST_ENV_FILE=.env poetry run framenest-db status
+KRONIKA_ENV_FILE=.env poetry run kronika-db status
 ```
 
-The managed development server (`./framenest start`, `framenest-dev`) resolves
+The managed development server (`./kronika start`, `kronika-dev`) resolves
 its own explicit settings and never reads an environment file.
-`framenest-production` likewise reads only the process environment.
+`kronika-production` likewise reads only the process environment.
 
 ## Start And Migration
 
-`./framenest start` enforces loopback host `127.0.0.1`, resolves the development
+`./kronika start` enforces loopback host `127.0.0.1`, resolves the development
 database, migrates it to the packaged Alembic head, starts a detached server
 using the current Poetry environment's Python, writes managed state atomically,
 waits for `GET /health` to return `{"status": "ok"}`, and opens the default
@@ -194,7 +194,7 @@ browser unless `--no-open` was supplied.
 The raw server command remains a lower-level foreground boundary:
 
 ```text
-poetry run framenest-server
+poetry run kronika-server
 ```
 
 That command does not migrate automatically, does not manage background state,
@@ -225,12 +225,12 @@ replace, or kill that process.
 Use:
 
 ```text
-./framenest logs
-./framenest logs --follow
+./kronika logs
+./kronika logs --follow
 ```
 
-The command reads only the FrameNest development log. It does not classify
-wrapper, Poetry, or shell diagnostics as FrameNest structured application
+The command reads only the Kronika development log. It does not classify
+wrapper, Poetry, or shell diagnostics as Kronika structured application
 records, and it does not delete or rotate logs.
 
 ## Recovery
@@ -239,7 +239,7 @@ If status is `stale`, the recorded launcher-owned process no longer exists.
 `start` and `stop` can clear stale launcher state safely.
 
 If status is `conflict`, inspect the message and stop the unrelated process
-through the tool that started it, or choose a different `FRAMENEST_PORT`. The
+through the tool that started it, or choose a different `KRONIKA_PORT`. The
 launcher does not use broad process search, `pkill`, `killall`, port-based
 killing, or automatic force-kill recovery.
 
@@ -264,7 +264,7 @@ node --test tests/<name>.test.js
 Opt-in repository browser evidence (system Chrome/CDP, not Playwright authority):
 
 ```text
-FRAMENEST_RUN_BROWSER_EVIDENCE=1 node --test tests/browser_<name>_evidence.test.js
+KRONIKA_RUN_BROWSER_EVIDENCE=1 node --test tests/browser_<name>_evidence.test.js
 ```
 
 ## Manual No-Browser Run
@@ -272,13 +272,13 @@ FRAMENEST_RUN_BROWSER_EVIDENCE=1 node --test tests/browser_<name>_evidence.test.
 For disposable validation:
 
 ```text
-FRAMENEST_DATABASE_PATH=/tmp/framenest-dev/catalog.sqlite3 \
-FRAMENEST_DEVELOPMENT_RUNTIME_DIR=/tmp/framenest-dev/runtime \
-FRAMENEST_DEVELOPMENT_LOG_DIR=/tmp/framenest-dev/logs \
-FRAMENEST_PORT=8123 \
-./framenest start --no-open
+KRONIKA_DATABASE_PATH=/tmp/kronika-dev/catalog.sqlite3 \
+KRONIKA_DEVELOPMENT_RUNTIME_DIR=/tmp/kronika-dev/runtime \
+KRONIKA_DEVELOPMENT_LOG_DIR=/tmp/kronika-dev/logs \
+KRONIKA_PORT=8123 \
+./kronika start --no-open
 ```
 
-Use `./framenest stop` with the same environment values to stop that managed
-server. To completely stop FrameNest browser-development mode, stop the managed
+Use `./kronika stop` with the same environment values to stop that managed
+server. To completely stop Kronika browser-development mode, stop the managed
 server and close any external browser tabs manually.

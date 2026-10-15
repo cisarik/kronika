@@ -48,8 +48,8 @@ from kronika.infrastructure.persistence.media_repository import SqliteMediaRepos
 from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("FRAMENEST_RUN_REAL_MEDIA_TOOLS") != "1",
-    reason="Set FRAMENEST_RUN_REAL_MEDIA_TOOLS=1 to run real-tool cover workflow tests.",
+    os.environ.get("KRONIKA_RUN_REAL_MEDIA_TOOLS") != "1",
+    reason="Set KRONIKA_RUN_REAL_MEDIA_TOOLS=1 to run real-tool cover workflow tests.",
 )
 
 MEDIA_MP4 = MediaId.from_string("11111111-1111-4111-8111-111111111111")

@@ -11,18 +11,18 @@ network authority.
 
 | File | Role |
 |---|---|
-| `framenest_mullvad_egress.sh` | Shared Bash implementation for CachyOS and Ubuntu |
-| `framenest_mullvad_egress.fish` | Thin `ahw` wrapper around the Bash script |
-| `framenest_nuc_worker_gate.fish` | Strict noninteractive SSH transport to the NUC |
+| `kronika_mullvad_egress.sh` | Shared Bash implementation for CachyOS and Ubuntu |
+| `kronika_mullvad_egress.fish` | Thin `ahw` wrapper around the Bash script |
+| `kronika_nuc_worker_gate.fish` | Strict noninteractive SSH transport to the NUC |
 
 ## Interface
 
 ```text
-framenest_mullvad_egress.sh status
-framenest_mullvad_egress.sh enable --node <mullvad-node>.mullvad.ts.net
-framenest_mullvad_egress.sh disable
-framenest_mullvad_egress.sh verify
-framenest_mullvad_egress.sh recover
+kronika_mullvad_egress.sh status
+kronika_mullvad_egress.sh enable --node <mullvad-node>.mullvad.ts.net
+kronika_mullvad_egress.sh disable
+kronika_mullvad_egress.sh verify
+kronika_mullvad_egress.sh recover
 ```
 
 The Fish wrapper accepts the same arguments and returns the Bash exit status.
@@ -38,7 +38,7 @@ launchd socket when `gpgconf` is unavailable.
 
 Production resolves `tailscale`, `curl`, and related tools from a bounded
 trusted PATH and never executes a current-directory binary. Tests may set
-`FRAMENEST_NETWORK_TEST_HOOKS=1` plus absolute fake tool paths. Darwin agent
+`KRONIKA_NETWORK_TEST_HOOKS=1` plus absolute fake tool paths. Darwin agent
 fallback tests may also supply simulated platform, socket, owner, prefix, and
 liveness outcomes through that same hook namespace. Those hooks are not a
 production interface.

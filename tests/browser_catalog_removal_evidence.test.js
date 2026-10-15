@@ -1,5 +1,5 @@
 // Real-browser acceptance for administrator catalog removal.
-// Gated behind FRAMENEST_RUN_BROWSER_EVIDENCE=1. Disposable catalog/files only.
+// Gated behind KRONIKA_RUN_BROWSER_EVIDENCE=1. Disposable catalog/files only.
 
 const assert = require("node:assert/strict");
 const { spawn, spawnSync } = require("node:child_process");
@@ -11,8 +11,8 @@ const test = require("node:test");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const VENV_PYTHON = path.join(REPO_ROOT, ".venv", "bin", "python");
-const CHROME = process.env.FRAMENEST_CHROME_BIN || "google-chrome-stable";
-const gated = process.env.FRAMENEST_RUN_BROWSER_EVIDENCE !== "1";
+const CHROME = process.env.KRONIKA_CHROME_BIN || "google-chrome-stable";
+const gated = process.env.KRONIKA_RUN_BROWSER_EVIDENCE !== "1";
 const MEDIA_ID = "11111111-1111-4111-8111-111111111111";
 const LOCATION_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -53,7 +53,7 @@ from kronika.infrastructure.persistence.migrations import upgrade_database_to_he
 
 DB, MEDIA, PREVIEWS, COVER_ROOT, THUMBS, PORT = sys.argv[1:7]
 PORT = int(PORT)
-ROLE = os.environ.get("FRAMENEST_BROWSER_ROLE", "admin")
+ROLE = os.environ.get("KRONIKA_BROWSER_ROLE", "admin")
 upgrade_database_to_head(KronikaSettings(database_path=DB, _env_file=None))
 MEDIA_ID = "11111111-1111-4111-8111-111111111111"
 LOCATION_ID = "33333333-3333-4333-8333-333333333333"
@@ -140,7 +140,7 @@ function startServer(workdir, port, mediaDir, role) {
   const thumbs = path.join(workdir, "thumbnails");
   const proc = spawn(VENV_PYTHON, ["-u", "-", db, mediaDir, previews, coverRoot, thumbs, String(port)], {
     cwd: workdir,
-    env: { ...process.env, FRAMENEST_BROWSER_ROLE: role, LD_LIBRARY_PATH: "" },
+    env: { ...process.env, KRONIKA_BROWSER_ROLE: role, LD_LIBRARY_PATH: "" },
     stdio: ["pipe", "pipe", "pipe"],
   });
   proc.stdin.write(pythonBootstrapScript());

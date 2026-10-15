@@ -1,4 +1,4 @@
-# FrameNest Roadmap
+# Kronika Roadmap
 
 ## Roadmap Principles
 
@@ -77,7 +77,7 @@ native share apps, providers other than the selected OpenAI Responses provider
 and the parked capture module, internet publication and production hardening
 are outside this sequence. The existing release helper remains the only
 deployment system. ADR-0085 is the sole-identity authority; it is implemented as
-an ordered sequence of bounded cuts rather than a mass `framenest` rename.
+an ordered sequence of bounded cuts rather than a mass `kronika` rename.
 
 ## Earlier MacBook MVP Convergence (Foundation History)
 
@@ -123,7 +123,7 @@ Goal: establish a safe public repository and working protocol.
 
 Key deliverables: public repository, safety perimeter, security policy,
 canonical pinned Analytic Programming integration through `.ap/`, root
-[AGENTS.md](AGENTS.md) for FrameNest-specific rules, and product foundation.
+[AGENTS.md](AGENTS.md) for Kronika-specific rules, and product foundation.
 
 Entry conditions: empty verified repository.
 
@@ -161,7 +161,7 @@ Accepted so far:
 - macOS Python interpreter provider: `uv` for CPython 3.13.14 on Apple Silicon macOS through [ADR-0006](docs/adr/0006-macos-python-interpreter-provider.md).
 - Python settings library: `pydantic-settings` through [ADR-0007](docs/adr/0007-settings-library.md).
 - Initial ASGI runtime: Uvicorn through [ADR-0008](docs/adr/0008-asgi-runtime.md).
-- Initial structured logging approach: standard-library `logging` with a FrameNest-owned JSON formatter and redaction boundary through [ADR-0009](docs/adr/0009-structured-logging-approach.md); implementation complete.
+- Initial structured logging approach: standard-library `logging` with a Kronika-owned JSON formatter and redaction boundary through [ADR-0009](docs/adr/0009-structured-logging-approach.md); implementation complete.
 - Initial SQLite persistence and migration foundation: synchronous SQLAlchemy Core with Alembic through [ADR-0010](docs/adr/0010-initial-persistence-foundation.md); minimal explicit migration implementation complete.
 - Stable domain identities: application-owned UUIDv4 values with category-specific pure-domain types through [ADR-0011](docs/adr/0011-stable-domain-identities.md); minimal identity primitives implemented.
 - Local web application delivery through packaged vanilla HTML/CSS/JavaScript assets through [ADR-0017](docs/adr/0017-initial-local-web-application-delivery.md); implementation complete.
@@ -177,8 +177,8 @@ Accepted so far:
 - Persistent display-title and canonical-tag core through [ADR-0027](docs/adr/0027-persistent-display-title-and-canonical-tags.md); implementation complete for API-level title/tag persistence.
 - Catalog read model and search semantics through [ADR-0028](docs/adr/0028-catalog-read-model-and-search-semantics.md); implementation complete for read-only imported-media listing, display-title search, canonical-tag AND filters, deterministic ordering, and bounded offset pagination.
 - Automatic built-in `Processed` workflow collection from durable tag saves through [ADR-0030](docs/adr/0030-automatic-processed-collection.md); accepted and implemented through migration `0007`, with one zero-or-one collection membership per medium, and no arbitrary collection CRUD or general collection manager.
-- Fedora systemd service foundation through [ADR-0031](docs/adr/0031-fedora-systemd-service-foundation.md), superseded for the active deployment target by the Ubuntu NUC deployment foundation through [ADR-0032](docs/adr/0032-ubuntu-nuc-deployment-foundation.md); accepted and implemented as repository-local service source material, a non-secret environment template, a read-only database-readiness gate, and an Ubuntu operator runbook. The catalog backup and restore-to-new-destination foundation is accepted through [ADR-0033](docs/adr/0033-catalog-backup-and-recovery-foundation.md). Automated catalog backup/retention/restore-verification is accepted through [ADR-0052](docs/adr/0052-automated-catalog-backup-retention-and-restore-verification.md), and a routine immutable NUC release-update contract (`deploy/ubuntu/framenest-release`) is accepted through [ADR-0060](docs/adr/0060-repeatable-immutable-nuc-release-update-contract.md); refreshing the NUC to the exact public `main` SHA is normal routine operation ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)). Public `main` and the deployed NUC release may differ; the authoritative mutable readback is `framenest-release status`. Further NUC security hardening, AppArmor/UFW completion, production database replacement automation, media second-copy backup, and secret-recovery drills remain open.
-- Canonical Analytic Programming integration through a pinned `.ap/` Git submodule and managed `AGENTS.md` block through [ADR-0034](docs/adr/0034-canonical-analytic-programming-integration.md); accepted and implemented. Universal AP protocol files live under `.ap/`, FrameNest-specific rules live in `AGENTS.md`, and permanent BOOT/NEXT files are no longer live repository artifacts.
+- Fedora systemd service foundation through [ADR-0031](docs/adr/0031-fedora-systemd-service-foundation.md), superseded for the active deployment target by the Ubuntu NUC deployment foundation through [ADR-0032](docs/adr/0032-ubuntu-nuc-deployment-foundation.md); accepted and implemented as repository-local service source material, a non-secret environment template, a read-only database-readiness gate, and an Ubuntu operator runbook. The catalog backup and restore-to-new-destination foundation is accepted through [ADR-0033](docs/adr/0033-catalog-backup-and-recovery-foundation.md). Automated catalog backup/retention/restore-verification is accepted through [ADR-0052](docs/adr/0052-automated-catalog-backup-retention-and-restore-verification.md), and a routine immutable NUC release-update contract (`deploy/ubuntu/kronika-release`) is accepted through [ADR-0060](docs/adr/0060-repeatable-immutable-nuc-release-update-contract.md); refreshing the NUC to the exact public `main` SHA is normal routine operation ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)). Public `main` and the deployed NUC release may differ; the authoritative mutable readback is `kronika-release status`. Further NUC security hardening, AppArmor/UFW completion, production database replacement automation, media second-copy backup, and secret-recovery drills remain open.
+- Canonical Analytic Programming integration through a pinned `.ap/` Git submodule and managed `AGENTS.md` block through [ADR-0034](docs/adr/0034-canonical-analytic-programming-integration.md); accepted and implemented. Universal AP protocol files live under `.ap/`, Kronika-specific rules live in `AGENTS.md`, and permanent BOOT/NEXT files are no longer live repository artifacts.
 - Authoritative server and client state model through [ADR-0035](docs/adr/0035-authoritative-server-and-client-state-model.md); accepted as product architecture direction. The server process is authoritative for catalog and server-owned state and may run locally or later on the NUC; browser, desktop, and remote interfaces are clients. Broader authenticated upload, synchronization, client cache/download, per-user Trash, categories, language metadata, and playback extensions remain unimplemented beyond the current trusted-loopback upload foundation.
 - Durable upload sessions, bounded validation, lifecycle-owned validation, canonical byte identity, exact-duplicate disposition, atomic single-process storage-publication recovery, specialized `published -> cataloged` catalog creation, optional durable automatic post-catalog AI analysis, first-class still-image (`jpg`/`png`) media kinds, first-class content classification plus bounded movie identification, owner-operated YouTube manual ingestion, and a separate durable content-publication boundary with a responsive single-item administrator workflow through [ADR-0037](docs/adr/0037-durable-upload-session-and-safe-ingest-foundation.md), [ADR-0038](docs/adr/0038-bounded-upload-media-validation.md), [ADR-0039](docs/adr/0039-lifecycle-owned-upload-validation-orchestration.md), [ADR-0040](docs/adr/0040-canonical-upload-byte-identity-foundation.md), [ADR-0041](docs/adr/0041-exact-byte-upload-duplicate-disposition.md), [ADR-0042](docs/adr/0042-atomic-upload-publication.md), [ADR-0043](docs/adr/0043-upload-to-catalog-transaction.md), [ADR-0044](docs/adr/0044-durable-automatic-post-catalog-analysis.md), [ADR-0045](docs/adr/0045-content-classification-and-movie-identification.md), [ADR-0046](docs/adr/0046-youtube-manual-ingestion-and-provenance.md), and [ADR-0049](docs/adr/0049-durable-content-publication-boundary.md); implemented through migration `0021`.
 
@@ -248,7 +248,7 @@ Implemented so far:
 - Same-origin explicit AI capability and media-suggestion preview API
 - Structured logging foundation per [ADR-0009](docs/adr/0009-structured-logging-approach.md)
 - Persistence strategy accepted through [ADR-0010](docs/adr/0010-initial-persistence-foundation.md)
-- Minimal SQLAlchemy Core/Alembic persistence foundation with `FRAMENEST_DATABASE_PATH`, packaged revisions `0001` through `0007`, explicit `framenest-db status`, and explicit `framenest-db migrate`
+- Minimal SQLAlchemy Core/Alembic persistence foundation with `KRONIKA_DATABASE_PATH`, packaged revisions `0001` through `0007`, explicit `kronika-db status`, and explicit `kronika-db migrate`
 - Initial local device registry core with pure-domain `Device`, application repository port, SQLAlchemy Core adapter, and `devices` table through revision `0002`
 - Initial local library registry core with pure-domain `Library`, `LibraryRoot`, application repository port, SQLAlchemy Core adapter, and `libraries` table through revision `0003`
 - Minimum persistent media catalog foundation with pure-domain logical media and physical locations, application repository port, SQLAlchemy Core adapter, and `logical_media` plus `physical_media_locations` tables through revision `0004`
@@ -256,7 +256,7 @@ Implemented so far:
 - Automatic built-in `Processed` workflow collection derived from durable tag saves with nullable `collection_key` and `processed_at_ms` columns added in revision `0007`
 - Read-only imported-media catalog browser with display-title search, repeated canonical-tag AND filters, deterministic ordering, and bounded offset pagination
 - Durable content-publication truth through revision `0021`, published-only ordinary Gallery and direct-media audience enforcement, and a responsive capability-gated administrator list with atomic single-item publication
-- Development operator catalog CLI (`framenest-catalog`) for device register, get, and list operations
+- Development operator catalog CLI (`kronika-catalog`) for device register, get, and list operations
 - Library catalog CLI commands for local library register, get, and list with lexical root-path preparation
 - Explicit idempotent scan-candidate import through same-origin API and packaged browser action
 
@@ -283,9 +283,9 @@ Goal: register and scan local libraries safely.
 Implemented within this phase:
 
 - library registration through the development catalog CLI;
-- safe read-only library scan preview through `framenest-catalog library scan-preview` per [ADR-0014](docs/adr/0014-safe-library-scan-preview.md);
-- deterministic read-only local media-analysis preparation through `framenest-catalog library analyze-preview` per [ADR-0015](docs/adr/0015-deterministic-local-media-analysis-preparation.md);
-- explicit opt-in NVIDIA NIM media suggestion preview through `framenest-catalog library suggest-preview` per [ADR-0016](docs/adr/0016-provider-neutral-media-suggestions-and-nvidia-nim-prototype.md);
+- safe read-only library scan preview through `kronika-catalog library scan-preview` per [ADR-0014](docs/adr/0014-safe-library-scan-preview.md);
+- deterministic read-only local media-analysis preparation through `kronika-catalog library analyze-preview` per [ADR-0015](docs/adr/0015-deterministic-local-media-analysis-preparation.md);
+- explicit opt-in NVIDIA NIM media suggestion preview through `kronika-catalog library suggest-preview` per [ADR-0016](docs/adr/0016-provider-neutral-media-suggestions-and-nvidia-nim-prototype.md);
 - packaged browser library listing, scan preview, explicit scan-candidate import, local media-analysis preview, capability discovery, and editable non-persistent AI suggestion review.
 - minimum logical-media and physical-location persistence through revision `0004`.
 - explicit idempotent import from selected scan candidates through [ADR-0026](docs/adr/0026-explicit-idempotent-scan-candidate-import.md).
@@ -311,7 +311,7 @@ Still unimplemented within this phase:
 - rebuildable local index persistence;
 - sidecar-to-catalog import and rebuild behavior.
 
-The portable sidecar v1 contract, one-location projection, adjacent filesystem store, and `framenest-sidecar` export/validate/compare commands exist through [ADR-0059](docs/adr/0059-portable-media-sidecar-roundtrip-foundation.md).
+The portable sidecar v1 contract, one-location projection, adjacent filesystem store, and `kronika-sidecar` export/validate/compare commands exist through [ADR-0059](docs/adr/0059-portable-media-sidecar-roundtrip-foundation.md).
 
 Key deliverables: library registration, safe scanning, persistent metadata collection, logical media and physical locations, canonical tags, title/tag search, availability tracking, storage capacity reporting, rebuildable local index, and tests.
 
@@ -364,7 +364,7 @@ Implemented within this phase:
 - merged administrator title-bar history of pending and analyzed items above the
   surviving hosted iframe, color-coded analyzed versus pending rows, blank
   success status, toolbar badge from `unopened_count`, MV3 `alarms`
-  (`framenest.review-inbox`, 1 minute), and a sibling review overlay
+  (`kronika.review-inbox`, 1 minute), and a sibling review overlay
   ([ADR-0071](docs/adr/0071-native-side-panel-review-inbox-chrome.md),
   [ADR-0072](docs/adr/0072-native-side-panel-unread-inbox-and-title-bar-history-chrome.md),
   [ADR-0073](docs/adr/0073-companion-merged-history-chrome-pending-visibility-x-seed-tag-and-preserving-apply.md));
@@ -626,7 +626,7 @@ Orchestrator and Worker authorization. They are outside the current MVP path
 unless explicitly reopened. Do not mix them into ordinary documentation or
 hardening work.
 
-FrameNest product work remains prioritized before stable AP upgrade work,
+Kronika product work remains prioritized before stable AP upgrade work,
 `cisarik/ap_experimental`, kiosk, general NUC desktop work, native mobile
 applications, VPS showcase, and observability/Grafana. That ordering is
 priority context only; it does not authorize those later tracks here.
@@ -661,7 +661,7 @@ Goals when reopened:
 - determine whether the failure came from provider response shape, reasoning
   lifecycle, timeout/wait handling, parsing, validation, or orchestration;
 - classify the movie genre;
-- generate subtags belonging to the dedicated FrameNest `Movies` category or
+- generate subtags belonging to the dedicated Kronika `Movies` category or
   taxonomy;
 - preserve exact run-to-result association;
 - preserve provider privacy and explicit owner authorization.

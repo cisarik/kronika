@@ -1,6 +1,6 @@
-# FrameNest Agent Instructions
+# Kronika Agent Instructions
 
-FrameNest is a local-first, privacy-conscious, cross-platform library for video
+Kronika is a local-first, privacy-conscious, cross-platform library for video
 and animated media. It is in foundation-stage pre-alpha development with a
 working loopback FastAPI server, SQLite/Alembic persistence, packaged local web
 shell, catalog and metadata foundations, server-side AI suggestion review, a
@@ -13,7 +13,7 @@ Ubuntu NUC deployment workflow.
 the accepted transition to one Kronika in this existing repository.
 [ADR-0083](docs/adr/0083-modular-research-providers-and-administrator-curated-timeline.md)
 records the current Search and Research architecture and the
-administrator-curated Timeline. FrameNest supplies the application, catalog,
+administrator-curated Timeline. Kronika supplies the application, catalog,
 media preparation, identity and deployment. Search and Research are added
 through a provider-neutral application boundary. The chatgpt.com capture
 module, package `kronika_capture` and command `kronika-capture`, remains one
@@ -75,7 +75,7 @@ duplicate universal AP protocol here.
 ## NUC Routine Release Update
 
 Per [ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)
-the NUC is FrameNest's development-and-testing machine: routinely refreshing it
+the NUC is Kronika's development-and-testing machine: routinely refreshing it
 to the exact public `main` SHA — including schema jumps through the documented
 `migration-required` continuation — is normal operation through the sole entry
 point below. Non-routine host work still requires its own explicit bounded task.
@@ -87,17 +87,16 @@ deploy/ubuntu/kronika-release
 ```
 
 It invokes `deploy/ubuntu/kronika_release.py` (standard library only).
-`deploy/ubuntu/framenest-release` and `deploy/ubuntu/framenest_release.py` are
-retained wrappers that forward identical arguments to that same engine, and both
-are removed only in the C7-B window; they are not a second deployment system.
+That pair is the sole release helper. The former
+`deploy/ubuntu/framenest-release` and `deploy/ubuntu/framenest_release.py`
+wrappers are removed; they are not a second deployment system.
 Future Orchestrators and Workers must use the canonical entry point instead of
 reconstructing deployment commands, probing generic PATH locations, or confusing
 initial host bootstrap with a routine release update.
 
 - Always run `kronika-release status` and `kronika-release check --release
   <40-hex-SHA>` before any deployment. Deployment never follows automatically
-  from a check. The retained `framenest-release` spelling still runs the same
-  two commands unchanged.
+  from a check.
 - Routine updates use exactly:
 
 ```text
@@ -107,9 +106,11 @@ CPython: /opt/framenest/tooling/python/cpython-3.13.14-linux-x86_64-gnu/bin/pyth
 
 - `uv` is bootstrap and explicit tooling-maintenance tooling only. Routine
   release updates never invoke `uv` and never require `uv` on `PATH`.
-- Deployed releases contain no `.git` metadata. Release provenance comes from
-  `.framenest-release-sha` and `.framenest-release-manifest.json`, not from
-  `git -C /opt/framenest/current`.
+- Deployed releases contain no `.git` metadata. Current writers record
+  provenance in `.kronika-release-sha` and `.kronika-release-manifest.json`.
+  Readers still accept the historical `.framenest-release-sha` and
+  `.framenest-release-manifest.json` markers on an older release tree.
+  Provenance does not come from `git -C /opt/kronika/current`.
 - Do not improvise routine deployment commands. See
   [docs/UBUNTU_NUC_DEPLOYMENT.md](docs/UBUNTU_NUC_DEPLOYMENT.md) and
   [ADR-0060](docs/adr/0060-repeatable-immutable-nuc-release-update-contract.md).
@@ -203,12 +204,12 @@ Do not mix MacBook and NUC commands in one unlabeled block.
 
 ## Cooperator Presentation Profile
 
-Project-owned presentation for FrameNest AP work. This is not AP semantics and
+Project-owned presentation for Kronika AP work. This is not AP semantics and
 not Worker authority; the copyable, structurally English Worker prompt remains
 the sole authority grant.
 
 Orchestrator chat updates to Michal open with a one-glance status block of at
-most five lines (FrameNest HEAD SHA, AP pin SHA, whole/phase, open risk),
+most five lines (Kronika HEAD SHA, AP pin SHA, whole/phase, open risk),
 followed by exactly one status mark:
 
 - 🟢 healthy / proceed / PASS
@@ -245,8 +246,8 @@ AppArmor, UFW, Tailscale, and mount mutations require explicit bounded
 authority. Availability of a connection, credential, terminal, mounted disk, or
 tool is capability context, not authority.
 
-FrameNest backend services must remain loopback-first by default. No router port
-forwarding is accepted for FrameNest. Remote access direction remains
+Kronika backend services must remain loopback-first by default. No router port
+forwarding is accepted for Kronika. Remote access direction remains
 Tailscale-only unless a later accepted decision supersedes it. Tailscale
 membership is not application administrator authority.
 
@@ -295,7 +296,7 @@ configuration, secrets or archives and no import of the old test databases.
 
 ## Product Boundaries
 
-FrameNest remains local-first. A FrameNest server process is authoritative for
+Kronika remains local-first. A Kronika server process is authoritative for
 catalog and server-owned state, but it may run locally and must not turn local
 ownership into public-cloud dependence. The premium gallery remains a flagship
 product invariant.
@@ -341,7 +342,7 @@ Do not perform Git write operations without task-specific authority. When Git
 writes are authorized, stay within the exact branch, path, commit, push, and
 verification authority in the task.
 
-FrameNest uses the AP submodule at `.ap/` for universal protocol, role,
+Kronika uses the AP submodule at `.ap/` for universal protocol, role,
 authority, Worker lifecycle, diagnostic closeout, Git, verification, prompt,
 artifact, update, and exceptional handoff semantics. Do not duplicate universal
 AP protocol text in project-local files.

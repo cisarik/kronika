@@ -1,4 +1,4 @@
-# FrameNest AI Workspace
+# Kronika AI Workspace
 
 ## Status
 
@@ -22,7 +22,7 @@ ORCHESTRATOR authority.
 
 ## Current Implementation Boundary
 
-FrameNest currently implements explicit, same-origin, non-persistent browser AI
+Kronika currently implements explicit, same-origin, non-persistent browser AI
 assistance per [ADR-0020](docs/adr/0020-on-demand-ai-suggestion-review.md).
 It is pre-alpha, session-only, server-provider-confirmed for cloud execution,
 and does not save catalog metadata or mutate files.
@@ -33,7 +33,7 @@ clear the title, edit or clear an optional plain-text description, search
 existing tags locally, assign up to 32 tags, explicitly create tag definitions
 through the hidden-key tag control, save through the existing metadata API,
 cancel unsaved changes, and refresh the active Catalog view after a successful
-save. When the FrameNest server has an active provider configured, `Analyze by
+save. When the Kronika server has an active provider configured, `Analyze by
 AI` requires confirmation before any provider request. The ordinary editor does
 not offer provider administration or credential entry. The confirmation explains
 that up to three optimized preview frames and bounded metadata are sent through
@@ -51,11 +51,11 @@ durable tag list, but `Processed` is not an ordinary editor control.
 
 Server AI administration is an operator boundary: the CLI plus an
 authenticated administrator-only website surface over the trusted Tailscale
-workspace ingress. `./framenest ai configure` writes only non-secret
-provider/model selection outside the repository, `./framenest ai status` is
-network-free and writes only a safe local status snapshot, `./framenest ai
-test` is an explicit text-only connection test, `./framenest ai provider
-add|list|remove` manages declared records, and `./framenest ai vision-probe`
+workspace ingress. `./kronika ai configure` writes only non-secret
+provider/model selection outside the repository, `./kronika ai status` is
+network-free and writes only a safe local status snapshot, `./kronika ai
+test` is an explicit text-only connection test, `./kronika ai provider
+add|list|remove` manages declared records, and `./kronika ai vision-probe`
 runs one explicit synthetic color test. The administrator surface lists
 built-in and operator-declared providers, manages non-secret schema-v2
 declarative records, activates one provider/model, and runs explicit ping/pong
@@ -72,9 +72,9 @@ The browser AI capability response is read-only and distinguishes
 `available`, `authentication_failed`, `rate_limited_or_quota_exhausted`,
 `model_unavailable`, `provider_unreachable`, and `provider_error`. When no
 environment override, persisted non-secret provider selection, or legacy
-NVIDIA-compatible configuration exists, FrameNest reports `not_configured` and
+NVIDIA-compatible configuration exists, Kronika reports `not_configured` and
 does not present a fallback provider/model as selected. When a provider/model
-selection exists but the matching server credential is unavailable, FrameNest
+selection exists but the matching server credential is unavailable, Kronika
 reports `credential_unavailable` while preserving the safe selected
 provider/model diagnostics. `available` means a credentialed server provider
 implementation is available; live reachability remains represented by the
@@ -82,7 +82,7 @@ matching last test evidence when present. The browser Status modal shows only a
 compact sanitized heading, reason, safe selected provider/model values when
 they genuinely exist, and safe last status/test evidence.
 
-For local development, `./framenest` may bootstrap those provider credentials
+For local development, `./kronika` may bootstrap those provider credentials
 from the ignored `.secrets/ai.env.fish` file when it is present and private.
 That file is a developer/operator convenience for managed local commands, not a
 product credential store. Fedora production credentials remain future
@@ -121,7 +121,7 @@ The workspace distinguishes:
 - future explicit physical rename operation.
 
 Opening a detail page performs no AI call, no catalog save, and no filesystem
-mutation. If no durable display title exists, FrameNest may derive an initial
+mutation. If no durable display title exists, Kronika may derive an initial
 display title from the real on-disk filename, but that display value is not the
 physical filename.
 
@@ -303,7 +303,7 @@ uncertainty fields. Provenance belongs to the draft and future accepted catalog
 metadata may later record selected provenance where an explicit persistence
 design accepts it.
 
-Provider output is untrusted. FrameNest attaches trusted provider/model/prompt
+Provider output is untrusted. Kronika attaches trusted provider/model/prompt
 metadata from its own invocation boundary rather than trusting model text.
 
 ## Ephemeral And Future Persistent Boundaries

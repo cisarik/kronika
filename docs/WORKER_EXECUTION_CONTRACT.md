@@ -1,17 +1,17 @@
-# FrameNest Worker Execution Contract
+# Kronika Worker Execution Contract
 
 ## Status
 
 This is the discoverable Worker execution and repository-authority contract for
-FrameNest. It records how a fresh Worker must run Python, tests, NUC SSH, and
+Kronika. It records how a fresh Worker must run Python, tests, NUC SSH, and
 isolated worktrees without reconstructing environments, ambient capability
 routes, or false exact-source evidence.
 
 Classification: living repository execution contract.
 
-Consumers: Orchestrator, Worker, and local FrameNest developers.
+Consumers: Orchestrator, Worker, and local Kronika developers.
 
-Retention: remains while FrameNest uses Poetry, the canonical `.venv`, and AP
+Retention: remains while Kronika uses Poetry, the canonical `.venv`, and AP
 Worker execution.
 
 ## Relation To Other Authority
@@ -54,7 +54,7 @@ Canonical Cursor Worker Python evidence uses the baseline-bound AP envelope:
 `--baseline` is execution-contract authority. It does not replace worktree
 source, grant mutation, or make a local commit canonical.
 
-FrameNest declares a root `ap.project.conf` (schema v1) that binds AP execution
+Kronika declares a root `ap.project.conf` (schema v1) that binds AP execution
 to the canonical Poetry-owned interpreter and declares exactly three
 operations:
 
@@ -65,7 +65,7 @@ operations:
 | `test-focus` | `-m pytest` | allowed only after `--` |
 
 The declared runtime is **CPython 3.13** at `.venv/bin/python`, with
-`sourceRoot = src` and `provenanceModule = framenest`. **Poetry remains the
+`sourceRoot = src` and `provenanceModule = kronika`. **Poetry remains the
 owner** of dependency resolution, `poetry.lock`, and the `.venv` execution
 environment; `ap.project.conf` binds to that environment, it does not replace
 or manage it. Automatic repair through `uv`, `pip`, `poetry env use`, or
@@ -181,14 +181,14 @@ owner; this section is the Worker classification owner.
 
 ## Runtime And Dependency Authority
 
-- FrameNest requires **CPython 3.13.x** (`>=3.13,<3.14`).
+- Kronika requires **CPython 3.13.x** (`>=3.13,<3.14`).
 - **Poetry** is the authoritative dependency, virtual-environment, and lockfile
   manager ([ADR-0002](adr/0002-python-environment-and-dependency-manager.md)).
 - `pyproject.toml` plus the committed `poetry.lock` define dependency authority.
 - **`uv` is not the project dependency manager.** Per
   [ADR-0006](adr/0006-macos-python-interpreter-provider.md), `uv` may acquire or
   locate a CPython 3.13 interpreter for Poetry (for example via
-  `./framenest setup`). That limited role does not authorize `uv sync`,
+  `./kronika setup`). That limited role does not authorize `uv sync`,
   `uv lock`, or adopting an untracked `uv.lock`.
 - An incidental or untracked `uv.lock` is **not** project authority. Do not
   adopt it. Do not delete it merely because it is present unless a separate
@@ -227,7 +227,7 @@ worktree and an exact authorized `--baseline`. The envelope's declared
 
 Exact-candidate evidence must import and execute **candidate** source.
 
-The canonical `.venv` may resolve `framenest` through an installed or
+The canonical `.venv` may resolve `kronika` through an installed or
 parent/canonical checkout (for example a `.pth` pointing at the canonical
 `src/`). A subprocess, console script, or Python invocation that silently
 imports that revision does **not** prove the candidate.
@@ -240,7 +240,7 @@ This reasoning is not acceptable:
 It is not acceptable exact-SHA evidence.
 
 Before trusting a result, verify provenance, for example by printing
-`framenest.__file__` under the same invocation and confirming it resolves under
+`kronika.__file__` under the same invocation and confirming it resolves under
 `<exact-worktree>/src`. The `runtime-info` operation is the declared provenance
 probe for that check.
 
@@ -267,12 +267,12 @@ PYTHONPATH=<exact-worktree>/src \
   <physical-repository-root>/.venv/bin/python -m pytest <focused-tests>
 
 PYTHONPATH=<exact-worktree>/src \
-  <physical-repository-root>/.venv/bin/python -m framenest.adapters.cli.catalog --help
+  <physical-repository-root>/.venv/bin/python -m kronika.adapters.cli.catalog --help
 ```
 
 Equivalent `-m` entry points exist for other console modules declared in
-`pyproject.toml` (`framenest.server`, `framenest.infrastructure.persistence.cli`,
-`framenest.adapters.cli.backup`, and related adapters). Prefer
+`pyproject.toml` (`kronika.server`, `kronika.infrastructure.persistence.cli`,
+`kronika.adapters.cli.backup`, and related adapters). Prefer
 `python -m <module>` with `PYTHONPATH=<exact-worktree>/src` over bare console
 scripts when a clean human shell is proving candidate source.
 
@@ -343,16 +343,16 @@ Gated suites include:
 Invocation:
 
 ```text
-FRAMENEST_RUN_BROWSER_EVIDENCE=1 node --test tests/browser_<name>_evidence.test.js
+KRONIKA_RUN_BROWSER_EVIDENCE=1 node --test tests/browser_<name>_evidence.test.js
 ```
 
 Discoverable prerequisites from those suites:
 
-- `FRAMENEST_RUN_BROWSER_EVIDENCE=1` (otherwise the suite stays gated/skipped);
-- system `google-chrome-stable`, or `FRAMENEST_CHROME_BIN` override;
+- `KRONIKA_RUN_BROWSER_EVIDENCE=1` (otherwise the suite stays gated/skipped);
+- system `google-chrome-stable`, or `KRONIKA_CHROME_BIN` override;
 - Node built-in WebSocket / CDP driving (no npm browser dependencies);
 - ffmpeg where the suite generates synthetic media;
-- a usable Python interpreter for spawning the FrameNest server helper.
+- a usable Python interpreter for spawning the Kronika server helper.
 
 Those suites create disposable temporary workdirs and remove them on cleanup.
 They bind loopback only and must not save a browser profile into the
@@ -368,7 +368,7 @@ a silent parent/canonical install.
 
 ## Analytic Programming
 
-FrameNest uses the pinned AP submodule at `.ap/`. Read:
+Kronika uses the pinned AP submodule at `.ap/`. Read:
 
 - [AGENTS.md](../AGENTS.md) for project-specific rules and the managed AP block;
 - [`.ap/AP.md`](../.ap/AP.md) for the protocol;

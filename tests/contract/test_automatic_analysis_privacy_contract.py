@@ -36,7 +36,7 @@ def test_product_rejects_absolute_automatic_upload_ban() -> None:
     )
     if blanket is not None:
         clause = blanket.group(0).lower()
-        assert "framenest_automatic_media_analysis_enabled" in clause or (
+        assert "kronika_automatic_media_analysis_enabled" in clause or (
             "enabled" in clause and ("server" in clause or "administrator" in clause)
         )
 
@@ -44,7 +44,7 @@ def test_product_rejects_absolute_automatic_upload_ban() -> None:
 def test_product_states_default_disabled_and_server_owner_standing_consent() -> None:
     product = _product()
     lower = product.lower()
-    assert "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED" in product
+    assert "KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED" in product
     assert (
         re.search(r"default[^.]*\b(disabled|off|false)\b", lower) is not None
         or re.search(r"\b(disabled|off|false)\b[^.]*default", lower) is not None
@@ -61,7 +61,7 @@ def test_product_states_default_disabled_and_server_owner_standing_consent() -> 
 def test_product_and_adr_0044_share_server_enablement_consent_boundary() -> None:
     product = _product()
     adr = _adr()
-    assert "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED" in product
+    assert "KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED" in product
     assert "FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED" in adr
     assert "consent" in adr.lower()
     assert "confirm_cloud_upload" in adr.lower()

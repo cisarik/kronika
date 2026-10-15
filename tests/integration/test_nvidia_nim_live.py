@@ -17,9 +17,9 @@ from kronika.infrastructure.ai.credentials import NvidiaApiCredential
 from kronika.infrastructure.media_analysis import LocalMediaAnalysisAdapter
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("FRAMENEST_RUN_NVIDIA_NIM_SMOKE") != "1"
+    os.environ.get("KRONIKA_RUN_NVIDIA_NIM_SMOKE") != "1"
     or not os.environ.get("NVIDIA_API_KEY", "").strip(),
-    reason="Set FRAMENEST_RUN_NVIDIA_NIM_SMOKE=1 and NVIDIA_API_KEY to run live NVIDIA smoke test.",
+    reason="Set KRONIKA_RUN_NVIDIA_NIM_SMOKE=1 and NVIDIA_API_KEY to run live NVIDIA smoke test.",
 )
 
 

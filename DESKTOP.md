@@ -1,4 +1,4 @@
-# FrameNest Desktop Architecture
+# Kronika Desktop Architecture
 
 ## Status
 
@@ -22,7 +22,7 @@ task. Git history remains the archive.
 
 ## Desktop Product Role
 
-FrameNest will become a cross-platform desktop application for local-first video
+Kronika will become a cross-platform desktop application for local-first video
 and animated-media ownership. The normal end-user experience must not require
 opening an external browser. Browser mode remains useful for development,
 diagnostics, and controlled operator workflows, but the product should feel like
@@ -37,7 +37,7 @@ platform-specific completion.
 
 Tauri v2 is the accepted future desktop shell. The shell is responsible for:
 
-- displaying the existing FrameNest HTML/CSS/JavaScript UI in a native system
+- displaying the existing Kronika HTML/CSS/JavaScript UI in a native system
   WebView;
 - enforcing a single-instance lifecycle;
 - launching and supervising the packaged Python/FastAPI sidecar;
@@ -49,7 +49,7 @@ Tauri v2 is the accepted future desktop shell. The shell is responsible for:
 
 Tauri must not duplicate domain, catalog, provider, media-analysis, persistence,
 or transfer logic. Those responsibilities remain in the Python backend and the
-FrameNest domain/application layers.
+Kronika domain/application layers.
 
 ## Python Sidecar Responsibilities
 
@@ -93,7 +93,7 @@ should be detected and surfaced as a recoverable application state when possible
 
 ## Single Instance And Initial Tray Menu
 
-FrameNest desktop should run as one user-facing application instance. A second
+Kronika desktop should run as one user-facing application instance. A second
 launch should restore or focus the existing instance.
 
 The initial tray or macOS menu-bar menu contains:
@@ -109,10 +109,10 @@ diagnostics. Browser mode may lack native-only features such as file-manager
 reveal, native clipboard for media files, and tray behavior. It should degrade
 clearly rather than pretending those capabilities exist.
 
-The repository-root `./framenest` launcher is the current browser-development
+The repository-root `./kronika` launcher is the current browser-development
 bridge. It can supervise the local FastAPI server and open the external default
 browser, but it does not replace or implement the accepted future Tauri shell.
-The future `FrameNest.app` will own its WebView and supervised sidecar
+The future `Kronika.app` will own its WebView and supervised sidecar
 lifecycle.
 
 ## Native Capability Boundary
@@ -125,7 +125,7 @@ lifecycle behavior.
 
 The WebView must not receive unrestricted filesystem, shell, process, or
 arbitrary-command access. Every native command must be explicit, allowlisted,
-scoped to user-approved paths or FrameNest-owned runtime directories, and tested
+scoped to user-approved paths or Kronika-owned runtime directories, and tested
 for sanitized failure behavior.
 
 ## VLC Boundary
@@ -133,7 +133,7 @@ for sanitized failure behavior.
 External VLC remains the first intended full-playback backend. The desktop shell
 may provide the native bridge needed to open local files or future authorized
 remote URLs through VLC, but command construction and playback policy must stay
-behind a FrameNest-owned playback boundary. Inline GIF or short-video preview is
+behind a Kronika-owned playback boundary. Inline GIF or short-video preview is
 separate from full playback.
 
 ## Clipboard, Download, And Export Direction
@@ -145,7 +145,7 @@ downloaded representation before placing it on the clipboard, and provide a
 fallback when the platform or destination application does not accept the
 payload.
 
-FrameNest must not claim universal direct-paste compatibility for GIF or MP4.
+Kronika must not claim universal direct-paste compatibility for GIF or MP4.
 
 ## Security And Least Privilege
 

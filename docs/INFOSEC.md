@@ -1,4 +1,4 @@
-# FrameNest INFOSEC Hardening Manual
+# Kronika INFOSEC Hardening Manual
 
 Status: repository-local security engineering guidance.
 
@@ -11,7 +11,7 @@ This document describes **repository truth only**. Every code claim below is
 anchored to a file and line in this checkout
 (`3a21405e08ff30a840afe655e702d931e833acf2`). Nothing here claims a deployed
 VPS, NUC state, DNS name, TLS certificate, firewall rule, or completed
-preflight. FrameNest today serves development-test workspace access over Tailscale Serve
+preflight. Kronika today serves development-test workspace access over Tailscale Serve
 only; the public published composition exists in source and contract tests and
 is not exposed externally ([SECURITY.md](../SECURITY.md), "Dual-audience public trust
 boundary").
@@ -37,12 +37,12 @@ were fix-before-public-bind, plus ride-along hardenings. Remediation landed on
 
 | Finding | Severity | One-line description | Closure status |
 |---|---|---|---|
-| F-1 | Low | Public composition emitted stock FastAPI 422 bodies reflecting attacker input, breaking the uniform sanitized-404 contract | **Closed** (`d3b203f`) — `RequestValidationError` handler returns the uniform envelope (`src/framenest/adapters/api/public_published_application.py:210`) |
-| F-2 | Medium | tcp ingress mode accepted binding the full unauthenticated workspace application to any IP address | **Closed** (`bcf5ec1`) — fail-closed loopback guard (`src/framenest/configuration.py:449`) |
-| F-3 | Low | Analysis proposals grew unboundedly by design (no dedupe, cap, or resolution route) | **Closed** via Cooperator disposition B — per-user hourly submit rate limit (`src/framenest/application/analysis_proposal.py:30`,`:77`) |
+| F-1 | Low | Public composition emitted stock FastAPI 422 bodies reflecting attacker input, breaking the uniform sanitized-404 contract | **Closed** (`d3b203f`) — `RequestValidationError` handler returns the uniform envelope (`src/kronika/adapters/api/public_published_application.py:210`) |
+| F-2 | Medium | tcp ingress mode accepted binding the full unauthenticated workspace application to any IP address | **Closed** (`bcf5ec1`) — fail-closed loopback guard (`src/kronika/configuration.py:449`) |
+| F-3 | Low | Analysis proposals grew unboundedly by design (no dedupe, cap, or resolution route) | **Closed** via Cooperator disposition B — per-user hourly submit rate limit (`src/kronika/application/analysis_proposal.py:30`,`:77`) |
 | F-4 | Info | Companion-marker removal in served HTML was fragile silent string surgery | **Closed** (`d3b203f`) — startup-time verification plus serve-time loud failure (`public_published_application.py:94-105`, `public_published_api.py:181-192`) |
 | F-5 | Low | Public error paths discarded exceptions with zero server-side signal | **Closed** (`d3b203f`) — sanitized structured-log emits before every uniform failure response (`public_published_application.py:215,230,247`; `public_published_api.py:529-537`) |
-| F-6 | Info | Read-only SQLite URI composed without percent-encoding reserved path characters | **Closed** (`4b7b87e`) — `quote(..., safe="/")` before `file:…?mode=ro` (`src/framenest/infrastructure/persistence/engine.py:65-66`) |
+| F-6 | Info | Read-only SQLite URI composed without percent-encoding reserved path characters | **Closed** (`4b7b87e`) — `quote(..., safe="/")` before `file:…?mode=ro` (`src/kronika/infrastructure/persistence/engine.py:65-66`) |
 | F-7 | Info | Reader startup pins exact schema revision `0033`; writer migrations strand older readers | **Recorded rule** (no code change intended) — reader/writer releases must ship atomically; see §4.10 |
 | F-8 | Low | No transport-level abuse resistance inside the ASGI layer (connection economics, slow clients) | **Deferred by design** — owned by the reverse proxy; see §4.4 |
 | F-9 | — | The audit's condition C3 cites "Finding F-9" for proxy-owned transport limits while the findings table numbers that content **F-8** | **Numbering note:** F-8 and the C3 citation denote the same item; no separate F-9 exists |
@@ -63,7 +63,7 @@ Trust boundaries, from most to least trusted:
 
 | Boundary | Composition | Identity source | Write authority |
 |---|---|---|---|
-| Trusted loopback | full app, plain `FastAPI()` when ingress disabled (`src/framenest/adapters/api/application.py:1204-1205`) | physical host access | full |
+| Trusted loopback | full app, plain `FastAPI()` when ingress disabled (`src/kronika/adapters/api/application.py:1204-1205`) | physical host access | full |
 | Tailscale workspace | full app behind `TailscaleIngressMiddleware` (`application.py:1286-1295`), mounted only for `tailscale_uds` | identity-mapped headers + mutation proof | catalog/media via policy gates |
 | Public origin | separate `public_published_uds` app (`application.py:375-380`), GET-only allowlist | none — identity-absent | none (read-only engine) |
 
@@ -80,14 +80,14 @@ Top abuse vectors for the public surface and their current structural answers:
   re-checks at `public_published_api.py:474-482`).
 - **Range/stream economics.** The range parser accepts a single bounded range,
   clamps ends, and rejects unsatisfiable requests
-  (`src/framenest/adapters/api/media_content_api.py:297-341`); connection
+  (`src/kronika/adapters/api/media_content_api.py:297-341`); connection
   duration and bandwidth themselves remain proxy-owned (§4.4).
 - **Credential-free fingerprinting.** Interactive docs are disabled and the
   route inventory is exact (`public_published_application.py:173-179`,
   `:187-192`); validation failures no longer fingerprint the framework (F-1).
 - **Header spoofing.** `proxy_headers=False` and an empty
   `forwarded_allow_ips` mean Uvicorn ignores forwarded headers
-  (`src/framenest/server.py:38-39`); `Tailscale-*` headers are consulted only
+  (`src/kronika/server.py:38-39`); `Tailscale-*` headers are consulted only
   inside the workspace middleware, which the public module graph never imports.
 - **Alias/attribution leakage.** Alias routes do not exist on the public
   composition; projections exclude internal fields (contract-enforced redaction
@@ -178,7 +178,7 @@ The application owns none of these; the proxy MUST:
   service identity with no world access; verify with
   `scripts/operator/infosec/kronika_socket_permissions_check.sh`.
 - systemd suggestions for the preflight whole to evaluate (suggestions, not
-  applied unit files): `DynamicUser=` or fixed `User=framenest`,
+  applied unit files): `DynamicUser=` or fixed `User=kronika`,
   `NoNewPrivileges=yes`, `ProtectSystem=strict` with explicit `ReadWritePaths=`
   for media/library roots only, `ProtectHome=yes`, `PrivateTmp=yes`,
   `PrivateDevices=yes`, `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`,
@@ -193,12 +193,12 @@ The application owns none of these; the proxy MUST:
 - No secrets in the repository or committed env templates
   ([SECURITY.md](../SECURITY.md), "Secret Handling"). The public process needs
   no credentials at all.
-- `/etc/framenest/framenest.env` stays non-secret; anything sensitive belongs
+- `/etc/kronika/kronika.env` stays non-secret; anything sensitive belongs
   in systemd credentials, not environment files.
 - Provider keys (`NVIDIA_API_KEY`, `AI_GATEWAY_API_KEY`) must exist only on
   workspace-side infrastructure, never on the public reader host path.
 - Settings loading fails closed on unreadable explicit env files
-  (`src/framenest/configuration.py:476-523`); keep it that way.
+  (`src/kronika/configuration.py:476-523`); keep it that way.
 
 ### 4.8 [preflight] Log hygiene
 
@@ -279,10 +279,10 @@ These stay out of scope regardless of hardening effort; reopening any of them
 is a product/architecture decision, not an ops task:
 
 - No user registration, billing, payments, or multi-tenant SaaS.
-- No router port-forwarding of any FrameNest port — ever
+- No router port-forwarding of any Kronika port — ever
   ([AGENTS.md](../AGENTS.md); ADR-0074 rejected alternatives).
 - No Tailscale Funnel to the workspace socket
-  (`/run/framenest/framenest.sock`); Funnel to the public socket is
+  (`/run/kronika/kronika.sock`); Funnel to the public socket is
   contingency-only through a later operational ADR (ADR-0074 ingress ranking).
 - No public mutations, CORS, or public upload/acquisition surfaces.
 - No automatic analysis enablement by default
@@ -305,6 +305,4 @@ grant no operational authority by themselves
 | `kronika_socket_permissions_check.sh` | Stats configured UDS paths; fails on missing sockets, world access bits, or unexpected owner |
 
 Each script prints usage with `-h` and documents its environment variables in
-its header comment. The canonical `kronika_*` names are authoritative; the
-retained `framenest_*` entry points keep working unchanged until the
-compatibility-removal window.
+its header comment. The `kronika_*` names are the only entry points.

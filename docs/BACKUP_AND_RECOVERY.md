@@ -1,8 +1,8 @@
-# FrameNest Backup and Recovery Runbook
+# Kronika Backup and Recovery Runbook
 
 ## Status
 
-This is the repository-native operator runbook for the minimum FrameNest catalog
+This is the repository-native operator runbook for the minimum Kronika catalog
 backup and recovery foundation.
 
 It is not a real NUC backup record, media backup plan, secret backup plan,
@@ -44,15 +44,15 @@ not by itself prove a distinct physical/off-host failure domain.
 Default roots:
 
 ```text
-/var/lib/framenest/catalog-backups
-/var/lib/framenest/catalog-restore-verify
-/var/lib/framenest/catalog-backup-ops
+/var/lib/kronika/catalog-backups
+/var/lib/kronika/catalog-restore-verify
+/var/lib/kronika/catalog-backup-ops
 ```
 
 Schedule:
 
 ```text
-framenest-catalog-backup.timer
+kronika-catalog-backup.timer
 OnCalendar=*-*-* 03:17:00 UTC
 Persistent=yes
 RandomizedDelaySec=900
@@ -66,7 +66,7 @@ even when wall-clock timestamps collide in the same UTC second. Manual
 `verify-restore` never supersedes scheduled attempt order.
 
 Shared exclusive non-blocking `fcntl.flock` on
-`/var/lib/framenest/catalog-backup-ops/catalog-backup.lock` protects:
+`/var/lib/kronika/catalog-backup-ops/catalog-backup.lock` protects:
 
 - `create`
 - `verify`
@@ -91,7 +91,7 @@ operation was removed.
 
 Retention:
 
-- `FRAMENEST_CATALOG_BACKUP_KEEP_AUTO=30` by default;
+- `KRONIKA_CATALOG_BACKUP_KEEP_AUTO=30` by default;
 - minimum accepted value is `3`; invalid values fail closed;
 - only verified ledger-recorded `auto-` bundles expire;
 - all non-`auto-` bundles remain pinned;
@@ -102,15 +102,15 @@ Retention:
 Operator commands:
 
 ```text
-framenest-backup run-scheduled
-framenest-backup run-offdevice
-framenest-backup export-latest
-framenest-backup status
-framenest-backup list
-framenest-backup retain-plan
-framenest-backup expire --dry-run
-framenest-backup expire --apply
-framenest-backup verify-restore --bundle <bundle>
+kronika-backup run-scheduled
+kronika-backup run-offdevice
+kronika-backup export-latest
+kronika-backup status
+kronika-backup list
+kronika-backup retain-plan
+kronika-backup expire --dry-run
+kronika-backup expire --apply
+kronika-backup verify-restore --bundle <bundle>
 ```
 
 ## Off-Device Mounted Copy
@@ -118,7 +118,7 @@ framenest-backup verify-restore --bundle <bundle>
 Threat: a catalog recovery point stored only on the NUC can be lost with that
 host filesystem.
 
-Benefit: `framenest-backup run-offdevice` copies the latest verified scheduled
+Benefit: `kronika-backup run-offdevice` copies the latest verified scheduled
 catalog recovery point onto a distinct mounted destination, verifies exact
 bytes, publishes without replace, and restore-verifies from the published
 destination bundle into the disposable local restore root.
@@ -136,16 +136,19 @@ Fixed scheduled destination:
 /mnt/framenest-catalog-offdevice
 ```
 
-Required destination marker:
+Required destination marker written by the current copier:
 
 ```text
-.framenest-catalog-offdevice.json
+.kronika-catalog-offdevice.json
 ```
+
+Readers still accept the historical marker
+`.framenest-catalog-offdevice.json`.
 
 Optional non-secret pin:
 
 ```text
-FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID=<32 lowercase hex>
+KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID=<32 lowercase hex>
 ```
 
 When unset, off-device copy remains disabled. Ordinary `status` output exposes a
@@ -155,7 +158,7 @@ device numbers, or mount identity.
 Optional timer:
 
 ```text
-framenest-catalog-offdevice.timer
+kronika-catalog-offdevice.timer
 OnCalendar=*-*-* 04:17:00 UTC
 Persistent=yes
 RandomizedDelaySec=900
@@ -194,30 +197,30 @@ Do not redefine `off_device` status to include workstation snapshots.
 Remote export command:
 
 ```text
-framenest-backup export-latest
+kronika-backup export-latest
 ```
 
 Repository launcher source:
 
 ```text
-deploy/ubuntu/framenest-catalog-export-v1
+deploy/ubuntu/kronika-catalog-export-v1
 ```
 
 Intended later host install path:
 
 ```text
-/usr/local/libexec/framenest-catalog-export-v1
+/usr/local/libexec/kronika-catalog-export-v1
 ```
 
 Intended later sudoers semantic contract (operator username is host-specific;
 use the placeholder, never hardcode a real username into product code):
 
 ```text
-<FRAME_NEST_OPERATOR> ALL=(framenest) NOPASSWD:NOSETENV: /usr/local/libexec/framenest-catalog-export-v1 ""
+<KRONIKA_OPERATOR> ALL=(kronika) NOPASSWD:NOSETENV: /usr/local/libexec/kronika-catalog-export-v1 ""
 ```
 
 The explicit final `""` is required so zero arguments are matched. Run-as
-target is `framenest`, not `root`. No wildcard `framenest-backup *` rule. No
+target is `kronika`, not `root`. No wildcard `kronika-backup *` rule. No
 caller environment override. Host provisioning must validate with `visudo`
 before activation. This repository task does not install the launcher or
 sudoers on a real NUC.
@@ -225,15 +228,15 @@ sudoers on a real NUC.
 ### Workstation recovery CLI
 
 ```text
-framenest-recovery init-store --store-root <abs> --mount-root <abs>
-framenest-recovery pull --store-root <abs> --mount-root <abs> --expected-store-id <32hex> --ssh-target <alias-or-user@host>
-framenest-recovery list --store-root <abs> --mount-root <abs> --expected-store-id <32hex>
-framenest-recovery verify --store-root <abs> --mount-root <abs> --expected-store-id <32hex> --bundle-id <id>
+kronika-recovery init-store --store-root <abs> --mount-root <abs>
+kronika-recovery pull --store-root <abs> --mount-root <abs> --expected-store-id <32hex> --ssh-target <alias-or-user@host>
+kronika-recovery list --store-root <abs> --mount-root <abs> --expected-store-id <32hex>
+kronika-recovery verify --store-root <abs> --mount-root <abs> --expected-store-id <32hex> --bundle-id <id>
 ```
 
 Generic code accepts store/mount/SSH parameters. Concrete workstation values
 remain local operator configuration for a later Fish wrapper outside the
-repository (`~/.local/bin/framenest-nuc-backup.fish` is intentionally not
+repository (`~/.local/bin/kronika-nuc-backup.fish` is intentionally not
 installed by this repository task).
 
 ### Recovery levels
@@ -278,17 +281,17 @@ Do not claim real off-host recovery before stages 10–11 pass.
 
 | State | Path | Backup treatment |
 |---|---|---|
-| Catalog database | `/var/lib/framenest/catalog.sqlite3` | Included in catalog backup bundle |
+| Catalog database | `/var/lib/kronika/catalog.sqlite3` | Included in catalog backup bundle |
 | Durable accepted cover facts (migration `0022`) | catalog database | Included in catalog backup bundle |
-| Durable cover artifacts | `/var/lib/framenest/covers` | Excluded; regenerable while source is available |
-| Cover thumbnails | `/var/cache/framenest/cover-thumbnails` | Excluded; regenerate |
-| Non-secret AI configuration | `/var/lib/framenest/ai/config.json` | Manual recovery for now |
-| Administrator runtime settings overlay | `/var/lib/framenest/runtime-settings.json` | Excluded; loss returns to env/default |
-| Gallery preview cache | `/var/cache/framenest/gallery-previews` | Excluded; regenerate |
+| Durable cover artifacts | `/var/lib/kronika/covers` | Excluded; regenerable while source is available |
+| Cover thumbnails | `/var/cache/kronika/cover-thumbnails` | Excluded; regenerate |
+| Non-secret AI configuration | `/var/lib/kronika/ai/config.json` | Manual recovery for now |
+| Administrator runtime settings overlay | `/var/lib/kronika/runtime-settings.json` | Excluded; loss returns to env/default |
+| Gallery preview cache | `/var/cache/kronika/gallery-previews` | Excluded; regenerate |
 | Original media | `/srv/media` | Excluded; needs separate second copy |
 | Published upload originals | configured registered publication library | Excluded; needs separate media second copy |
 | YouTube acquisition claims and provenance | catalog database | Included in catalog backup bundle |
-| YouTube acquisition staging | `/var/lib/framenest/youtube-acquisition` | Excluded; lifecycle-owned transient state |
+| YouTube acquisition staging | `/var/lib/kronika/youtube-acquisition` | Excluded; lifecycle-owned transient state |
 | Secrets | outside Git | Excluded; re-enter or rotate later |
 
 The catalog bundle contains only:
@@ -314,7 +317,7 @@ inside the SQLite artifact. Durable cover artifacts and cover thumbnails are
 not included in the bundle. A restore therefore preserves accepted-cover facts
 but not the cover artifact bytes; an artifact may be regenerated only while the
 recorded source location and source version remain available, otherwise manual
-re-selection is required. FrameNest does not claim complete disaster durability
+re-selection is required. Kronika does not claim complete disaster durability
 for cover artifacts in this slice (see
 [ADR-0050](adr/0050-durable-manual-cover-foundation.md)).
 
@@ -349,15 +352,15 @@ Rollback or cleanup: none for read-only checks.
 
 Verification evidence:
 
-- Exact FrameNest commit or release.
+- Exact Kronika commit or release.
 - The planned source is the catalog database, not a media or cache path.
 - Backup tooling help is available:
 
 ```text
-framenest-backup --help
-framenest-backup create --help
-framenest-backup verify --help
-framenest-backup restore --help
+kronika-backup --help
+kronika-backup create --help
+kronika-backup verify --help
+kronika-backup restore --help
 ```
 
 ## Plan
@@ -400,7 +403,7 @@ Verification evidence:
 Threat: a naive copy of a live SQLite database can miss WAL state or capture an
 inconsistent image.
 
-Benefit: `framenest-backup create` uses SQLite online backup, verifies the
+Benefit: `kronika-backup create` uses SQLite online backup, verifies the
 snapshot, records manifest metadata, and publishes a complete bundle only after
 validation.
 
@@ -420,15 +423,15 @@ Mutation class: creates a new backup bundle directory.
 Command shape:
 
 ```text
-framenest-backup create \
-  --source /var/lib/framenest/catalog.sqlite3 \
+kronika-backup create \
+  --source /var/lib/kronika/catalog.sqlite3 \
   --output /path/to/new/catalog-backup
 ```
 
 Development launcher route:
 
 ```text
-./framenest backup create \
+./kronika backup create \
   --source /path/to/catalog.sqlite3 \
   --output /path/to/new/catalog-backup
 ```
@@ -477,7 +480,7 @@ Mutation class: read-only.
 Command:
 
 ```text
-framenest-backup verify --bundle /path/to/catalog-backup
+kronika-backup verify --bundle /path/to/catalog-backup
 ```
 
 Stop conditions:
@@ -508,7 +511,7 @@ event, theft, or operator error.
 Benefit: a verified mounted-filesystem off-device copy protects the catalog
 bundle against local filesystem loss after ADR-0056 repository implementation.
 
-Limitation: FrameNest does not implement cloud upload, media copy, secret
+Limitation: Kronika does not implement cloud upload, media copy, secret
 backup, or off-device retention automation in this slice. Repository evidence
 proves the copy/verify contract only; physical/off-host failure-domain proof
 remains separate host acceptance.
@@ -518,15 +521,15 @@ Preconditions:
 - Local scheduled backup-and-restore evidence exists.
 - Destination mount `/mnt/framenest-catalog-offdevice` is provisioned with the
   trusted marker and `bundles/` layout.
-- `FRAMENEST_CATALOG_OFFDEVICE_DESTINATION_ID` is set to the marker identity.
+- `KRONIKA_CATALOG_OFFDEVICE_DESTINATION_ID` is set to the marker identity.
 
-Mutation class: FrameNest-owned staging copy and no-replace publication under
+Mutation class: Kronika-owned staging copy and no-replace publication under
 `bundles/`, plus disposable local restore verification.
 
 Command:
 
 ```text
-framenest-backup run-offdevice
+kronika-backup run-offdevice
 ```
 
 Stop conditions:
@@ -541,7 +544,7 @@ Rollback or cleanup:
 
 - Keep the verified local bundle.
 - Incomplete staging directories may be removed only when they pass exact
-  FrameNest-owned stage validation.
+  Kronika-owned stage validation.
 - Conflicting final destination bundles are never overwritten or deleted by
   this command.
 
@@ -573,7 +576,7 @@ Mutation class: creates a new restored database file at an absent destination.
 Command:
 
 ```text
-framenest-backup restore \
+kronika-backup restore \
   --bundle /path/to/catalog-backup \
   --destination /path/to/disposable/restored-catalog.sqlite3
 ```
@@ -600,7 +603,7 @@ Verification evidence:
 ## Production Recovery
 
 Threat: overwriting production state incorrectly can destroy the last usable
-catalog or start FrameNest against an incompatible schema.
+catalog or start Kronika against an incompatible schema.
 
 Benefit: separating restore-to-new-path from production replacement keeps the
 initial CLI non-destructive.
@@ -616,7 +619,7 @@ Preconditions:
 - Migration need is understood.
 
 Mutation class: future service-affecting recovery mutation, not implemented by
-`framenest-backup`.
+`kronika-backup`.
 
 Required future sequence:
 
@@ -635,7 +638,7 @@ stop/switch boundary
 Stop conditions:
 
 - No separate preservation of the current production database exists.
-- The restore target would overwrite `/var/lib/framenest/catalog.sqlite3`
+- The restore target would overwrite `/var/lib/kronika/catalog.sqlite3`
   directly.
 - Migration status is unknown.
 - Readiness fails.
@@ -670,7 +673,7 @@ pinned pre-deployment or manual bundles.
 Preconditions:
 
 - Only completed verified ledger-recorded `auto-` bundles are eligible.
-- `FRAMENEST_CATALOG_BACKUP_KEEP_AUTO` is valid (`>= 3`, default `30`).
+- `KRONIKA_CATALOG_BACKUP_KEEP_AUTO` is valid (`>= 3`, default `30`).
 - A newer verified automatic recovery point exists according to the policy.
 
 Mutation class: deletes only whole eligible automatic bundle directories after
@@ -687,7 +690,7 @@ Stop conditions:
 Rollback or cleanup:
 
 - Retain older verified bundles until replacement evidence exists.
-- Use `framenest-backup expire --dry-run` before `--apply`.
+- Use `kronika-backup expire --dry-run` before `--apply`.
 
 Verification evidence:
 
@@ -700,7 +703,7 @@ Verification evidence:
 Threat: partial temporary state or unsafe manual cleanup can remove the wrong
 files.
 
-Benefit: FrameNest-owned operations clean only their own temporary artifacts.
+Benefit: Kronika-owned operations clean only their own temporary artifacts.
 
 Limitation: external copy tools and operator storage destinations have their
 own cleanup rules.
@@ -716,7 +719,7 @@ as temporary or disposable.
 Stop conditions:
 
 - The path is a symlink.
-- The path is not a FrameNest-created temporary artifact or disposable restore
+- The path is not a Kronika-created temporary artifact or disposable restore
   target.
 - Cleanup would touch media, secrets, environment files, or production
   database state.
@@ -738,7 +741,7 @@ Verification evidence:
 
 Capture:
 
-- Exact FrameNest commit or release.
+- Exact Kronika commit or release.
 - Command executed.
 - Exit code.
 - Sanitized JSON output.
@@ -752,7 +755,7 @@ Do not capture:
 
 - Real passwords, tokens, cookies, private keys, provider credentials, or
   authorization headers.
-- Real `.env` files or `/etc/framenest/framenest.env` content when it may
+- Real `.env` files or `/etc/kronika/kronika.env` content when it may
   contain operational details.
 - Private media filenames.
 - Private home paths unless the operator has explicitly chosen to record them in

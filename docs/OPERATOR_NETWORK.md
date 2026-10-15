@@ -1,4 +1,4 @@
-# FrameNest Operator Network Contract
+# Kronika Operator Network Contract
 
 ## Artifact classification
 
@@ -26,7 +26,7 @@ Those remain separately authorized.
 - `ahw` and `framenest-nuc` each select an explicit Mullvad exit node.
 - Direct tailnet and MagicDNS packets remain overlay traffic.
 - Tailscale Serve ingress stays tailnet-only on the protected Unix socket.
-- FrameNest does not gain a public listener or inbound exposure.
+- Kronika does not gain a public listener or inbound exposure.
 - `--exit-node-allow-lan-access=false` is the enable default.
 - Tailscale preference persistence is the reboot mechanism.
 - Public diagnostics reduce to `Mullvad egress`, `non-Mullvad egress`, or
@@ -84,12 +84,8 @@ scripts/operator/network/kronika_mullvad_egress.sh recover
 `scripts/operator/network/kronika_mullvad_egress.fish`. The NUC uses the Bash
 script through the strict SSH gate. Host execution is separately authorized.
 
-The retained `framenest_mullvad_egress.sh` and `framenest_mullvad_egress.fish`
-entry points keep working unchanged until the compatibility-removal window;
-the canonical pair is authoritative. The canonical implementation resolves
-every operator variable from the `KRONIKA_*` spelling first and still accepts
-the retained `FRAMENEST_*` spelling; a pair set to different values refuses
-with exit 2 naming only the two variable names.
+The canonical implementation reads operator variables only from the `KRONIKA_*`
+spelling. A retired `FRAMENEST_*` value does not supply a default.
 
 | Subcommand | Mutation | Network contact |
 |---|---|---|
@@ -135,9 +131,9 @@ scripts/operator/network/kronika_nuc_worker_gate.fish \
 #------------------------------------------------------
 ```
 
-The retained `FRAMENEST_NUC_SSH_*` names and the retained
-`framenest_nuc_worker_gate.fish` wrapper remain accepted until the
-compatibility-removal window.
+The gate accepts only `KRONIKA_NUC_SSH_TARGET`, `KRONIKA_NUC_SSH_USER`,
+`KRONIKA_NUC_SSH_IDENTITY`, and `KRONIKA_NUC_SSH_COMMAND`. The former
+`framenest_nuc_worker_gate.fish` wrapper is removed.
 
 Before `enable` on the headless NUC, arm the separately authorized transient
 rollback described below. Then transmit only a bounded remote command that
@@ -230,7 +226,7 @@ terminates. Required properties:
 - armed under a separately authorized host task, not by these scripts;
 - clears only the selected exit node;
 - is transient (not a persistent boot unit);
-- is cancelled only after the required SSH, Mullvad-egress, FrameNest-health,
+- is cancelled only after the required SSH, Mullvad-egress, Kronika-health,
   and Serve/Funnel verification gates pass;
 - does not change Serve, DNS, firewall, or routes.
 
@@ -264,7 +260,7 @@ parse failure is `unknown` and must not be reported as `non-Mullvad egress`.
 ## No public inbound exposure
 
 This contract does not add a listener, Funnel handler, router forward, or
-WAN SSH. Serve remains the only remote FrameNest ingress.
+WAN SSH. Serve remains the only remote Kronika ingress.
 
 ## No credential storage
 

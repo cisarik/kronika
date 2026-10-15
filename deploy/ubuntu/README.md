@@ -1,8 +1,8 @@
-# FrameNest Ubuntu Deployment Support
+# Kronika Ubuntu Deployment Support
 
 This directory holds the discoverable, tested, repository-native Ubuntu
 deployment support, including the routine immutable release-update contract
-(`framenest-release` / `framenest_release.py`). Routine refresh of the
+(`kronika-release` / `kronika_release.py`). Routine refresh of the
 development-and-testing NUC to the exact public `main` SHA uses that helper
 under standing
 [ADR-0075](../../docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)
@@ -29,7 +29,7 @@ Independent Mullvad egress and operator network recovery are
 Repository source for the later root-owned export launcher:
 
 ```text
-deploy/ubuntu/framenest-catalog-export-v1
+deploy/ubuntu/kronika-catalog-export-v1
 ```
 
 That launcher is source material only until a later bounded host-provisioning
@@ -39,16 +39,16 @@ the exact no-argument sudoers rule documented in the backup runbook.
 ## Routine Immutable Release Update
 
 ```text
-deploy/ubuntu/framenest-release status
-deploy/ubuntu/framenest-release check --release <40-hex-SHA>
-deploy/ubuntu/framenest-release deploy --release <40-hex-SHA> --yes
-deploy/ubuntu/framenest-release rollback --release <40-hex-SHA> --yes
-deploy/ubuntu/framenest-release activate-capture --release <40-hex-SHA> --yes
-deploy/ubuntu/framenest-release rollback-capture --release <40-hex-SHA> --yes
+deploy/ubuntu/kronika-release status
+deploy/ubuntu/kronika-release check --release <40-hex-SHA>
+deploy/ubuntu/kronika-release deploy --release <40-hex-SHA> --yes
+deploy/ubuntu/kronika-release rollback --release <40-hex-SHA> --yes
+deploy/ubuntu/kronika-release activate-capture --release <40-hex-SHA> --yes
+deploy/ubuntu/kronika-release rollback-capture --release <40-hex-SHA> --yes
 ```
 
-`deploy` and `rollback` move only the web pointer `/opt/framenest/current` and
-`framenest.service`. They report the web SHA and the capture SHA.
+`deploy` and `rollback` move only the web pointer `/opt/kronika/current` and
+`kronika.service`. They report the web SHA and the capture SHA.
 `activate-capture` and `rollback-capture` are the only operations that switch
 `/opt/framenest/capture-current` and restart the capture runner, and each does
 that restart once after the drain and five-minute brake checks. Capture units
@@ -56,8 +56,8 @@ under `deploy/systemd/kronika-capture-*.service` and
 `deploy/systemd/kronika-capture.env.example` are source material. Nothing in
 this directory is evidence that capture is already deployed.
 
-`framenest-release` is the single Fish-compatible operator entry point; it
-resolves the repository root and runs `deploy/ubuntu/framenest_release.py`
+`kronika-release` is the single Fish-compatible operator entry point; it
+resolves the repository root and runs `deploy/ubuntu/kronika_release.py`
 through the repository `.venv/bin/python`. The engine is standard-library only
 and remains Ubuntu system Python 3.12 compatible for its private transferred
 remote mode. It never invokes `uv`, never runs migrations, and never accepts a
@@ -92,14 +92,14 @@ exact host authority.
 The helper manages only production AI provider configuration and the selected
 provider credential. It must not be used as a general environment-file copier
 or as authorization to run real NUC commands outside an explicit host task.
-It atomically acquires `/run/framenest-ai-credential-deploy`; existing recovery
+It atomically acquires `/run/kronika-ai-credential-deploy`; existing recovery
 material causes a fail-closed stop before credential transmission or production
 mutation. After a complete remote backup marker exists, failed deployment
 mutations roll back the selected credential, systemd drop-in, and non-secret AI
 configuration. The drop-in installed remotely is the exact tracked template
 bytes transferred as a non-secret stdin payload, verified by deterministic byte
 equivalence before and after atomic rename. Before restart, the helper verifies
-systemd syntax, daemon-reloads, confirms `framenest.service` is still enabled,
+systemd syntax, daemon-reloads, confirms `kronika.service` is still enabled,
 and checks that systemd loaded the intended drop-in and credential identity.
 Before restart, loaded-credential acceptance verifies the exact trusted drop-in
 bytes, `DropInPaths`, and `systemctl cat` mapping without relying on redacted
@@ -111,7 +111,7 @@ as proof that the newly installed credential is valid. Rollback daemon-reloads,
 restarts, and waits up to 30 seconds for readiness on the restored service. Deployment and rollback
 distinguish terminal service failure from readiness timeout. If rollback or
 cleanup fails, the helper reports the sanitized phase and leaves recovery
-material under `/run/framenest-ai-credential-deploy` for operator recovery.
+material under `/run/kronika-ai-credential-deploy` for operator recovery.
 
 This directory must not contain secrets, host UUIDs, disk serials, LAN IP
 addresses, SSH fingerprints, private media filenames, or generated deployment

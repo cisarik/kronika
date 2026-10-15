@@ -39,16 +39,15 @@ rollout):
 | `be35922` | `docs/INFOSEC.md` hardening manual + three read-only operator diagnostics |
 | *(this range)* | infosec operator script polish: executable bits set; explicit `-h/--help` prints usage and exits 0 before any other logic |
 
-The operator diagnostics below name the canonical `kronika_*` scripts. The
-retained `framenest_*` entry points accept the same arguments and keep working
-unchanged until the compatibility-removal window.
+The operator diagnostics below name the `kronika_*` scripts. Those names are
+the only entry points.
 
 ---
 
 ## Part A — MacBook, local only (no NUC, no Tailscale)
 
 All commands are Fish on your MacBook, run from the repository root. You need
-the prepared environment once (`./framenest setup`) if you have not run this
+the prepared environment once (`./kronika setup`) if you have not run this
 repo lately.
 
 ### A0 — deterministic acceptance directory
@@ -58,7 +57,7 @@ share one known database and you delete one directory at the end.
 
 ```fish
 # [MacBook / fish]
-set -x ACC $HOME/.cache/framenest-acceptance
+set -x ACC $HOME/.cache/kronika-acceptance
 mkdir -p $ACC/sockets
 #------------------------------------------------------
 ```
@@ -75,21 +74,21 @@ for `GET /health` (`DEVELOPMENT.md`, "Start And Migration").
 
 ```fish
 # [MacBook / fish]
-cd ~/Projects/framenest   # adjust to your checkout path
-set -x FRAMENEST_DATABASE_PATH $ACC/catalog.sqlite3
-./framenest start --no-open
+cd ~/Projects/kronika   # adjust to your checkout path
+set -x KRONIKA_DATABASE_PATH $ACC/catalog.sqlite3
+./kronika start --no-open
 #------------------------------------------------------
 ```
 
 Expected: launcher output ends with a successful health wait; the server runs
-detached (`./framenest stop` ends it later). Failure: any red traceback or
+detached (`./kronika stop` ends it later). Failure: any red traceback or
 non-zero exit — paste the launcher's final lines. Report: cite **A1**.
 
 ### A2 — confirm the audience bootstrap grants the admin-grade local audience
 
 Purpose: prove the local composition resolves to `trusted_loopback` with the
 full administrator capability set, identity-absent
-(`src/framenest/adapters/api/application.py:1357-1362`).
+(`src/kronika/adapters/api/application.py:1357-1362`).
 
 ```fish
 # [MacBook / fish]
@@ -117,7 +116,7 @@ Check, in order (UI anchors verified in source at the tested baseline):
 
 1. **Publish / Unpublish**: select one catalog item in Manage media and use
    the **Publish** button (label rendered at
-   `src/framenest/adapters/api/web/app.js:8349`; batch confirm
+   `src/kronika/adapters/api/web/app.js:8349`; batch confirm
    "Publish selected" at `app.js:9235-9238`). Then **Unpublish** it again
    (per-item and batch `Unpublish` controls exist,
    `app.js:1244`,`:8369-8425`). Leave exactly one or two items **published**
@@ -141,7 +140,7 @@ Failure: screenshot + which numbered sub-step failed. Report: cite
 
 Purpose: see disposition B work end-to-end: duplicates are accepted up to the
 per-user window limit, then honestly rejected with a sanitized 429
-(`src/framenest/application/analysis_proposal.py:30`,`:77-88`; default six per
+(`src/kronika/application/analysis_proposal.py:30`,`:77-88`; default six per
 hour, mirroring the YouTube/X requester limiters).
 
 ```fish
@@ -149,11 +148,11 @@ hour, mirroring the YouTube/X requester limiters).
 set MEDIA_ID <paste-the-published-media-id-from-A3>
 for i in 1 2 3 4 5 6 7
     curl -s -o /dev/null -w "%{http_code}\n" \
-        -X POST -H 'Content-Type: application/json' -H 'X-FrameNest-Request: 1' \
+        -X POST -H 'Content-Type: application/json' -H 'X-Kronika-Request: 1' \
         -H "Origin: http://127.0.0.1:8000" \
         -d '{}' "http://127.0.0.1:8000/api/workspace/media/$MEDIA_ID/analysis-proposals"
 end
-curl -s -X POST -H 'Content-Type: application/json' -H 'X-FrameNest-Request: 1' \
+curl -s -X POST -H 'Content-Type: application/json' -H 'X-Kronika-Request: 1' \
     -H "Origin: http://127.0.0.1:8000" -d '{}' \
     "http://127.0.0.1:8000/api/workspace/media/$MEDIA_ID/analysis-proposals"
 #------------------------------------------------------
@@ -169,18 +168,18 @@ Report: cite **A4**.
 
 Purpose: run the second, separate composition exactly as designed —
 `public_published_uds`, distinct socket, same database opened read-only
-(dispatch at `src/framenest/adapters/api/application.py:375-380`; UDS binding
-at `src/framenest/server.py:29-30`, so no TCP port is opened).
+(dispatch at `src/kronika/adapters/api/application.py:375-380`; UDS binding
+at `src/kronika/server.py:29-30`, so no TCP port is opened).
 
 New terminal (keep A1 running):
 
 ```fish
 # [MacBook / fish]
-cd ~/Projects/framenest
-set -x FRAMENEST_INGRESS_MODE public_published_uds
-set -x FRAMENEST_UDS_PATH $ACC/sockets/public.sock
-set -x FRAMENEST_DATABASE_PATH $ACC/catalog.sqlite3
-poetry run framenest-server
+cd ~/Projects/kronika
+set -x KRONIKA_INGRESS_MODE public_published_uds
+set -x KRONIKA_UDS_PATH $ACC/sockets/public.sock
+set -x KRONIKA_DATABASE_PATH $ACC/catalog.sqlite3
+poetry run kronika-server
 #------------------------------------------------------
 ```
 
@@ -218,15 +217,14 @@ Report: cite **A6**.
 
 Purpose: run the repository diagnostic end-to-end. The script speaks HTTP base
 URLs; against a UDS you lend it `--unix-socket` through its documented
-`KRONIKA_CURL_BIN` hook (the retained `FRAMENEST_CURL_BIN` spelling is also
-accepted; no repository change needed). Since the polish
+`KRONIKA_CURL_BIN` hook. Since the polish
 commit the scripts also carry the executable bit, but the explicit `bash`
 form below works everywhere regardless of mode.
 
 ```fish
 # [MacBook / fish]
 printf '%s\n' '#!/usr/bin/env bash' \
-  'exec curl --unix-socket "$FRAMENEST_UDS_PATH" "$@"' > $ACC/curl-uds.sh
+  'exec curl --unix-socket "$KRONIKA_UDS_PATH" "$@"' > $ACC/curl-uds.sh
 chmod +x $ACC/curl-uds.sh
 env KRONIKA_PUBLIC_BASE_URL=http://localhost \
     KRONIKA_CURL_BIN=$ACC/curl-uds.sh \
@@ -256,7 +254,7 @@ Report: cite **A7**.
 
 Purpose: eyeball the byte-level contract yourself, including a malformed UUID
 and out-of-range pagination (`d3b203f`, audit F-1; handler at
-`src/framenest/adapters/api/public_published_application.py:210`).
+`src/kronika/adapters/api/public_published_application.py:210`).
 
 ```fish
 # [MacBook / fish]
@@ -292,7 +290,7 @@ Failure: unexpected column values — paste the table. Report: cite **A9**.
 
 ```fish
 # [MacBook / fish]
-./framenest stop
+./kronika stop
 rm -rf $ACC
 #------------------------------------------------------
 ```
@@ -305,11 +303,11 @@ public-reader terminal first.) Report: cite **A10** only if something fails.
 ## Part B — NUC / Tailscale verification (CONDITIONAL — read the banner)
 
 > **Honesty banner:** Part B is valid only when the tested public `main` SHA
-> equals the live `framenest-release status` active release. If they differ,
+> equals the live `kronika-release status` active release. If they differ,
 > do not run Part B; report `BLOCKED: NUC not at tested SHA`.
 
 If, and only if, the tested public `main` SHA equals the live
-`framenest-release status` active release:
+`kronika-release status` active release:
 
 - **B1 — ordinary mapped user flows over Tailscale Serve** (requires live
   identity mapping and real data — privacy reminder: use your own test items,
@@ -331,7 +329,7 @@ If, and only if, the tested public `main` SHA equals the live
 
 ```text
 # [NUC / bash]
-env KRONIKA_LOG_UNIT=framenest.service KRONIKA_LOG_SINCE="-24h" \
+env KRONIKA_LOG_UNIT=kronika.service KRONIKA_LOG_SINCE="-24h" \
     ./scripts/operator/infosec/kronika_log_triage.sh
 #------------------------------------------------------
 ```
@@ -375,7 +373,7 @@ then-current deployment truth rather than acting on this document:
 
 1. [docs/UBUNTU_NUC_DEPLOYMENT.md](UBUNTU_NUC_DEPLOYMENT.md) — the runbook as
    it stands in that future checkout.
-2. the `deploy/ubuntu/framenest-release` immutable-update contract
+2. the `deploy/ubuntu/kronika-release` immutable-update contract
    ([ADR-0060](adr/0060-repeatable-immutable-nuc-release-update-contract.md)) —
    status/check/deploy discipline, pinned tooling, provenance files.
 3. [docs/INFOSEC.md](INFOSEC.md) §4 — the public-bind readiness checklist,
@@ -396,9 +394,8 @@ when the freeze lifts:
 - Cooperator acceptance sign-off before DNS or any exposure.
 
 Also part of this freeze range: infosec operator script polish — executable
-bits set on all three `scripts/operator/infosec/kronika_*.sh` tools (the
-retained `framenest_*.sh` spellings remain working entry points until the
-compatibility-removal window), and an explicit `-h/--help` now prints usage
+bits set on all three `scripts/operator/infosec/kronika_*.sh` tools, and an
+explicit `-h/--help` now prints usage
 and exits 0 before any other logic.
 
 ---

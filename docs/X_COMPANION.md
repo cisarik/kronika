@@ -1,4 +1,4 @@
-# FrameNest X meme browser companion
+# Kronika X meme browser companion
 
 This document is the operator and user setup guide for the unpacked Manifest
 V3 companion under `extension/`. It does not authorize publication, NUC
@@ -6,10 +6,10 @@ deployment, signed-in X probing, or a yt-dlp pin change.
 
 ## What it does
 
-An authenticated FrameNest user can:
+An authenticated Kronika user can:
 
 - hover (or keyboard-focus) a green **+** at the bottom-right of each image,
-  video, or GIF in an eligible X post and click **Save to FrameNest** to open
+  video, or GIF in an eligible X post and click **Save to Kronika** to open
   a Save popup (Title, Description, Search tags, Save). Save from X is an
   Edit-media subset: alt-first Title, tall tweet Description, existing-tag
   search, one Save, no category radios. The header close **X**, Escape, or a click
@@ -26,7 +26,7 @@ An authenticated FrameNest user can:
   **Save**.
 - click into the reply composer to reveal a floating **+** on the right of
   "Post your reply" (not inserted into the X input row), then open an in-page
-  FrameNest search popup above that button;
+  Kronika search popup above that button;
 - type `++` in that same reply composer (after start-of-field or whitespace,
   not inside `C++`) to open the picker and consume those two characters;
 - type a search in that in-page picker (blank or cleared search lists no
@@ -35,7 +35,7 @@ An authenticated FrameNest user can:
   with Enter or Attach onto the composer file input;
 - open the toolbar side panel to use one title-bar companion history
   (`#review-history-toggle`, `#review-history`, `#review-history-list`) above
-  the surviving hosted FrameNest iframe. Administrators see newest analyzed
+  the surviving hosted Kronika iframe. Administrators see newest analyzed
   titles first; ordinary requesters see their newest own Saves of any state.
   Every history row opens hosted
   media-details via `open_details`. In that hosted
@@ -70,7 +70,7 @@ successes join; movies stay excluded). Ordinary own-history is requester-private
 cataloged X Saves, all analysis states, movies excluded; Alice never sees Bob’s
 saves. Suggestion-ready unpublished items can appear in administrator history
 and the toolbar badge; they do not appear in the ordinary gallery. Clicking a
-row never removes it. Every history row posts hosted FrameNest media-details via
+row never removes it. Every history row posts hosted Kronika media-details via
 the web-bridge type `open_details` (`storedOrigin`, never `*`). Analyzed clicks
 also POST opened for that actor with the row’s `analysis_run_id` without gating
 the iframe; pending clicks never POST opened. Hosted Details hide Analyze by AI
@@ -102,7 +102,7 @@ complete-list failure hides history. Missing `x.request` (and missing
 remains the server `unopened_count` as `1`…`99` / `99+`, never a rendered length
 or title; pending rows never increment it. Administrators refresh the badge from
 inbox `limit=1`; ordinary identities refresh it from own-history `limit=1`.
-Alarm `framenest.review-inbox` runs every 1 minute. There is no `notifications`
+Alarm `kronika.review-inbox` runs every 1 minute. There is no `notifications`
 permission or second counter. The hosted `#frame` stays mounted and Attach
 survives. Ingest Save remains Title→Tags→Description→Save with no radios or
 Analyze. Exactly five `companion_mutation` routes remain: X submit, X retry,
@@ -130,14 +130,14 @@ picker is compact quick attach with preview; it is not the full website.
 Empty search shows no preview chrome; arrows appear after two or more hits;
 typing `++` in the reply composer opens the picker and consumes the token.
 After connect, the in-page picker has no Settings sheet; an empty origin tells
-the user to connect FrameNest in the side panel. Settings persists the origin
+the user to connect Kronika in the side panel. Settings persists the origin
 with Save under the origin field. Connected administrators also see
 Administration with **Automatic media analysis**. The title-bar control is Connect when
 disconnected and Disconnect (existing Reset) when connected. Empty title-bar
 Connect opens Settings. Save writes settings; Connect and Disconnect in the
 title bar attach or clear the session. The toolbar opens
-that shell, which iframes FrameNest only after the stored origin is granted.
-If the iframe does not load, the shell reports that FrameNest did not load and
+that shell, which iframes Kronika only after the stored origin is granted.
+If the iframe does not load, the shell reports that Kronika did not load and
 does not open a new tab. If the iframe loads without the companion host, the
 library stays visible and the shell says this server cannot host companion
 Attach yet. Per-asset Save targeting remains deferred.
@@ -149,7 +149,7 @@ the request fails; failure is the `title` / `aria-label` and a danger border,
 not an ×.
 
 The companion never clicks Post, never copies cookies or X credentials, and
-never talks to FrameNest from a content script.
+never talks to Kronika from a content script.
 
 ## Stable unpacked ID and private-key custody
 
@@ -167,7 +167,7 @@ requires an allowlist update.
 
 ## Server allowlist (inert until set)
 
-Default `FRAMENEST_COMPANION_EXTENSION_ORIGINS` is empty. Five
+Default `KRONIKA_COMPANION_EXTENSION_ORIGINS` is empty. Five
 `companion_mutation` routes may accept that exact `chrome-extension://` origin:
 X submit, X retry, review opened, review apply, and automatic-analysis
 settings PUT. GET inbox routes do not
@@ -176,7 +176,7 @@ fail closed when it is empty. Other browser mutations stay on the exact
 Tailscale web origin. To enable the companion:
 
 ```text
-FRAMENEST_COMPANION_EXTENSION_ORIGINS=["chrome-extension://omiihmnlkmieaafaphohakcgmbggppap"]
+KRONIKA_COMPANION_EXTENSION_ORIGINS=["chrome-extension://omiihmnlkmieaafaphohakcgmbggppap"]
 ```
 
 Rollback: remove the key or set it to `[]` and restart. No CORS is enabled.
@@ -188,7 +188,7 @@ Rollback: remove the key or set it to `[]` and restart. No CORS is enabled.
 3. Load unpacked and select the repository `extension/` directory.
 4. Confirm the ID is `omiihmnlkmieaafaphohakcgmbggppap`.
 5. Open the toolbar side panel. On first run or after Disconnect, open Settings
-   in the green title bar, enter a FrameNest HTTPS tailnet origin
+   in the green title bar, enter a Kronika HTTPS tailnet origin
    (`https://<node>.<tailnet>.ts.net`, no path). Save accepts that pasted origin
    and canonicalizes a trailing slash or host case. Then click Save under the
    origin field and grant the host permission when prompted. After Save, Settings closes,
@@ -202,8 +202,8 @@ Rollback: remove the key or set it to `[]` and restart. No CORS is enabled.
 
 After using **Reload** for the unpacked extension, refresh already-open X tabs
 and reopen the side panel before using Save or the picker. If an already-open X
-tab or extension surface reaches the invalidated context first, FrameNest shows
-`FrameNest was reloaded. Refresh X and reopen the side panel.`, closes partial
+tab or extension surface reaches the invalidated context first, Kronika shows
+`Kronika was reloaded. Refresh X and reopen the side panel.`, closes partial
 Save/picker hosts, and disables the affected controls. The notice is specific to
 a missing runtime ID or the exact `Extension context invalidated` failure;
 unrelated runtime failures keep their existing behavior.
@@ -218,7 +218,7 @@ service worker has no X host permission.
   remains a later grant.
 - Side-panel iframe framing against live Tailscale Serve or Brave Shields is
   a named residual until a later operator probe.
-- A FrameNest origin that does not ship `companion_host.js` can still appear
+- A Kronika origin that does not ship `companion_host.js` can still appear
   in the side panel; Gallery Attach requires that host script on the served
   web.
 - Larger-than-32-MiB attach uses optional `chrome.downloads` with Save As;

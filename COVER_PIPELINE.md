@@ -1,4 +1,4 @@
-# FrameNest Cover Pipeline
+# Kronika Cover Pipeline
 
 ## Status
 
@@ -22,7 +22,7 @@ ORCHESTRATOR authority.
 
 ## Current Implementation Boundary
 
-FrameNest currently has deterministic local media-analysis preparation,
+Kronika currently has deterministic local media-analysis preparation,
 representative PNG frames for explicit preview, ephemeral JPEG derivatives for
 VLM transport per
 [ADR-0019](docs/adr/0019-vlm-image-derivatives-and-nvidia-instruct-mode.md),
@@ -36,7 +36,7 @@ authoring accepts available GIF, MP4, and still-image (JPEG/PNG) sources;
 still-image sources are timeless and render without a timeline, scrubber, or
 timestamp selector.
 
-FrameNest does not currently implement the complete Cover Studio, persistent
+Kronika does not currently implement the complete Cover Studio, persistent
 cover candidates or candidate history, imported image covers, or AI-generated
 covers.
 
@@ -65,7 +65,7 @@ user to scrub a media timeline, see the exact current timestamp, preview the
 selected frame, make fine keyboard adjustments conceptually, and explicitly run
 `Set as cover`.
 
-FrameNest should not set a cover merely because the user scrubs the timeline or
+Kronika should not set a cover merely because the user scrubs the timeline or
 because a candidate preview appears. Manual source-frame selection precedes AI
 cover generation.
 
@@ -73,7 +73,7 @@ This document does not specify final key bindings.
 
 ## Exact Cover Timestamp
 
-When a cover is selected from media, FrameNest must retain an exact durable
+When a cover is selected from media, Kronika must retain an exact durable
 cover timestamp in a stable time representation selected by a future
 implementation decision.
 
@@ -106,7 +106,7 @@ candidate leaves the accepted cover unchanged.
 
 ## Derivative Generation Responsibilities
 
-After a source frame or image is accepted as the cover, FrameNest should
+After a source frame or image is accepted as the cover, Kronika should
 generate deterministic derivatives for gallery cards and other display
 consumers. The accepted source and its provenance remain distinct from derived
 cache artifacts.
@@ -134,7 +134,7 @@ long edge to 512 pixels, encodes at JPEG quality 82 with 4:2:0 subsampling,
 non-progressive and non-optimized output, and validates a maximum encoded
 payload of 524,288 bytes.
 
-The cache root is configured centrally as `FRAMENEST_GALLERY_PREVIEW_CACHE_PATH`
+The cache root is configured centrally as `KRONIKA_GALLERY_PREVIEW_CACHE_PATH`
 and defaults outside the repository under the local development data directory.
 It must be absolute. Generation refuses to publish cache artifacts inside any
 registered source-media root. Cache filenames are deterministic versioned keys
@@ -143,18 +143,18 @@ current safely observed source size and mtime behind the registered-root
 containment boundary. A source identity change or algorithm-version change
 therefore produces a new expected derivative key.
 
-Generation is explicit through the packaged `framenest-previews` console entry
+Generation is explicit through the packaged `kronika-previews` console entry
 point. Local CachyOS development may use the Fish launcher form; NUC production
 must use the release-local console entry point under the operator contract in
 [docs/UBUNTU_NUC_DEPLOYMENT.md](docs/UBUNTU_NUC_DEPLOYMENT.md):
 
 ```text
-./framenest previews status
-./framenest previews generate --library-id <library-id> --yes --max-items <n>
-./framenest previews generate --all --yes --max-items <n>
-framenest-previews status
-framenest-previews generate --library-id <library-id> --yes --max-items <n>
-framenest-previews generate --all --yes --max-items <n>
+./kronika previews status
+./kronika previews generate --library-id <library-id> --yes --max-items <n>
+./kronika previews generate --all --yes --max-items <n>
+kronika-previews status
+kronika-previews generate --library-id <library-id> --yes --max-items <n>
+kronika-previews generate --all --yes --max-items <n>
 ```
 
 `status` is read-only and generation-free. `generate` displays a plan before
@@ -202,12 +202,12 @@ in [ADR-0050](docs/adr/0050-durable-manual-cover-foundation.md):
 - optimistic concurrency via `expected_revision`; a stale browser tab cannot
   silently overwrite a newer cover;
 - durable immutable content-addressed JPEG artifacts under
-  `FRAMENEST_COVER_STORAGE_ROOT` (production-oriented
-  `/var/lib/framenest/covers`);
+  `KRONIKA_COVER_STORAGE_ROOT` (production-oriented
+  `/var/lib/kronika/covers`);
 - regenerable `cover-thumbnail-jpeg-v1` derivatives under
-  `FRAMENEST_COVER_THUMBNAIL_CACHE_PATH` (production-oriented
-  `/var/cache/framenest/cover-thumbnails`), generated only on acceptance or via
-  the explicit `framenest-covers` operator CLI;
+  `KRONIKA_COVER_THUMBNAIL_CACHE_PATH` (production-oriented
+  `/var/cache/kronika/cover-thumbnails`), generated only on acceptance or via
+  the explicit `kronika-covers` operator CLI;
 - admin-only authoring through `metadata.canonical.write` with `media.cover_set`
   security-audit-before-mutation;
 - ordinary cover thumbnail reads require `gallery.read` and obey the shared
@@ -244,7 +244,7 @@ identifies generated output as AI-generated, retains provider/model provenance
 or supported authenticity metadata, and requires explicit review and
 acceptance. It never automatically replaces the current cover.
 
-FrameNest must not assume one permanent NVIDIA image-generation model, one
+Kronika must not assume one permanent NVIDIA image-generation model, one
 fixed provider catalog, permanent free access, or universal support for
 reference images.
 

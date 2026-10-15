@@ -65,10 +65,11 @@ def test_agents_documents_canonical_entry_point() -> None:
     text = _text(AGENTS_PATH)
     assert "deploy/ubuntu/kronika-release" in text
     assert "deploy/ubuntu/kronika_release.py" in text
-    # The retained spellings are named as still working until the
-    # compatibility-removal cut.
+    assert "wrappers are removed" in text
     assert "deploy/ubuntu/framenest-release" in text
     assert "deploy/ubuntu/framenest_release.py" in text
+    assert "C7-B window" not in text
+    assert "still runs the same" not in text
     assert POETRY_PATH in text
     assert CPYTHON_PATH in text
     assert "uv" in text
@@ -106,7 +107,7 @@ def test_runbook_separates_bootstrap_from_routine_update() -> None:
 
 def test_runbook_reconciles_production_claim_as_dated_history() -> None:
     text = _text(RUNBOOK_PATH)
-    assert "framenest-release status" in text
+    assert "kronika-release status" in text
     assert "dated history" in text
 
 
@@ -114,7 +115,7 @@ def test_deploy_readme_no_longer_claims_untested_automation() -> None:
     text = _text(DEPLOY_README_PATH)
     assert "without adding\nuntested host-mutating automation" not in text
     assert "untested host-mutating automation" not in text
-    assert "framenest-release" in text
+    assert "kronika-release" in text
     assert "0075-nuc-development-test-target-and-routine-release-refresh.md" in text
     assert "migration-required" in text
     assert "section 5 annex" in text
@@ -129,7 +130,7 @@ def test_nuc_host_baseline_keeps_history_and_adds_cross_ref() -> None:
 
 def test_readme_reconciles_production_claim() -> None:
     text = _text(README_PATH)
-    assert "framenest-release status" in text
+    assert "kronika-release status" in text
     assert "dated history" in text
     assert "aec2f0091c10aed2fc2033dac154a0d9651b2b6d" in text
     assert "exact public `main` SHA" in text
@@ -145,7 +146,7 @@ def test_server_records_dev_test_authoritative_serving() -> None:
     text = _text(SERVER_PATH)
     assert "disposable\ndevelopment-and-testing instance" in text
     assert "exact public `main` SHA" in text
-    assert "framenest-release status" in text
+    assert "kronika-release status" in text
     assert "owner-authoritative production release" not in text
     assert "aec2f0091c10aed2fc2033dac154a0d9651b2b6d" in text
 
@@ -160,7 +161,7 @@ def test_infosec_present_tense_is_development_test_workspace() -> None:
 def test_acceptance_part_b_gates_on_tested_sha() -> None:
     text = _text(ACCEPTANCE_PATH)
     assert "BLOCKED: NUC not at tested SHA" in text
-    assert "framenest-release status" in text
+    assert "kronika-release status" in text
     assert "No rendered Apply entry exists for analyzed rows" in text
     assert "Apply acceptance is deterministic by owner decision\n  (2026-08-26)" in text
 
@@ -169,8 +170,8 @@ def test_runbook_documents_exit_13_schema_jump_continuation() -> None:
     text = _text(RUNBOOK_PATH)
     assert "exits exactly 13" in text
     assert "`migration-required`" in text
-    assert "/opt/framenest/releases/<T>" in text
-    assert ".framenest-release-sha" in text
+    assert "/opt/kronika/releases/<T>" in text
+    assert ".kronika-release-sha" in text
     # The schema pair is derived from the observed status, never a permanent
     # example: the stale 0032 -> 0033 literals must not survive in the annex.
     assert "current_revision=<C>" in text
@@ -182,8 +183,8 @@ def test_runbook_documents_exit_13_schema_jump_continuation() -> None:
     assert "`0033`" not in text
     assert "rollback --release <T> --yes" in text
     assert "sudo -K" in text
-    assert "/opt/framenest/current/.venv/bin/framenest-db migrate" not in text
-    assert "/opt/framenest/releases/<T>/.venv/bin/framenest-db migrate" in text
+    assert "/opt/kronika/current/.venv/bin/kronika-db migrate" not in text
+    assert "/opt/kronika/releases/<T>/.venv/bin/kronika-db migrate" in text
 
 
 def test_runbook_lock_lifecycle_matches_the_engine() -> None:

@@ -25,11 +25,11 @@ ADR_PATH = (
 )
 ADR_INDEX_PATH = REPOSITORY_ROOT / "docs" / "adr" / "README.md"
 
-ACTIVE_TREE_ROOT = "/opt/framenest/current"
-TARGET_RELEASE_ROOT = "/opt/framenest/releases/<T>"
+ACTIVE_TREE_ROOT = "/opt/kronika/current"
+TARGET_RELEASE_ROOT = "/opt/kronika/releases/<T>"
 ACTIVE_CHDIR_FLAG = f"--chdir={ACTIVE_TREE_ROOT}"
 TARGET_CHDIR_FLAG = f"--chdir={TARGET_RELEASE_ROOT}"
-ENV_FILE_FLAG = "FRAMENEST_ENV_FILE=/etc/framenest/framenest.env"
+ENV_FILE_FLAG = "KRONIKA_ENV_FILE=/etc/kronika/kronika.env"
 
 
 def _ubuntu_text() -> str:
@@ -43,7 +43,7 @@ def _service_account_commands() -> list[str]:
         line = raw_line.strip()
         if pending:
             pending += " " + line.rstrip("\\").strip()
-        elif "sudo -u framenest" in line:
+        elif "sudo -u kronika" in line:
             pending = line.rstrip("\\").strip()
         if pending and not line.endswith("\\"):
             logical.append(pending)
@@ -117,18 +117,18 @@ def test_runbook_does_not_present_fish_launcher_as_nuc_interface() -> None:
 def test_runbook_documents_youtube_release_local_entry_point() -> None:
     text = _ubuntu_text()
 
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-youtube ingest URL --yes" in text
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-youtube status CLAIM_ID" in text
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-youtube retry CLAIM_ID --yes" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-youtube ingest URL --yes" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-youtube status CLAIM_ID" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-youtube retry CLAIM_ID --yes" in text
 
 
 def test_runbook_documents_previews_release_local_entry_point() -> None:
     text = _ubuntu_text()
 
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-previews" in text
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-previews status" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-previews" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-previews status" in text
     assert (
-        f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-previews generate --all --yes"
+        f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-previews generate --all --yes"
         in text
     )
 
@@ -136,12 +136,12 @@ def test_runbook_documents_previews_release_local_entry_point() -> None:
 def test_runbook_documents_migration_command_under_operator_contract() -> None:
     text = _ubuntu_text()
 
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-db migrate" not in text
-    assert f"{TARGET_RELEASE_ROOT}/.venv/bin/framenest-db migrate" in text
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-db status" in text
-    assert f"{TARGET_RELEASE_ROOT}/.venv/bin/framenest-db status" in text
-    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/framenest-ai" in text
-    assert "--config-path /var/lib/framenest/ai/config.json status --no-write" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-db migrate" not in text
+    assert f"{TARGET_RELEASE_ROOT}/.venv/bin/kronika-db migrate" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-db status" in text
+    assert f"{TARGET_RELEASE_ROOT}/.venv/bin/kronika-db status" in text
+    assert f"{ACTIVE_TREE_ROOT}/.venv/bin/kronika-ai" in text
+    assert "--config-path /var/lib/kronika/ai/config.json status --no-write" in text
 
 
 def test_runbook_schema_jump_continuation_uses_target_release_tree() -> None:
@@ -157,16 +157,16 @@ def test_runbook_schema_jump_continuation_uses_target_release_tree() -> None:
     assert "sudo -K" in text
     flattened = " ".join(text.split())
     assert "Never improvise a downgrade or catalog restore" in flattened
-    assert any("framenest-db migrate" in command for command in target)
-    assert any("framenest-db status" in command for command in target)
-    assert not any("framenest-db migrate" in command for command in active)
+    assert any("kronika-db migrate" in command for command in target)
+    assert any("kronika-db status" in command for command in target)
+    assert not any("kronika-db migrate" in command for command in active)
 
 
 def test_readme_youtube_section_points_nuc_to_release_entry_point() -> None:
     text = README_PATH.read_text(encoding="utf-8")
     youtube_section = text.split("## YouTube Operator Ingestion", 1)[1]
 
-    assert "framenest-youtube" in youtube_section
+    assert "kronika-youtube" in youtube_section
     assert "CachyOS development-launcher forms" in youtube_section
     assert "does not require Fish" in youtube_section
     assert "docs/UBUNTU_NUC_DEPLOYMENT.md" in youtube_section
@@ -177,11 +177,11 @@ def test_readme_and_spec_record_explicit_env_file_authority() -> None:
     spec = SPEC_PATH.read_text(encoding="utf-8")
     development = DEVELOPMENT_DOC_PATH.read_text(encoding="utf-8")
 
-    assert "FRAMENEST_ENV_FILE" in readme
+    assert "KRONIKA_ENV_FILE" in readme
     assert "never read a `.env` file from the\ncaller's working directory" in readme
     assert "MUST NOT implicitly probe the caller's working directory" in spec
-    assert "FRAMENEST_ENV_FILE" in spec
-    assert "FRAMENEST_ENV_FILE" in development
+    assert "KRONIKA_ENV_FILE" in spec
+    assert "KRONIKA_ENV_FILE" in development
 
 
 def test_systemd_unit_keeps_working_directory_and_hardening_contract() -> None:

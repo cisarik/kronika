@@ -113,10 +113,10 @@ def test_launcher_source_contract() -> None:
 def test_sudoers_no_argument_matcher_documented() -> None:
     text = BACKUP_DOC.read_text(encoding="utf-8")
     assert (
-        '<FRAME_NEST_OPERATOR> ALL=(framenest) NOPASSWD:NOSETENV: '
-        '/usr/local/libexec/framenest-catalog-export-v1 ""'
+        '<KRONIKA_OPERATOR> ALL=(kronika) NOPASSWD:NOSETENV: '
+        '/usr/local/libexec/kronika-catalog-export-v1 ""'
     ) in text
-    assert "No wildcard `framenest-backup *` rule." in text
+    assert "No wildcard `kronika-backup *` rule." in text
     assert 'explicit final `""`' in text or "explicit final `\"\"`" in text
 
 

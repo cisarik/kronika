@@ -1,6 +1,6 @@
 // Real-browser rendered evidence for the durable manual cover workflow.
 //
-// Gated behind FRAMENEST_RUN_BROWSER_EVIDENCE=1. Uses only the system
+// Gated behind KRONIKA_RUN_BROWSER_EVIDENCE=1. Uses only the system
 // google-chrome-stable binary driven through the DevTools Protocol over Node's
 // built-in WebSocket (no npm dependencies, no saved browser profile, no
 // repository lockfile). Synthetic media and the runtime live under a temporary
@@ -23,10 +23,10 @@ const test = require("node:test");
 const REPO_ROOT = path.resolve(__dirname, "..");
 const VENV_PYTHON = path.join(REPO_ROOT, ".venv", "bin", "python");
 const SERVER_APP_JS = path.join(REPO_ROOT, "src", "kronika", "adapters", "api", "web", "app.js");
-const CHROME = process.env.FRAMENEST_CHROME_BIN || "google-chrome-stable";
+const CHROME = process.env.KRONIKA_CHROME_BIN || "google-chrome-stable";
 const MEDIA_IMG = "99999999-9999-4999-8999-999999999999";
 
-const gated = process.env.FRAMENEST_RUN_BROWSER_EVIDENCE !== "1";
+const gated = process.env.KRONIKA_RUN_BROWSER_EVIDENCE !== "1";
 
 function freePort() {
   return new Promise((resolve, reject) => {

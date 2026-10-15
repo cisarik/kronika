@@ -1,8 +1,8 @@
-# FrameNest Architecture Decision Records
+# Kronika Architecture Decision Records
 
 ## Purpose
 
-Architecture Decision Records (ADRs) document **accepted** architecture decisions for FrameNest. Each ADR explains the context, the decision, rationale, consequences, and how the decision may be revisited.
+Architecture Decision Records (ADRs) document **accepted** architecture decisions for Kronika. Each ADR explains the context, the decision, rationale, consequences, and how the decision may be revisited.
 
 ADRs are normative for the decisions they record. They do not replace [SPEC.md](../../SPEC.md) product requirements, but they resolve architecture choices that implementation must follow.
 

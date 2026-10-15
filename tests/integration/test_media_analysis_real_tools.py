@@ -15,8 +15,8 @@ from kronika.domain import DeviceId, Library, LibraryId, LibraryPathFlavor, Libr
 from kronika.infrastructure.media_analysis import LocalMediaAnalysisAdapter
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("FRAMENEST_RUN_REAL_MEDIA_TOOLS") != "1",
-    reason="Set FRAMENEST_RUN_REAL_MEDIA_TOOLS=1 to run real-tool media analysis tests.",
+    os.environ.get("KRONIKA_RUN_REAL_MEDIA_TOOLS") != "1",
+    reason="Set KRONIKA_RUN_REAL_MEDIA_TOOLS=1 to run real-tool media analysis tests.",
 )
 
 

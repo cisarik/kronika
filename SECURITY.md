@@ -2,7 +2,7 @@
 
 ## Current Support Status
 
-FrameNest is in foundation-stage, pre-alpha development. Schema head `0035`
+Kronika is in foundation-stage, pre-alpha development. Schema head `0035`
 adds private Kronika records and administrator approval as implementation
 evidence. That evidence is not an accepted, deployed, or published security
 boundary. Workspace content reads fail closed without a verified identity.
@@ -10,7 +10,7 @@ New catalog files are created as private POSIX state (`0700` directory,
 `0600` database file). Windows ACLs are outside this implementation.
 
 There is no stable or supported public release and no security response service
-level yet. The Ubuntu NUC operates as the FrameNest development-and-testing
+level yet. The Ubuntu NUC operates as the Kronika development-and-testing
 machine
 ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)):
 its accepted role is development/test for this one product, with routine
@@ -68,7 +68,7 @@ are the pre-transition implementation, not exceptions to this record policy.
   credentials must not be assembled into provider context. There is no
   attachment and no automatic fallback to another provider. The first
   provider is `openai-responses` with fixed model `gpt-5.5-2026-04-23`.
-  FrameNest supervises the lifecycle. The provider executes the native
+  Kronika supervises the lifecycle. The provider executes the native
   research loop. Research configuration is disabled by default.
 - Provider output is untrusted. Preserve the complete answer text. Render
   through a bounded allowlist, prohibit scripts and external resources, and
@@ -157,15 +157,15 @@ Do not keep using an exposed credential while waiting for repository cleanup.
 
 Logs, support bundles, crash reports, diagnostics, and screenshots must be reviewed and sanitized before they are shared.
 
-FrameNest now implements a structured logging foundation with centralized redaction before JSON serialization for FrameNest-owned log records. The formatter does not automatically serialize settings objects, request objects, private paths, media filenames, URLs, headers, or arbitrary object representations. Secrets must still never be passed intentionally as ordinary log messages. Uvicorn HTTP access logging is initially disabled. JSON logs remain diagnostic output and require review before sharing. Logging redaction is defense in depth, not permission to log sensitive data.
+Kronika now implements a structured logging foundation with centralized redaction before JSON serialization for Kronika-owned log records. The formatter does not automatically serialize settings objects, request objects, private paths, media filenames, URLs, headers, or arbitrary object representations. Secrets must still never be passed intentionally as ordinary log messages. Uvicorn HTTP access logging is initially disabled. JSON logs remain diagnostic output and require review before sharing. Logging redaction is defense in depth, not permission to log sensitive data.
 
-Launcher, interpreter, shell, supervisor, and future service-manager diagnostics are separate output sources outside the FrameNest logging graph. Captured combined `stderr` from a wrapped command must not automatically be treated as entirely application-generated. External diagnostics must still be reviewed and sanitized before sharing.
+Launcher, interpreter, shell, supervisor, and future service-manager diagnostics are separate output sources outside the Kronika logging graph. Captured combined `stderr` from a wrapped command must not automatically be treated as entirely application-generated. External diagnostics must still be reviewed and sanitized before sharing.
 
-The initial SQLite persistence foundation uses explicit operator commands for database migration. `framenest-db status` and `framenest-db migrate` produce deterministic machine-readable output that must not include the configured database path, database URL, SQL text, SQL parameters, environment values, or raw SQLAlchemy, SQLite, or Alembic exception messages. Normal `framenest-server` startup does not apply migrations.
+The initial SQLite persistence foundation uses explicit operator commands for database migration. `kronika-db status` and `kronika-db migrate` produce deterministic machine-readable output that must not include the configured database path, database URL, SQL text, SQL parameters, environment values, or raw SQLAlchemy, SQLite, or Alembic exception messages. Normal `kronika-server` startup does not apply migrations.
 
 The initial local media-analysis preparation boundary uses optional external `ffprobe` and `ffmpeg` executables through a shell-free subprocess boundary. Operator commands and sanitized errors must not include absolute private media paths, database paths, raw OS errors, raw subprocess stderr, environment values, or PNG frame payloads. Representative frames are runtime in-memory artifacts only and must not be printed, base64-encoded, or persisted by the catalog CLI.
 
-The initial media suggestion preview uses an explicit cloud-upload confirmation gate and sends provider requests only through the FrameNest server. Server AI administration is performed by `./framenest ai status`, `./framenest ai configure`, and `./framenest ai test`. `status` is network-free. `configure` writes only non-secret provider/model selection outside the repository and must not write API keys, Authorization headers, cookies, provider responses, prompts, frame data, media paths, or database paths. `test` is an explicit minimal text-only provider request and persists only a safe category and timestamp. NVIDIA NIM uses `NVIDIA_API_KEY`; Vercel AI Gateway uses `AI_GATEWAY_API_KEY`. Operator commands, browser diagnostics, and sanitized errors must not include API keys, Authorization headers, absolute paths, raw provider responses, raw prompts, PNG/base64 payloads, or reasoning/chain-of-thought content. Suggestion output is untrusted preview data and must not be persisted automatically.
+The initial media suggestion preview uses an explicit cloud-upload confirmation gate and sends provider requests only through the Kronika server. Server AI administration is performed by `./kronika ai status`, `./kronika ai configure`, and `./kronika ai test`. `status` is network-free. `configure` writes only non-secret provider/model selection outside the repository and must not write API keys, Authorization headers, cookies, provider responses, prompts, frame data, media paths, or database paths. `test` is an explicit minimal text-only provider request and persists only a safe category and timestamp. NVIDIA NIM uses `NVIDIA_API_KEY`; Vercel AI Gateway uses `AI_GATEWAY_API_KEY`. Operator commands, browser diagnostics, and sanitized errors must not include API keys, Authorization headers, absolute paths, raw provider responses, raw prompts, PNG/base64 payloads, or reasoning/chain-of-thought content. Suggestion output is untrusted preview data and must not be persisted automatically.
 
 The ignored local-development file `.secrets/ai.env.fish` may export
 `NVIDIA_API_KEY`, `AI_GATEWAY_API_KEY`, and/or `OPENCODE_API_KEY` for the root
@@ -174,15 +174,15 @@ ownership, and invalid Fish syntax before sourcing it, and must not print file
 contents or credential values. Production AI credentials are
 repository-supported through optional systemd credential drop-ins and
 exact-name `CREDENTIALS_DIRECTORY` resolution. The base service remains
-credential-optional, `/etc/framenest/framenest.env` remains non-secret, and
+credential-optional, `/etc/kronika/kronika.env` remains non-secret, and
 real host installation remains a separately authorized deployment task.
 
 The administrator AI provider surface is an authenticated website boundary
 under `provider.operate`. It lists built-in and operator-declared
 OpenAI-compatible provider records, manages only non-secret schema-v2
 configuration, activates one provider/model, and runs explicit ping/pong
-diagnostics through the FrameNest server. Mutating routes require the exact
-external `Origin` plus `X-FrameNest-Request: 1` and are audited before
+diagnostics through the Kronika server. Mutating routes require the exact
+external `Origin` plus `X-Kronika-Request: 1` and are audited before
 mutation; ordinary identities receive sanitized 403 responses and never see
 the control. Browser responses and stored records expose only credential
 environment-variable names and availability booleans — never credential
@@ -196,7 +196,7 @@ is reported as credential or entitlement rejection. Declared records and the
 active selection resolve per operation, so an added or activated provider
 takes effect without a service restart.
 
-The catalog backup foundation uses `framenest-backup` for the SQLite catalog
+The catalog backup foundation uses `kronika-backup` for the SQLite catalog
 only. Backup manifests and command output must not contain source paths,
 destination paths, usernames, hostnames, IP addresses, environment values, SQL,
 media paths, media filenames, raw exception text, credentials, tokens, cookies,
@@ -215,13 +215,13 @@ absent destination and does not replace production, run migrations, start
 services, or prove readiness. Off-device and workstation snapshot publication
 use no-replace semantics and must not overwrite a conflicting final destination
 bundle. Workstation pull uses system OpenSSH with a fixed remote export
-launcher and a narrow `framenest` sudo bridge; it must not grant arbitrary
+launcher and a narrow `kronika` sudo bridge; it must not grant arbitrary
 sudo, caller-controlled launcher arguments, or NUC write access to workstation
 storage.
 
 The resumable upload transport is capability-gated trusted-path functionality,
 not a public upload service. Upload endpoints are disabled until
-`FRAMENEST_UPLOAD_QUARANTINE_ROOT` points to a pre-existing absolute
+`KRONIKA_UPLOAD_QUARANTINE_ROOT` points to a pre-existing absolute
 non-symlink quarantine directory. That directory must not overlap registered
 media library roots or the Gallery preview cache. Upload requests use
 server-generated session and storage identities and stream bytes directly to
@@ -238,7 +238,7 @@ sessions retain `duplicate_pending` until keep/discard, while ordinary
 `silent_keep_separate` sessions atomically keep-separate without disclosing a
 match. Discard durably cancels that selected session before removing only
 its quarantine object. Optional publication requires the server-controlled
-`FRAMENEST_UPLOAD_PUBLICATION_LIBRARY_ID` to resolve one existing writable
+`KRONIKA_UPLOAD_PUBLICATION_LIBRARY_ID` to resolve one existing writable
 registered POSIX library whose native non-symlink root is disjoint from
 quarantine, cache, database state, and other registered POSIX roots. Publication
 uses an opaque per-upload target, verifies exact size and SHA-256 evidence, and
@@ -258,16 +258,16 @@ Browser mutation requests with an `Origin` header must match the effective same
 origin; this is a bounded loopback protection and not authentication or
 authorization. In Tailscale UDS mode, five `companion_mutation` routes may also accept an
 exact allowlisted `chrome-extension://` origin after
-`FRAMENEST_COMPANION_EXTENSION_ORIGINS` is set: `POST /api/x/requests`,
+`KRONIKA_COMPANION_EXTENSION_ORIGINS` is set: `POST /api/x/requests`,
 `POST /api/x/requests/{claim_id}/retry`,
 `POST /api/companion/review-inbox/{media_id}/opened`,
 `POST /api/companion/review-inbox/{media_id}/apply`, and
 `PUT /api/admin/settings/automatic-analysis`. That allowlist defaults to
-empty, still requires `X-FrameNest-Request: 1`, and adds no CORS headers. GET
+empty, still requires `X-Kronika-Request: 1`, and adds no CORS headers. GET
 inbox and own-history routes do not require the allowlist the same way;
 mutations that carry the extension Origin fail closed when the allowlist is
 empty with sanitized `403 MUTATION_ORIGIN_FORBIDDEN`, so with
-`FRAMENEST_COMPANION_EXTENSION_ORIGINS` unset authenticated GET routes still
+`KRONIKA_COMPANION_EXTENSION_ORIGINS` unset authenticated GET routes still
 work while every extension-Origin mutation is rejected. Rollback is removing
 the key or setting it to `[]` and restarting. See
 [ADR-0061](docs/adr/0061-x-meme-browser-companion.md),
@@ -278,17 +278,17 @@ and
 [ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md).
 Public JPEG/PNG X photographs are
 acquired through an isolated status bridge and a strict `pbs.twimg.com`
-transport; WebP is rejected; content scripts never fetch FrameNest or the CDN.
+transport; WebP is rejected; content scripts never fetch Kronika or the CDN.
 The companion still adds no CORS headers.
 
 Three companion/workspace positions are accepted residuals documented here,
 not new rules. Workspace embeddability: workspace HTML responses set no
 `frame-ancestors` or `X-Frame-Options` header
-(`src/framenest/adapters/api/application.py`), deliberately, because the
+(`src/kronika/adapters/api/application.py`), deliberately, because the
 companion side panel hosts the workspace origin
 ([ADR-0063](docs/adr/0063-companion-side-panel-web-host.md)). The residual is
 bounded by design: every unsafe mutation still requires the exact external
-`Origin` plus the non-simple `X-FrameNest-Request: 1` header, and workspace
+`Origin` plus the non-simple `X-Kronika-Request: 1` header, and workspace
 identity is injected per request from trusted UDS provenance with no cookies,
 so a hostile embedder cannot ride an ambient session. Companion packaging:
 the companion ships as an unpacked Manifest V3 extension with a pinned
@@ -331,7 +331,7 @@ Avoid exposing:
 
 ## Security Architecture Principles
 
-FrameNest security work should follow these principles:
+Kronika security work should follow these principles:
 
 - Use least privilege for filesystem, process, network, and service access.
 - Do not require routine root or administrator execution.
@@ -372,7 +372,7 @@ For the local-only public composition:
 - No shared caching initially, so an unpublished item is not retained by a
   reverse-proxy cache.
 - The application process remains loopback-first. Workspace remote access
-  remains Tailscale Serve to `/run/framenest/framenest.sock`. Funnel to that
+  remains Tailscale Serve to `/run/kronika/kronika.sock`. Funnel to that
   workspace socket stays forbidden. Router port-forwarding is not accepted.
 
 The sanitized NUC baseline in [docs/NUC_HOST_BASELINE.md](docs/NUC_HOST_BASELINE.md)
@@ -423,7 +423,7 @@ The `GET /api/media/{media_id}/locations/{location_id}/content` endpoint serves 
 
 Recorded residual, stated honestly: the media content reader resolves the
 catalog relative path against the resolved registered root
-(`src/framenest/infrastructure/filesystem/media_content.py`: path-flavor check,
+(`src/kronika/infrastructure/filesystem/media_content.py`: path-flavor check,
 traversal and absolute-component rejection, `resolve(strict=True)` on both the
 root and the candidate, and `relative_to` containment) and then opens the
 previously resolved path with `O_NOFOLLOW` on the final component. A narrow
@@ -474,7 +474,7 @@ is a closed JSON document beside one explicit media copy:
   fails. The catalog is not mutated.
 - Known Windows `os.replace` and case-folding evidence remains incomplete;
   non-native library roots are rejected on the current host.
-- The `framenest-sidecar` command emits sanitized JSON only. It does not print
+- The `kronika-sidecar` command emits sanitized JSON only. It does not print
   sidecar contents, absolute paths, or tracebacks. Validate does not require
   the catalog. Export and compare do not write catalog rows.
 

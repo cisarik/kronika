@@ -1,4 +1,4 @@
-# FrameNest Gallery Product Reference
+# Kronika Gallery Product Reference
 
 ## Status
 
@@ -26,7 +26,7 @@ task. Git history remains the archive.
 
 ## Flagship Role
 
-The gallery is a flagship FrameNest capability. It should be premium, dark,
+The gallery is a flagship Kronika capability. It should be premium, dark,
 cover-first, fast, and useful for large personal collections. The current
 repository implements a persistent media catalog and packaged Gallery/Details
 browser with display-title search, canonical-tag AND filters, content-category
@@ -158,7 +158,7 @@ The primary gallery surface should emphasize media covers, readable titles,
 availability, collection context, and quick filtering. Interaction should feel
 polished and responsive, with restrained motion and truthful state changes.
 
-"Wow-quality" in FrameNest means deliberate detail, strong cover presentation,
+"Wow-quality" in Kronika means deliberate detail, strong cover presentation,
 clear state, careful animation, and reduced friction. It does not mean fake
 progress, excessive decoration, or obscuring metadata.
 

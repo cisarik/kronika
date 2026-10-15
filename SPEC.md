@@ -1,10 +1,10 @@
-# FrameNest Specification
+# Kronika Specification
 
 ## 1. Document Status and Scope
 
-FrameNest is in foundation-stage pre-alpha development. This document defines normative requirements for future implementation.
+Kronika is in foundation-stage pre-alpha development. This document defines normative requirements for future implementation.
 
-A Poetry package foundation exists with centralized configuration, a FastAPI application factory, a typed health endpoint, a loopback-first Uvicorn runtime dependency and startup command, a minimal SQLAlchemy Core/Alembic SQLite migration foundation through schema head `0035`, pure domain identity primitives, local device and library registries, a minimum persistent logical-media and physical-location catalog foundation, persistent display-title and canonical-tag core, catalog retrieval with display-title search and canonical-tag AND filtering, a manual browser `Current` metadata workspace for display-title and ordered canonical-tag assignment, an automatic built-in `Processed` workflow collection derived from durable tag saves, read-only library scan preview, explicit idempotent scan-candidate import, local media-analysis preview, provider-neutral NVIDIA/Vercel suggestion preview, VLM JPEG derivative transport, a server-operated AI configuration and diagnostics CLI, a packaged local web shell, an explicit editable browser AI suggestion review, an administrator companion merged title-bar history of pending and analyzed generic items, a best-effort `x`/`𝕏` Save seed, and preserving review Apply, a trusted-loopback quarantine upload path with bounded validation, exact-duplicate disposition, and optional atomic publication to an explicitly selected server-owned library, ordinary-user private upload submission with administrator review, requester-private YouTube and X meme acquisition with administrator promotion, durable manual covers, automated catalog backup/retention/restore-verification foundations, mounted off-device catalog copy and operator-workstation pull-based catalog snapshot recovery foundations, Tailscale remote-access and identity foundations, a portable media sidecar v1 projection with `framenest-sidecar` export/validate/compare, and a repository-native systemd service foundation targeted at Ubuntu Server 24.04 on the Intel NUC6i5SYH development-and-testing machine ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)). There is no completed desktop shell, arbitrary user-created collections, a general collection manager, suggested filenames, complete Cover Studio, imported/AI/series covers, cover candidates, persistent AI Drafts, or multi-model draft comparison/promotion yet. A durable manual cover foundation is implemented (migration `0022` per [ADR-0050](docs/adr/0050-durable-manual-cover-foundation.md)): one accepted manually selected cover per logical medium with durable artifacts and regenerable cover thumbnails. Unresolved architecture choices remain subject to future architecture decision records.
+A Poetry package foundation exists with centralized configuration, a FastAPI application factory, a typed health endpoint, a loopback-first Uvicorn runtime dependency and startup command, a minimal SQLAlchemy Core/Alembic SQLite migration foundation through schema head `0035`, pure domain identity primitives, local device and library registries, a minimum persistent logical-media and physical-location catalog foundation, persistent display-title and canonical-tag core, catalog retrieval with display-title search and canonical-tag AND filtering, a manual browser `Current` metadata workspace for display-title and ordered canonical-tag assignment, an automatic built-in `Processed` workflow collection derived from durable tag saves, read-only library scan preview, explicit idempotent scan-candidate import, local media-analysis preview, provider-neutral NVIDIA/Vercel suggestion preview, VLM JPEG derivative transport, a server-operated AI configuration and diagnostics CLI, a packaged local web shell, an explicit editable browser AI suggestion review, an administrator companion merged title-bar history of pending and analyzed generic items, a best-effort `x`/`𝕏` Save seed, and preserving review Apply, a trusted-loopback quarantine upload path with bounded validation, exact-duplicate disposition, and optional atomic publication to an explicitly selected server-owned library, ordinary-user private upload submission with administrator review, requester-private YouTube and X meme acquisition with administrator promotion, durable manual covers, automated catalog backup/retention/restore-verification foundations, mounted off-device catalog copy and operator-workstation pull-based catalog snapshot recovery foundations, Tailscale remote-access and identity foundations, a portable media sidecar v1 projection with `kronika-sidecar` export/validate/compare, and a repository-native systemd service foundation targeted at Ubuntu Server 24.04 on the Intel NUC6i5SYH development-and-testing machine ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)). There is no completed desktop shell, arbitrary user-created collections, a general collection manager, suggested filenames, complete Cover Studio, imported/AI/series covers, cover candidates, persistent AI Drafts, or multi-model draft comparison/promotion yet. A durable manual cover foundation is implemented (migration `0022` per [ADR-0050](docs/adr/0050-durable-manual-cover-foundation.md)): one accepted manually selected cover per logical medium with durable artifacts and regenerable cover thumbnails. Unresolved architecture choices remain subject to future architecture decision records.
 
 The implemented persistence head also includes durable content-publication
 truth through migration `0021`, published-only ordinary catalog retrieval, a
@@ -35,7 +35,7 @@ sequence rather than a mass replacement. The capture module at
 `src/kronika_capture`,
 command `kronika-capture`, MUST remain one parked module. A second manager,
 account system, family library or Git history MUST NOT be ported. Existing
-FrameNest JPEG preparation, deterministic ZIP and budget calculations MUST
+Kronika JPEG preparation, deterministic ZIP and budget calculations MUST
 remain in the application and MUST NOT be reused as research attachments.
 
 A common record in the existing catalog MUST identify its type, content,
@@ -100,7 +100,7 @@ default. S9 live-provider acceptance and the empty-catalog reset are closed.
 
 Search and Research MUST use a provider-neutral application boundary. The
 first provider MUST be the OpenAI Responses API, provider id
-`openai-responses`, with native provider-managed research. FrameNest MUST
+`openai-responses`, with native provider-managed research. Kronika MUST
 supervise submit, poll, cancel, validate, save and cleanup. The provider MUST
 execute the model and search loop. There MUST be no automatic fallback and no
 automatic generation retry. Clients MUST NOT supply endpoint, model, tool or
@@ -201,7 +201,7 @@ MAY means the behavior is optional.
 
 ## 3. Product Invariants
 
-FrameNest MUST remain local-first.
+Kronika MUST remain local-first.
 
 Local desktop gallery, metadata, search, and playback MUST remain usable without
 a remote server where their required local server process, records, and media
@@ -213,11 +213,11 @@ A remote server or public cloud service MUST NOT replace local ownership or
 make local desktop operation unusable when the needed local server process,
 local catalog/cache records, and local media are available.
 
-Workspace remote FrameNest communication MUST remain Tailscale-only.
+Workspace remote Kronika communication MUST remain Tailscale-only.
 [ADR-0074](docs/adr/0074-dual-audience-public-published-and-tailscale-workspace-boundary.md)
 ships a local-only `public_published_uds` published-reader composition; it is
 not exposed externally and has no TLS, Funnel, or NUC bind. Funnel to the
-workspace socket MUST remain forbidden. FrameNest MUST NOT require router
+workspace socket MUST remain forbidden. Kronika MUST NOT require router
 port forwarding.
 
 Backends MUST NOT be publicly exposed by default.
@@ -226,7 +226,7 @@ Provider secrets MUST NOT be distributed to ordinary clients.
 
 Destructive operations MUST require safeguards.
 
-The FrameNest catalog MUST remain authoritative over projected native OS tags.
+The Kronika catalog MUST remain authoritative over projected native OS tags.
 
 ## 4. Core Domain Concepts
 
@@ -246,7 +246,7 @@ A series groups related episodes and may carry inherited metadata.
 
 An episode is media that belongs to a series relationship.
 
-A canonical tag is an English stable identifier used by FrameNest for organization.
+A canonical tag is an English stable identifier used by Kronika for organization.
 
 A source platform is structured metadata describing where media originated and is also projected as the final system tag in directory display names.
 
@@ -265,12 +265,12 @@ sidecar is an explicit projection of selected catalog metadata, not live catalog
 write authority. Sidecar-to-catalog import, local-index rebuild, synchronization,
 drift repair, and conflict resolution remain unimplemented.
 
-A FrameNest server process is the authoritative API and state boundary for the
+A Kronika server process is the authoritative API and state boundary for the
 catalog and server-owned state. It may run locally on the same device as a
 desktop client or later on the Ubuntu NUC.
 
 A client is a browser, desktop shell, local NUC browser, or remote interface
-that requests state and actions from the FrameNest server API.
+that requests state and actions from the Kronika server API.
 
 A local catalog/cache is local server or client-side state used for local
 operation and offline visibility. SQLite remains authoritative in normal
@@ -281,23 +281,23 @@ A transfer is a copy, move, or related operation between locations.
 
 An availability state describes whether a device, library, storage volume, or physical location is currently reachable and usable.
 
-A desktop shell is the native application boundary that hosts the FrameNest UI, supervises the local backend, and provides narrowly scoped native capabilities.
+A desktop shell is the native application boundary that hosts the Kronika UI, supervises the local backend, and provides narrowly scoped native capabilities.
 
 ## 5. Stable Identity Requirements
 
-FrameNest MUST define stable identities for logical media, physical locations, devices, libraries, storage volumes, and series where applicable.
+Kronika MUST define stable identities for logical media, physical locations, devices, libraries, storage volumes, and series where applicable.
 
-FrameNest entity identities MUST initially use application-owned RFC 9562 UUID version 4 values as accepted by [ADR-0011](docs/adr/0011-stable-domain-identities.md).
+Kronika entity identities MUST initially use application-owned RFC 9562 UUID version 4 values as accepted by [ADR-0011](docs/adr/0011-stable-domain-identities.md).
 
-FrameNest MUST represent identity categories with category-specific domain types rather than interchangeable raw UUID aliases.
+Kronika MUST represent identity categories with category-specific domain types rather than interchangeable raw UUID aliases.
 
 The canonical external identity representation MUST be lowercase hyphenated UUID text.
 
-FrameNest identity strings MUST be treated as opaque values. They MUST NOT be used to infer entity type, creation time, filesystem location, database row position, source platform, content hash, or semantic ordering.
+Kronika identity strings MUST be treated as opaque values. They MUST NOT be used to infer entity type, creation time, filesystem location, database row position, source platform, content hash, or semantic ordering.
 
 Filesystem paths alone MUST NOT serve as globally stable media identity.
 
-Database row IDs, SQLite row order, filesystem paths, filenames, source-platform IDs, content hashes, and device-local counters MUST NOT serve as FrameNest entity identity.
+Database row IDs, SQLite row order, filesystem paths, filenames, source-platform IDs, content hashes, and device-local counters MUST NOT serve as Kronika entity identity.
 
 The final database encoding, catalog schema, synchronization representation, hashing, deduplication, and identity reconciliation rules remain unresolved. The portable sidecar v1 schema exists per [ADR-0059](docs/adr/0059-portable-media-sidecar-roundtrip-foundation.md).
 
@@ -356,19 +356,19 @@ No final known valid copy MAY be deleted without explicit policy and confirmatio
 
 ## 7. Libraries and Storage
 
-FrameNest MUST support multiple independent libraries.
+Kronika MUST support multiple independent libraries.
 
 Each library MUST have stable identity, a root directory, and an owning device.
 
 Libraries and storage volumes SHOULD report online/offline state and writable/read-only state where available.
 
-FrameNest SHOULD report capacity, free space, filesystem, and mount information where available.
+Kronika SHOULD report capacity, free space, filesystem, and mount information where available.
 
 The interface SHOULD provide `All libraries` filtering.
 
 Transfers SHOULD provide storage-impact previews before execution.
 
-FrameNest MUST NOT destructively initialize storage without explicit approval.
+Kronika MUST NOT destructively initialize storage without explicit approval.
 
 ## 8. Standalone and Series Model
 
@@ -471,7 +471,7 @@ The exact later import, rebuild, and synchronization contracts remain unresolved
 
 ## 12. Dates and Provenance
 
-FrameNest MUST distinguish source publication or creation date, archive-added date, downloaded date, imported date, first-seen date, filesystem creation time, and filesystem modification time.
+Kronika MUST distinguish source publication or creation date, archive-added date, downloaded date, imported date, first-seen date, filesystem creation time, and filesystem modification time.
 
 These concepts MUST NOT be silently conflated.
 
@@ -479,7 +479,7 @@ Metadata provenance SHOULD be retained where practical.
 
 ## 13. Cover Requirements
 
-FrameNest MUST support cover concepts for standalone media, episodes, and series.
+Kronika MUST support cover concepts for standalone media, episodes, and series.
 
 Cover selection SHOULD support timeline frame selection and image import.
 
@@ -515,8 +515,8 @@ The first durable manual cover foundation is implemented through migration
 - retain durable cover facts when the physical source location disappears,
   keeping the artifact usable without rereading the original;
 - maintain strict separation between original media bytes, the durable accepted
-  cover artifact (`FRAMENEST_COVER_STORAGE_ROOT`), the regenerable
-  `cover-thumbnail-jpeg-v1` derivative (`FRAMENEST_COVER_THUMBNAIL_CACHE_PATH`),
+  cover artifact (`KRONIKA_COVER_STORAGE_ROOT`), the regenerable
+  `cover-thumbnail-jpeg-v1` derivative (`KRONIKA_COVER_THUMBNAIL_CACHE_PATH`),
   ephemeral frame previews, and playback position;
 - keep normal Play starting at `00:00`, with cover timestamps never becoming
   playback state;
@@ -596,7 +596,7 @@ This document does not select a frontend framework.
 
 ## 15. GIF, Short Media, and MEME Requirements
 
-FrameNest SHOULD support GIF files and short videos as first-class media.
+Kronika SHOULD support GIF files and short videos as first-class media.
 
 MEME collections SHOULD be first-class collections rather than secondary gallery content.
 
@@ -610,9 +610,9 @@ Download and Download + Copy actions MAY be supported for remote media.
 
 Heuristic classification MAY be used, but users MUST be able to override it.
 
-FrameNest MUST NOT automatically upload short media or frames to an LLM provider
+Kronika MUST NOT automatically upload short media or frames to an LLM provider
 unless server-owned automatic post-catalog analysis is explicitly enabled
-(`FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED` or the administrator companion
+(`KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED` or the administrator companion
 Settings overlay in
 [ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md)).
 That enablement is the consent
@@ -624,7 +624,7 @@ persist a truthful sanitized lifecycle. A durable run left in `analyzing`
 after process interruption MUST be treated as an ambiguous provider outcome
 and MUST fail closed to terminal `failed` with sanitized
 `ANALYSIS_OUTCOME_UNKNOWN` rather than automatically returning to `pending`
-when that could repeat a possibly paid provider call. FrameNest MUST NOT claim
+when that could repeat a possibly paid provider call. Kronika MUST NOT claim
 generic exactly-once provider execution.
 
 Full playback MUST remain separate from inline preview.
@@ -639,13 +639,13 @@ Domain logic MUST NOT depend directly on yt-dlp.
 
 Acquisition SHOULD support metadata inspection, progress, cancellation, temporary or incomplete state, collision-safe filenames, safe final rename, structured errors, finalization verification, and source identity/archive tracking.
 
-FrameNest SHOULD NOT perform unnecessary transcoding by default.
+Kronika SHOULD NOT perform unnecessary transcoding by default.
 
 The exact format policy remains unresolved.
 
 ## 17. Playback
 
-FrameNest MUST define a `MediaPlayerBackend` conceptual boundary.
+Kronika MUST define a `MediaPlayerBackend` conceptual boundary.
 
 External VLC is the first intended full-playback backend.
 
@@ -662,13 +662,13 @@ Domain logic MUST NOT hardcode VLC command construction.
 Future playback SHOULD support fullscreen and truthful audio-track selection
 where technically supported. Playback UI MUST use capability detection and
 fallback rather than fake controls. Subtitle support is not currently required.
-FrameNest MUST NOT silently transcode originals.
+Kronika MUST NOT silently transcode originals.
 
 This document does not define implementation syntax.
 
 ## 18. Authoritative Server and Client State
 
-The FrameNest server process MUST be authoritative for catalog records and
+The Kronika server process MUST be authoritative for catalog records and
 server-owned state.
 
 Server-owned state includes server media originals, durable content-publication
@@ -690,7 +690,7 @@ process, local catalog/cache records, and local media are available.
 
 Metadata, covers, availability state, and lightweight derived thumbnails MAY synchronize independently of full media bytes.
 
-FrameNest MUST NOT automatically replicate all media bytes to every device.
+Kronika MUST NOT automatically replicate all media bytes to every device.
 
 Explicit streaming, opening, or download of authorized media MAY be supported
 without registering trusted permanent client-local availability.
@@ -763,10 +763,10 @@ not exposed externally.
 
 An application backend SHOULD bind to loopback when exposed through Tailscale Serve.
 
-FrameNest MUST NOT require router port forwarding.
+Kronika MUST NOT require router port forwarding.
 
-FrameNest MUST NOT use Tailscale Funnel against the workspace socket
-`/run/framenest/framenest.sock`.
+Kronika MUST NOT use Tailscale Funnel against the workspace socket
+`/run/kronika/kronika.sock`.
 
 The normal application process MUST NOT invoke privileged Tailscale provisioning on every startup.
 
@@ -791,7 +791,7 @@ bind, TLS, Funnel, or NUC exposure, except the sole publication-gate
 requirement immediately below, which is implemented-for-backend.
 
 The workspace remote path MUST remain authenticated Tailscale Serve to
-`/run/framenest/framenest.sock` and `tailscale_uds`.
+`/run/kronika/kronika.sock` and `tailscale_uds`.
 
 Administrator `PUT /api/admin/media/{media_id}/content-publication`, guarded
 by `media.content.publish`, is the baseline's sole promotion and
@@ -840,7 +840,7 @@ from this surface (implemented-for-backend).
 
 ## 20. Transfers and Duplicate Removal
 
-FrameNest SHOULD support Copy, Move, and Move while retaining lightweight local metadata.
+Kronika SHOULD support Copy, Move, and Move while retaining lightweight local metadata.
 
 Transfers MUST verify destination size, integrity, and readability where feasible before source deletion.
 
@@ -866,7 +866,7 @@ or directory names once category persistence is implemented.
 
 Movies MAY carry explicit language metadata such as English, Slovak, or Czech.
 Language metadata SHOULD prefer container or audio metadata and user editing
-before expensive AI analysis. FrameNest MUST NOT automatically upload audio to
+before expensive AI analysis. Kronika MUST NOT automatically upload audio to
 a cloud provider.
 
 ## 22. AI and Privacy
@@ -884,7 +884,7 @@ Provider secrets SHOULD remain server-held where possible.
 Provider secrets MUST NOT be returned to ordinary clients.
 
 Server AI provider administration MUST use an operator boundary: the CLI
-(`./framenest ai ...`) plus an authenticated administrator-only web surface
+(`./kronika ai ...`) plus an authenticated administrator-only web surface
 reached through `provider.operate` over the trusted Tailscale workspace
 ingress. Ordinary browser clients MUST NOT configure AI providers, activate
 models, enter provider API keys, receive provider API keys, or call external AI
@@ -898,11 +898,11 @@ API keys, Authorization headers, cookies, provider responses, prompts, frame
 data, media paths, or database paths.
 
 AI configuration precedence MUST preserve deployment overrides: explicit
-FrameNest provider/model environment overrides first, then persisted non-secret
+Kronika provider/model environment overrides first, then persisted non-secret
 server AI configuration, then legacy NVIDIA compatibility when `NVIDIA_API_KEY`
 is present and no explicit provider configuration exists, then unconfigured.
 
-`./framenest ai status` MUST be network-free. `./framenest ai test` MUST be an
+`./kronika ai status` MUST be network-free. `./kronika ai test` MUST be an
 explicit text-only provider request, upload no media data, and persist only a
 safe last-test category and timestamp.
 
@@ -930,9 +930,9 @@ Representative-frame selection MAY be used later.
 
 Title and tag suggestions MUST require confirmation.
 
-FrameNest MUST NOT automatically rename media.
+Kronika MUST NOT automatically rename media.
 
-FrameNest MUST NOT perform unsolicited cloud frame upload. Server-enabled
+Kronika MUST NOT perform unsolicited cloud frame upload. Server-enabled
 automatic post-catalog analysis is solicited only through that explicit
 server-owned configuration boundary and MUST remain off by default.
 
@@ -941,7 +941,7 @@ Prompts MUST NOT include unrelated paths, cookies, keys, or logs.
 Opening a media detail view MUST NOT trigger an AI call, catalog save, or
 filesystem mutation.
 
-FrameNest MUST distinguish persisted catalog values, unsaved `Current` manual
+Kronika MUST distinguish persisted catalog values, unsaved `Current` manual
 working state, physical filename, library-relative path, AI draft, promoted
 draft values, accepted current-page values, durable catalog save, suggested
 filename, and future explicit physical rename operation.
@@ -985,7 +985,7 @@ Replacement and removal workflows MUST NOT reveal the full stored secret.
 
 ## 24. Structured Errors and Logging
 
-FrameNest SHOULD use a structured component, operation, and error-code model.
+Kronika SHOULD use a structured component, operation, and error-code model.
 
 Messages MUST be sanitized.
 
@@ -1011,7 +1011,7 @@ Destructive operations MUST require previews, confirmations, verification, and r
 
 Apple Silicon macOS is the first development and test environment.
 
-Ubuntu Server 24.04 on the Intel NUC6i5SYH is the current FrameNest
+Ubuntu Server 24.04 on the Intel NUC6i5SYH is the current Kronika
 development-and-testing machine
 ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)):
 its accepted role remains development/test for this one product, routinely
@@ -1027,11 +1027,11 @@ Platform adapters MUST isolate OS-specific behavior.
 
 ### Desktop Shell Requirements
 
-FrameNest MUST become a desktop application for normal end-user use. Browser mode MAY remain for development, diagnostics, and controlled operator workflows, but it MUST NOT be the required normal end-user experience.
+Kronika MUST become a desktop application for normal end-user use. Browser mode MAY remain for development, diagnostics, and controlled operator workflows, but it MUST NOT be the required normal end-user experience.
 
 Tauri v2 is the accepted future desktop shell per [ADR-0021](docs/adr/0021-tauri-desktop-shell.md).
 
-The desktop shell MUST display the FrameNest UI in a native system WebView and MUST supervise the Python/FastAPI backend as a sidecar rather than duplicating domain or catalog logic.
+The desktop shell MUST display the Kronika UI in a native system WebView and MUST supervise the Python/FastAPI backend as a sidecar rather than duplicating domain or catalog logic.
 
 The sidecar backend MUST bind only to loopback by default.
 
@@ -1054,12 +1054,12 @@ Selective media placement direction is recorded in
 The authoritative server/client state model is recorded in
 [ADR-0035](docs/adr/0035-authoritative-server-and-client-state-model.md).
 
-The Intel NUC server MAY act as an authoritative FrameNest server, archive
+The Intel NUC server MAY act as an authoritative Kronika server, archive
 node, remote streaming/download source, transfer receiver, centralized
 AI-provider boundary, and future backup participant after deployment
 acceptance.
 
-The NUC MUST NOT make FrameNest a public-cloud dependency or make local clients
+The NUC MUST NOT make Kronika a public-cloud dependency or make local clients
 unusable when the needed local server process, local catalog/cache records, and
 local media are available.
 
@@ -1078,7 +1078,7 @@ Indeterminate operations MAY use restrained animation, shimmer, masked text, pul
 
 ### Supported Python Runtime
 
-FrameNest MUST target CPython 3.13 as the initial supported runtime.
+Kronika MUST target CPython 3.13 as the initial supported runtime.
 
 Future project metadata MUST constrain supported Python to an equivalent of `>=3.13,<3.14` unless a later ADR supersedes [ADR-0001](docs/adr/0001-supported-python-version.md).
 
@@ -1090,13 +1090,13 @@ The exact 3.13 patch release is pinned by accepted project tooling and ADR-0001;
 
 ### Python Dependency and Environment Management
 
-FrameNest MUST use Poetry as the Python dependency and virtual-environment manager per [ADR-0002](docs/adr/0002-python-environment-and-dependency-manager.md).
+Kronika MUST use Poetry as the Python dependency and virtual-environment manager per [ADR-0002](docs/adr/0002-python-environment-and-dependency-manager.md).
 
 Future Python project metadata MUST be stored in `pyproject.toml`.
 
-The FrameNest application MUST commit `poetry.lock` for reproducible development, test, continuous integration, and deployment dependency resolution.
+The Kronika application MUST commit `poetry.lock` for reproducible development, test, continuous integration, and deployment dependency resolution.
 
-Python dependencies MUST NOT be installed globally for FrameNest.
+Python dependencies MUST NOT be installed globally for Kronika.
 
 Project commands MUST execute through the Poetry-managed isolated CPython 3.13 environment.
 
@@ -1108,13 +1108,13 @@ Poetry virtual-environment location remains unresolved until the authorized scaf
 
 ### Repository Layout
 
-FrameNest MUST use the hybrid staged monorepo layout per [ADR-0004](docs/adr/0004-repository-layout.md).
+Kronika MUST use the hybrid staged monorepo layout per [ADR-0004](docs/adr/0004-repository-layout.md).
 
-The initial Python project MUST live at repository root with root `pyproject.toml`, root `poetry.lock`, `src/framenest/`, root `tests/`, and `docs/`.
+The initial Python project MUST live at repository root with root `pyproject.toml`, root `poetry.lock`, `src/kronika/`, root `tests/`, and `docs/`.
 
-Poetry package mode MUST be used. The importable package name MUST be `framenest`.
+Poetry package mode MUST be used. The importable package name MUST be `kronika`.
 
-The initial internal boundaries MUST be `domain`, `application`, `adapters/api`, and `infrastructure` under `src/framenest/`.
+The initial internal boundaries MUST be `domain`, `application`, `adapters/api`, and `infrastructure` under `src/kronika/`.
 
 `domain` MUST NOT import FastAPI or infrastructure adapters. `application` MUST NOT depend on FastAPI route objects. `adapters/api` MAY depend on FastAPI and application interfaces.
 
@@ -1126,11 +1126,11 @@ Empty future web or desktop scaffolds MUST NOT be created. Future `web/` and `de
 
 ### Configuration Strategy
 
-FrameNest MUST use a layered configuration model with explicit precedence per [ADR-0005](docs/adr/0005-configuration-strategy.md).
+Kronika MUST use a layered configuration model with explicit precedence per [ADR-0005](docs/adr/0005-configuration-strategy.md).
 
 Precedence from lowest to highest authority MUST be: safe program defaults; optional committed non-secret configuration; ignored local `.env` values; process environment variables; future approved secret-store values.
 
-The `.env` layer MUST be applied only when explicitly requested through `FRAMENEST_ENV_FILE` or an explicit `load_settings(env_file=...)` argument. Configuration loading MUST NOT implicitly probe the caller's working directory for a `.env` file. An explicitly requested environment file that is missing, unreadable, or unloadable MUST fail closed with a sanitized error that does not disclose the file path or contents.
+The `.env` layer MUST be applied only when explicitly requested through `KRONIKA_ENV_FILE` or an explicit `load_settings(env_file=...)` argument. Configuration loading MUST NOT implicitly probe the caller's working directory for a `.env` file. An explicitly requested environment file that is missing, unreadable, or unloadable MUST fail closed with a sanitized error that does not disclose the file path or contents.
 
 The default server host MUST be `127.0.0.1`. Public bind addresses MUST NOT be the default.
 
@@ -1163,7 +1163,7 @@ X acquisition is requester-private with
 explicit administrator promotion/publication. Ordinary and unmapped X, and
 YouTube, MUST remain fail-closed for automatic analysis. Administrator-owned X
 MAY enqueue generic analysis when
-`FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED` is true or the administrator
+`KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED` is true or the administrator
 runtime overlay is enabled per
 [ADR-0066](docs/adr/0066-administrator-owned-x-automatic-generic-analysis.md)
 and
@@ -1255,9 +1255,9 @@ reject a combined vector above 32 tags with HTTP 409
 `GET /api/media` MUST remain published-only. Website Publish MUST remain
 `admin_explicit`.
 
-FrameNest MUST use FastAPI for the initial server HTTP API adapter per [ADR-0003](docs/adr/0003-initial-server-api-framework.md).
+Kronika MUST use FastAPI for the initial server HTTP API adapter per [ADR-0003](docs/adr/0003-initial-server-api-framework.md).
 
-FrameNest MUST use synchronous SQLAlchemy 2.x Core with Alembic for the initial local SQLite persistence and migration foundation per [ADR-0010](docs/adr/0010-initial-persistence-foundation.md). SQLAlchemy ORM mapped entities, SQLModel, and async SQLite access are not accepted for the initial foundation. A minimal migration foundation and explicit database command boundary exist. A minimal device domain entity and local device registry exist per [ADR-0012](docs/adr/0012-initial-device-registry.md). A minimal library domain entity, device-local root-locator model, and local library registry exist per [ADR-0013](docs/adr/0013-initial-library-registry.md), with canonical UUID text storage for catalog tables and lexical device-local root paths represented by explicit `posix` or `windows` flavor plus canonical absolute path text. A minimum persistent logical-media and physical-location foundation exists per [ADR-0025](docs/adr/0025-minimum-persistent-media-catalog-foundation.md), with canonical UUID text storage, explicit repository boundaries, migration `0004`, and no automatic migration. Persistent display title and canonical content tags exist per [ADR-0027](docs/adr/0027-persistent-display-title-and-canonical-tags.md), with migration `0005`, sparse metadata rows, ordered tag assignments, stable English tag keys, and no file mutation. A nullable plain-text description column is added in migration `0006`. An automatic built-in `Processed` workflow collection is added per [ADR-0030](docs/adr/0030-automatic-processed-collection.md), with nullable `collection_key` and `processed_at_ms` columns added in migration `0007`, one medium holding zero or one collection membership, the built-in `processed` key as the only supported collection key, and no arbitrary collection CRUD or general collection manager. A dedicated catalog read model exists per [ADR-0028](docs/adr/0028-catalog-read-model-and-search-semantics.md), with display-title substring search, repeated canonical-tag AND filters, deterministic ordering, bounded offset pagination, and catalog-safe location data. The packaged browser includes a manual `Current` metadata workspace that loads one imported medium by media ID, keeps persisted baseline values distinct from unsaved form state and filename fallback labels, edits or clears display title, edits or clears an optional plain-text description, locally searches existing canonical tags, selects, removes, and explicitly reorders up to 32 ordered tag assignments, creates canonical tag definitions only when the actor has `metadata.canonical.write`, saves administrator Current through the existing metadata API and ordinary Current through `PUT /api/media/{id}/alias`, refreshes the active catalog query after successful canonical save, and does not rename, move, delete, analyze, upload, or mutate media files. A bounded, deterministic, read-only, non-persistent library scan preview exists per [ADR-0014](docs/adr/0014-safe-library-scan-preview.md); candidate classification is extension-hint based only. Explicit idempotent scan-candidate import exists per [ADR-0026](docs/adr/0026-explicit-idempotent-scan-candidate-import.md); it requires an explicit selected candidate, reruns the bounded scan, creates one logical media item plus one physical location atomically when absent, returns an existing location for repeated imports, and performs no filesystem mutation. A bounded, deterministic, read-only, provider-neutral local media-analysis preparation boundary exists per [ADR-0015](docs/adr/0015-deterministic-local-media-analysis-preparation.md); it inspects one explicit MP4 or GIF candidate through optional external `ffprobe` and `ffmpeg` executables, returns bounded technical metadata, prepares at most three exact-distinct representative PNG frames in memory only, and writes no media records. A bounded, explicit opt-in, non-persistent media suggestion preview exists per [ADR-0016](docs/adr/0016-provider-neutral-media-suggestions-and-nvidia-nim-prototype.md); it reuses local preparation, requires explicit cloud confirmation, derives bounded JPEG VLM images for NVIDIA NIM transport per [ADR-0019](docs/adr/0019-vlm-image-derivatives-and-nvidia-instruct-mode.md), validates one untrusted suggestion preview, and performs no catalog or filesystem mutation. An explicit same-origin browser AI suggestion review exists per [ADR-0020](docs/adr/0020-on-demand-ai-suggestion-review.md); capability discovery is sanitized and provider-free, suggestion requests require explicit confirmation, the browser receives no credential, raw prompt, raw provider response, frame payload, absolute media path, or database path, and accept/reject actions are session-only with no mutation endpoint. Durable sidecars have a closed v1 projection schema, codec, one-location export, validation, and read-only compare per [ADR-0059](docs/adr/0059-portable-media-sidecar-roundtrip-foundation.md); sidecar-to-catalog import, rebuild, Save coupling, multi-copy fan-out, and synchronization remain unimplemented. Storage volumes, arbitrary user-created collections, a general collection manager, collection CRUD, manual collection assignment, suggested filenames, complete Cover Studio, imported/AI/series covers, cover candidates, persistent AI Drafts, gallery persistence, synchronization, per-user visibility state, and multi-device server workflows remain unimplemented. A durable manual cover foundation (migration `0022`) is implemented for one accepted cover per logical medium, distinct from the unimplemented Cover Studio/candidate features. The trusted-loopback upload foundation through migrations `0014` and `0015` provides durable quarantine sessions, bounded validation, canonical byte identity, exact-duplicate disposition, lifecycle-owned single-process publication recovery, verified server-owned originals, a specialized atomic `published -> cataloged` transaction that creates exactly one logical media item and one physical location per successful catalog commit, and an optional durable automatic post-catalog AI analysis lifecycle per [ADR-0044](docs/adr/0044-durable-automatic-post-catalog-analysis.md) that remains off by default, never invents historical paid work, and never rolls back cataloging on provider failure.
+Kronika MUST use synchronous SQLAlchemy 2.x Core with Alembic for the initial local SQLite persistence and migration foundation per [ADR-0010](docs/adr/0010-initial-persistence-foundation.md). SQLAlchemy ORM mapped entities, SQLModel, and async SQLite access are not accepted for the initial foundation. A minimal migration foundation and explicit database command boundary exist. A minimal device domain entity and local device registry exist per [ADR-0012](docs/adr/0012-initial-device-registry.md). A minimal library domain entity, device-local root-locator model, and local library registry exist per [ADR-0013](docs/adr/0013-initial-library-registry.md), with canonical UUID text storage for catalog tables and lexical device-local root paths represented by explicit `posix` or `windows` flavor plus canonical absolute path text. A minimum persistent logical-media and physical-location foundation exists per [ADR-0025](docs/adr/0025-minimum-persistent-media-catalog-foundation.md), with canonical UUID text storage, explicit repository boundaries, migration `0004`, and no automatic migration. Persistent display title and canonical content tags exist per [ADR-0027](docs/adr/0027-persistent-display-title-and-canonical-tags.md), with migration `0005`, sparse metadata rows, ordered tag assignments, stable English tag keys, and no file mutation. A nullable plain-text description column is added in migration `0006`. An automatic built-in `Processed` workflow collection is added per [ADR-0030](docs/adr/0030-automatic-processed-collection.md), with nullable `collection_key` and `processed_at_ms` columns added in migration `0007`, one medium holding zero or one collection membership, the built-in `processed` key as the only supported collection key, and no arbitrary collection CRUD or general collection manager. A dedicated catalog read model exists per [ADR-0028](docs/adr/0028-catalog-read-model-and-search-semantics.md), with display-title substring search, repeated canonical-tag AND filters, deterministic ordering, bounded offset pagination, and catalog-safe location data. The packaged browser includes a manual `Current` metadata workspace that loads one imported medium by media ID, keeps persisted baseline values distinct from unsaved form state and filename fallback labels, edits or clears display title, edits or clears an optional plain-text description, locally searches existing canonical tags, selects, removes, and explicitly reorders up to 32 ordered tag assignments, creates canonical tag definitions only when the actor has `metadata.canonical.write`, saves administrator Current through the existing metadata API and ordinary Current through `PUT /api/media/{id}/alias`, refreshes the active catalog query after successful canonical save, and does not rename, move, delete, analyze, upload, or mutate media files. A bounded, deterministic, read-only, non-persistent library scan preview exists per [ADR-0014](docs/adr/0014-safe-library-scan-preview.md); candidate classification is extension-hint based only. Explicit idempotent scan-candidate import exists per [ADR-0026](docs/adr/0026-explicit-idempotent-scan-candidate-import.md); it requires an explicit selected candidate, reruns the bounded scan, creates one logical media item plus one physical location atomically when absent, returns an existing location for repeated imports, and performs no filesystem mutation. A bounded, deterministic, read-only, provider-neutral local media-analysis preparation boundary exists per [ADR-0015](docs/adr/0015-deterministic-local-media-analysis-preparation.md); it inspects one explicit MP4 or GIF candidate through optional external `ffprobe` and `ffmpeg` executables, returns bounded technical metadata, prepares at most three exact-distinct representative PNG frames in memory only, and writes no media records. A bounded, explicit opt-in, non-persistent media suggestion preview exists per [ADR-0016](docs/adr/0016-provider-neutral-media-suggestions-and-nvidia-nim-prototype.md); it reuses local preparation, requires explicit cloud confirmation, derives bounded JPEG VLM images for NVIDIA NIM transport per [ADR-0019](docs/adr/0019-vlm-image-derivatives-and-nvidia-instruct-mode.md), validates one untrusted suggestion preview, and performs no catalog or filesystem mutation. An explicit same-origin browser AI suggestion review exists per [ADR-0020](docs/adr/0020-on-demand-ai-suggestion-review.md); capability discovery is sanitized and provider-free, suggestion requests require explicit confirmation, the browser receives no credential, raw prompt, raw provider response, frame payload, absolute media path, or database path, and accept/reject actions are session-only with no mutation endpoint. Durable sidecars have a closed v1 projection schema, codec, one-location export, validation, and read-only compare per [ADR-0059](docs/adr/0059-portable-media-sidecar-roundtrip-foundation.md); sidecar-to-catalog import, rebuild, Save coupling, multi-copy fan-out, and synchronization remain unimplemented. Storage volumes, arbitrary user-created collections, a general collection manager, collection CRUD, manual collection assignment, suggested filenames, complete Cover Studio, imported/AI/series covers, cover candidates, persistent AI Drafts, gallery persistence, synchronization, per-user visibility state, and multi-device server workflows remain unimplemented. A durable manual cover foundation (migration `0022`) is implemented for one accepted cover per logical medium, distinct from the unimplemented Cover Studio/candidate features. The trusted-loopback upload foundation through migrations `0014` and `0015` provides durable quarantine sessions, bounded validation, canonical byte identity, exact-duplicate disposition, lifecycle-owned single-process publication recovery, verified server-owned originals, a specialized atomic `published -> cataloged` transaction that creates exactly one logical media item and one physical location per successful catalog commit, and an optional durable automatic post-catalog AI analysis lifecycle per [ADR-0044](docs/adr/0044-durable-automatic-post-catalog-analysis.md) that remains off by default, never invents historical paid work, and never rolls back cataloging on provider failure.
 
 Migration `0021` adds the separate content-publication relation per
 [ADR-0049](docs/adr/0049-durable-content-publication-boundary.md), backfills
@@ -1295,19 +1295,19 @@ Future implementation MUST include API contract tests and domain tests that do n
 
 ## 27. Accessibility and Performance
 
-FrameNest SHOULD support reduced motion, reduced transparency, keyboard access, focus visibility, touch targets, useful errors, responsive interaction, bounded background work, large-library scalability, and weaker-device degradation modes.
+Kronika SHOULD support reduced motion, reduced transparency, keyboard access, focus visibility, touch targets, useful errors, responsive interaction, bounded background work, large-library scalability, and weaker-device degradation modes.
 
 This specification makes no numeric performance promises.
 
 ## 28. Security Baseline
 
-FrameNest SHOULD use least privilege.
+Kronika SHOULD use least privilege.
 
-FrameNest MUST NOT require routine root execution.
+Kronika MUST NOT require routine root execution.
 
 AppArmor and firewall protections MUST NOT be disabled as shortcuts.
 
-FrameNest SHOULD use path validation, input validation, explicit authorization, localhost service direction, secret redaction, safe updates, and later service hardening.
+Kronika SHOULD use path validation, input validation, explicit authorization, localhost service direction, secret redaction, safe updates, and later service hardening.
 
 ## 29. First Functional Vertical Slice
 
@@ -1343,6 +1343,6 @@ None of these may be silently selected during implementation.
 
 ## 32. Relationship to Other Documents
 
-This specification is grounded in [README.md](README.md), [PRODUCT.md](PRODUCT.md), [SECURITY.md](SECURITY.md), [AGENTS.md](AGENTS.md), and the pinned canonical AP protocol under [`.ap/`](.ap/). The FrameNest AP integration decision is recorded in [ADR-0034](docs/adr/0034-canonical-analytic-programming-integration.md).
+This specification is grounded in [README.md](README.md), [PRODUCT.md](PRODUCT.md), [SECURITY.md](SECURITY.md), [AGENTS.md](AGENTS.md), and the pinned canonical AP protocol under [`.ap/`](.ap/). The Kronika AP integration decision is recorded in [ADR-0034](docs/adr/0034-canonical-analytic-programming-integration.md).
 
 Future ADRs should record architecture decisions. This document does not create ADRs.

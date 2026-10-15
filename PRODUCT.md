@@ -1,19 +1,19 @@
-# FrameNest Product Foundation
+# Kronika Product Foundation
 
 ## 1. Product Identity
 
-The accepted product direction is one Kronika in the existing FrameNest
+The accepted product direction is one Kronika in the existing Kronika
 repository, per
 [ADR-0082](docs/adr/0082-kronika-one-product-and-private-records.md) and
 [ADR-0083](docs/adr/0083-modular-research-providers-and-administrator-curated-timeline.md).
-The following FrameNest foundation describes the application being retained.
+The following Kronika foundation describes the application being retained.
 Package names, deployment identities and historical ADRs are not renamed here.
 The chatgpt.com capture module remains parked. Search and Research are a
 provider-neutral application boundary, not a second product or library.
 
-FrameNest is a local-first, privacy-conscious, cross-platform library for video and animated media. It is intended to help people acquire, organize, browse, preserve, and play media while keeping local ownership central.
+Kronika is a local-first, privacy-conscious, cross-platform library for video and animated media. It is intended to help people acquire, organize, browse, preserve, and play media while keeping local ownership central.
 
-FrameNest is not merely:
+Kronika is not merely:
 
 - A yt-dlp frontend.
 - A file renamer.
@@ -47,7 +47,7 @@ direction.
   new card and preserves any earlier successful result. Analysis does not
   bypass metadata-suggestion approval.
 - Search and Research use a provider-neutral boundary. The first provider is
-  the OpenAI Responses API with native provider-managed research. FrameNest
+  the OpenAI Responses API with native provider-managed research. Kronika
   supervises the lifecycle. There is no automatic fallback. A verified
   administrator controls the model through server settings from a bounded
   four-model catalog (`gpt-5.5-2026-04-23` default); people submitting
@@ -100,7 +100,7 @@ are closed. S9-R is published. Research remains disabled by default. S10 is
 complete: the public repository is `cisarik/kronika`, and `cisarik/cli_chatgpt`
 remains active.
 
-FrameNest is currently in foundation-stage, pre-alpha development.
+Kronika is currently in foundation-stage, pre-alpha development.
 
 A Poetry package, runnable loopback FastAPI server, packaged local web shell,
 explicit SQLite migration foundation through schema head `0035`, local device
@@ -150,7 +150,7 @@ proposal strips in place, with no bulk last-write-wins save
 [ADR-0080](docs/adr/0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md)).
 Automatic post-catalog analysis stays default-off; administrator-owned X catalog
 events may enqueue generic analysis when
-`FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED` is true or when an administrator
+`KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED` is true or when an administrator
 enables the companion Settings overlay
 ([ADR-0066](docs/adr/0066-administrator-owned-x-automatic-generic-analysis.md),
 [ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md)).
@@ -182,7 +182,7 @@ already has an administrator-only **Automatic media analysis** toggle
 ([ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md));
 that does not ship desktop Settings. Public `main` and
 the deployed NUC release may differ; the authoritative mutable readback
-is `framenest-release status`, never a committed SHA snapshot. A production
+is `kronika-release status`, never a committed SHA snapshot. A production
 release was previously accepted at public/canonical commit
 `aec2f0091c10aed2fc2033dac154a0d9651b2b6d` on the Ubuntu NUC release path
 `/opt/framenest/releases/aec2f0091c10aed2fc2033dac154a0d9651b2b6d` with schema
@@ -201,9 +201,9 @@ approved product direction; it does not claim full product implementation.
 
 The long-term goal is to provide a personal media library that can acquire media, organize it, present it through a premium gallery, preserve local ownership, and support multiple devices and storage locations.
 
-FrameNest should allow users to keep useful media under their own control,
+Kronika should allow users to keep useful media under their own control,
 understand where each copy exists, and access the collection through clients of
-an authoritative FrameNest server process. That server process may run locally
+an authoritative Kronika server process. That server process may run locally
 on the same device as the desktop client or on the Ubuntu NUC. This is
 not a public cloud or SaaS requirement.
 
@@ -215,35 +215,35 @@ Privacy-aware AI assistance may be added later for tasks such as metadata sugges
 
 ### Media Acquisition
 
-FrameNest should support safe acquisition of media from external sources and local imports. Downloading is a flagship product capability, not an auxiliary utility.
+Kronika should support safe acquisition of media from external sources and local imports. Downloading is a flagship product capability, not an auxiliary utility.
 
 ### Intelligent Organization and Tagging
 
-FrameNest should help users organize media with canonical metadata, tags, series relationships, source information, and durable local records.
+Kronika should help users organize media with canonical metadata, tags, series relationships, source information, and durable local records.
 
 ### Premium Visual Gallery
 
-FrameNest should provide a visually premium gallery as a flagship capability. The gallery should make large personal media libraries fast, attractive, searchable, and understandable.
+Kronika should provide a visually premium gallery as a flagship capability. The gallery should make large personal media libraries fast, attractive, searchable, and understandable.
 
 The gallery should support title search, removable filter chips, and multiple selected canonical tags with default AND/intersection semantics.
 
 ### Local-First Ownership
 
-FrameNest should keep local desktop operation useful without requiring a server, cloud account, or public backend.
+Kronika should keep local desktop operation useful without requiring a server, cloud account, or public backend.
 
 ### Multi-Device Cataloging
 
-FrameNest should represent media across multiple devices, libraries, disks, and storage volumes while keeping one logical media item distinct from its physical copies.
+Kronika should represent media across multiple devices, libraries, disks, and storage volumes while keeping one logical media item distinct from its physical copies.
 
 ### Safe Transfer and Remote Playback
 
-FrameNest should support careful movement, copying, and remote playback of media with clear status, verified destinations, and explicit confirmation before destructive actions.
+Kronika should support careful movement, copying, and remote playback of media with clear status, verified destinations, and explicit confirmation before destructive actions.
 
 Determinate operations such as downloads and transfers should eventually show real bytes, percentages, speed, ETA, and verification/finalization state when available. Indeterminate operations may use restrained premium animation but must not invent percentages or backend stages.
 
 ### Authoritative Server and Clients
 
-FrameNest uses a server/client architecture. The FrameNest server process is
+Kronika uses a server/client architecture. The Kronika server process is
 authoritative for catalog records and server-owned state. Browser, desktop, and
 remote interfaces are clients of that server API.
 
@@ -259,7 +259,7 @@ requiring automatic full media-byte replication.
 
 ### Privacy-Aware AI Assistance
 
-FrameNest may later provide AI-assisted metadata, cover, and organization workflows. These workflows must be optional, understandable, and confirmation-based.
+Kronika may later provide AI-assisted metadata, cover, and organization workflows. These workflows must be optional, understandable, and confirmation-based.
 
 AI assistance does not own metadata. Manual display-title, description,
 collection, canonical-tag, and suggested-filename editing must remain complete
@@ -282,7 +282,7 @@ This document does not claim validated market demand, market size, or customer s
 
 ## 6. Core User Outcomes
 
-FrameNest should help users:
+Kronika should help users:
 
 - Find media quickly.
 - Understand where every physical copy exists.
@@ -330,7 +330,7 @@ named on X Save; authenticated Gallery and Details display the caller's overlay
 when present and otherwise remain canonical `media_metadata`. Movie
 language metadata should
 prefer container or audio metadata and user editing before expensive AI
-analysis, and FrameNest must not automatically upload audio to a cloud provider.
+analysis, and Kronika must not automatically upload audio to a cloud provider.
 
 ## 8. Local-First Invariants
 
@@ -340,7 +340,7 @@ Local gallery and local playback must remain useful when the needed local
 server process, local catalog/cache state, and local media are available.
 
 The Intel NUC server is optional for local ownership. A desktop client may use
-a local FrameNest server process rather than a remote NUC.
+a local Kronika server process rather than a remote NUC.
 
 Local clients must not become unusable public-cloud thin clients.
 
@@ -352,7 +352,7 @@ The normal desktop experience must not require Chrome, Brave, Firefox, Safari, o
 
 ## 9. Server Role
 
-The FrameNest server process is authoritative for catalog records, durable
+The Kronika server process is authoritative for catalog records, durable
 content-publication state, server media originals, canonical title, description,
 and tags, future category and language metadata, per-user visibility state,
 upload and ingest state, server preview cache, authentication, and capability
@@ -362,7 +362,7 @@ Browser, desktop, and remote interfaces are clients. They must not infer
 administrator authority from loopback, source IP, hostname, Tailscale
 membership, cookies, or same-machine execution.
 
-The Intel NUC is the FrameNest development-and-testing machine
+The Intel NUC is the Kronika development-and-testing machine
 ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)):
 its accepted role covers this one product, including the planned separate
 capture process. Routine refresh targets public `main`; the old test-database
@@ -390,13 +390,13 @@ A priority future scenario is a NUC-hosted `Meme` archive where a desktop can br
 
 ## 10. Logical Media and Physical Locations
 
-FrameNest should distinguish logical media from physical locations.
+Kronika should distinguish logical media from physical locations.
 
 One logical media item may have zero or more series relationships and may exist in multiple physical locations. Those locations may be on different devices, libraries, or storage volumes.
 
 One gallery item should normally represent the logical media item rather than displaying every duplicate independently. The user should still be able to inspect where each physical copy exists.
 
-FrameNest should use selective media placement. It must not automatically replicate all media bytes to every device.
+Kronika should use selective media placement. It must not automatically replicate all media bytes to every device.
 
 Future upload, catalog synchronization, explicit client cache/download,
 per-user Trash, server deletion requests, global retirement, and physical purge
@@ -420,7 +420,7 @@ publication remain independent facts.
 
 ## 11. Library and Storage Experience
 
-FrameNest should support multiple independent libraries with stable library identities.
+Kronika should support multiple independent libraries with stable library identities.
 
 The user experience should make storage and device availability visible. It should support free-space reporting, capacity visualization, filtering by library and device, `All libraries` views, and global views across available catalogs.
 
@@ -462,13 +462,13 @@ Tags appear at the end of directory names.
 
 The source platform is the final system tag.
 
-FrameNest should support standalone and series directory models.
+Kronika should support standalone and series directory models.
 
 Series-level content tags may be inherited by episodes where appropriate.
 
 Operating-system tags are synchronized projections.
 
-The FrameNest catalog remains authoritative.
+The Kronika catalog remains authoritative.
 
 Approved example:
 
@@ -478,7 +478,7 @@ Reinventing Entropy - Compression is Intelligence [Math] [Compression] [YouTube]
 
 ## 15. Cover Experience
 
-FrameNest should support timeline frame selection, importing a cover from disk, series and episode covers, durable original covers, and reproducible derived thumbnails.
+Kronika should support timeline frame selection, importing a cover from disk, series and episode covers, durable original covers, and reproducible derived thumbnails.
 
 Manual cover selection comes before AI cover generation. The first durable
 manual cover foundation is implemented ([ADR-0050](docs/adr/0050-durable-manual-cover-foundation.md)):
@@ -494,18 +494,18 @@ The product should preserve enough information to regenerate derived thumbnails 
 
 ## 16. Playback Experience
 
-FrameNest should support external VLC first for full playback.
+Kronika should support external VLC first for full playback.
 
 Playback direction includes local file playback, remote stream playback, inline looping previews for GIFs and short clips, and a clear separation between full playback and inline preview.
 
 Embedded libVLC is future roadmap scope, not an early-stage implemented capability.
 
 Future playback should support fullscreen and truthful audio-track selection
-where technically supported. FrameNest should use capability detection and
+where technically supported. Kronika should use capability detection and
 fallback rather than fake controls. Subtitle support is not currently required,
-and FrameNest must not silently transcode originals.
+and Kronika must not silently transcode originals.
 
-For GIF and short MP4 social-response workflows, FrameNest should later support `Download + Copy to Clipboard` through native desktop capabilities with clear fallback behavior when direct paste is unsupported.
+For GIF and short MP4 social-response workflows, Kronika should later support `Download + Copy to Clipboard` through native desktop capabilities with clear fallback behavior when direct paste is unsupported.
 
 ## 17. Privacy and AI Assistance
 
@@ -524,12 +524,12 @@ yet been deployed by a tracked task.
 
 Suspicious filenames may be manually analyzed, but AI suggestions require confirmation. Current pre-alpha website AI suggestion review lists durable inbox runs, copies individual fields into Current, and is not catalog truth until Save. The companion review surface is a separate durable administrator attention queue plus all-item history over successful generic runs; it does not replace that website field-copy review. Opening or Saving a companion review durably clears unread attention, while history retains the item.
 
-FrameNest must not automatically rename media.
+Kronika must not automatically rename media.
 
-FrameNest must not automatically upload media or prepared frames to a cloud
+Kronika must not automatically upload media or prepared frames to a cloud
 provider merely because media was cataloged: automatic cloud analysis stays
 off by default and is permitted only after the explicit server-owner or
-administrator opt-in `FRAMENEST_AUTOMATIC_MEDIA_ANALYSIS_ENABLED=true`, or after
+administrator opt-in `KRONIKA_AUTOMATIC_MEDIA_ANALYSIS_ENABLED=true`, or after
 an administrator confirms the companion Settings overlay recorded in
 [ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md), which
 represents standing consent only for eligible automatic post-catalog analysis
@@ -542,7 +542,7 @@ do not supply provider credentials; credentials remain server-side.
 
 ## 18. Security Principles
 
-FrameNest must keep secrets out of Git.
+Kronika must keep secrets out of Git.
 
 Backend services must not be publicly exposed by default.
 
@@ -555,17 +555,17 @@ verified household members. Owners do not publish directly to that page.
 
 Application-level authorization remains necessary even when the network boundary is private.
 
-FrameNest should use least privilege, explicit confirmation for destructive actions, and verified destination state before source deletion.
+Kronika should use least privilege, explicit confirmation for destructive actions, and verified destination state before source deletion.
 
 ## 19. Experience Principles
 
-FrameNest should feel premium but restrained.
+Kronika should feel premium but restrained.
 
 Interactions should be fast, status should be clear, and complexity should appear through progressive disclosure rather than crowded screens.
 
 The interface should support accessibility and reduced-motion preferences.
 
-FrameNest should avoid outdated generic desktop-widget appearance and avoid visual effects that damage responsiveness.
+Kronika should avoid outdated generic desktop-widget appearance and avoid visual effects that damage responsiveness.
 
 The future desktop shell should provide single-instance behavior, a tray or macOS menu-bar presence, close-to-tray behavior, and initial `Gallery`, `Settings`, and `Quit` menu items.
 
@@ -623,7 +623,7 @@ This document complements the repository overview in [README.md](README.md).
 
 Agent and protocol behavior is defined by [AGENTS.md](AGENTS.md) and the
 pinned canonical AP submodule beginning at [`.ap/AP.md`](.ap/AP.md).
-FrameNest's AP integration decision is recorded in
+Kronika's AP integration decision is recorded in
 [ADR-0034](docs/adr/0034-canonical-analytic-programming-integration.md).
 
 [SPEC.md](SPEC.md) defines normative product and system requirements.

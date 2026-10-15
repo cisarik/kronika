@@ -1,6 +1,6 @@
-# FrameNest .gitignore
+# Kronika .gitignore
 #
-# This file protects local secrets, development byproducts, and FrameNest
+# This file protects local secrets, development byproducts, and Kronika
 # runtime data without hiding future source packages, documentation, migrations,
 # or deterministic test fixtures.
 
@@ -126,11 +126,11 @@ src-tauri/target/
 .cursor/**/*.local.json
 
 # ---------------------------------------------------------------------------
-# FrameNest local runtime artifacts
+# Kronika local runtime artifacts
 # ---------------------------------------------------------------------------
 # These root-scoped names are reserved for local runtime state. They avoid
 # broad patterns such as data/ so future source, docs, migrations, and fixtures
-# remain visible to Git.
+# remain visible to Git. `/.framenest/` ignores a retired root-local directory.
 /.framenest/
 /runtime/
 /cache/

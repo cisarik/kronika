@@ -1,4 +1,4 @@
-# FrameNest Server and Client Architecture
+# Kronika Server and Client Architecture
 
 ## Status
 
@@ -29,13 +29,13 @@ task. Git history remains the archive.
 [ADR-0082](docs/adr/0082-kronika-one-product-and-private-records.md) and
 [ADR-0083](docs/adr/0083-modular-research-providers-and-administrator-curated-timeline.md)
 record the next architecture in this same repository. This section documents
-that target. Existing FrameNest implementation summaries below remain the
+that target. Existing Kronika implementation summaries below remain the
 pre-transition baseline. They do not prove that research, common-record
 privacy or capture deployment exists.
 
 The application owns one authoritative catalog, media, complete Search and
 Research documents, identity, administrator approval and the Timeline. There
-is no second server or deployment system. The existing `framenest` package,
+is no second server or deployment system. The existing `kronika` package,
 headers, migrations and service identities remain. The workspace shell calls
 the existing record and research routes and does not add an HTTP route.
 Research stays disabled by default. The S8 shell is a local candidate, not a
@@ -43,7 +43,7 @@ deployed or accepted release. The public composition stays off.
 
 ### Local supervision and the hosted research loop
 
-FrameNest runs the supervisory runtime: authorize a submission, reserve
+Kronika runs the supervisory runtime: authorize a submission, reserve
 budget, submit, poll, cancel, validate, save and reconcile cleanup. The model
 and web-search loop runs at the selected provider. The first provider is the
 OpenAI Responses API, id `openai-responses`, with native provider-managed
@@ -125,7 +125,7 @@ reset remains a later authorized step in [ROADMAP.md](ROADMAP.md).
 
 ## Server Authority
 
-ADR-0035 records the current server/client authority model. A FrameNest server
+ADR-0035 records the current server/client authority model. A Kronika server
 process is authoritative for:
 
 - catalog records;
@@ -140,7 +140,7 @@ process is authoritative for:
 
 Browser, desktop, local NUC browser, and future remote interfaces are clients
 of that server API. The server process may run locally on the same device as a
-desktop client or later on the Ubuntu NUC. Local-first operation means FrameNest
+desktop client or later on the Ubuntu NUC. Local-first operation means Kronika
 can be owned and run locally without public cloud dependence; it does not mean
 each client interface owns an independent authoritative catalog.
 
@@ -151,7 +151,7 @@ membership, cookies, or same-machine execution.
 
 ## NUC Role
 
-The Intel NUC currently serves as the FrameNest development-and-testing
+The Intel NUC currently serves as the Kronika development-and-testing
 machine
 ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)):
 its accepted role is the development/test home of this product, routinely
@@ -159,7 +159,7 @@ refreshed toward public `main` through the
 immutable release-update contract. It was previously framed as the personal
 production server role ([ADR-0032](docs/adr/0032-ubuntu-nuc-deployment-foundation.md));
 dated production facts remain history. The NUC is not required for local
-ownership and must not make FrameNest a public-cloud or SaaS dependency.
+ownership and must not make Kronika a public-cloud or SaaS dependency.
 
 ADR-0082 keeps capture as part of the same product, now parked, not another
 project. ADR-0083 adds the research supervisor to this same server. The
@@ -183,10 +183,10 @@ include:
 Ubuntu Server 24.04 on the Intel NUC6i5SYH supersedes Fedora as the active
 deployment target. A repository-native systemd service foundation and Ubuntu
 NUC deployment runbook exist, and a routine immutable release-update contract
-(`deploy/ubuntu/framenest-release`) is accepted through
+(`deploy/ubuntu/kronika-release`) is accepted through
 [ADR-0060](docs/adr/0060-repeatable-immutable-nuc-release-update-contract.md).
 The NUC is routinely refreshed to the exact public `main` SHA; the
-authoritative runtime readback is `framenest-release status`. A production release was
+authoritative runtime readback is `kronika-release status`. A production release was
 previously accepted at commit `aec2f0091c10aed2fc2033dac154a0d9651b2b6d` from
 `/opt/framenest/releases/aec2f0091c10aed2fc2033dac154a0d9651b2b6d` with schema
 `0028`, healthy service, and Tailscale Serve only (Funnel not publicly
@@ -229,7 +229,7 @@ baseline is historical host evidence, not a substitute for current acceptance.
 
 ## Same Core, Different Deployment Capabilities
 
-Desktop and server roles should reuse the same FrameNest domain and application
+Desktop and server roles should reuse the same Kronika domain and application
 core. They are not separate products. Deployment role decides which adapters,
 native capabilities, supervision, storage, and networking are available.
 
@@ -243,7 +243,7 @@ server-state authority.
 Local desktop operation should remain useful when the required local server
 process, local catalog/cache records, and local media are available. The Intel
 NUC is optional for local ownership, because a desktop installation may run its
-own local FrameNest server process.
+own local Kronika server process.
 
 Offline client caching and synchronization rules remain unresolved. A client
 must distinguish stale cached records, unavailable server state, and unavailable
@@ -267,10 +267,10 @@ The full video must not be downloaded merely to render a gallery card.
 
 The first durable manual cover foundation is implemented ([ADR-0050](docs/adr/0050-durable-manual-cover-foundation.md),
 migration `0022`). Durable accepted-cover facts live in the authoritative SQLite
-catalog; immutable cover artifacts live under `FRAMENEST_COVER_STORAGE_ROOT`
-(production-oriented `/var/lib/framenest/covers`) and regenerable cover
-thumbnails under `FRAMENEST_COVER_THUMBNAIL_CACHE_PATH` (production-oriented
-`/var/cache/framenest/cover-thumbnails`). A Gallery cover thumbnail is served
+catalog; immutable cover artifacts live under `KRONIKA_COVER_STORAGE_ROOT`
+(production-oriented `/var/lib/kronika/covers`) and regenerable cover
+thumbnails under `KRONIKA_COVER_THUMBNAIL_CACHE_PATH` (production-oriented
+`/var/cache/kronika/cover-thumbnails`). A Gallery cover thumbnail is served
 through an identity-only endpoint gated by `gallery.read` and the shared
 content-publication audience policy, so unpublished media never leaks cover
 bytes to ordinary users. Complete Cover Studio, imported/AI/series covers, and
@@ -278,7 +278,7 @@ candidate management remain future work.
 
 ## Location And Availability Tracking
 
-FrameNest models one logical media item with zero or more physical locations.
+Kronika models one logical media item with zero or more physical locations.
 Locations may be local, remote, archived, offline, missing, or unverified.
 
 Users must be able to inspect where a media item is known to exist. Remote-only
@@ -286,7 +286,7 @@ cards should clearly show that playback or copy requires a remote operation.
 
 ## Selective Media Placement
 
-FrameNest must not automatically mirror all media bytes to every device.
+Kronika must not automatically mirror all media bytes to every device.
 Metadata, tags, covers, availability state, and lightweight thumbnails may
 synchronize independently of full media bytes. Full media transfer must be
 explicit or governed by a later accepted automation rule.
@@ -367,7 +367,7 @@ transcode originals.
 ## Network And Deployment Direction
 
 Workspace remote access remains Tailscale-only: authenticated Tailscale Serve
-to `/run/framenest/framenest.sock` and `tailscale_uds`.
+to `/run/kronika/kronika.sock` and `tailscale_uds`.
 [ADR-0074](docs/adr/0074-dual-audience-public-published-and-tailscale-workspace-boundary.md)
 ships a local-only `public_published_uds` published-reader composition.
 That composition is not exposed externally, has no TLS listener, Funnel, or
@@ -376,7 +376,7 @@ This is retained implementation history. ADR-0082 keeps the public composition
 off and forbids exposing new Kronika records through it. ADR-0083 keeps
 internet publication disabled; household Timeline entry is administrator
 approval on this server, not this public composition.
-Funnel to the workspace socket stays forbidden. FrameNest must not require
+Funnel to the workspace socket stays forbidden. Kronika must not require
 router port forwarding. Tailscale networking is not sufficient authorization by
 itself; application-level authorization remains required. The accepted
 implementation of the workspace remote path is the Tailscale remote-access and
@@ -402,12 +402,12 @@ verifies them.
 
 ## Server-Side AI Provider Boundary
 
-FrameNest has a server-operated AI provider boundary for the local development
+Kronika has a server-operated AI provider boundary for the local development
 server. Ordinary browser and desktop clients never configure providers, select
 models, enter API keys, receive provider credentials, or call NVIDIA, Vercel,
 OpenCode Go, Google, or another provider directly. Browser clients may view
 sanitized read-only server AI status and may explicitly request AI analysis
-through the FrameNest server when a provider is configured. Authenticated
+through the Kronika server when a provider is configured. Authenticated
 administrators additionally get a separate website surface under
 `provider.operate`: they may manage non-secret declarative provider records,
 activate one provider/model, and run explicit ping/pong diagnostics through
@@ -417,9 +417,9 @@ and availability booleans, never credential values.
 Server operators use the root CLI:
 
 ```text
-./framenest ai status
-./framenest ai configure
-./framenest ai test
+./kronika ai status
+./kronika ai configure
+./kronika ai test
 ```
 
 `status` is network-free and writes only a safe status snapshot beside the
