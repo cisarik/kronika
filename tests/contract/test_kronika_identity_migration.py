@@ -4265,8 +4265,12 @@ def test_production_create_checkpoint_returns_the_bundle_and_refuses_non_success
     host = _boundary_host(boundary)
 
     assert host.create_checkpoint() == "b1"
-    assert any(
-        "kronika-backup run-scheduled" in call for call in boundary.calls
+    checkpoint_calls = [
+        call for call in boundary.calls if "kronika-backup run-scheduled" in call
+    ]
+    assert len(checkpoint_calls) == 1
+    assert checkpoint_calls[0].endswith(
+        " " + engine.cmd_remote_run_scheduled_backup(OLD_RELEASE, engine.OLD_WEB_LAYOUT)
     )
 
     boundary.backup_state = "failed"

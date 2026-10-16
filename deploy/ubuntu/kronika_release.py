@@ -810,10 +810,31 @@ def cmd_remote_db_status(
     return f"{service_account_prefix(release_path, layout)}/kronika-db status"
 
 
+def cmd_remote_backup_cli(
+    release_path: str, operation: str, layout: WebLayout = OLD_WEB_LAYOUT
+) -> str:
+    """Run the backup console with the unit's process environment.
+
+    The console reads process environment directly, so an environment-file
+    selector alone does not configure its roots. Let systemd load the file
+    without putting its contents in argv, and preserve JSON stdout via --pipe.
+    """
+    if operation not in ("status", "run-scheduled"):
+        raise ReleaseError("invalid command", EXIT_USAGE)
+    return (
+        "sudo -n systemd-run --quiet --pipe --wait --collect "
+        f"--uid={layout.user} --gid={layout.group} "
+        f"--working-directory={shlex.quote(release_path)} "
+        f"--property=EnvironmentFile={shlex.quote(layout.env_file)} "
+        f"{shlex.quote(f'{release_path}/.venv/bin/kronika-backup')} "
+        f"{operation}"
+    )
+
+
 def cmd_remote_backup_status(
     release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
 ) -> str:
-    return f"{service_account_prefix(release_path, layout)}/kronika-backup status"
+    return cmd_remote_backup_cli(release_path, "status", layout)
 
 
 def cmd_remote_production_cli(
@@ -853,7 +874,7 @@ def cmd_remote_check_health(
 def cmd_remote_run_scheduled_backup(
     release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
 ) -> str:
-    return f"{service_account_prefix(release_path, layout)}/kronika-backup run-scheduled"
+    return cmd_remote_backup_cli(release_path, "run-scheduled", layout)
 
 
 def cmd_remote_prepare_dir(release_path: str) -> str:

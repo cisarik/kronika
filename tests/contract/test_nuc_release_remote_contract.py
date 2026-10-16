@@ -7,6 +7,7 @@ NUC, never use real sudo/systemd, and never inspect credentials or media.
 
 from __future__ import annotations
 
+from dataclasses import replace
 import importlib.util
 import io
 import json
@@ -456,6 +457,41 @@ def test_service_account_commands_establish_release_cwd_and_env() -> None:
     assert "-u framenest" in command
 
 
+@pytest.mark.parametrize("layout", engine.WEB_LAYOUTS, ids=lambda layout: layout.key)
+@pytest.mark.parametrize("quoted_paths", [False, True])
+@pytest.mark.parametrize(
+    ("builder", "operation"),
+    [
+        (engine.cmd_remote_backup_status, "status"),
+        (engine.cmd_remote_run_scheduled_backup, "run-scheduled"),
+    ],
+)
+def test_backup_cli_uses_unit_environment(
+    layout: engine.WebLayout, quoted_paths: bool, builder, operation: str
+) -> None:
+    release_path = layout.release_dir(RELEASE)
+    if quoted_paths:
+        release_path += " space's"
+        layout = replace(layout, env_file=layout.env_file + " space's")
+
+    command = builder(release_path, layout)
+    assert shlex.split(command) == [
+        "sudo", "-n", "systemd-run", "--quiet", "--pipe", "--wait", "--collect",
+        f"--uid={layout.user}", f"--gid={layout.group}",
+        f"--working-directory={release_path}",
+        f"--property=EnvironmentFile={layout.env_file}",
+        f"{release_path}/.venv/bin/kronika-backup", operation,
+    ]
+    assert "env KRONIKA_ENV_FILE=" not in command
+
+
+@pytest.mark.parametrize("operation", ["", "list", "run-offdevice", "status --help", "status; true"])
+def test_backup_cli_refuses_other_operations(operation: str) -> None:
+    with pytest.raises(engine.ReleaseError, match="^invalid command$") as exc:
+        engine.cmd_remote_backup_cli(TARGET, operation)
+    assert exc.value.exit_code == engine.EXIT_USAGE
+
+
 def test_production_cli_uses_systemd_environment_file() -> None:
     for command in (
         engine.cmd_remote_check_database_ready(TARGET),
@@ -666,9 +702,10 @@ def test_check_pre_manifest_uses_current_path_for_backup(
     assert result == engine.EXIT_OK
     assert "backup_restore_readiness: ready" in captured.out
     assert f"current_release: {PREV_PATH}" in captured.out
-    assert any(
-        "kronika-backup status" in " ".join(argv) for argv, _ in runner.calls
-    )
+    assert [
+        argv[-1] for argv, _ in runner.calls
+        if argv[0] == "ssh" and "kronika-backup status" in argv[-1]
+    ] == [engine.cmd_remote_backup_status(PREV_PATH)]
 
 
 def test_status_missing_both_markers_fails_closed(capsys: pytest.CaptureFixture) -> None:
@@ -764,6 +801,10 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
     # Schema and checkpoint before atomic switch.
     assert _index(runner, "kronika-db status") < _index(runner, "ln -s")
     assert _index(runner, "kronika-backup run-scheduled") < _index(runner, "ln -s")
+    assert [
+        argv[-1] for argv, _ in runner.calls
+        if argv[0] == "ssh" and "kronika-backup run-scheduled" in argv[-1]
+    ] == [engine.cmd_remote_run_scheduled_backup(TARGET)]
     # Single restart.
     assert _ssh_combined(runner).count("restart framenest.service") == 1
     assert "capture-current.next" not in _ssh_combined(runner)
