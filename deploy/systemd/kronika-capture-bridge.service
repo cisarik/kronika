@@ -8,10 +8,10 @@ Wants=network-online.target
 Type=simple
 User=kronika-capture
 Group=kronika-capture
-WorkingDirectory=/opt/framenest/capture-current
+WorkingDirectory=/opt/kronika/capture-current
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=/etc/kronika-capture/capture.env
-ExecStart=/opt/framenest/capture-current/.venv/bin/kronika-capture --state-dir /var/lib/kronika-capture bridge run --port 8765
+ExecStart=/opt/kronika/capture-current/.venv/bin/kronika-capture --state-dir /var/lib/kronika-capture bridge run --port 8765
 Restart=on-failure
 RestartSec=5s
 LoadCredential=token:/etc/kronika-capture/credentials/kronika-bridge-token

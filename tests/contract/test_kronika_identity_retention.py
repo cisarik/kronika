@@ -333,8 +333,13 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # The exact four content-only departures are recorded beside the set below.
     # Fixture-input edits remove no further file. All other per-tree file
     # counts stay unchanged.
+    # KSI-IMPL-C8AP moves deploy by -3 (7 -> 4) and nothing else. The three
+    # departures are content-only: kronika-capture-bridge.service,
+    # kronika-capture-runner.service and kronika-capture.env.example each lose
+    # their last retired token when the capture pointer path becomes
+    # canonical. No path is renamed and no path is added.
     "tests": 174,
-    "deploy": 7,
+    "deploy": 4,
     "scripts": 0,
     "docs": 84,
     "extension": 0,
@@ -820,7 +825,13 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # test_kronika_product_string_agreement -1 (canonical rejection-message pin).
     # companion_web_bridge and x_companion_extension each net 0. No test
     # loses its last case-insensitive retired occurrence; file count stays 181.
-    "tests": 1382,
+    # KSI-IMPL-C8AP moves tests by +4 (1382 -> 1386), all in
+    # test_kronika_capture_services.py: -3 for the two WorkingDirectory pins
+    # and the env-template path pin, now canonical, and +7 for the historical
+    # marker spellings plus the negative `framenest.service` absence check.
+    # None of those seven is an `/opt/framenest` host path. The file stays in
+    # the content set.
+    "tests": 1386,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -835,7 +846,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # spelling from the guard source.
     # KSI-IMPL-C7B1: deploy -2, both in kronika_release.py: the injected
     # environment-file variable and its explanatory comment. Other trees stay.
-    "deploy": 78,
+    # KSI-IMPL-C8AP moves deploy by -5 (78 -> 73): env.example -1,
+    # kronika-capture-bridge.service -2 and kronika-capture-runner.service -2.
+    # kronika_release.py adds no retired token.
+    "deploy": 73,
     "scripts": 0,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -861,7 +875,11 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # -6: the A7, A9 and B4 commands plus the annex paragraph name the
     # canonical scripts and variables, with two retained-spelling notes added
     # back. No document left or entered this tree.
-    "docs": 749,
+    # KSI-IMPL-C8AP moves docs by +2 (749 -> 751), all in
+    # UBUNTU_NUC_DEPLOYMENT.md: -1 for the planned capture pointer, now
+    # canonical, and +3 for the former pointer in the migration section
+    # (accepted state, unit restoration and symlink restoration).
+    "docs": 751,
     # KSI-IMPL-C7AC moved `extension` by -141 (145 -> 4). Per file:
     # `content/x_adapter.js` -101, `content/x_adapter_contract_v1.js` -10,
     # `ui/sidebar.js` -9, `background/service_worker.js` -7,
@@ -1014,6 +1032,11 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # opt-in real-tool modules test_cover_workflow_real_tools.py,
 # test_media_analysis_real_tools.py and test_nvidia_nim_live.py.
 # Part A stays byte-unmoved and Part B stays empty.
+# KSI-IMPL-C8AP removes exactly three content paths, with no additions:
+# deploy/systemd/kronika-capture-bridge.service,
+# deploy/systemd/kronika-capture-runner.service and
+# deploy/systemd/kronika-capture.env.example. Each loses its last retired
+# token on the capture pointer lines. The files remain tracked.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1022,9 +1045,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "README.md",
         "ROADMAP.md",
         "SERVER.md",
-        "deploy/systemd/kronika-capture-bridge.service",
-        "deploy/systemd/kronika-capture-runner.service",
-        "deploy/systemd/kronika-capture.env.example",
         "deploy/systemd/kronika-catalog-offdevice.service",
         "deploy/systemd/kronika.env.example",
         "deploy/ubuntu/README.md",
@@ -1675,8 +1695,11 @@ MUTATION_HEADER_FILE_COUNT = 16
 # escaped under-root leftover and the escaped-slash remainder under
 # `/var/lib/framenest`. The foreign fixtures sit under `/srv/audit34` and are
 # not keys of this ledger. The engine adds and removes no host literal.
+# KSI-IMPL-C8AP moves `/opt/framenest` by -6 (152 -> 146) and nothing else:
+# deploy -5 (the five capture pointer lines), tests -3 (the same three pins)
+# and docs +2 (-1 planned pointer, +3 former-pointer restoration lines).
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 152,
+    "/opt/framenest": 146,
     # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
     # /var/cache -1. No production host path or frozen mount changes.
     # KSI-IMPL-C7B3: /opt 214-62=152, /etc 51-21=30, /var/lib 87-23=64,

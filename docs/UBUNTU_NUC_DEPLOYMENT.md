@@ -150,9 +150,13 @@ Journal:                 /var/lib/kronika-capture/capture-journal.sqlite3
 Staging:                 /var/lib/kronika-capture/staging
 Runtime directory:       /run/kronika-capture
 Nonsecret configuration: /etc/kronika-capture/capture.env
-Capture release pointer: /opt/framenest/capture-current
+Capture release pointer: /opt/kronika/capture-current
 Web release pointer:     /opt/kronika/current
 ```
+
+Repository capture units name `/opt/kronika/capture-current`. Moving an
+installed tree that still uses the former pointer is the explicit procedure
+in the next section, not a routine release update.
 
 Source units:
 
@@ -265,6 +269,66 @@ It remains pending until a ready browser acknowledges the matching resume
 identity. Wrong job, intervention, or acknowledgement identities cannot clear
 the pause; fresh readiness alone is insufficient. No journal reset, schema
 change, or state-directory recreation is part of this recovery.
+
+## Capture Path Migration (Explicit; Not A Routine Release)
+
+This procedure moves the installed capture release onto the canonical pointer
+without changing its software, account, state, token, profile, journal, ports
+or bridge protocol. It is not part of `status`, `check`, `deploy` or
+`rollback`. Those commands do not invoke it. Xvfb, the view and the VNC units
+stay untouched, and the web service is not restarted.
+
+The installed capture tree is copied to `/opt/kronika/releases/<sha>`,
+including the release-marker spellings that tree already carries. Its virtual
+environment is then rebuilt from that tree's committed lock with the frozen
+Poetry and CPython tooling. The command never invokes `uv` and never rewrites
+the copied markers.
+
+`preflight` is read-only. It refuses when the canonical pointer is already
+present, when both pointers are present, and when neither pointer is present.
+The only accepted state is the former pointer
+`/opt/framenest/capture-current` alone. It prints a plan digest bound to the
+observed release, markers, tree and unit texts.
+
+`apply` refuses without `--yes` and without that digest. A digest that does
+not match a fresh observation is refused before any copy, pointer change or
+service action. Apply drains capture work and enforces the five-minute brake,
+publishes the copied release, drains and checks the brake again, then stops
+the bridge and the runner once each. It stages
+`/opt/kronika/capture-current` and switches that pointer in a separate step,
+removes the former pointer symlink without deleting the former release tree,
+and installs the five capture units. The only unit edits are
+`WorkingDirectory=` and `ExecStart=` lines that name the former pointer;
+every other unit line must already match the repository unit. It reloads
+systemd once, starts the bridge and then the runner once each, and checks
+readiness once. A readiness failure does not start the browser again.
+
+```text
+kronika-release migrate-capture-paths preflight [transport arguments]
+kronika-release migrate-capture-paths apply --preflight-digest <64-hex> --yes [transport arguments]
+```
+
+Record the printed `source_path`, `release_sha`, `marker_spellings` and
+`plan_digest` before apply.
+
+Restoration is explicit and is not performed by `apply`. It needs a fresh
+grant. Any recovery browser start also needs that grant and the five-minute
+brake. Do not launch the browser a second time after a readiness failure.
+
+1. Stop `kronika-capture-runner.service` and
+   `kronika-capture-bridge.service` once each. Leave
+   `kronika-capture-xvfb.service`, the view, VNC and the web service as they
+   already are. Do not restart them.
+2. Restore the five unit files so their `WorkingDirectory=` and `ExecStart=`
+   lines name `/opt/framenest/capture-current` again, and leave every other
+   line unchanged. Reload systemd once.
+3. Remove `/opt/kronika/capture-current` and recreate the former symlink
+   `/opt/framenest/capture-current` to the recorded `source_path`. Do not
+   delete either release tree as part of this restoration.
+4. Start the bridge and then the runner once. A readiness failure stops here.
+
+The copied tree under `/opt/kronika/releases/<sha>` may remain until a later
+retirement grant. Do not treat it as the web release.
 
 ## Current Target
 

@@ -10,6 +10,8 @@ It never stores, prints, or transmits secrets; never invokes ``uv``; never
 runs migrations; and never accepts user-supplied remote shell commands.
 Web deploy and rollback move only ``/opt/framenest/current`` and
 ``framenest.service``. Capture activation is a separate operation.
+``migrate-capture-paths`` is also a separate command: status, check, deploy
+and rollback do not invoke it.
 """
 
 from __future__ import annotations
@@ -247,6 +249,20 @@ CAPTURE_POINTERS = (
     ("old", OLD_CAPTURE_CURRENT, OLD_WEB_LAYOUT.release_root),
     ("new", NEW_CAPTURE_CURRENT, NEW_WEB_LAYOUT.release_root),
 )
+# Lines whose only capture-path edit is the pointer substitution. Every other
+# line of a capture unit or the environment template must stay byte-identical.
+CAPTURE_PATH_LINE_PREFIXES = (
+    "WorkingDirectory=",
+    "ExecStart=",
+    "# KRONIKA_CAPTURE_RELEASE=",
+)
+CAPTURE_PATH_PLAN_VERSION = "kronika-capture-path-plan-v1"
+CAPTURE_PATH_SCRATCH = "/run/kronika-capture-path-migration"
+CAPTURE_PATH_REMOTE_ENGINE = f"{CAPTURE_PATH_SCRATCH}/kronika_release.py"
+CAPTURE_BRIDGE_UNIT = "kronika-capture-bridge.service"
+CAPTURE_PATH_STOP_UNITS = (CAPTURE_RUNNER_SERVICE, CAPTURE_BRIDGE_UNIT)
+CAPTURE_PATH_START_UNITS = (CAPTURE_BRIDGE_UNIT, CAPTURE_RUNNER_SERVICE)
+CAPTURE_RELEASE_EXECUTABLE = ".venv/bin/kronika-capture"
 
 
 # ---------------------------------------------------------------------------
@@ -5070,6 +5086,672 @@ def read_migration_observation(
 
 
 # ---------------------------------------------------------------------------
+# Capture path migration (explicit; not a routine web operation)
+# ---------------------------------------------------------------------------
+
+
+def capture_unit_names() -> tuple[str, ...]:
+    """The five capture units, in the contract-path order."""
+    return tuple(
+        Path(relative).name
+        for relative in CAPTURE_CONTRACT_PATHS
+        if relative.endswith(".service")
+    )
+
+
+def capture_repository_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def canonicalize_capture_path_text(text: str) -> str:
+    """Substitute the former capture pointer on the documented path lines only."""
+    former = OLD_CAPTURE_CURRENT
+    canonical = NEW_CAPTURE_CURRENT
+    if former == canonical:
+        raise ReleaseError("capture pointers are not distinct", EXIT_USAGE)
+    rewritten: list[str] = []
+    for line in text.splitlines(keepends=True):
+        body = line
+        ending = ""
+        if body.endswith("\r\n"):
+            body, ending = body[:-2], "\r\n"
+        elif body.endswith("\n"):
+            body, ending = body[:-1], "\n"
+        if body.startswith(CAPTURE_PATH_LINE_PREFIXES) and former in body:
+            body = body.replace(former, canonical)
+        rewritten.append(body + ending)
+    return "".join(rewritten)
+
+
+def cmd_remote_stage_capture_pointer(release_path: str, pointer: str) -> str:
+    """Stage the canonical pointer. The switch is a separate command."""
+    return (
+        f"sudo -n ln -s {shlex.quote(release_path)} "
+        f"{shlex.quote(pointer + '.next')}"
+    )
+
+
+def cmd_remote_switch_staged_pointer(pointer: str) -> str:
+    """Switch a pointer that was staged as ``pointer.next``."""
+    return (
+        f"sudo -n mv -T {shlex.quote(pointer + '.next')} {shlex.quote(pointer)}"
+    )
+
+
+def _capture_directive(text: str, prefix: str) -> str | None:
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):]
+    return None
+
+
+def _capture_contract_text(relative: str) -> str:
+    path = capture_repository_root() / relative
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ReleaseError(
+            "capture unit contract is unavailable", EXIT_SOURCE_GATE
+        ) from exc
+
+
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class CapturePathUnit:
+    """One installed capture unit and the canonical text it must become."""
+
+    name: str
+    fragment: str
+    installed_text: str
+    canonical_text: str
+
+    @property
+    def installed_sha256(self) -> str:
+        return _sha256_text(self.installed_text)
+
+    @property
+    def canonical_sha256(self) -> str:
+        return _sha256_text(self.canonical_text)
+
+
+@dataclass(frozen=True)
+class CapturePathPlan:
+    """The observed capture-path move. Apply accepts only this plan's digest."""
+
+    source_pointer: str
+    source_path: str
+    release_sha: str
+    sha_markers: tuple[str, ...]
+    manifest_markers: tuple[str, ...]
+    marker_sha256: tuple[tuple[str, str], ...]
+    source_tree_manifest: str
+    capture_code_tree: str
+    capture_bridge_protocol: str
+    target_pointer: str
+    target_path: str
+    units: tuple[CapturePathUnit, ...]
+    plan_digest: str
+
+    @property
+    def staging_path(self) -> str:
+        return f"{self.target_path}.staging"
+
+    @property
+    def executable(self) -> str:
+        return f"{self.target_path}/{CAPTURE_RELEASE_EXECUTABLE}"
+
+
+def capture_path_plan_digest(payload: Mapping[str, object]) -> str:
+    rendered = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+
+
+def _capture_pointer_targets(
+    runner: Runner, transport: dict[str, str]
+) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for key, pointer, _release_root in CAPTURE_POINTERS:
+        target = ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_optional_link(pointer),
+        ).strip()
+        if target == "query-failed":
+            raise ReleaseError(
+                "capture release pointer state is unverifiable", EXIT_LAYOUT
+            )
+        found[key] = target
+    return found
+
+
+def _require_former_capture_pointer(targets: Mapping[str, str]) -> str:
+    """Accept only the former pointer. Every other arrangement is a conflict."""
+    old = targets["old"]
+    new = targets["new"]
+    if old != "absent" and new != "absent":
+        raise ReleaseError(
+            "both capture release pointers are present", EXIT_LAYOUT
+        )
+    if old == "absent" and new == "absent":
+        raise ReleaseError("no capture release pointer is present", EXIT_LAYOUT)
+    if new != "absent":
+        raise ReleaseError(
+            "canonical capture pointer is already present", EXIT_LAYOUT
+        )
+    validate_remote_path(old, OLD_WEB_LAYOUT.release_root)
+    return old
+
+
+def _capture_marker_digests(
+    runner: Runner,
+    transport: dict[str, str],
+    release_path: str,
+    markers: ResolvedReleaseMarkers,
+) -> tuple[tuple[str, str], ...]:
+    digests: dict[str, str] = {}
+    for marker in markers.manifest_markers:
+        raw = ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_manifest(release_path, marker),
+        )
+        digests[marker] = _sha256_text(raw)
+    for marker in markers.sha_markers:
+        raw = ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_release_sha(release_path, marker),
+        )
+        digests[marker] = _sha256_text(raw)
+    return tuple(sorted(digests.items()))
+
+
+def _capture_source_identity(manifest: dict[str, object] | None) -> tuple[str, str]:
+    """Identity carried by the installed tree, not identity recomputed from HEAD."""
+    payload = manifest or {}
+    code_tree = payload.get("capture_code_tree", "absent")
+    if code_tree != "absent":
+        if not isinstance(code_tree, str) or SHA_PATTERN.fullmatch(code_tree) is None:
+            raise ReleaseError(
+                "capture source identity is invalid", EXIT_SOURCE_GATE
+            )
+    protocol = payload.get("capture_bridge_protocol", "absent")
+    if not isinstance(protocol, str) or (
+        protocol != "absent" and protocol != CAPTURE_BRIDGE_PROTOCOL
+    ):
+        raise ReleaseError(
+            "capture bridge protocol is not compatible", EXIT_SOURCE_GATE
+        )
+    return str(code_tree), protocol
+
+
+def _read_installed_capture_unit(
+    runner: Runner, transport: dict[str, str], name: str
+) -> tuple[str, str]:
+    fragment = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_service_fragment_path(name),
+    ).strip()
+    expected = f"/etc/systemd/system/{name}"
+    if fragment != expected:
+        raise ReleaseError(
+            f"capture unit fragment path is unexpected: {name}", EXIT_SOURCE_GATE
+        )
+    text = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_read_optional_file(fragment),
+    )
+    if text in ("absent", "query-failed") or not text.startswith("[Unit]"):
+        raise ReleaseError(
+            f"installed capture unit is unreadable: {name}", EXIT_SOURCE_GATE
+        )
+    return fragment, text
+
+
+def _require_unit_contract(name: str, installed: str) -> str:
+    canonical = _capture_contract_text(f"deploy/systemd/{name}")
+    if canonicalize_capture_path_text(installed) != canonical:
+        raise ReleaseError(
+            f"installed capture unit differs beyond the pointer path lines: {name}",
+            EXIT_SOURCE_GATE,
+        )
+    return canonical
+
+
+def _require_effective_working_directory(
+    runner: Runner, transport: dict[str, str], name: str, expected: str
+) -> None:
+    shown = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_systemd_working_directory(name),
+    ).strip()
+    if shown != expected:
+        raise ReleaseError(
+            f"capture unit working directory does not match the unit file: {name}",
+            EXIT_SOURCE_GATE,
+        )
+
+
+def observe_capture_path_plan(
+    runner: Runner, transport: dict[str, str]
+) -> CapturePathPlan:
+    """Read the installed capture release and bind a digest. This writes nothing."""
+    source_path = _require_former_capture_pointer(
+        _capture_pointer_targets(runner, transport)
+    )
+    markers = read_release_markers(runner, transport, source_path)
+    code_tree, protocol = _capture_source_identity(markers.manifest)
+    marker_sha256 = _capture_marker_digests(
+        runner, transport, source_path, markers
+    )
+    source_tree = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_tree_manifest(source_path),
+    )
+    units: list[CapturePathUnit] = []
+    for name in capture_unit_names():
+        fragment, installed = _read_installed_capture_unit(
+            runner, transport, name
+        )
+        canonical = _require_unit_contract(name, installed)
+        installed_directory = _capture_directive(installed, "WorkingDirectory=")
+        if installed_directory is not None:
+            _require_effective_working_directory(
+                runner, transport, name, installed_directory
+            )
+        units.append(
+            CapturePathUnit(
+                name=name,
+                fragment=fragment,
+                installed_text=installed,
+                canonical_text=canonical,
+            )
+        )
+    target_path = NEW_WEB_LAYOUT.release_dir(markers.sha)
+    payload: dict[str, object] = {
+        "plan_version": CAPTURE_PATH_PLAN_VERSION,
+        "source_pointer": OLD_CAPTURE_CURRENT,
+        "source_path": source_path,
+        "release_sha": markers.sha,
+        "sha_markers": list(markers.sha_markers),
+        "manifest_markers": list(markers.manifest_markers),
+        "marker_sha256": [list(item) for item in marker_sha256],
+        "source_tree_sha256": _sha256_text(source_tree),
+        "capture_code_tree": code_tree,
+        "capture_bridge_protocol": protocol,
+        "target_pointer": NEW_CAPTURE_CURRENT,
+        "target_path": target_path,
+        "units": [
+            {
+                "name": unit.name,
+                "fragment": unit.fragment,
+                "installed_sha256": unit.installed_sha256,
+                "canonical_sha256": unit.canonical_sha256,
+            }
+            for unit in units
+        ],
+    }
+    return CapturePathPlan(
+        source_pointer=OLD_CAPTURE_CURRENT,
+        source_path=source_path,
+        release_sha=markers.sha,
+        sha_markers=tuple(markers.sha_markers),
+        manifest_markers=tuple(markers.manifest_markers),
+        marker_sha256=marker_sha256,
+        source_tree_manifest=source_tree,
+        capture_code_tree=code_tree,
+        capture_bridge_protocol=protocol,
+        target_pointer=NEW_CAPTURE_CURRENT,
+        target_path=target_path,
+        units=tuple(units),
+        plan_digest=capture_path_plan_digest(payload),
+    )
+
+
+def _require_preserved_capture_tree(
+    runner: Runner,
+    transport: dict[str, str],
+    plan: CapturePathPlan,
+    release_path: str,
+) -> None:
+    """The copied tree keeps the source release's own marker bytes."""
+    markers = read_release_markers(runner, transport, release_path)
+    if markers.sha != plan.release_sha:
+        raise ReleaseError(
+            "copied capture release identity does not match the source",
+            EXIT_SOURCE_GATE,
+        )
+    if tuple(markers.sha_markers) != plan.sha_markers or (
+        tuple(markers.manifest_markers) != plan.manifest_markers
+    ):
+        raise ReleaseError(
+            "copied capture release markers do not match the source",
+            EXIT_SOURCE_GATE,
+        )
+    if (
+        _capture_marker_digests(runner, transport, release_path, markers)
+        != plan.marker_sha256
+    ):
+        raise ReleaseError(
+            "copied capture release markers do not match the source",
+            EXIT_SOURCE_GATE,
+        )
+    code_tree, protocol = _capture_source_identity(markers.manifest)
+    if (
+        code_tree != plan.capture_code_tree
+        or protocol != plan.capture_bridge_protocol
+    ):
+        raise ReleaseError(
+            "copied capture source identity does not match the source",
+            EXIT_SOURCE_GATE,
+        )
+
+
+def _publish_capture_release(
+    runner: Runner,
+    transport: dict[str, str],
+    plan: CapturePathPlan,
+    created: list[str],
+) -> None:
+    """Copy the installed release, rebuild its venv, and publish that tree.
+
+    Paths are appended to ``created`` only after this run creates them, so a
+    refusal never deletes a tree it did not create.
+    """
+    staging = plan.staging_path
+    target = plan.target_path
+    verify_tooling(runner, transport)
+    ssh(runner, **transport, remote_command=cmd_remote_test_not_exists(target))
+    ssh(runner, **transport, remote_command=cmd_remote_test_not_exists(staging))
+    ssh(runner, **transport, remote_command=cmd_remote_prepare_dir(staging))
+    created.append(staging)
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_copy_tree(plan.source_path, staging),
+    )
+    copied = ssh(
+        runner, **transport, remote_command=cmd_remote_tree_manifest(staging)
+    )
+    if copied != plan.source_tree_manifest:
+        raise ReleaseError(
+            "copied capture release tree does not match the source",
+            EXIT_SOURCE_GATE,
+        )
+    _require_preserved_capture_tree(runner, transport, plan, staging)
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_test_exists(f"{staging}/poetry.toml"),
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_test_exists(f"{staging}/poetry.lock"),
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_rm_deploy_quarantine(f"{staging}/.venv"),
+    )
+    lock_before = ssh(
+        runner, **transport, remote_command=cmd_remote_lock_hash(staging)
+    ).strip()
+    ssh(runner, **transport, remote_command=cmd_remote_poetry_check_lock(staging))
+    ssh(runner, **transport, remote_command=cmd_remote_poetry_env_use(staging))
+    ssh(runner, **transport, remote_command=cmd_remote_poetry_install(staging))
+    lock_after = ssh(
+        runner, **transport, remote_command=cmd_remote_lock_hash(staging)
+    ).strip()
+    if lock_before != lock_after:
+        raise ReleaseError(
+            "poetry.lock changed during capture path preparation", EXIT_POETRY
+        )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_make_directory(CAPTURE_PATH_SCRATCH, "0700"),
+    )
+    created.append(CAPTURE_PATH_SCRATCH)
+    engine_bytes = Path(__file__).read_bytes()
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_write_file(
+            CAPTURE_PATH_REMOTE_ENGINE,
+            hashlib.sha256(engine_bytes).hexdigest(),
+        ),
+        input_bytes=engine_bytes,
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_relocate_venv_shebangs(
+            staging, target, CAPTURE_PATH_REMOTE_ENGINE
+        ),
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_test_regular_executable(
+            f"{staging}/{CAPTURE_RELEASE_EXECUTABLE}"
+        ),
+    )
+    ssh(runner, **transport, remote_command=cmd_remote_chown_root(staging))
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_remove_release_writable_bits(staging),
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_rename_staging(staging, target),
+    )
+    created.remove(staging)
+    created.append(target)
+    _require_preserved_capture_tree(runner, transport, plan, target)
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_test_regular_executable(plan.executable),
+    )
+
+
+def _switch_canonical_capture_pointer(
+    runner: Runner, transport: dict[str, str], plan: CapturePathPlan
+) -> None:
+    """Stage, then switch, then drop the former symlink. The release tree stays."""
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_stage_capture_pointer(
+            plan.target_path, plan.target_pointer
+        ),
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_switch_staged_pointer(plan.target_pointer),
+    )
+    ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_remove_file(plan.source_pointer),
+    )
+
+
+def _install_canonical_capture_units(
+    runner: Runner, transport: dict[str, str], plan: CapturePathPlan
+) -> None:
+    for unit in plan.units:
+        payload = unit.canonical_text.encode("utf-8")
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_write_file_atomic(
+                unit.fragment, hashlib.sha256(payload).hexdigest()
+            ),
+            input_bytes=payload,
+        )
+    ssh(runner, **transport, remote_command=cmd_remote_daemon_reload())
+    for unit in plan.units:
+        readback = ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_read_optional_file(unit.fragment),
+        )
+        if readback != unit.canonical_text:
+            raise ReleaseError(
+                f"installed capture unit does not match the canonical text: {unit.name}",
+                EXIT_SOURCE_GATE,
+            )
+        if _capture_directive(unit.canonical_text, "WorkingDirectory=") is not None:
+            _require_effective_working_directory(
+                runner, transport, unit.name, NEW_CAPTURE_CURRENT
+            )
+
+
+def _systemctl_capture_units(
+    runner: Runner, transport: dict[str, str], names: Sequence[str], verb: str
+) -> None:
+    builder = cmd_remote_stop_unit if verb == "stop" else cmd_remote_start_unit
+    for name in names:
+        ssh(runner, **transport, remote_command=builder(name))
+
+
+def _remove_capture_path_trees(
+    runner: Runner, transport: dict[str, str], paths: Sequence[str]
+) -> None:
+    for path in paths:
+        ssh(
+            runner,
+            **transport,
+            remote_command=cmd_remote_rm_deploy_quarantine(path),
+        )
+
+
+def _enforce_capture_path_gates(runner: Runner, transport: dict[str, str]) -> None:
+    _drain_capture_work(runner, transport)
+    _enforce_capture_brake(runner, transport)
+
+
+def _apply_capture_path_plan(
+    runner: Runner, transport: dict[str, str], plan: CapturePathPlan
+) -> None:
+    created: list[str] = []
+    switched = False
+    try:
+        _publish_capture_release(runner, transport, plan, created)
+        _enforce_capture_path_gates(runner, transport)
+        previous_identity = _snapshot_capture_identity(runner, transport)
+        _systemctl_capture_units(
+            runner, transport, CAPTURE_PATH_STOP_UNITS, "stop"
+        )
+        _switch_canonical_capture_pointer(runner, transport, plan)
+        switched = True
+        _install_canonical_capture_units(runner, transport, plan)
+        _systemctl_capture_units(
+            runner, transport, CAPTURE_PATH_START_UNITS, "start"
+        )
+        _verify_capture_readiness(runner, transport, previous_identity)
+    except ReleaseError as exc:
+        cleanup = [CAPTURE_PATH_SCRATCH] if switched else list(created)
+        if switched:
+            print(
+                "capture-path restoration requires the prior pointer "
+                f"{plan.source_pointer} -> {plan.source_path}"
+            )
+        else:
+            print("capture-path migration left the installed pointer unchanged")
+        try:
+            if cleanup:
+                _remove_capture_path_trees(runner, transport, cleanup)
+        except ReleaseError as cleanup_error:
+            raise ReleaseError(
+                f"capture path migration failed; cleanup also failed ({exc})",
+                cleanup_error.exit_code,
+            ) from exc
+        raise
+    try:
+        _remove_capture_path_trees(runner, transport, [CAPTURE_PATH_SCRATCH])
+    except ReleaseError as exc:
+        raise ReleaseError("cleanup failed", EXIT_CLEANUP) from exc
+
+
+def _print_capture_path_plan(plan: CapturePathPlan, heading: str) -> None:
+    spellings = ",".join([*plan.manifest_markers, *plan.sha_markers])
+    names = ",".join(unit.name for unit in plan.units)
+    print(heading)
+    print(f"source_pointer: {plan.source_pointer}")
+    print(f"source_path: {plan.source_path}")
+    print(f"release_sha: {plan.release_sha}")
+    print(f"marker_spellings: {spellings}")
+    print(f"capture_code_tree: {plan.capture_code_tree}")
+    print(f"capture_bridge_protocol: {plan.capture_bridge_protocol}")
+    print(f"target_pointer: {plan.target_pointer}")
+    print(f"target_release: {plan.target_path}")
+    print(f"executable: {plan.executable}")
+    print(f"units: {names}")
+    print(f"plan_digest: {plan.plan_digest}")
+
+
+def _cmd_migrate_capture_paths_preflight(
+    args: argparse.Namespace, runner: Runner
+) -> int:
+    transport = _resolve_transport(args)
+    plan = observe_capture_path_plan(runner, transport)
+    _print_capture_path_plan(
+        plan, "kronika-release migrate-capture-paths preflight"
+    )
+    return EXIT_OK
+
+
+def _cmd_migrate_capture_paths_apply(
+    args: argparse.Namespace, runner: Runner
+) -> int:
+    if not args.yes:
+        raise ReleaseError(
+            "migrate-capture-paths apply requires --yes to confirm", EXIT_USAGE
+        )
+    digest = args.preflight_digest
+    if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
+        raise ReleaseError(
+            "migrate-capture-paths apply requires a 64-hex preflight digest",
+            EXIT_USAGE,
+        )
+    transport = _resolve_transport(args)
+    plan = observe_capture_path_plan(runner, transport)
+    if digest != plan.plan_digest:
+        raise ReleaseError(
+            "preflight digest does not match the current capture-path plan",
+            EXIT_MIGRATION,
+        )
+    _enforce_capture_path_gates(runner, transport)
+    _apply_capture_path_plan(runner, transport, plan)
+    _print_capture_path_plan(
+        plan,
+        f"kronika-release migrate-capture-paths apply complete: {plan.release_sha}",
+    )
+    return EXIT_OK
+
+
+def _cmd_migrate_capture_paths(args: argparse.Namespace, runner: Runner) -> int:
+    if args.capture_path_command == "preflight":
+        return _cmd_migrate_capture_paths_preflight(args, runner)
+    if args.capture_path_command == "apply":
+        return _cmd_migrate_capture_paths_apply(args, runner)
+    raise ReleaseError("invalid command", EXIT_USAGE)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -5133,6 +5815,32 @@ def _build_parser() -> argparse.ArgumentParser:
     migrate_apply.add_argument("--preflight-digest", required=True)
     _add_transport_args(migrate_apply)
 
+    capture_paths = subcommands.add_parser(
+        "migrate-capture-paths",
+        help=(
+            "Move the installed capture release onto the canonical pointer "
+            "without changing its software."
+        ),
+    )
+    capture_path_commands = capture_paths.add_subparsers(
+        dest="capture_path_command", required=True
+    )
+    capture_preflight = capture_path_commands.add_parser(
+        "preflight",
+        help="Read-only plan for the installed capture release path move.",
+    )
+    _add_transport_args(capture_preflight)
+    capture_apply = capture_path_commands.add_parser(
+        "apply",
+        help=(
+            "Apply a validated capture-path plan. Requires --yes and the "
+            "preflight digest."
+        ),
+    )
+    capture_apply.add_argument("--yes", action="store_true")
+    capture_apply.add_argument("--preflight-digest", required=True)
+    _add_transport_args(capture_apply)
+
     remote = subcommands.add_parser("_remote", help=argparse.SUPPRESS)
     remote_sub = remote.add_subparsers(dest="remote_command", required=True)
     remote_extract_p = remote_sub.add_parser("_remote-extract", help=argparse.SUPPRESS)
@@ -5187,6 +5895,8 @@ def main(
             return _cmd_capture_transition(args, command_runner)
         if args.command == "migrate-identity":
             return _cmd_migrate_identity(args, command_runner)
+        if args.command == "migrate-capture-paths":
+            return _cmd_migrate_capture_paths(args, command_runner)
         if args.command == "_remote":
             return _cmd_remote(args, command_runner)
         raise ReleaseError("invalid command", EXIT_USAGE)
