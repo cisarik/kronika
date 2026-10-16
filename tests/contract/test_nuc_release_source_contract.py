@@ -348,3 +348,129 @@ def test_relocate_venv_fails_closed_when_direct_url_retains_staging(
         engine.relocate_venv_shebangs(str(staging), str(final))
     assert exc.value.exit_code == engine.EXIT_POETRY
     assert ".staging" in direct_url.read_text(encoding="utf-8")
+
+
+def _script_bindir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
+    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    staging = tmp_path / f"{RELEASE}.staging"
+    final = tmp_path / RELEASE
+    bindir = staging / ".venv" / "bin"
+    bindir.mkdir(parents=True)
+    return staging, final, bindir
+
+
+def _write_staging_script(bindir: Path, staging: Path, name: str) -> Path:
+    script = bindir / name
+    script.write_text(f"#!{staging}/.venv/bin/python\nprint({name!r})\n", encoding="utf-8")
+    return script
+
+
+def test_relocate_venv_shebangs_requires_the_default_web_scripts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The omitted script list is the web pair, so a capture-only venv is refused."""
+    staging, final, bindir = _script_bindir(tmp_path, monkeypatch)
+    backup = _write_staging_script(bindir, staging, "kronika-backup")
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.relocate_venv_shebangs(str(staging), str(final))
+    assert str(exc.value) == "required console script is missing"
+    assert exc.value.exit_code == engine.EXIT_POETRY
+    assert backup.read_text(encoding="utf-8").splitlines()[0] == (
+        f"#!{final}/.venv/bin/python"
+    )
+
+
+def test_relocate_venv_shebangs_accepts_a_requested_capture_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging, final, bindir = _script_bindir(tmp_path, monkeypatch)
+    name = f"{final}/.venv/bin/kronika-capture".rsplit("/", 1)[-1]
+    script = _write_staging_script(bindir, staging, name)
+    assert not (bindir / "kronika-db").exists()
+    assert not (bindir / "kronika-backup").exists()
+
+    engine.relocate_venv_shebangs(str(staging), str(final), required_scripts=(name,))
+
+    assert script.read_text(encoding="utf-8").splitlines()[0] == (
+        f"#!{final}/.venv/bin/python"
+    )
+
+
+def test_relocate_venv_shebangs_refuses_a_venv_missing_the_requested_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging, final, bindir = _script_bindir(tmp_path, monkeypatch)
+    other = _write_staging_script(bindir, staging, "other-tool")
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.relocate_venv_shebangs(
+            str(staging), str(final), required_scripts=("kronika-capture",)
+        )
+    assert str(exc.value) == "required console script is missing"
+    assert exc.value.exit_code == engine.EXIT_POETRY
+    assert other.read_text(encoding="utf-8").splitlines()[0] == (
+        f"#!{final}/.venv/bin/python"
+    )
+
+
+def test_relocate_venv_shebangs_rejects_an_empty_script_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging, final, bindir = _script_bindir(tmp_path, monkeypatch)
+    for name in ("kronika-db", "kronika-backup"):
+        _write_staging_script(bindir, staging, name)
+    engine.relocate_venv_shebangs(str(staging), str(final))
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.relocate_venv_shebangs(str(staging), str(final), required_scripts=())
+    assert str(exc.value) == "required console script list is empty"
+    assert exc.value.exit_code == engine.EXIT_POETRY
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["", "../kronika-capture", "kronika/capture", "kronika capture", "-capture", ".", ".."],
+)
+def test_relocate_venv_shebangs_rejects_an_unsafe_script_name(
+    name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging, final, bindir = _script_bindir(tmp_path, monkeypatch)
+    script = _write_staging_script(bindir, staging, "kronika-capture")
+    original = script.read_text(encoding="utf-8")
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.relocate_venv_shebangs(
+            str(staging), str(final), required_scripts=(name,)
+        )
+    assert str(exc.value) == "required console script name is invalid"
+    assert exc.value.exit_code == engine.EXIT_POETRY
+    assert "required console script is missing" not in str(exc.value)
+    assert script.read_text(encoding="utf-8") == original
+
+
+def test_relocate_venv_shebangs_rejects_a_bare_script_string(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging, final, bindir = _script_bindir(tmp_path, monkeypatch)
+    _write_staging_script(bindir, staging, "kronika-capture")
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.relocate_venv_shebangs(
+            str(staging), str(final), required_scripts="kronika-capture"
+        )
+    assert str(exc.value) == "required console script name is invalid"
+
+
+def test_capture_script_relocation_still_rejects_staging_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    staging, final, pth, _direct_url, _sibling, _db = _editable_metadata_tree(tmp_path)
+    bindir = staging / ".venv" / "bin"
+    _write_staging_script(bindir, staging, "kronika-capture")
+    (bindir / "kronika-db").unlink()
+    (bindir / "kronika-backup").unlink()
+    leftover = tmp_path / f"{'b' * 40}.staging"
+    pth.write_text(f"{leftover}/src\n", encoding="utf-8")
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.relocate_venv_shebangs(
+            str(staging), str(final), required_scripts=("kronika-capture",)
+        )
+    assert str(exc.value) == "editable install metadata still names staging path"
+    assert exc.value.exit_code == engine.EXIT_POETRY

@@ -1211,6 +1211,24 @@ def test_apply_preserves_the_release_and_bounds_the_service_cycle(
     assert engine.POETRY_BIN in transcript
     assert engine.CPYTHON_BIN in transcript
     assert transcript.count("poetry install ") == 1
+    required_name = f"{target}/{engine.CAPTURE_RELEASE_EXECUTABLE}".rsplit("/", 1)[-1]
+    expected_relocate = engine.cmd_remote_relocate_venv_shebangs(
+        staging,
+        target,
+        engine.CAPTURE_PATH_REMOTE_ENGINE,
+        (required_name,),
+    )
+    relocate_commands = [
+        command for command in commands if "_remote-relocate-venv-shebangs" in command
+    ]
+    assert required_name == "kronika-capture"
+    assert relocate_commands == [expected_relocate]
+    assert expected_relocate.count("--required-script") == 1
+    assert "--required-script kronika-capture" in expected_relocate
+    publish_source = inspect.getsource(engine._publish_capture_release)
+    assert "PurePosixPath(plan.executable).name" in publish_source
+    assert '"kronika-capture"' not in publish_source
+    assert "'kronika-capture'" not in publish_source
     assert " uv " not in transcript and "/uv" not in transcript
     assert transcript.count(f"ln -s {target} {engine.NEW_CAPTURE_CURRENT}.next") == 1
     assert transcript.count(

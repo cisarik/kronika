@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shlex
 import socket
@@ -906,14 +906,29 @@ def cmd_remote_extract(archive_path: str, destination: str, engine_path: str) ->
 
 
 def cmd_remote_relocate_venv_shebangs(
-    staging_path: str, final_path: str, engine_path: str
+    staging_path: str,
+    final_path: str,
+    engine_path: str,
+    required_scripts: Sequence[str] | None = None,
 ) -> str:
-    return (
+    """Build the shebang-relocation command.
+
+    Omitting ``required_scripts`` emits today's command with no
+    ``--required-script`` flag. An empty sequence is not that omission.
+    """
+    command = (
         f"sudo -n python3 {shlex.quote(engine_path)} _remote "
         f"_remote-relocate-venv-shebangs "
         f"--staging {shlex.quote(staging_path)} "
         f"--final {shlex.quote(final_path)}"
     )
+    if required_scripts is None:
+        return command
+    _validate_required_console_scripts(required_scripts)
+    flags = " ".join(
+        f"--required-script {shlex.quote(name)}" for name in required_scripts
+    )
+    return f"{command} {flags}"
 
 
 def cmd_remote_cat_stdin(path: str) -> str:
@@ -1357,12 +1372,45 @@ def remote_extract(runner: Runner, archive: str, destination: str) -> None:
         raise ReleaseError("archive extraction failed", EXIT_UNSAFE_ARCHIVE) from exc
 
 
-def relocate_venv_shebangs(staging_path: str, final_path: str) -> None:
+#: One console-script basename. Paths, flags and empty values are refused.
+_CONSOLE_SCRIPT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def _validate_required_console_scripts(required_scripts: object) -> None:
+    """Fail closed unless every name is one safe console-script filename.
+
+    An empty sequence is refused on its own. It is not the web default, and
+    it is not the missing-file refusal.
+    """
+    if isinstance(required_scripts, (str, bytes)) or not isinstance(
+        required_scripts, Sequence
+    ):
+        raise ReleaseError("required console script name is invalid", EXIT_POETRY)
+    if len(required_scripts) == 0:
+        raise ReleaseError("required console script list is empty", EXIT_POETRY)
+    for name in required_scripts:
+        if (
+            not isinstance(name, str)
+            or _CONSOLE_SCRIPT_NAME.fullmatch(name) is None
+            or PurePosixPath(name).name != name
+        ):
+            raise ReleaseError(
+                "required console script name is invalid", EXIT_POETRY
+            )
+
+
+def relocate_venv_shebangs(
+    staging_path: str,
+    final_path: str,
+    required_scripts: Sequence[str] = ("kronika-db", "kronika-backup"),
+) -> None:
     """Rewrite staging-prefix paths under ``.venv`` to the final release path.
 
     Covers console-script shebangs and editable-install metadata such as
-    ``.pth`` and ``direct_url.json``.
+    ``.pth`` and ``direct_url.json``. The default required scripts are the
+    web pair. An explicit sequence replaces that pair; it does not extend it.
     """
+    _validate_required_console_scripts(required_scripts)
     validate_remote_path(staging_path, *accepted_release_roots())
     validate_remote_path(final_path, *accepted_release_roots())
     if staging_path != f"{final_path}.staging":
@@ -1392,7 +1440,7 @@ def relocate_venv_shebangs(staging_path: str, final_path: str) -> None:
         raise ReleaseError("venv staging paths were not relocated", EXIT_POETRY)
 
     venv_bin = venv_root / "bin"
-    for name in ("kronika-db", "kronika-backup"):
+    for name in required_scripts:
         script = venv_bin / name
         if not script.is_file() or script.is_symlink():
             raise ReleaseError("required console script is missing", EXIT_POETRY)
@@ -1420,9 +1468,17 @@ def relocate_venv_shebangs(staging_path: str, final_path: str) -> None:
 
 
 def remote_relocate_venv_shebangs(
-    runner: Runner, staging_path: str, final_path: str
+    runner: Runner,
+    staging_path: str,
+    final_path: str,
+    required_scripts: Sequence[str] | None = None,
 ) -> None:
-    relocate_venv_shebangs(staging_path, final_path)
+    if required_scripts is None:
+        relocate_venv_shebangs(staging_path, final_path)
+        return
+    relocate_venv_shebangs(
+        staging_path, final_path, required_scripts=required_scripts
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -5530,11 +5586,15 @@ def _publish_capture_release(
         ),
         input_bytes=engine_bytes,
     )
+    required_script = PurePosixPath(plan.executable).name
     ssh(
         runner,
         **transport,
         remote_command=cmd_remote_relocate_venv_shebangs(
-            staging, target, CAPTURE_PATH_REMOTE_ENGINE
+            staging,
+            target,
+            CAPTURE_PATH_REMOTE_ENGINE,
+            (required_script,),
         ),
     )
     ssh(
@@ -5851,6 +5911,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     remote_relocate_p.add_argument("--staging", required=True)
     remote_relocate_p.add_argument("--final", required=True)
+    remote_relocate_p.add_argument(
+        "--required-script",
+        action="append",
+        default=None,
+    )
 
     return parser
 
@@ -5995,7 +6060,15 @@ def _cmd_remote(args: argparse.Namespace, runner: Runner) -> int:
         remote_extract(runner, args.archive, args.destination)
         return EXIT_OK
     if args.remote_command == "_remote-relocate-venv-shebangs":
-        remote_relocate_venv_shebangs(runner, args.staging, args.final)
+        if args.required_script is None:
+            remote_relocate_venv_shebangs(runner, args.staging, args.final)
+        else:
+            remote_relocate_venv_shebangs(
+                runner,
+                args.staging,
+                args.final,
+                required_scripts=tuple(args.required_script),
+            )
         return EXIT_OK
     raise ReleaseError("invalid remote command", EXIT_USAGE)
 

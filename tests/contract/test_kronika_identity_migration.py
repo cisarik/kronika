@@ -1467,6 +1467,17 @@ def test_production_prepare_release_environment_builds_at_the_new_path() -> None
     relocate_index = transcript.index("_remote-relocate-venv-shebangs")
     rename_index = transcript.index(f"mv {NEW_RELEASE}.staging {NEW_RELEASE}")
     assert relocate_index < rename_index
+    expected_relocate = engine.cmd_remote_relocate_venv_shebangs(
+        f"{NEW_RELEASE}.staging",
+        NEW_RELEASE,
+        engine.MIGRATION_REMOTE_ENGINE,
+    )
+    relocate_calls = [
+        call for call in boundary.calls if "_remote-relocate-venv-shebangs" in call
+    ]
+    assert len(relocate_calls) == 1
+    assert relocate_calls[0].endswith(expected_relocate)
+    assert "--required-script" not in relocate_calls[0]
 
 
 def test_production_pre_write_recovery_restores_the_old_layout_and_writers() -> None:

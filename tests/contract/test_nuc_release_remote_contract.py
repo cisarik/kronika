@@ -569,6 +569,14 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
     command = engine.cmd_remote_relocate_venv_shebangs(
         str(staging), str(final), remote_engine
     )
+    baseline = (
+        f"sudo -n python3 {shlex.quote(remote_engine)} _remote "
+        "_remote-relocate-venv-shebangs "
+        f"--staging {shlex.quote(str(staging))} "
+        f"--final {shlex.quote(str(final))}"
+    )
+    assert command == baseline
+    assert "--required-script" not in command
     argv = shlex.split(command)
     assert argv[:3] == ["sudo", "-n", "python3"]
     remaining = argv[4:]
@@ -578,6 +586,7 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
     assert parsed.remote_command == "_remote-relocate-venv-shebangs"
     assert parsed.staging == str(staging)
     assert parsed.final == str(final)
+    assert parsed.required_script is None
 
     result = engine.main(remaining)
     assert result == engine.EXIT_OK
@@ -596,6 +605,70 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
             ]
         )
     assert exc.value.code == 2
+
+
+def test_remote_relocate_required_script_is_repeatable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    staging = tmp_path / f"{RELEASE}.staging"
+    final = tmp_path / RELEASE
+    bindir = staging / ".venv" / "bin"
+    bindir.mkdir(parents=True)
+    capture = bindir / "kronika-capture"
+    capture.write_text(
+        f"#!{staging}/.venv/bin/python\nprint('capture')\n", encoding="utf-8"
+    )
+    remote_engine = str(tmp_path / "kronika_release.py")
+    name = f"{final}/.venv/bin/kronika-capture".rsplit("/", 1)[-1]
+
+    command = engine.cmd_remote_relocate_venv_shebangs(
+        str(staging), str(final), remote_engine, (name,)
+    )
+    baseline = engine.cmd_remote_relocate_venv_shebangs(
+        str(staging), str(final), remote_engine
+    )
+    assert command == f"{baseline} --required-script {name}"
+    assert command.count("--required-script") == 1
+    remaining = shlex.split(command)[4:]
+    parsed = engine._build_parser().parse_args(remaining)
+    assert parsed.required_script == [name]
+    assert engine.main(remaining) == engine.EXIT_OK
+    assert capture.read_text(encoding="utf-8").startswith(f"#!{final}/.venv/bin/python")
+    capture.write_text(
+        f"#!{staging}/.venv/bin/python\nprint('capture')\n", encoding="utf-8"
+    )
+
+    both = engine.cmd_remote_relocate_venv_shebangs(
+        str(staging), str(final), remote_engine, (name, "kronika-backup")
+    )
+    assert both.count("--required-script") == 2
+    refused = engine.main(shlex.split(both)[4:])
+    assert refused == engine.EXIT_POETRY
+    assert "required console script is missing" in capsys.readouterr().err
+
+    with pytest.raises(engine.ReleaseError) as exc:
+        engine.cmd_remote_relocate_venv_shebangs(
+            str(staging), str(final), remote_engine, ()
+        )
+    assert str(exc.value) == "required console script list is empty"
+
+    invalid = engine.main(
+        [
+            "_remote",
+            "_remote-relocate-venv-shebangs",
+            "--staging",
+            str(staging),
+            "--final",
+            str(final),
+            "--required-script",
+            "../kronika-capture",
+        ]
+    )
+    assert invalid == engine.EXIT_POETRY
+    err = capsys.readouterr().err
+    assert "required console script name is invalid" in err
+    assert "required console script is missing" not in err
 
 
 def _sudo_sh_c_script(command: str) -> str:
@@ -777,6 +850,18 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
     combined = _combined(runner)
     assert result == engine.EXIT_OK
     assert "deploy complete" in capsys.readouterr().out
+    relocate_commands = [
+        argv[-1]
+        for argv, _payload in runner.calls
+        if argv and argv[0] == "ssh" and "_remote-relocate-venv-shebangs" in argv[-1]
+    ]
+    expected_relocate = engine.cmd_remote_relocate_venv_shebangs(
+        STAGING,
+        TARGET,
+        f"{engine.REMOTE_DEPLOY_DIR}/kronika_release.py",
+    )
+    assert relocate_commands == [expected_relocate]
+    assert "--required-script" not in expected_relocate
 
     # Lock and pre-existence gates precede any transfer.
     assert _index(runner, "mkdir -m 0700 /run/kronika-release-deploy") < _index(runner, "cat > /run/kronika-release-deploy/kronika_release.py")
