@@ -8,6 +8,7 @@ temporary directories only. They never contact a real host or inspect secrets.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 from pathlib import Path
 import tarfile
@@ -474,3 +475,36 @@ def test_capture_script_relocation_still_rejects_staging_metadata(
         )
     assert str(exc.value) == "editable install metadata still names staging path"
     assert exc.value.exit_code == engine.EXIT_POETRY
+
+
+def _subcommand_choices(parser: argparse.ArgumentParser, dest: str) -> set[str]:
+    matches = [
+        action
+        for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction) and action.dest == dest
+    ]
+    assert len(matches) == 1
+    return set(matches[0].choices)
+
+
+def test_parser_exposes_only_the_routine_release_commands() -> None:
+    """Routine release commands remain; the one-time migration commands do not."""
+    parser = engine._build_parser()
+    assert _subcommand_choices(parser, "command") == {
+        "status",
+        "check",
+        "deploy",
+        "rollback",
+        "activate-capture",
+        "rollback-capture",
+        "_remote",
+    }
+    remote = next(
+        action
+        for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction) and action.dest == "command"
+    ).choices["_remote"]
+    assert _subcommand_choices(remote, "remote_command") == {
+        "_remote-extract",
+        "_remote-relocate-venv-shebangs",
+    }

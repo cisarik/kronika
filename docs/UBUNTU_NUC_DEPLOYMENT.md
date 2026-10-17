@@ -270,65 +270,9 @@ identity. Wrong job, intervention, or acknowledgement identities cannot clear
 the pause; fresh readiness alone is insufficient. No journal reset, schema
 change, or state-directory recreation is part of this recovery.
 
-## Capture Path Migration (Explicit; Not A Routine Release)
+## Capture Path Migration (Historical)
 
-This procedure moves the installed capture release onto the canonical pointer
-without changing its software, account, state, token, profile, journal, ports
-or bridge protocol. It is not part of `status`, `check`, `deploy` or
-`rollback`. Those commands do not invoke it. Xvfb, the view and the VNC units
-stay untouched, and the web service is not restarted.
-
-The installed capture tree is copied to `/opt/kronika/releases/<sha>`,
-including the release-marker spellings that tree already carries. Its virtual
-environment is then rebuilt from that tree's committed lock with the frozen
-Poetry and CPython tooling. The command never invokes `uv` and never rewrites
-the copied markers.
-
-`preflight` is read-only. It refuses when the canonical pointer is already
-present, when both pointers are present, and when neither pointer is present.
-The only accepted state is the former pointer
-`/opt/framenest/capture-current` alone. It prints a plan digest bound to the
-observed release, markers, tree and unit texts.
-
-`apply` refuses without `--yes` and without that digest. A digest that does
-not match a fresh observation is refused before any copy, pointer change or
-service action. Apply drains capture work and enforces the five-minute brake,
-publishes the copied release, drains and checks the brake again, then stops
-the bridge and the runner once each. It stages
-`/opt/kronika/capture-current` and switches that pointer in a separate step,
-removes the former pointer symlink without deleting the former release tree,
-and installs the five capture units. The only unit edits are
-`WorkingDirectory=` and `ExecStart=` lines that name the former pointer;
-every other unit line must already match the repository unit. It reloads
-systemd once, starts the bridge and then the runner once each, and checks
-readiness once. A readiness failure does not start the browser again.
-
-```text
-kronika-release migrate-capture-paths preflight [transport arguments]
-kronika-release migrate-capture-paths apply --preflight-digest <64-hex> --yes [transport arguments]
-```
-
-Record the printed `source_path`, `release_sha`, `marker_spellings` and
-`plan_digest` before apply.
-
-Restoration is explicit and is not performed by `apply`. It needs a fresh
-grant. Any recovery browser start also needs that grant and the five-minute
-brake. Do not launch the browser a second time after a readiness failure.
-
-1. Stop `kronika-capture-runner.service` and
-   `kronika-capture-bridge.service` once each. Leave
-   `kronika-capture-xvfb.service`, the view, VNC and the web service as they
-   already are. Do not restart them.
-2. Restore the five unit files so their `WorkingDirectory=` and `ExecStart=`
-   lines name `/opt/framenest/capture-current` again, and leave every other
-   line unchanged. Reload systemd once.
-3. Remove `/opt/kronika/capture-current` and recreate the former symlink
-   `/opt/framenest/capture-current` to the recorded `source_path`. Do not
-   delete either release tree as part of this restoration.
-4. Start the bridge and then the runner once. A readiness failure stops here.
-
-The copied tree under `/opt/kronika/releases/<sha>` may remain until a later
-retirement grant. Do not treat it as the web release.
+The one-time capture-path migration has already run and `migrate-capture-paths` is gone. Routine `status`, `check`, `deploy`, and `rollback` address only the canonical layout and do not migrate.
 
 ## Current Target
 
@@ -1134,34 +1078,9 @@ If the session is lost first, privilege release is unknown, not assumed.
 A post-migration cutover failure requires explicit triage. Never improvise a
 downgrade or catalog restore.
 
-### Identity Migration (Non-Routine; Not This Continuation)
+### Identity Migration (Historical)
 
-The continuation above migrates the catalog schema only. The separate host
-identity migration subcommand (`migrate-identity`) is a non-routine
-operation. No routine `deploy`, `rollback`, `check`, `status` or capture
-command invokes it, and this annex never invokes it. It shares the routine
-release lock above and uses its own prepared remote scratch area and root-only
-control state:
-
-```text
-Remote engine helper scratch: /run/kronika-identity-migration
-Root-only control state:      /var/lib/kronika-identity-migration
-Journal:                      /var/lib/kronika-identity-migration/journal.json
-Recovery manifest:            /var/lib/kronika-identity-migration/recovery-manifest.json
-```
-
-Neither path belongs to the routine lock directory, and routine cleanup never
-touches either.
-
-If the identity migration fails before the new service starts, its automatic
-pre-write recovery restores the observed account, group, home and
-unit/scheduler state, but it deliberately leaves the copied canonical state,
-the installed canonical unit files and the installed ancillary files in
-place. A retry is refused until a separately authorized explicit recovery.
-That residue is by design; an operator must not expect a clean slate after a
-failed pre-write attempt. After the recorded writes boundary, forward
-recovery is a separate authorized decision and never restores stale copied
-state.
+The one-time host identity migration has already run and `migrate-identity` is gone. Routine `status`, `check`, `deploy`, and `rollback` address only the canonical layout and do not migrate.
 
 ## 6. Readiness Verification
 

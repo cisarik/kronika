@@ -55,10 +55,8 @@ runner. The capture pointer is `/opt/kronika/capture-current`.
 bridge, then the runner, once, after the drain and five-minute brake checks.
 `rollback-capture` switches it back to an existing capture release under those
 same checks and the same single bridge-then-runner restart.
-`migrate-capture-paths` moves the already installed capture release onto that
-pointer and rewrites the capture unit paths without changing the capture
-software; it stops the runner and the bridge, then starts the bridge and the
-runner. Capture units
+The one-time capture-path migration has already run and `migrate-capture-paths` is gone. Routine `status`, `check`, `deploy`, and `rollback` address only the canonical layout and do not migrate.
+Capture units
 under `deploy/systemd/kronika-capture-*.service` and
 `deploy/systemd/kronika-capture.env.example` are source material. Nothing in
 this directory is evidence that capture is already deployed.

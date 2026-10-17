@@ -235,11 +235,12 @@ def test_runbook_lock_lifecycle_matches_the_engine() -> None:
         assert f"{engine.REMOTE_DEPLOY_DIR}.reclaimed-{reason}" in text
     assert f"{engine.REMOTE_DEPLOY_LOCK_RECLAIM_STALE_SECONDS} seconds" in text
 
-    # The identity migration's own paths are documented as non-routine, and
-    # no routine command block is documented as invoking it.
-    assert engine.MIGRATION_DIRECTORY in text
-    assert engine.MIGRATION_SCRATCH_DIRECTORY in text
-    assert engine.MIGRATION_JOURNAL_PATH in text
+    # The deleted identity-migration command is not an operator invocation.
+    assert (
+        "The one-time host identity migration has already run and "
+        "`migrate-identity` is gone."
+    ) in text
+    assert "Identity Migration (Non-Routine; Not This Continuation)" not in text
     for entry in ("framenest-release", "kronika-release"):
         assert f"{entry} migrate-identity" not in text
 
@@ -437,11 +438,15 @@ def test_runbook_and_deploy_readme_document_capture_activation() -> None:
         "under those same checks and the same single bridge-then-runner restart."
     ) in flattened
     assert (
-        "`migrate-capture-paths` moves the already installed capture release "
-        "onto that pointer and rewrites the capture unit paths without "
-        "changing the capture software"
+        "The one-time capture-path migration has already run and "
+        "`migrate-capture-paths` is gone. Routine `status`, `check`, `deploy`, "
+        "and `rollback` address only the canonical layout and do not migrate."
     ) in flattened
-    assert "it stops the runner and the bridge, then starts the bridge and the runner." in flattened
+    assert (
+        "The one-time capture-path migration has already run and "
+        "`migrate-capture-paths` is gone."
+    ) in runbook
+    assert "Capture Path Migration (Explicit; Not A Routine Release)" not in runbook
 
 
 def test_canonical_and_retained_entry_points_are_executable() -> None:

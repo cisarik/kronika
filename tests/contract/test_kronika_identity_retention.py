@@ -344,7 +344,10 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # canonical. No path is renamed and no path is added.
     # KSI-IMPL-C8BP moves deploy by -1 (4 -> 3). The departure is
     # deploy/ubuntu/README.md, recorded beside the content-path set.
-    "tests": 174,
+    # KSI-IMPL-C9B1 moves tests by -1 (174 -> 173). The deleted
+    # contract/test_kronika_identity_migration.py is the only departure.
+    # No path is added. src, deploy, scripts, docs and extension stay.
+    "tests": 173,
     "deploy": 3,
     "scripts": 0,
     "docs": 84,
@@ -839,7 +842,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # marker spellings plus the negative `framenest.service` absence check.
     # None of those seven is an `/opt/framenest` host path. The file stays in
     # the content set.
-    "tests": 1386,
+    # KSI-IMPL-C9B1 moves tests by -285 (1386 -> 1101): the deleted migration
+    # module -278 and test_kronika_capture_services.py -7 for the removed
+    # capture-path fixtures. That module keeps other retired tokens and stays.
+    "tests": 1101,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -859,7 +865,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # kronika_release.py adds no retired token.
     # KSI-IMPL-C8BP moves deploy by -1 (73 -> 72): deploy/ubuntu/README.md
     # loses the former capture pointer. kronika_release.py adds no retired token.
-    "deploy": 72,
+    # KSI-IMPL-C9B1 moves deploy by -47 (72 -> 25), all in kronika_release.py:
+    # the one-time migration constants, transformer and command builders.
+    # README.md adds no token and stays out of the content set.
+    "deploy": 25,
     "scripts": 0,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -889,7 +898,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # UBUNTU_NUC_DEPLOYMENT.md: -1 for the planned capture pointer, now
     # canonical, and +3 for the former pointer in the migration section
     # (accepted state, unit restoration and symlink restoration).
-    "docs": 751,
+    # KSI-IMPL-C9B1 moves docs by -3 (751 -> 748), the three former capture
+    # pointer literals in the retired procedure in UBUNTU_NUC_DEPLOYMENT.md.
+    # The file stays in the content set.
+    "docs": 748,
     # KSI-IMPL-C7AC moved `extension` by -141 (145 -> 4). Per file:
     # `content/x_adapter.js` -101, `content/x_adapter_contract_v1.js` -10,
     # `ui/sidebar.js` -9, `background/service_worker.js` -7,
@@ -1051,6 +1063,9 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # src/kronika_capture/bridge/server.py and deploy/ubuntu/README.md. The bridge
 # file loses its two operational labels. The README loses the former capture
 # pointer. Both files remain tracked.
+# KSI-IMPL-C9B1 removes exactly one content path, with no additions:
+# tests/contract/test_kronika_identity_migration.py, deleted with the
+# one-time migration commands.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1367,7 +1382,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "tests/contract/test_kronika_durable_artifact_readers.py",
         "tests/contract/test_kronika_durable_writer_identities.py",
         "tests/contract/test_kronika_identity_dual_read.py",
-        "tests/contract/test_kronika_identity_migration.py",
         "tests/contract/test_kronika_mutation_header.py",
         "tests/contract/test_kronika_product_string_agreement.py",
         "tests/contract/test_kronika_settings_parity.py",
@@ -1607,9 +1621,17 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
 # Bare prefixes -9 (53 -> 44) = src -5 (configuration -2, resolver -3) and
 # tests -4 (CLI/release readers -1, parity -1, development runtime units -2).
 # The fixture-input edits add no bare spelling.
-ENV_PREFIX_TOKEN_COUNT = 116
-ENV_PREFIX_DISTINCT_NAME_COUNT = 44
-ENV_PREFIX_BARE_SPELLING_COUNT = 22
+# KSI-IMPL-C9B1: tokens 116-28=88, all in the deleted migration module.
+# Distinct 44-10=34. The ten names that existed only there are
+# FRAMENEST_BASENAME_PATHS, FRAMENEST_CATALOG_BACKUP_OPS_ROOT,
+# FRAMENEST_CATALOG_RESTORE_VERIFY_ROOT, FRAMENEST_EXTERNAL_ORIGIN,
+# FRAMENEST_FOO, FRAMENEST_FUTURE_UNKNOWN_KEY, FRAMENEST_UDS_PATH,
+# FRAMENEST_UPLOAD_QUARANTINE_ROOT, FRAMENEST_X and
+# FRAMENEST_YOUTUBE_ACQUISITION_ROOT. No name is added. Bare 22-4=18:
+# the engine prefix constant -1 and the deleted module -3.
+ENV_PREFIX_TOKEN_COUNT = 88
+ENV_PREFIX_DISTINCT_NAME_COUNT = 34
+ENV_PREFIX_BARE_SPELLING_COUNT = 18
 
 MUTATION_HEADER = "X-FrameNest-Request"
 # KSI-IMPL-C2 kept every occurrence that existed before it and added 14:
@@ -1713,16 +1735,20 @@ MUTATION_HEADER_FILE_COUNT = 16
 # KSI-IMPL-C8BP moves `/opt/framenest` by -1 (146 -> 145) and nothing else:
 # deploy/ubuntu/README.md loses the former capture pointer. No test or src
 # host literal moves.
+# KSI-IMPL-C9B1: /opt 145-23=122 (engine -3, runbook -3, deleted module -17);
+# /etc 30-12=18 (engine -3, deleted module -9); /var/lib 64-32=32
+# (engine -1, deleted module -31); /var/cache 19-9=10 (engine -1, deleted
+# module -8); mount 23-10=13 (engine -1, deleted module -9).
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 145,
+    "/opt/framenest": 122,
     # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
     # /var/cache -1. No production host path or frozen mount changes.
     # KSI-IMPL-C7B3: /opt 214-62=152, /etc 51-21=30, /var/lib 87-23=64,
     # /var/cache 26-7=19. The frozen mount stays 23.
-    "/etc/framenest": 30,
-    "/var/lib/framenest": 64,
-    "/var/cache/framenest": 19,
-    "/mnt/framenest-catalog-offdevice": 23,
+    "/etc/framenest": 18,
+    "/var/lib/framenest": 32,
+    "/var/cache/framenest": 10,
+    "/mnt/framenest-catalog-offdevice": 13,
 }
 
 # KSI-IMPL-C4B moved each of these by +3: one `User=framenest` and
@@ -1738,8 +1764,10 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
     # (6-2=4) and one `Group=framenest` literal (6-1=5). The unpaired User
     # literal was the INFOSEC hardening note; the pair was the runbook
     # verification sentence.
-    "User=framenest": 4,
-    "Group=framenest": 5,
+    # KSI-IMPL-C9B1: User 4-2=2 and Group 5-2=3, both only in the deleted
+    # migration module. The engine and the runbook add none.
+    "User=framenest": 2,
+    "Group=framenest": 3,
 }
 
 # KSI-IMPL-C2 moved this by +15: -2 where the service worker stopped spelling the
