@@ -893,7 +893,10 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
     # Single restart.
     assert _ssh_combined(runner).count("restart framenest.service") == 1
     assert "capture-current.next" not in _ssh_combined(runner)
+    assert "restart kronika-capture-bridge.service" not in _ssh_combined(runner)
     assert "restart kronika-capture-runner.service" not in _ssh_combined(runner)
+    assert "systemctl start kronika-capture-" not in _ssh_combined(runner)
+    assert "systemctl stop kronika-capture-" not in _ssh_combined(runner)
     # Cleanup present.
     assert _index(runner, "rmdir /run/kronika-release-deploy") > _index(runner, "restart framenest.service")
 
@@ -1160,6 +1163,10 @@ def test_rollback_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
     combined = _ssh_combined(runner)
     assert combined.count("restart framenest.service") == 1
     assert "capture-current.next" not in combined
+    assert "restart kronika-capture-bridge.service" not in combined
+    assert "restart kronika-capture-runner.service" not in combined
+    assert "systemctl start kronika-capture-" not in combined
+    assert "systemctl stop kronika-capture-" not in combined
     assert "kronika-capture-runner" not in combined
     assert "/opt/framenest/releases/" not in "\n".join(
         line for line in combined.splitlines() if "rm " in line or "rmdir" in line
@@ -1595,4 +1602,7 @@ def test_routine_paths_never_migrate_install_or_restart_capture() -> None:
         assert "systemctl enable" not in transcript
         assert "systemctl link" not in transcript
         assert "capture-current.next" not in transcript
+        assert "restart kronika-capture-bridge.service" not in transcript
         assert "restart kronika-capture-runner.service" not in transcript
+        assert "systemctl start kronika-capture-" not in transcript
+        assert "systemctl stop kronika-capture-" not in transcript

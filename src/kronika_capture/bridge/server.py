@@ -48,7 +48,7 @@ class BridgeHTTPServer(ThreadingHTTPServer):
 
 
 class BridgeRequestHandler(BaseHTTPRequestHandler):
-    server_version = f"framenest-chatgpt-page/{config.BRIDGE_VERSION}"
+    server_version = f"{config.APP_NAME}/{config.BRIDGE_VERSION}"
     sys_version = ""
     protocol_version = "HTTP/1.1"
     timeout = 120
@@ -149,7 +149,7 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
             return (
                 self._send_json(
                     200,
-                    {"ok": True, "api": "framenest-chatgpt-page", "api_version": config.API_VERSION},
+                    {"ok": True, "api": config.APP_NAME, "api_version": config.API_VERSION},
                     allow_origin,
                 ),
                 None,

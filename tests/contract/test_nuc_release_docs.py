@@ -425,6 +425,23 @@ def test_runbook_and_deploy_readme_document_capture_activation() -> None:
     assert "activate-capture --release <40-hex-SHA> --yes" in deploy
     assert "rollback-capture --release <40-hex-SHA> --yes" in deploy
     assert "evidence that capture is already deployed" in deploy
+    flattened = " ".join(deploy.split())
+    assert "They do not switch the capture pointer and they do not restart the capture bridge or runner." in flattened
+    assert "The capture pointer is `/opt/kronika/capture-current`." in flattened
+    assert (
+        "`activate-capture` switches it to a reviewed capture release and "
+        "restarts the bridge, then the runner, once"
+    ) in flattened
+    assert (
+        "`rollback-capture` switches it back to an existing capture release "
+        "under those same checks and the same single bridge-then-runner restart."
+    ) in flattened
+    assert (
+        "`migrate-capture-paths` moves the already installed capture release "
+        "onto that pointer and rewrites the capture unit paths without "
+        "changing the capture software"
+    ) in flattened
+    assert "it stops the runner and the bridge, then starts the bridge and the runner." in flattened
 
 
 def test_canonical_and_retained_entry_points_are_executable() -> None:

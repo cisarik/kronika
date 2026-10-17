@@ -48,10 +48,17 @@ deploy/ubuntu/kronika-release rollback-capture --release <40-hex-SHA> --yes
 ```
 
 `deploy` and `rollback` move only the web pointer `/opt/kronika/current` and
-`kronika.service`. They report the web SHA and the capture SHA.
-`activate-capture` and `rollback-capture` are the only operations that switch
-`/opt/framenest/capture-current` and restart the capture runner, and each does
-that restart once after the drain and five-minute brake checks. Capture units
+`kronika.service`. They report the web SHA and the capture SHA. They do not
+switch the capture pointer and they do not restart the capture bridge or
+runner. The capture pointer is `/opt/kronika/capture-current`.
+`activate-capture` switches it to a reviewed capture release and restarts the
+bridge, then the runner, once, after the drain and five-minute brake checks.
+`rollback-capture` switches it back to an existing capture release under those
+same checks and the same single bridge-then-runner restart.
+`migrate-capture-paths` moves the already installed capture release onto that
+pointer and rewrites the capture unit paths without changing the capture
+software; it stops the runner and the bridge, then starts the bridge and the
+runner. Capture units
 under `deploy/systemd/kronika-capture-*.service` and
 `deploy/systemd/kronika-capture.env.example` are source material. Nothing in
 this directory is evidence that capture is already deployed.

@@ -7,6 +7,7 @@ runner. They do not contact a host, create a real token, or start a service.
 from __future__ import annotations
 
 import difflib
+import hashlib
 import importlib.util
 import inspect
 from contextlib import redirect_stdout
@@ -133,6 +134,8 @@ class CaptureRunner:
         capture_link: str = "absent",
         capture_protocol: str = "1",
         manifest_overrides: dict[str, str] | None = None,
+        fail_bridge_restart: bool = False,
+        fail_runner_restart: bool = False,
     ) -> None:
         self.calls: list[tuple[list[str], bytes | None]] = []
         self.blocked = list(blocked or ["blocked=none"])
@@ -141,6 +144,8 @@ class CaptureRunner:
         self.capture_link = capture_link
         self.capture_protocol = capture_protocol
         self.manifest_overrides = manifest_overrides or {}
+        self.fail_bridge_restart = fail_bridge_restart
+        self.fail_runner_restart = fail_runner_restart
 
     def __call__(self, argv: list[str], input_bytes: bytes | None) -> str:
         self.calls.append((list(argv), input_bytes))
@@ -198,7 +203,13 @@ class CaptureRunner:
             return ""
         if "capture-current.next" in combined:
             return ""
+        if "restart kronika-capture-bridge.service" in combined:
+            if self.fail_bridge_restart:
+                raise engine.ReleaseError("command failed", engine.EXIT_TRANSPORT)
+            return ""
         if "restart kronika-capture-runner.service" in combined:
+            if self.fail_runner_restart:
+                raise engine.ReleaseError("command failed", engine.EXIT_TRANSPORT)
             return ""
         raise AssertionError(f"unexpected ssh command: {combined}")
 
@@ -431,6 +442,7 @@ def test_capture_activation_switches_once_and_reports_both_shas(
     assert f"web_release: {PREV}" in captured.out
     assert f"capture_release: {RELEASE}" in captured.out
     transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
     assert transcript.count("restart kronika-capture-runner.service") == 1
     assert "restart framenest.service" not in transcript
     assert "kronika-db" not in transcript
@@ -439,6 +451,9 @@ def test_capture_activation_switches_once_and_reports_both_shas(
     assert _index(runner, "kronika-capture-brake-gate") < _index(runner, "kronika-capture-identity-snapshot")
     assert _index(runner, "kronika-capture-identity-snapshot") < _index(runner, "capture-current.next")
     assert _index(runner, "capture-current.next") < _index(
+        runner, "restart kronika-capture-bridge.service"
+    )
+    assert _index(runner, "restart kronika-capture-bridge.service") < _index(
         runner, "restart kronika-capture-runner.service"
     )
     assert _index(runner, "restart kronika-capture-runner.service") < _index(
@@ -453,6 +468,7 @@ def test_capture_activation_refuses_live_or_paused_work() -> None:
         assert result == engine.EXIT_CAPTURE_BUSY
         transcript = _ssh(runner)
         assert "capture-current.next" not in transcript
+        assert "restart kronika-capture-bridge.service" not in transcript
         assert "restart kronika-capture-runner.service" not in transcript
 
 
@@ -463,6 +479,7 @@ def test_capture_activation_drains_queued_work_then_restarts_once(
     runner = CaptureRunner(blocked=["blocked=queued", "blocked=none"])
     assert engine.main(_activate(), runner=runner) == engine.EXIT_OK
     assert _ssh(runner).count("kronika-capture-work-gate") == 2
+    assert _ssh(runner).count("restart kronika-capture-bridge.service") == 1
     assert _ssh(runner).count("restart kronika-capture-runner.service") == 1
 
 
@@ -485,7 +502,9 @@ def test_capture_activation_stops_when_queued_work_does_not_drain(
     monkeypatch.setattr(engine, "CAPTURE_DRAIN_DEADLINE_SECONDS", 0)
     runner = CaptureRunner(blocked=["blocked=queued"])
     assert engine.main(_activate(), runner=runner) == engine.EXIT_CAPTURE_BUSY
-    assert "restart kronika-capture-runner.service" not in _ssh(runner)
+    transcript = _ssh(runner)
+    assert "restart kronika-capture-bridge.service" not in transcript
+    assert "restart kronika-capture-runner.service" not in transcript
 
 
 def test_capture_activation_enforces_the_brake_before_switch() -> None:
@@ -494,6 +513,7 @@ def test_capture_activation_enforces_the_brake_before_switch() -> None:
     transcript = _ssh(runner)
     assert "kronika-capture-brake-gate" in transcript
     assert "capture-current.next" not in transcript
+    assert "restart kronika-capture-bridge.service" not in transcript
     assert "restart kronika-capture-runner.service" not in transcript
 
 
@@ -504,6 +524,7 @@ def test_failed_browser_readiness_does_not_restart_again(
     result = engine.main(_activate(), runner=runner)
     captured = capsys.readouterr()
     assert result == engine.EXIT_SERVICE_TERMINAL
+    assert _ssh(runner).count("restart kronika-capture-bridge.service") == 1
     assert _ssh(runner).count("restart kronika-capture-runner.service") == 1
     assert _ssh(runner).count("kronika-capture-readiness-gate") == 1
     assert f"web_release: {PREV}" in captured.out
@@ -514,16 +535,60 @@ def test_failed_browser_readiness_does_not_restart_again(
 def test_incompatible_capture_protocol_refuses_before_restart() -> None:
     runner = CaptureRunner(capture_link=PREV_PATH, capture_protocol="9")
     assert engine.main(_activate(), runner=runner) == engine.EXIT_SOURCE_GATE
-    assert "restart kronika-capture-runner.service" not in _ssh(runner)
+    transcript = _ssh(runner)
+    assert "restart kronika-capture-bridge.service" not in transcript
+    assert "restart kronika-capture-runner.service" not in transcript
 
 
-def test_capture_rollback_uses_the_same_single_runner_restart() -> None:
+def test_capture_rollback_restarts_bridge_then_runner_once() -> None:
     runner = CaptureRunner()
     assert engine.main(_activate(command="rollback-capture"), runner=runner) == engine.EXIT_OK
     transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
     assert transcript.count("restart kronika-capture-runner.service") == 1
+    assert _index(runner, "restart kronika-capture-bridge.service") < _index(
+        runner, "restart kronika-capture-runner.service"
+    )
+    assert _index(runner, "restart kronika-capture-runner.service") < _index(
+        runner, "kronika-capture-readiness-gate"
+    )
     assert "restart framenest.service" not in transcript
     assert "/opt/framenest/current.next" not in transcript
+
+
+def test_bridge_restart_failure_stops_before_the_runner(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runner = CaptureRunner(fail_bridge_restart=True)
+    result = engine.main(_activate(), runner=runner)
+    captured = capsys.readouterr()
+    assert result == engine.EXIT_READINESS
+    assert "capture bridge restart failed" in captured.err
+    assert f"web_release: {PREV}" in captured.out
+    assert f"capture_release: {RELEASE}" in captured.out
+    transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
+    assert "restart kronika-capture-runner.service" not in transcript
+    assert "kronika-capture-readiness-gate" not in transcript
+
+
+def test_runner_restart_failure_keeps_the_single_bridge_restart(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runner = CaptureRunner(fail_runner_restart=True)
+    result = engine.main(_activate(), runner=runner)
+    captured = capsys.readouterr()
+    assert result == engine.EXIT_READINESS
+    assert "capture runner restart failed" in captured.err
+    assert f"web_release: {PREV}" in captured.out
+    assert f"capture_release: {RELEASE}" in captured.out
+    transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
+    assert transcript.count("restart kronika-capture-runner.service") == 1
+    assert _index(runner, "restart kronika-capture-bridge.service") < _index(
+        runner, "restart kronika-capture-runner.service"
+    )
+    assert "kronika-capture-readiness-gate" not in transcript
 
 
 def _service_record(state="ready", identity=OLD_IDENTITY):
@@ -609,7 +674,9 @@ def test_activation_waits_for_both_new_identities_in_the_real_journal_gate(tmp_p
     assert engine.main(_activate(), runner=runner) == engine.EXIT_OK
     assert runner.observed == [json.dumps(OLD_IDENTITY), "readiness=starting", "readiness=ready"]
     assert clock.now == 1
-    assert _ssh(runner).count("restart kronika-capture-runner.service") == 1
+    transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
+    assert transcript.count("restart kronika-capture-runner.service") == 1
 
 
 @pytest.mark.parametrize("state", ["needs_admin", "browser_unavailable"])
@@ -619,6 +686,7 @@ def test_fresh_blocked_identity_is_terminal_without_a_second_restart(tmp_path, m
     assert runner.observed[-1] == f"readiness={state}"
     assert clock.now == 0
     transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
     assert transcript.count("restart kronika-capture-runner.service") == 1
     assert transcript.count("mv -T /opt/framenest/capture-current.next") == 1
     assert f"capture_release: {RELEASE}" in capsys.readouterr().out
@@ -630,8 +698,10 @@ def test_unchanged_ready_identity_times_out_after_180_seconds_without_retry(tmp_
     assert engine.main(_activate(), runner=runner) == engine.EXIT_READINESS_TIMEOUT
     assert clock.now == 180
     assert set(runner.observed[1:]) == {"readiness=starting"}
-    assert _ssh(runner).count("restart kronika-capture-runner.service") == 1
-    assert _ssh(runner).count("mv -T /opt/framenest/capture-current.next") == 1
+    transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
+    assert transcript.count("restart kronika-capture-runner.service") == 1
+    assert transcript.count("mv -T /opt/framenest/capture-current.next") == 1
     assert f"capture_release: {RELEASE}" in capsys.readouterr().out
 
 
@@ -640,7 +710,9 @@ def test_failed_unit_is_terminal_even_with_the_old_identity(tmp_path, monkeypatc
     assert engine.main(_activate(), runner=runner) == engine.EXIT_SERVICE_TERMINAL
     assert runner.observed[-1] == "readiness=failed"
     assert clock.now == 0
-    assert _ssh(runner).count("restart kronika-capture-runner.service") == 1
+    transcript = _ssh(runner)
+    assert transcript.count("restart kronika-capture-bridge.service") == 1
+    assert transcript.count("restart kronika-capture-runner.service") == 1
 
 
 @pytest.mark.parametrize("identity,active,expected", [
@@ -677,8 +749,10 @@ def test_unverifiable_snapshot_refuses_before_pointer_switch(tmp_path, monkeypat
             return raw if "kronika-capture-identity-snapshot" in combined else super()._ssh(combined)
     runner = InvalidSnapshot()
     assert engine.main(_activate(), runner=runner) == engine.EXIT_READINESS
-    assert "capture-current.next" not in _ssh(runner)
-    assert "restart kronika-capture-runner.service" not in _ssh(runner)
+    transcript = _ssh(runner)
+    assert "capture-current.next" not in transcript
+    assert "restart kronika-capture-bridge.service" not in transcript
+    assert "restart kronika-capture-runner.service" not in transcript
 
 
 def test_web_rollback_leaves_capture_untouched(capsys: pytest.CaptureFixture[str]) -> None:
@@ -690,6 +764,7 @@ def test_web_rollback_leaves_capture_untouched(capsys: pytest.CaptureFixture[str
     assert result == remote.engine.EXIT_OK
     transcript = remote._ssh_combined(runner)
     assert "capture-current.next" not in transcript
+    assert "kronika-capture-bridge" not in transcript
     assert "kronika-capture-runner" not in transcript
     assert transcript.count("restart framenest.service") == 1
     assert "capture_release: absent" in output
@@ -1225,6 +1300,33 @@ def test_apply_preserves_the_release_and_bounds_the_service_cycle(
     assert relocate_commands == [expected_relocate]
     assert expected_relocate.count("--required-script") == 1
     assert "--required-script kronika-capture" in expected_relocate
+    poetry_toml = engine.cmd_remote_test_exists(f"{staging}/poetry.toml")
+    poetry_lock = engine.cmd_remote_test_exists(f"{staging}/poetry.lock")
+    assert commands.count(poetry_toml) == 1
+    assert commands.count(poetry_lock) == 1
+    chown = engine.cmd_remote_chown_root(staging)
+    chmod = engine.cmd_remote_remove_release_writable_bits(staging)
+    assert commands.count(chown) == 1
+    assert commands.count(chmod) == 1
+    engine_bytes = Path(engine.__file__).read_bytes()
+    upload = engine.cmd_remote_write_file(
+        engine.CAPTURE_PATH_REMOTE_ENGINE,
+        hashlib.sha256(engine_bytes).hexdigest(),
+    )
+    assert commands.count(upload) == 1
+    uploaded = [
+        data
+        for argv, data in runner.calls
+        if argv and argv[-1] == upload
+    ]
+    assert uploaded == [engine_bytes]
+    install_at = _indexes(runner, "poetry install ")[0]
+    upload_at = _indexes(runner, upload)[0]
+    relocate_at = _indexes(runner, "_remote-relocate-venv-shebangs")[0]
+    chown_at = _indexes(runner, chown)[0]
+    chmod_at = _indexes(runner, chmod)[0]
+    rename_at = _indexes(runner, f"mv {staging} {target}")[0]
+    assert install_at < upload_at < relocate_at < chown_at < chmod_at < rename_at
     publish_source = inspect.getsource(engine._publish_capture_release)
     assert "PurePosixPath(plan.executable).name" in publish_source
     assert '"kronika-capture"' not in publish_source
@@ -1265,6 +1367,13 @@ def test_apply_preserves_the_release_and_bounds_the_service_cycle(
     start_runner = _indexes(runner, "systemctl start kronika-capture-runner.service")[0]
     ready_at = _indexes(runner, "kronika-capture-readiness-gate")[0]
     assert work[0] < copy_at < work[1] < stop_at < switch_at < start_bridge < start_runner < ready_at
+    reload_at = _indexes(runner, "systemctl daemon-reload")[0]
+    for name in (engine.CAPTURE_BRIDGE_UNIT, engine.CAPTURE_RUNNER_SERVICE):
+        shown = _indexes(
+            runner, f"systemctl show -p WorkingDirectory --value {name}"
+        )
+        assert len(shown) == 2
+        assert shown[0] < reload_at < shown[1]
     assert brake[0] < copy_at < brake[1] < stop_at
     payloads: dict[str, str] = {}
     for argv, data in runner.calls:

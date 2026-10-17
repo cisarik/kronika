@@ -243,7 +243,11 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # KSI-IMPL-C7B2A: src -1 (186 -> 185), extension -2 (2 -> 0).
     # The host protocol asset and both extension reader files lose their last
     # retired occurrence; exact content-path departures are recorded below.
-    "src": 184,
+    # KSI-IMPL-C8BP moves src by -1 (184 -> 183) and deploy by -1 (4 -> 3).
+    # src/kronika_capture/bridge/server.py loses its last two retired tokens,
+    # both operational capture labels. deploy/ubuntu/README.md loses its last
+    # token, the former capture pointer. No path is renamed and no path is added.
+    "src": 183,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -338,8 +342,10 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # kronika-capture-runner.service and kronika-capture.env.example each lose
     # their last retired token when the capture pointer path becomes
     # canonical. No path is renamed and no path is added.
+    # KSI-IMPL-C8BP moves deploy by -1 (4 -> 3). The departure is
+    # deploy/ubuntu/README.md, recorded beside the content-path set.
     "tests": 174,
-    "deploy": 4,
+    "deploy": 3,
     "scripts": 0,
     "docs": 84,
     "extension": 0,
@@ -564,7 +570,9 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C7B2A: src -3 (1630 -> 1627): tailscale_ingress.py -2
     # (retired header constant and dual-acceptance error message),
     # adapters/api/web/companion_host.js -1 (retired protocol literal).
-    "src": 1606,
+    # KSI-IMPL-C8BP moves src by -2 (1606 -> 1604). Both are the operational
+    # labels in src/kronika_capture/bridge/server.py. No other src file moves.
+    "src": 1604,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -849,7 +857,9 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C8AP moves deploy by -5 (78 -> 73): env.example -1,
     # kronika-capture-bridge.service -2 and kronika-capture-runner.service -2.
     # kronika_release.py adds no retired token.
-    "deploy": 73,
+    # KSI-IMPL-C8BP moves deploy by -1 (73 -> 72): deploy/ubuntu/README.md
+    # loses the former capture pointer. kronika_release.py adds no retired token.
+    "deploy": 72,
     "scripts": 0,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -1037,6 +1047,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # deploy/systemd/kronika-capture-runner.service and
 # deploy/systemd/kronika-capture.env.example. Each loses its last retired
 # token on the capture pointer lines. The files remain tracked.
+# KSI-IMPL-C8BP removes exactly two content paths, with no additions:
+# src/kronika_capture/bridge/server.py and deploy/ubuntu/README.md. The bridge
+# file loses its two operational labels. The README loses the former capture
+# pointer. Both files remain tracked.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1047,7 +1061,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "SERVER.md",
         "deploy/systemd/kronika-catalog-offdevice.service",
         "deploy/systemd/kronika.env.example",
-        "deploy/ubuntu/README.md",
         "deploy/ubuntu/kronika_release.py",
         "docs/ACCEPTANCE_DUAL_AUDIENCE.md",
         "docs/BACKUP_AND_RECOVERY.md",
@@ -1313,7 +1326,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/structured_logging.py",
         "src/kronika_capture/__init__.py",
         "src/kronika_capture/_assets/extension/src/headless/bridge_client.mjs",
-        "src/kronika_capture/bridge/server.py",
         "src/kronika_capture/cli.py",
         "src/kronika_capture/config.py",
         "src/kronika_capture/paths.py",
@@ -1698,8 +1710,11 @@ MUTATION_HEADER_FILE_COUNT = 16
 # KSI-IMPL-C8AP moves `/opt/framenest` by -6 (152 -> 146) and nothing else:
 # deploy -5 (the five capture pointer lines), tests -3 (the same three pins)
 # and docs +2 (-1 planned pointer, +3 former-pointer restoration lines).
+# KSI-IMPL-C8BP moves `/opt/framenest` by -1 (146 -> 145) and nothing else:
+# deploy/ubuntu/README.md loses the former capture pointer. No test or src
+# host literal moves.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 146,
+    "/opt/framenest": 145,
     # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
     # /var/cache -1. No production host path or frozen mount changes.
     # KSI-IMPL-C7B3: /opt 214-62=152, /etc 51-21=30, /var/lib 87-23=64,

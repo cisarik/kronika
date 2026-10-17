@@ -1027,6 +1027,10 @@ def cmd_remote_atomic_switch_capture(
     )
 
 
+def cmd_remote_restart_capture_bridge() -> str:
+    return f"sudo -n systemctl restart {CAPTURE_BRIDGE_UNIT}"
+
+
 def cmd_remote_restart_capture_runner() -> str:
     return f"sudo -n systemctl restart {CAPTURE_RUNNER_SERVICE}"
 
@@ -5838,7 +5842,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     activate_capture = subcommands.add_parser(
         "activate-capture",
-        help="Switch capture-current and restart the capture runner once.",
+        help=(
+            "Switch capture-current and restart the capture bridge, then the "
+            "runner, once."
+        ),
     )
     activate_capture.add_argument("--release", required=True)
     activate_capture.add_argument("--yes", action="store_true")
@@ -5846,7 +5853,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     rollback_capture = subcommands.add_parser(
         "rollback-capture",
-        help="Switch capture-current back under the same capture brake.",
+        help=(
+            "Switch capture-current back under the same capture brake and "
+            "restart the bridge, then the runner, once."
+        ),
     )
     rollback_capture.add_argument("--release", required=True)
     rollback_capture.add_argument("--yes", action="store_true")
@@ -6775,6 +6785,11 @@ def _cmd_capture_transition(args: argparse.Namespace, runner: Runner) -> int:
             target, state.capture_current
         ),
     )
+    try:
+        ssh(runner, **transport, remote_command=cmd_remote_restart_capture_bridge())
+    except ReleaseError as exc:
+        print(format_release_pointers(web_sha, release_sha))
+        raise ReleaseError("capture bridge restart failed", EXIT_READINESS) from exc
     try:
         ssh(runner, **transport, remote_command=cmd_remote_restart_capture_runner())
     except ReleaseError as exc:

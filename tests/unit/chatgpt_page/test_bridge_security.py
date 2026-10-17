@@ -9,9 +9,15 @@ from http.client import HTTPConnection
 
 import pytest
 
-from kronika_capture.bridge.server import build_state, create_server
+from kronika_capture.bridge.server import BridgeRequestHandler, build_state, create_server
 from kronika_capture.bridge.store import Store
-from kronika_capture.config import UPLOAD_UNAVAILABLE
+from kronika_capture.config import (
+    API_VERSION,
+    APP_NAME,
+    BRIDGE_VERSION,
+    PROTO_VERSION,
+    UPLOAD_UNAVAILABLE,
+)
 
 RUNNER_ID = str(uuid.uuid4())
 BROWSER_ID = str(uuid.uuid4())
@@ -61,6 +67,20 @@ def _request(port, method, path, *, token=None, host=None, origin=None, body=Non
     if not raw:
         return response.status, None
     return response.status, json.loads(raw.decode("utf-8"))
+
+
+def test_bridge_identity_is_canonical_and_protocol_values_stay(bridge) -> None:
+    _server, _state, port = bridge
+    assert APP_NAME == "kronika-capture"
+    assert BRIDGE_VERSION == "0.1.0"
+    assert API_VERSION == 1
+    assert PROTO_VERSION == 1
+    assert BridgeRequestHandler.server_version == f"{APP_NAME}/{BRIDGE_VERSION}"
+    assert BridgeRequestHandler.sys_version == ""
+    status, health, headers = _request(port, "GET", "/v1/health", with_headers=True)
+    assert status == 200
+    assert health == {"ok": True, "api": APP_NAME, "api_version": API_VERSION}
+    assert headers["Server"] == f"{APP_NAME}/{BRIDGE_VERSION} "
 
 
 def test_bridge_refuses_non_loopback_bind(tmp_path) -> None:
