@@ -225,16 +225,17 @@ def test_manifest_release_sha_absent_key_returns_none(release_helper: Any) -> No
 
 
 def test_release_helper_injects_the_canonical_env_file_name(release_helper: Any) -> None:
-    prefix = release_helper.service_account_prefix("/opt/framenest/releases/abc")
+    prefix = release_helper.service_account_prefix("/opt/kronika/releases/abc")
 
-    assert f"env {PRIMARY}ENV_FILE={release_helper.ENV_FILE}" in prefix
+    assert f"env {PRIMARY}ENV_FILE={release_helper.CANONICAL_WEB_LAYOUT.env_file}" in prefix
     assert f"{COMPATIBLE}ENV_FILE" not in prefix
 
 
-def test_release_helper_env_file_path_constant_is_unchanged(release_helper: Any) -> None:
-    assert release_helper.ENV_FILE == "/etc/framenest/framenest.env"
-    assert release_helper.RELEASE_ROOT == "/opt/framenest/releases"
-    assert release_helper.SERVICE == "framenest.service"
+def test_release_helper_uses_the_canonical_layout(release_helper: Any) -> None:
+    layout = release_helper.CANONICAL_WEB_LAYOUT
+    assert layout.env_file == "/etc/kronika/kronika.env"
+    assert layout.release_root == "/opt/kronika/releases"
+    assert layout.service == "kronika.service"
 
 
 def test_protocol_magic_and_version_reads_are_unchanged() -> None:

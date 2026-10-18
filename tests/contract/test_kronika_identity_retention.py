@@ -845,7 +845,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C9B1 moves tests by -285 (1386 -> 1101): the deleted migration
     # module -278 and test_kronika_capture_services.py -7 for the removed
     # capture-path fixtures. That module keeps other retired tokens and stays.
-    "tests": 1101,
+    # KSI-IMPL-C9B2 moves tests by -102 (1101 -> 999). Per file, measured
+    # before the re-pin: test_nuc_release_remote_contract.py -76 (90 -> 14),
+    # test_kronika_capture_services.py -18 (23 -> 5),
+    # test_kronika_cli_and_release_readers.py -5 (19 -> 14),
+    # test_nuc_release_source_contract.py -2 (4 -> 2) and
+    # test_nuc_release_docs.py -1 (18 -> 17). No test file lost its last
+    # occurrence, so the file count stays. The remote-contract remainder
+    # includes the forbidden former-layout defaults the single-layout test
+    # names, the tooling-path match and the marker-spelling pattern.
+    "tests": 999,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -868,7 +877,12 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C9B1 moves deploy by -47 (72 -> 25), all in kronika_release.py:
     # the one-time migration constants, transformer and command builders.
     # README.md adds no token and stays out of the content set.
-    "deploy": 25,
+    # KSI-IMPL-C9B2 moves deploy by -16 (25 -> 9), all in kronika_release.py
+    # (22 -> 6). The six that remain are the two accepted marker filenames,
+    # the historical manifest key, the two frozen tooling paths and the log
+    # sanitizer needle. The offdevice unit and the env-example mount comment
+    # stay, which is the other three of the nine.
+    "deploy": 9,
     "scripts": 0,
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
     # KSI-C-RUNBOOK moved `docs` by +13 (1216 -> 1229) and nothing else. The
@@ -1739,13 +1753,22 @@ MUTATION_HEADER_FILE_COUNT = 16
 # /etc 30-12=18 (engine -3, deleted module -9); /var/lib 64-32=32
 # (engine -1, deleted module -31); /var/cache 19-9=10 (engine -1, deleted
 # module -8); mount 23-10=13 (engine -1, deleted module -9).
+# KSI-IMPL-C9B2, measured before the re-pin: /opt 122-58=64 and /etc 18-1=17.
+# /opt -58: engine -5 (7 -> 2, tooling paths stay), capture services -10,
+# readers -2, remote contract -39 (46 -> 7) and source contract -2.
+# /etc -1: engine -1 (the env path; the credentials needle stays) and
+# readers -1, offset by +1 in the remote contract where the single-layout
+# test names the former env path as a forbidden default.
+# /var/lib and /var/cache are unmoved: the engine loses one former root each,
+# and the same test names each root once as a forbidden default.
+# The frozen mount is unmoved.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 122,
+    "/opt/framenest": 64,
     # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
     # /var/cache -1. No production host path or frozen mount changes.
     # KSI-IMPL-C7B3: /opt 214-62=152, /etc 51-21=30, /var/lib 87-23=64,
     # /var/cache 26-7=19. The frozen mount stays 23.
-    "/etc/framenest": 18,
+    "/etc/framenest": 17,
     "/var/lib/framenest": 32,
     "/var/cache/framenest": 10,
     "/mnt/framenest-catalog-offdevice": 13,
@@ -1766,8 +1789,12 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
     # verification sentence.
     # KSI-IMPL-C9B1: User 4-2=2 and Group 5-2=3, both only in the deleted
     # migration module. The engine and the runbook add none.
-    "User=framenest": 2,
-    "Group=framenest": 3,
+    # KSI-IMPL-C9B2, measured before the re-pin: User 2-2=0 and Group 3-2=1.
+    # Each former layout-probe fixture in the remote contract and in capture
+    # services loses one User line and one Group line. The capture unit-file
+    # absence check keeps the remaining Group line.
+    "User=framenest": 0,
+    "Group=framenest": 1,
 }
 
 # KSI-IMPL-C2 moved this by +15: -2 where the service worker stopped spelling the

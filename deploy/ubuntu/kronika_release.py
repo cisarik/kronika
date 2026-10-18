@@ -8,8 +8,8 @@ under Ubuntu system Python 3.12. It uses only the Python standard library.
 
 It never stores, prints, or transmits secrets; never invokes ``uv``; never
 runs migrations; and never accepts user-supplied remote shell commands.
-Web deploy and rollback move only ``/opt/framenest/current`` and
-``framenest.service``. Capture activation is a separate operation. The
+Web deploy and rollback move only ``/opt/kronika/current`` and
+``kronika.service``. Capture activation is a separate operation. The
 one-time capture-path and identity migration commands have already run and
 are gone; status, check, deploy and rollback do not migrate.
 """
@@ -63,13 +63,6 @@ ACCEPTED_RELEASE_SHA_MANIFEST_KEYS = (
     "kronika_release_sha",
 )
 
-# Accepted exact NUC tooling.
-SERVICE = "framenest.service"
-SERVICE_USER = "framenest"
-SERVICE_GROUP = "framenest"
-RELEASE_ROOT = "/opt/framenest/releases"
-CURRENT = "/opt/framenest/current"
-CAPTURE_CURRENT = "/opt/framenest/capture-current"
 CAPTURE_RUNNER_SERVICE = "kronika-capture-runner.service"
 CAPTURE_BRIDGE_UNIT = "kronika-capture-bridge.service"
 CAPTURE_JOURNAL = "/var/lib/kronika-capture/capture-journal.sqlite3"
@@ -79,7 +72,7 @@ CAPTURE_BRIDGE_PROTOCOL = "1"
 CAPTURE_DRAIN_DEADLINE_SECONDS = 30
 CAPTURE_READINESS_DEADLINE_SECONDS = 180
 CAPTURE_POLL_INTERVAL_SECONDS = 1
-ENV_FILE = "/etc/framenest/framenest.env"
+# Accepted exact NUC tooling.
 POETRY_BIN = "/opt/framenest/tooling/poetry/2.4.1/.venv/bin/poetry"
 CPYTHON_BIN = (
     "/opt/framenest/tooling/python/cpython-3.13.14-linux-x86_64-gnu/bin/python3.13"
@@ -101,7 +94,7 @@ UNIT_EXEC_PROPERTIES = ("ExecStart", "ExecStartPre")
 
 POETRY_TOML = "[virtualenvs]\nin-project = true\n"
 
-# Minimum free capacity required under /opt/framenest beyond transferred bytes.
+# Minimum free capacity required under /opt/kronika beyond transferred bytes.
 MIN_FREE_CAPACITY_BYTES = 1 << 30  # 1 GiB safety margin for the release-local .venv.
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -161,11 +154,10 @@ EXIT_LAYOUT = 26
 
 @dataclass(frozen=True)
 class WebLayout:
-    """One accepted effective web-service layout on the host.
+    """The effective web-service layout routine operations validate.
 
-    ``key`` names the transition-state axis this layout describes, never a
-    preference. Routine operations select a layout from the host's validated
-    effective service configuration; they never assume one.
+    ``key`` names this layout. Routine operations probe the candidate set and
+    accept a unit only when its effective configuration matches the layout.
     """
 
     key: str
@@ -187,28 +179,9 @@ class WebLayout:
         return f"{self.release_root}/{sha}.staging"
 
 
-# The accepted former layout. Its values are the routine host constants, and
-# this cut does not change any of them; cut C6 owns that move. Keeping the data
-# in one object beside the canonical target lets routine operations select a
-# layout instead of assuming this one.
-OLD_WEB_LAYOUT = WebLayout(
-    key="old",
-    service=SERVICE,
-    user=SERVICE_USER,
-    group=SERVICE_GROUP,
-    release_root=RELEASE_ROOT,
-    current=CURRENT,
-    env_file=ENV_FILE,
-    state_root="/var/lib/framenest",
-    cache_root="/var/cache/framenest",
-    runtime_root="/run/framenest",
-    socket_path="/run/framenest/framenest.sock",
-)
-
-# The canonical target layout ADR-0085 names. Cut C4-B prepares it; C6 installs
-# it. Nothing here is active until C6.
-NEW_WEB_LAYOUT = WebLayout(
-    key="new",
+# The one canonical web layout. Routine commands probe this unit and no other.
+CANONICAL_WEB_LAYOUT = WebLayout(
+    key="canonical",
     service="kronika.service",
     user="kronika",
     group="kronika",
@@ -221,18 +194,11 @@ NEW_WEB_LAYOUT = WebLayout(
     socket_path="/run/kronika/kronika.sock",
 )
 
-WEB_LAYOUTS = (OLD_WEB_LAYOUT, NEW_WEB_LAYOUT)
+# The candidate set selection consumes. A second member is a failed proof.
+WEB_LAYOUT_CANDIDATES = (CANONICAL_WEB_LAYOUT,)
 
-# The two accepted capture pointers. The capture account, units, state, token,
-# profile, protocol and environment paths are already canonical and
-# deliberately asymmetric with the web identity; only this pointer's location
-# moves, and cut C8-A owns that move.
-OLD_CAPTURE_CURRENT = CAPTURE_CURRENT
-NEW_CAPTURE_CURRENT = "/opt/kronika/capture-current"
-CAPTURE_POINTERS = (
-    ("old", OLD_CAPTURE_CURRENT, OLD_WEB_LAYOUT.release_root),
-    ("new", NEW_CAPTURE_CURRENT, NEW_WEB_LAYOUT.release_root),
-)
+# The only capture pointer. An absent pointer stays on this path.
+CANONICAL_CAPTURE_CURRENT = "/opt/kronika/capture-current"
 
 
 class ReleaseError(Exception):
@@ -302,11 +268,11 @@ def validate_remote_path(value: str, *prefixes: str) -> None:
         raise ReleaseError("unsafe remote path", EXIT_TRANSPORT)
 
 
-def release_dir(sha: str, layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+def release_dir(sha: str, layout: WebLayout = CANONICAL_WEB_LAYOUT) -> str:
     return layout.release_dir(sha)
 
 
-def staging_dir(sha: str, layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+def staging_dir(sha: str, layout: WebLayout = CANONICAL_WEB_LAYOUT) -> str:
     return layout.staging_dir(sha)
 
 
@@ -496,7 +462,7 @@ def cmd_remote_write_file_atomic(path: str, sha256: str) -> str:
     )
 
 
-def cmd_remote_readlink_current(layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+def cmd_remote_readlink_current(layout: WebLayout = CANONICAL_WEB_LAYOUT) -> str:
     return f"sudo -n readlink -n {layout.current}"
 
 
@@ -556,7 +522,7 @@ def cmd_remote_test_regular_executable(path: str) -> str:
     return f"sudo -n sh -c {shlex.quote(script)}"
 
 
-def cmd_remote_unit_execution_properties(service: str = SERVICE) -> str:
+def cmd_remote_unit_execution_properties(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     """Effective ``ExecStart`` and ``ExecStartPre``, drop-ins included."""
     properties = " ".join(
         f"--property={name}" for name in UNIT_EXEC_PROPERTIES
@@ -564,43 +530,43 @@ def cmd_remote_unit_execution_properties(service: str = SERVICE) -> str:
     return f"sudo -n systemctl show {properties} {service}"
 
 
-def cmd_remote_service_is_active(service: str = SERVICE) -> str:
+def cmd_remote_service_is_active(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return f"sudo -n systemctl is-active {service}"
 
 
-def cmd_remote_service_active_state(service: str = SERVICE) -> str:
+def cmd_remote_service_active_state(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return f"sudo -n systemctl show -p ActiveState --value {service}"
 
 
-def cmd_remote_service_result(service: str = SERVICE) -> str:
+def cmd_remote_service_result(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return f"sudo -n systemctl show -p Result --value {service}"
 
 
-def cmd_remote_systemd_working_directory(service: str = SERVICE) -> str:
+def cmd_remote_systemd_working_directory(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return f"sudo -n systemctl show -p WorkingDirectory --value {service}"
 
 
-def cmd_remote_service_fragment_path(service: str = SERVICE) -> str:
+def cmd_remote_service_fragment_path(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return f"sudo -n systemctl show -p FragmentPath --value {service}"
 
 
-def cmd_remote_restart_service(service: str = SERVICE) -> str:
+def cmd_remote_restart_service(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return f"sudo -n systemctl restart {service}"
 
 
-def cmd_remote_journal(service: str = SERVICE) -> str:
+def cmd_remote_journal(service: str = CANONICAL_WEB_LAYOUT.service) -> str:
     return (
         f"sudo -n journalctl -u {service} -n 40 --no-pager "
         "--output=cat | grep -Ev '^$' || true"
     )
 
 
-def cmd_remote_df_capacity(layout: WebLayout = OLD_WEB_LAYOUT) -> str:
+def cmd_remote_df_capacity(layout: WebLayout = CANONICAL_WEB_LAYOUT) -> str:
     return f"sudo -n df -Pk {layout.release_root.rsplit('/', 1)[0]} | tail -n 1"
 
 
 def cmd_remote_capture_current(
-    target_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    target_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     quoted = shlex.quote(target_path)
     return (
@@ -612,7 +578,7 @@ def cmd_remote_capture_current(
 
 
 def service_account_prefix(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return (
         f"sudo -n -u {layout.user} --chdir={shlex.quote(release_path)} "
@@ -622,13 +588,13 @@ def service_account_prefix(
 
 
 def cmd_remote_db_status(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return f"{service_account_prefix(release_path, layout)}/kronika-db status"
 
 
 def cmd_remote_backup_cli(
-    release_path: str, operation: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, operation: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     """Run the backup console with the unit's process environment.
 
@@ -649,13 +615,13 @@ def cmd_remote_backup_cli(
 
 
 def cmd_remote_backup_status(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return cmd_remote_backup_cli(release_path, "status", layout)
 
 
 def cmd_remote_production_cli(
-    release_path: str, operation: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, operation: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     """Run ``kronika-production`` with the unit EnvironmentFile.
 
@@ -677,19 +643,19 @@ def cmd_remote_production_cli(
 
 
 def cmd_remote_check_database_ready(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return cmd_remote_production_cli(release_path, "check-database-ready", layout)
 
 
 def cmd_remote_check_health(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return cmd_remote_production_cli(release_path, "check-health", layout)
 
 
 def cmd_remote_run_scheduled_backup(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return cmd_remote_backup_cli(release_path, "run-scheduled", layout)
 
@@ -809,7 +775,7 @@ def cmd_remote_rename_staging(staging_path: str, release_path: str) -> str:
 
 
 def cmd_remote_atomic_switch(
-    release_path: str, layout: WebLayout = OLD_WEB_LAYOUT
+    release_path: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str:
     return (
         "set -e\n"
@@ -819,7 +785,7 @@ def cmd_remote_atomic_switch(
 
 
 def cmd_remote_atomic_switch_capture(
-    release_path: str, pointer: str = CAPTURE_CURRENT
+    release_path: str, pointer: str = CANONICAL_CAPTURE_CURRENT
 ) -> str:
     return (
         "set -e\n"
@@ -1153,19 +1119,12 @@ def remote_exec(runner: Runner, command: str) -> str:
 # ---------------------------------------------------------------------------
 
 def accepted_release_roots() -> tuple[str, ...]:
-    """Every accepted release root, so a remote helper can serve both layouts.
+    """The one release root the on-host helpers accept writes under.
 
-    The transferred ``_remote`` helpers run on the host with no transport to
-    select a layout from. Accepting both accepted roots keeps the former layout
-    working and lets the canonical layout work after C6 without teaching the
-    helper a preference. The active constant is read at call time, so a layout
-    constant change in C6 takes effect here without a second edit.
+    The transferred ``_remote`` helpers run on the host with no transport.
+    They read this root at call time and refuse every other prefix.
     """
-    roots: list[str] = []
-    for root in (RELEASE_ROOT, NEW_WEB_LAYOUT.release_root):
-        if root not in roots:
-            roots.append(root)
-    return tuple(roots)
+    return (CANONICAL_WEB_LAYOUT.release_root,)
 
 
 def remote_extract(runner: Runner, archive: str, destination: str) -> None:
@@ -1419,7 +1378,7 @@ def read_release_markers(
 
 
 def read_current_release(
-    runner: Runner, transport: dict[str, str], layout: WebLayout = OLD_WEB_LAYOUT
+    runner: Runner, transport: dict[str, str], layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> ResolvedReleaseMarkers:
     raw = ssh(
         runner,
@@ -1436,7 +1395,7 @@ def read_optional_release_sha(
     runner: Runner,
     transport: dict[str, str],
     pointer: str,
-    release_root: str = RELEASE_ROOT,
+    release_root: str = CANONICAL_WEB_LAYOUT.release_root,
 ) -> str:
     raw = ssh(
         runner, **transport, remote_command=cmd_remote_read_optional_link(pointer)
@@ -1453,7 +1412,7 @@ def read_backup_readiness(
     runner: Runner,
     transport: dict[str, str],
     release_path: str,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> str:
     raw = ssh(
         runner,
@@ -1471,7 +1430,7 @@ def read_db_current_revision(
     runner: Runner,
     transport: dict[str, str],
     release_path: str,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> str:
     raw = ssh(
         runner,
@@ -1500,7 +1459,7 @@ def verify_capacity(
     runner: Runner,
     transport: dict[str, str],
     required_bytes: int,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> None:
     raw = ssh(
         runner, **transport, remote_command=cmd_remote_df_capacity(layout)
@@ -1566,7 +1525,7 @@ def unit_executables_from_show(output: str) -> dict[str, tuple[str, ...]]:
 
 
 def release_scoped_console_script(
-    executable: str, layout: WebLayout = OLD_WEB_LAYOUT
+    executable: str, layout: WebLayout = CANONICAL_WEB_LAYOUT
 ) -> str | None:
     """Return the release-relative console script a unit executable names.
 
@@ -1603,7 +1562,7 @@ def verify_unit_executables(
     runner: Runner,
     transport: dict[str, str],
     release_path: str,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> tuple[str, ...]:
     """Require every effective unit executable to exist in ``release_path``.
 
@@ -1698,8 +1657,9 @@ class HostLayoutState:
     """The selected effective web layout and the capture-pointer axis.
 
     ``web`` is chosen by :func:`select_web_layout` from validated effective
-    service configuration. ``capture_pointer`` is ``old``, ``new`` or ``none``;
-    a wrong or ambiguous signal fails rather than selecting a wrong tree.
+    service configuration. ``capture_pointer`` is ``canonical`` when the
+    canonical pointer exists and ``none`` when it is absent. A wrong signal
+    fails rather than selecting a wrong tree.
     """
 
     web: WebLayout
@@ -1817,8 +1777,8 @@ def select_web_layout(readings: Sequence[WebLayoutReading]) -> WebLayout:
       selected, because a failed or stopped service keeps its enablement;
     - zero or two enabled candidates fail.
 
-    The selector never falls back to a service name, never prefers the old
-    layout, and never guesses from a partial signal.
+    The selector never falls back to a service name and never guesses from a
+    partial signal.
     """
     installed = [reading for reading in readings if reading.installed]
     if not installed:
@@ -1849,30 +1809,25 @@ def resolve_capture_pointer(
 ) -> tuple[str, str, str]:
     """Return the capture pointer axis, its path and its release root.
 
-    Both candidate pointers are read. Two live pointers are ambiguous and fail;
-    no pointer is ``none`` and keeps the former pointer path for a future
-    activation.
+    The only pointer is the canonical capture-current path. A missing pointer
+    is ``none`` and keeps that path and the canonical release root. A missing
+    pointer never falls back to a retired path.
     """
-    present: list[tuple[str, str, str, str]] = []
-    for key, pointer, release_root in CAPTURE_POINTERS:
-        target = ssh(
-            runner,
-            **transport,
-            remote_command=cmd_remote_read_optional_link(pointer),
-        ).strip()
-        if target == "query-failed":
-            raise ReleaseError(
-                "capture release pointer state is unverifiable", EXIT_LAYOUT
-            )
-        if target != "absent":
-            present.append((key, pointer, release_root, target))
-    if not present:
-        return ("none", OLD_CAPTURE_CURRENT, OLD_WEB_LAYOUT.release_root)
-    if len(present) > 1:
-        raise ReleaseError("ambiguous capture release pointer", EXIT_LAYOUT)
-    key, pointer, release_root, target = present[0]
+    pointer = CANONICAL_CAPTURE_CURRENT
+    release_root = CANONICAL_WEB_LAYOUT.release_root
+    target = ssh(
+        runner,
+        **transport,
+        remote_command=cmd_remote_read_optional_link(pointer),
+    ).strip()
+    if target == "query-failed":
+        raise ReleaseError(
+            "capture release pointer state is unverifiable", EXIT_LAYOUT
+        )
+    if target == "absent":
+        return ("none", pointer, release_root)
     validate_remote_path(target, release_root)
-    return (key, pointer, release_root)
+    return ("canonical", pointer, release_root)
 
 
 def resolve_host_layout(
@@ -1880,8 +1835,8 @@ def resolve_host_layout(
 ) -> HostLayoutState:
     """Resolve the installed web layout and capture-pointer axis.
 
-    Every routine operation begins here, so no operation can silently assume
-    the former service or a moved capture pointer.
+    Every routine operation begins here. Selection consumes only the canonical
+    candidate.
     """
     readings = tuple(
         parse_web_layout_probe(
@@ -1892,7 +1847,7 @@ def resolve_host_layout(
             ),
             layout,
         )
-        for layout in WEB_LAYOUTS
+        for layout in WEB_LAYOUT_CANDIDATES
     )
     web = select_web_layout(readings)
     capture_pointer, capture_current, capture_release_root = resolve_capture_pointer(
@@ -2542,7 +2497,7 @@ def _verify_cutover(
     runner: Runner,
     transport: dict[str, str],
     target: str,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> None:
     current_path = ssh(
         runner,
@@ -2569,7 +2524,7 @@ def _wait_ready(
     runner: Runner,
     transport: dict[str, str],
     target: str,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> None:
     """Poll service readiness for deploy and rollback.
 
@@ -2650,7 +2605,7 @@ def _rollback(
     runner: Runner,
     transport: dict[str, str],
     previous_path: str,
-    layout: WebLayout = OLD_WEB_LAYOUT,
+    layout: WebLayout = CANONICAL_WEB_LAYOUT,
 ) -> None:
     """Restore the previous release, validating it before the pointer moves.
 

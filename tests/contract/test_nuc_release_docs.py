@@ -306,7 +306,7 @@ def test_engine_post_checkpoint_residue_adds_the_documented_previous_release() -
         def _ssh_respond(self, combined, input_bytes):
             if f"rmdir {engine.REMOTE_DEPLOY_DIR}" in combined:
                 raise engine.ReleaseError("directory not empty", engine.EXIT_TRANSPORT)
-            if "journalctl -u framenest.service" in combined:
+            if "journalctl -u kronika.service" in combined:
                 self._journal_failures += 1
                 if self._journal_failures == 1:
                     raise engine.ReleaseError("terminal", engine.EXIT_SERVICE_TERMINAL)

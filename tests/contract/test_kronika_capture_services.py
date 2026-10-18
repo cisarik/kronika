@@ -54,8 +54,8 @@ _SPEC.loader.exec_module(engine)
 
 RELEASE = "a" * 40
 PREV = "c" * 40
-PREV_PATH = f"/opt/framenest/releases/{PREV}"
-TARGET = f"/opt/framenest/releases/{RELEASE}"
+PREV_PATH = f"/opt/kronika/releases/{PREV}"
+TARGET = f"/opt/kronika/releases/{RELEASE}"
 OLD_IDENTITY = ("11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222")
 NEW_IDENTITY = ("33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444")
 
@@ -101,23 +101,17 @@ def _target_manifest(**overrides: str) -> str:
     return json.dumps(payload)
 
 
-OLD_LAYOUT_SHOW = (
+CANONICAL_LAYOUT_SHOW = (
     "LoadState=loaded\n"
     "ActiveState=active\n"
     "UnitFileState=enabled\n"
-    "User=framenest\n"
-    "Group=framenest\n"
-    "WorkingDirectory=/opt/framenest/current\n"
-    "ExecStart={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
-    "argv[]=/opt/framenest/current/.venv/bin/framenest-production serve ; "
+    "User=kronika\n"
+    "Group=kronika\n"
+    "WorkingDirectory=/opt/kronika/current\n"
+    "ExecStart={ path=/opt/kronika/current/.venv/bin/kronika-production ; "
+    "argv[]=/opt/kronika/current/.venv/bin/kronika-production serve ; "
     "ignore_errors=no ; start_time=[not set] ; stop_time=[not set] ; pid=0 ; "
     "code=(null) ; status=0/0 }"
-)
-NEW_LAYOUT_SHOW = (
-    "LoadState=not-found\n"
-    "ActiveState=inactive\n"
-    "UnitFileState=not-found\n"
-    "User=\nGroup=\nWorkingDirectory=\nExecStart="
 )
 
 
@@ -156,8 +150,8 @@ class CaptureRunner:
     def _ssh(self, combined: str) -> str:
         if "systemctl show --property=LoadState" in combined:
             if "kronika.service" in combined:
-                return NEW_LAYOUT_SHOW
-            return OLD_LAYOUT_SHOW
+                return CANONICAL_LAYOUT_SHOW
+            raise AssertionError(f"unexpected layout probe: {combined}")
         if "kronika-capture-work-gate" in combined:
             if not self.blocked:
                 return "blocked=none"
@@ -168,11 +162,9 @@ class CaptureRunner:
             return json.dumps(OLD_IDENTITY)
         if "kronika-capture-readiness-gate" in combined:
             return self.readiness
-        if "test -L /opt/framenest/capture-current" in combined:
-            return self.capture_link
         if "test -L /opt/kronika/capture-current" in combined:
-            return "absent"
-        if "readlink -n /opt/framenest/current" in combined:
+            return self.capture_link
+        if "readlink -n /opt/kronika/current" in combined:
             return PREV_PATH
         if "then echo manifest" in combined or "then echo sha" in combined:
             return "\n".join(
@@ -441,7 +433,7 @@ def test_capture_activation_switches_once_and_reports_both_shas(
     transcript = _ssh(runner)
     assert transcript.count("restart kronika-capture-bridge.service") == 1
     assert transcript.count("restart kronika-capture-runner.service") == 1
-    assert "restart framenest.service" not in transcript
+    assert "restart kronika.service" not in transcript
     assert "kronika-db" not in transcript
     assert "migrate" not in transcript
     assert _index(runner, "kronika-capture-work-gate") < _index(runner, "kronika-capture-brake-gate")
@@ -526,7 +518,7 @@ def test_failed_browser_readiness_does_not_restart_again(
     assert _ssh(runner).count("kronika-capture-readiness-gate") == 1
     assert f"web_release: {PREV}" in captured.out
     assert f"capture_release: {RELEASE}" in captured.out
-    assert "restart framenest.service" not in _ssh(runner)
+    assert "restart kronika.service" not in _ssh(runner)
 
 
 def test_incompatible_capture_protocol_refuses_before_restart() -> None:
@@ -549,8 +541,8 @@ def test_capture_rollback_restarts_bridge_then_runner_once() -> None:
     assert _index(runner, "restart kronika-capture-runner.service") < _index(
         runner, "kronika-capture-readiness-gate"
     )
-    assert "restart framenest.service" not in transcript
-    assert "/opt/framenest/current.next" not in transcript
+    assert "restart kronika.service" not in transcript
+    assert "/opt/kronika/current.next" not in transcript
 
 
 def test_bridge_restart_failure_stops_before_the_runner(
@@ -685,7 +677,7 @@ def test_fresh_blocked_identity_is_terminal_without_a_second_restart(tmp_path, m
     transcript = _ssh(runner)
     assert transcript.count("restart kronika-capture-bridge.service") == 1
     assert transcript.count("restart kronika-capture-runner.service") == 1
-    assert transcript.count("mv -T /opt/framenest/capture-current.next") == 1
+    assert transcript.count("mv -T /opt/kronika/capture-current.next") == 1
     assert f"capture_release: {RELEASE}" in capsys.readouterr().out
 
 
@@ -698,7 +690,7 @@ def test_unchanged_ready_identity_times_out_after_180_seconds_without_retry(tmp_
     transcript = _ssh(runner)
     assert transcript.count("restart kronika-capture-bridge.service") == 1
     assert transcript.count("restart kronika-capture-runner.service") == 1
-    assert transcript.count("mv -T /opt/framenest/capture-current.next") == 1
+    assert transcript.count("mv -T /opt/kronika/capture-current.next") == 1
     assert f"capture_release: {RELEASE}" in capsys.readouterr().out
 
 
@@ -763,7 +755,7 @@ def test_web_rollback_leaves_capture_untouched(capsys: pytest.CaptureFixture[str
     assert "capture-current.next" not in transcript
     assert "kronika-capture-bridge" not in transcript
     assert "kronika-capture-runner" not in transcript
-    assert transcript.count("restart framenest.service") == 1
+    assert transcript.count("restart kronika.service") == 1
     assert "capture_release: absent" in output
     assert f"web_release: {RELEASE}" in output
 

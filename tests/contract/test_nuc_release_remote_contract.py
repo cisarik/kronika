@@ -35,9 +35,9 @@ _SPEC.loader.exec_module(engine)
 RELEASE = "a" * 40
 AP_PIN = "b" * 40
 PREV = "c" * 40
-TARGET = f"/opt/framenest/releases/{RELEASE}"
-STAGING = f"/opt/framenest/releases/{RELEASE}.staging"
-PREV_PATH = f"/opt/framenest/releases/{PREV}"
+TARGET = f"/opt/kronika/releases/{RELEASE}"
+STAGING = f"/opt/kronika/releases/{RELEASE}.staging"
+PREV_PATH = f"/opt/kronika/releases/{PREV}"
 
 #: Every marker spelling this fake release tree carries. ``None`` means all four,
 #: which is the both-present-and-equal case of the marker matrix.
@@ -53,39 +53,29 @@ HISTORICAL_SHA_MARKER = engine.ACCEPTED_RELEASE_SHA_MARKERS[0]
 #: A realistic ``systemctl show`` answer for the installed unit, drop-ins
 #: included, as systemd reports the effective configuration.
 DEFAULT_UNIT_SHOW = (
-    "ExecStart={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
-    "argv[]=/opt/framenest/current/.venv/bin/framenest-production serve ; "
+    "ExecStart={ path=/opt/kronika/current/.venv/bin/kronika-production ; "
+    "argv[]=/opt/kronika/current/.venv/bin/kronika-production serve ; "
     "ignore_errors=no ; start_time=[not set] ; stop_time=[not set] ; pid=0 ; "
     "code=(null) ; status=0/0 }\n"
-    "ExecStartPre={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
-    "argv[]=/opt/framenest/current/.venv/bin/framenest-production "
+    "ExecStartPre={ path=/opt/kronika/current/.venv/bin/kronika-production ; "
+    "argv[]=/opt/kronika/current/.venv/bin/kronika-production "
     "check-database-ready ; ignore_errors=no ; start_time=[not set] ; "
     "stop_time=[not set] ; pid=0 ; code=(null) ; status=0/0 }"
 )
 
-#: Effective layout probes for the two candidate web units. The default fake
-#: host is in the former layout; the canonical unit does not exist yet.
+#: Effective layout probe for the one canonical web unit.
 DEFAULT_LAYOUT_SHOWS = {
-    "framenest.service": (
+    "kronika.service": (
         "LoadState=loaded\n"
         "ActiveState=active\n"
         "UnitFileState=enabled\n"
-        "User=framenest\n"
-        "Group=framenest\n"
-        "WorkingDirectory=/opt/framenest/current\n"
-        "ExecStart={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
-        "argv[]=/opt/framenest/current/.venv/bin/framenest-production serve ; "
+        "User=kronika\n"
+        "Group=kronika\n"
+        "WorkingDirectory=/opt/kronika/current\n"
+        "ExecStart={ path=/opt/kronika/current/.venv/bin/kronika-production ; "
+        "argv[]=/opt/kronika/current/.venv/bin/kronika-production serve ; "
         "ignore_errors=no ; start_time=[not set] ; stop_time=[not set] ; pid=0 ; "
         "code=(null) ; status=0/0 }"
-    ),
-    "kronika.service": (
-        "LoadState=not-found\n"
-        "ActiveState=inactive\n"
-        "UnitFileState=not-found\n"
-        "User=\n"
-        "Group=\n"
-        "WorkingDirectory=\n"
-        "ExecStart="
     ),
 }
 
@@ -283,8 +273,8 @@ class FakeRunner:
             return "Poetry (version 2.4.1)"
         if "python3.13 --version" in combined:
             return "Python 3.13.14"
-        if "df -Pk /opt/framenest" in combined:
-            return "/dev/sda1 100000000 1000 99999000 1% /opt/framenest"
+        if "df -Pk /opt/kronika" in combined:
+            return "/dev/sda1 100000000 1000 99999000 1% /opt/kronika"
         if "cat > /run/kronika-release-deploy/kronika_release.py" in combined:
             return ""
         if "cat > /run/kronika-release-deploy/superproject.tar" in combined:
@@ -297,20 +287,20 @@ class FakeRunner:
             return ""
         if "_remote-relocate-venv-shebangs" in combined:
             return ""
-        if "cat > /opt/framenest/releases/" in combined and "poetry.toml" in combined:
+        if "cat > /opt/kronika/releases/" in combined and "poetry.toml" in combined:
             return ""
         if (
-            "cat > /opt/framenest/releases/" in combined
+            "cat > /opt/kronika/releases/" in combined
             and f"/{engine.RELEASE_MANIFEST_MARKER}" in combined
         ):
             return ""
         if (
-            "cat > /opt/framenest/releases/" in combined
+            "cat > /opt/kronika/releases/" in combined
             and f"/{engine.RELEASE_SHA_MARKER}" in combined
         ):
             return ""
-        if "sha256sum /opt/framenest/releases/" in combined and "poetry.lock" in combined:
-            return "deadbeef  /opt/framenest/releases/placeholder/poetry.lock"
+        if "sha256sum /opt/kronika/releases/" in combined and "poetry.lock" in combined:
+            return "deadbeef  /opt/kronika/releases/placeholder/poetry.lock"
         if "check --lock" in combined:
             return ""
         if "env use" in combined:
@@ -321,7 +311,7 @@ class FakeRunner:
             return ""
         if "chmod -R a-w" in combined:
             return ""
-        if "mv /opt/framenest/releases/" in combined and ".staging" in combined:
+        if "mv /opt/kronika/releases/" in combined and ".staging" in combined:
             return ""
         if "kronika-db status" in combined:
             return '{"operation":"status","state":"at_head","current_revision":"0028","head_revision":"0028"}'
@@ -329,11 +319,9 @@ class FakeRunner:
             return '{"operation":"status","restore_readiness":"ready"}'
         if "kronika-backup run-scheduled" in combined:
             return '{"operation":"run-scheduled","state":"succeeded","bundle_id":"b1"}'
-        if "test -L /opt/framenest/capture-current" in combined:
-            return "absent"
         if "test -L /opt/kronika/capture-current" in combined:
             return self.new_capture_link
-        if "readlink -n /opt/framenest/current" in combined:
+        if "readlink -n /opt/kronika/current" in combined:
             return self.current
         if "previous-release" in combined and "printf" in combined:
             return ""
@@ -345,9 +333,9 @@ class FakeRunner:
             self.switched.append(parts[idx - 1])
             self.current = parts[idx - 1]
             return ""
-        if "mv -T /opt/framenest/current.next" in combined:
+        if "mv -T /opt/kronika/current.next" in combined:
             return ""
-        if "restart framenest.service" in combined:
+        if "restart kronika.service" in combined:
             return ""
         if "ActiveState" in combined:
             return "active"
@@ -356,10 +344,10 @@ class FakeRunner:
         if "systemctl is-active" in combined:
             return "active"
         if "WorkingDirectory" in combined:
-            return "/opt/framenest/current"
+            return "/opt/kronika/current"
         if "check-health" in combined:
             return '{"operation":"check-health","state":"ready"}'
-        if "journalctl -u framenest.service" in combined:
+        if "journalctl -u kronika.service" in combined:
             return ""
         if "rm -f /run/kronika-release-deploy" in combined:
             self.locked = False
@@ -445,19 +433,19 @@ def test_poetry_commands_use_exact_tooling_paths() -> None:
 def test_atomic_switch_creates_new_symlink_then_renames() -> None:
     command = engine.cmd_remote_atomic_switch(TARGET)
     assert "ln -s" in command
-    assert "/opt/framenest/current.next" in command
-    assert "mv -T /opt/framenest/current.next" in command
+    assert "/opt/kronika/current.next" in command
+    assert "mv -T /opt/kronika/current.next" in command
     assert command.index("ln -s") < command.index("mv -T")
 
 
 def test_service_account_commands_establish_release_cwd_and_env() -> None:
     command = engine.cmd_remote_db_status(TARGET)
     assert f"--chdir={TARGET}" in command
-    assert f"env KRONIKA_ENV_FILE={engine.ENV_FILE}" in command
-    assert "-u framenest" in command
+    assert f"env KRONIKA_ENV_FILE={engine.CANONICAL_WEB_LAYOUT.env_file}" in command
+    assert "-u kronika" in command
 
 
-@pytest.mark.parametrize("layout", engine.WEB_LAYOUTS, ids=lambda layout: layout.key)
+@pytest.mark.parametrize("layout", engine.WEB_LAYOUT_CANDIDATES, ids=lambda layout: layout.key)
 @pytest.mark.parametrize("quoted_paths", [False, True])
 @pytest.mark.parametrize(
     ("builder", "operation"),
@@ -499,9 +487,9 @@ def test_production_cli_uses_systemd_environment_file() -> None:
     ):
         assert "systemd-run" in command
         assert f"--working-directory={TARGET}" in command
-        assert f"EnvironmentFile={engine.ENV_FILE}" in command
-        assert "--uid=framenest" in command
-        assert "--gid=framenest" in command
+        assert f"EnvironmentFile={engine.CANONICAL_WEB_LAYOUT.env_file}" in command
+        assert "--uid=kronika" in command
+        assert "--gid=kronika" in command
         assert "KRONIKA_ENV_FILE" not in command
         assert "uv " not in command
         assert "migrate" not in command
@@ -515,7 +503,11 @@ def test_cmd_remote_extract_emits_nested_private_argv_and_extracts(
     Top-level ``_remote-extract`` is invalid parser input and must stay so.
     """
     monkeypatch.setattr(engine, "REMOTE_DEPLOY_DIR", str(tmp_path))
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     archive = tmp_path / "safe.tar"
     destination = tmp_path / "out"
     destination.mkdir()
@@ -552,7 +544,11 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
 
     Top-level ``_remote-relocate-venv-shebangs`` is invalid parser input and must stay so.
     """
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     sha = RELEASE
     staging = tmp_path / f"{sha}.staging"
     final = tmp_path / sha
@@ -610,7 +606,11 @@ def test_cmd_remote_relocate_venv_shebangs_emits_nested_private_argv(
 def test_remote_relocate_required_script_is_repeatable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging = tmp_path / f"{RELEASE}.staging"
     final = tmp_path / RELEASE
     bindir = staging / ".venv" / "bin"
@@ -878,9 +878,9 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert _index(runner, "_remote-relocate-venv-shebangs") < _index(
         runner, "chown -R root:root"
     )
-    assert _index(runner, "chown -R root:root") < _index(runner, "mv /opt/framenest/releases/")
-    assert _index(runner, "chmod -R a-w") < _index(runner, "mv /opt/framenest/releases/")
-    assert _index(runner, "mv /opt/framenest/releases/") < _index(
+    assert _index(runner, "chown -R root:root") < _index(runner, "mv /opt/kronika/releases/")
+    assert _index(runner, "chmod -R a-w") < _index(runner, "mv /opt/kronika/releases/")
+    assert _index(runner, "mv /opt/kronika/releases/") < _index(
         runner, "kronika-db status"
     )
     # Schema and checkpoint before atomic switch.
@@ -891,14 +891,14 @@ def test_deploy_happy_path_sequence(tmp_path: Path, capsys: pytest.CaptureFixtur
         if argv[0] == "ssh" and "kronika-backup run-scheduled" in argv[-1]
     ] == [engine.cmd_remote_run_scheduled_backup(TARGET)]
     # Single restart.
-    assert _ssh_combined(runner).count("restart framenest.service") == 1
+    assert _ssh_combined(runner).count("restart kronika.service") == 1
     assert "capture-current.next" not in _ssh_combined(runner)
     assert "restart kronika-capture-bridge.service" not in _ssh_combined(runner)
     assert "restart kronika-capture-runner.service" not in _ssh_combined(runner)
     assert "systemctl start kronika-capture-" not in _ssh_combined(runner)
     assert "systemctl stop kronika-capture-" not in _ssh_combined(runner)
     # Cleanup present.
-    assert _index(runner, "rmdir /run/kronika-release-deploy") > _index(runner, "restart framenest.service")
+    assert _index(runner, "rmdir /run/kronika-release-deploy") > _index(runner, "restart kronika.service")
 
 
 def test_deploy_transfers_engine_and_both_archives_as_stdin() -> None:
@@ -953,7 +953,7 @@ def test_deploy_materializes_ap_under_release() -> None:
 def test_deploy_rejects_existing_target() -> None:
     class _Existing(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "test ! -e /opt/framenest/releases/" in combined and ".staging" not in combined:
+            if "test ! -e /opt/kronika/releases/" in combined and ".staging" not in combined:
                 raise engine.ReleaseError("exists", engine.EXIT_EXISTS)
             return super()._ssh_respond(combined, input_bytes)
 
@@ -973,7 +973,7 @@ def test_deploy_refuses_an_ownerless_existing_remote_lock(
     captured = capsys.readouterr()
     assert "existing remote lock without readable ownership" in captured.err
     assert "ln -s" not in _ssh_combined(runner)
-    assert "restart framenest.service" not in _ssh_combined(runner)
+    assert "restart kronika.service" not in _ssh_combined(runner)
 
 
 def test_deploy_refuses_a_lock_owned_by_another_live_run(
@@ -1052,8 +1052,8 @@ def test_deploy_releases_the_lock_on_a_failure_inside_the_operation() -> None:
 def test_deploy_rejects_insufficient_capacity() -> None:
     class _NoSpace(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "df -Pk /opt/framenest" in combined:
-                return "Filesystem 1K-blocks Used Available Use% Mounted\n/dev/sda1 100 50 10 50% /opt/framenest"
+            if "df -Pk /opt/kronika" in combined:
+                return "Filesystem 1K-blocks Used Available Use% Mounted\n/dev/sda1 100 50 10 50% /opt/kronika"
             return super()._ssh_respond(combined, input_bytes)
 
     assert engine.main(_args("deploy"), runner=_NoSpace()) == engine.EXIT_CAPACITY
@@ -1069,7 +1069,7 @@ def test_deploy_schema_mismatch_stops_before_cutover() -> None:
     runner = _SchemaDiff()
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_MIGRATION_REQUIRED
     assert "ln -s" not in _ssh_combined(runner)
-    assert "restart framenest.service" not in _ssh_combined(runner)
+    assert "restart kronika.service" not in _ssh_combined(runner)
 
 
 def test_deploy_checkpoint_failure_stops_before_cutover() -> None:
@@ -1091,7 +1091,7 @@ def test_deploy_lock_changed_is_poetry_failure() -> None:
             self._count = 0
 
         def _ssh_respond(self, combined, input_bytes):
-            if "sha256sum /opt/framenest/releases/" in combined and "poetry.lock" in combined:
+            if "sha256sum /opt/kronika/releases/" in combined and "poetry.lock" in combined:
                 self._count += 1
                 return f"{'deadbeef' if self._count == 1 else 'cafebabe'}  /x/poetry.lock"
             return super()._ssh_respond(combined, input_bytes)
@@ -1106,7 +1106,7 @@ def test_deploy_post_switch_failure_rolls_back(capsys: pytest.CaptureFixture) ->
             self._journal_failures = 0
 
         def _ssh_respond(self, combined, input_bytes):
-            if "journalctl -u framenest.service" in combined:
+            if "journalctl -u kronika.service" in combined:
                 self._journal_failures += 1
                 if self._journal_failures == 1:
                     raise engine.ReleaseError("terminal", engine.EXIT_SERVICE_TERMINAL)
@@ -1116,7 +1116,7 @@ def test_deploy_post_switch_failure_rolls_back(capsys: pytest.CaptureFixture) ->
     result = engine.main(_args("deploy"), runner=runner)
     assert result == engine.EXIT_SERVICE_TERMINAL
     # Rollback restores the previous release symlink and restarts once more.
-    assert _ssh_combined(runner).count("restart framenest.service") == 2
+    assert _ssh_combined(runner).count("restart kronika.service") == 2
     assert _index(runner, "cat /run/kronika-release-deploy/previous-release") > 0
 
 
@@ -1127,9 +1127,9 @@ def test_deploy_rollback_failure_is_distinct(capsys: pytest.CaptureFixture) -> N
             self._restarts = 0
 
         def _ssh_respond(self, combined, input_bytes):
-            if "journalctl -u framenest.service" in combined:
+            if "journalctl -u kronika.service" in combined:
                 raise engine.ReleaseError("terminal", engine.EXIT_SERVICE_TERMINAL)
-            if "restart framenest.service" in combined:
+            if "restart kronika.service" in combined:
                 self._restarts += 1
                 if self._restarts == 2:
                     raise engine.ReleaseError("rollback restart failed", engine.EXIT_ROLLBACK)
@@ -1159,16 +1159,16 @@ def test_rollback_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
     assert "web_release: " in captured
     assert "capture_release: absent" in captured
     assert "remote_lock: acquired (none)" in captured
-    assert "unit_executables: .venv/bin/framenest-production" in captured
+    assert "unit_executables: .venv/bin/kronika-production" in captured
     combined = _ssh_combined(runner)
-    assert combined.count("restart framenest.service") == 1
+    assert combined.count("restart kronika.service") == 1
     assert "capture-current.next" not in combined
     assert "restart kronika-capture-bridge.service" not in combined
     assert "restart kronika-capture-runner.service" not in combined
     assert "systemctl start kronika-capture-" not in combined
     assert "systemctl stop kronika-capture-" not in combined
     assert "kronika-capture-runner" not in combined
-    assert "/opt/framenest/releases/" not in "\n".join(
+    assert "/opt/kronika/releases/" not in "\n".join(
         line for line in combined.splitlines() if "rm " in line or "rmdir" in line
     )
 
@@ -1182,7 +1182,7 @@ def test_rollback_requires_yes() -> None:
 def test_rollback_missing_target_release_fails() -> None:
     class _Missing(FakeRunner):
         def _ssh_respond(self, combined, input_bytes):
-            if "test -e /opt/framenest/releases/" in combined:
+            if "test -e /opt/kronika/releases/" in combined:
                 raise engine.ReleaseError("missing", engine.EXIT_EXISTS)
             return super()._ssh_respond(combined, input_bytes)
 
@@ -1440,28 +1440,28 @@ def test_unit_executable_extraction_reads_only_the_path_field() -> None:
     resolved = engine.unit_executables_from_show(DEFAULT_UNIT_SHOW)
 
     assert resolved["ExecStart"] == (
-        "/opt/framenest/current/.venv/bin/framenest-production",
+        "/opt/kronika/current/.venv/bin/kronika-production",
     )
     assert resolved["ExecStartPre"] == (
-        "/opt/framenest/current/.venv/bin/framenest-production",
+        "/opt/kronika/current/.venv/bin/kronika-production",
     )
 
 
 def test_unit_executable_extraction_sees_effective_drop_ins() -> None:
     """A drop-in command is part of the effective property systemd reports."""
     drop_in_show = (
-        "ExecStart={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
-        "argv[]=/opt/framenest/current/.venv/bin/framenest-production serve }\n"
-        "ExecStartPre={ path=/opt/framenest/current/.venv/bin/framenest-production ; "
-        "argv[]=/opt/framenest/current/.venv/bin/framenest-production "
+        "ExecStart={ path=/opt/kronika/current/.venv/bin/kronika-production ; "
+        "argv[]=/opt/kronika/current/.venv/bin/kronika-production serve }\n"
+        "ExecStartPre={ path=/opt/kronika/current/.venv/bin/kronika-production ; "
+        "argv[]=/opt/kronika/current/.venv/bin/kronika-production "
         "check-database-ready } { path=/bin/sh ; argv[]=/bin/sh -c 'exec "
-        "/opt/framenest/current/.venv/bin/kronika-production serve' }"
+        "/opt/kronika/current/.venv/bin/kronika-production serve' }"
     )
 
     resolved = engine.unit_executables_from_show(drop_in_show)
 
     assert resolved["ExecStartPre"] == (
-        "/opt/framenest/current/.venv/bin/framenest-production",
+        "/opt/kronika/current/.venv/bin/kronika-production",
         "/bin/sh",
     )
     assert engine.release_scoped_console_script("/bin/sh") is None
@@ -1472,9 +1472,9 @@ def test_unit_executable_extraction_sees_effective_drop_ins() -> None:
     [
         "/bin/sh",
         "/usr/bin/python3",
-        "/opt/framenest/current/pyproject.toml",
-        "/opt/framenest/current/.venv/lib/python3.13/site-packages/x.py",
-        "/opt/framenest/releases/not-a-sha/.venv/bin/framenest-production",
+        "/opt/kronika/current/pyproject.toml",
+        "/opt/kronika/current/.venv/lib/python3.13/site-packages/x.py",
+        "/opt/kronika/releases/not-a-sha/.venv/bin/kronika-production",
         "",
     ],
 )
@@ -1494,23 +1494,23 @@ def test_regular_executable_check_rejects_a_symlink() -> None:
 
 def test_deploy_refuses_a_target_lacking_the_installed_unit_executable() -> None:
     runner = FakeRunner()
-    runner.missing_executables = frozenset({"framenest-production"})
+    runner.missing_executables = frozenset({"kronika-production"})
 
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_UNIT_EXEC_GUARD
     transcript = _ssh_combined(runner)
     assert "ln -s" not in transcript
-    assert "restart framenest.service" not in transcript
+    assert "restart kronika.service" not in transcript
     assert runner.switched == []
 
 
 def test_rollback_refuses_a_target_lacking_the_installed_unit_executable() -> None:
     runner = FakeRunner()
-    runner.missing_executables = frozenset({"framenest-production"})
+    runner.missing_executables = frozenset({"kronika-production"})
 
     assert engine.main(_args("rollback"), runner=runner) == engine.EXIT_UNIT_EXEC_GUARD
     transcript = _ssh_combined(runner)
     assert "ln -s" not in transcript
-    assert "restart framenest.service" not in transcript
+    assert "restart kronika.service" not in transcript
     assert runner.switched == []
 
 
@@ -1523,7 +1523,7 @@ def test_automatic_rollback_is_guarded_before_it_switches() -> None:
             self._journal_failures = 0
 
         def _ssh_respond(self, combined, input_bytes):
-            if "journalctl -u framenest.service" in combined:
+            if "journalctl -u kronika.service" in combined:
                 self._journal_failures += 1
                 if self._journal_failures == 1:
                     raise engine.ReleaseError("terminal", engine.EXIT_SERVICE_TERMINAL)
@@ -1534,10 +1534,10 @@ def test_automatic_rollback_is_guarded_before_it_switches() -> None:
     transcript = _ssh_combined(runner)
     rollback_switch = transcript.rindex("ln -s")
     rollback_guard = transcript.rindex(
-        f"test -f {PREV_PATH}/.venv/bin/framenest-production"
+        f"test -f {PREV_PATH}/.venv/bin/kronika-production"
     )
     assert rollback_guard < rollback_switch
-    assert "restart framenest.service" in transcript[rollback_switch:]
+    assert "restart kronika.service" in transcript[rollback_switch:]
 
 
 def test_automatic_rollback_refuses_a_previous_release_it_cannot_start() -> None:
@@ -1549,7 +1549,7 @@ def test_automatic_rollback_refuses_a_previous_release_it_cannot_start() -> None
             self._journal_failures = 0
 
         def _ssh_respond(self, combined, input_bytes):
-            if "journalctl -u framenest.service" in combined:
+            if "journalctl -u kronika.service" in combined:
                 self._journal_failures += 1
                 if self._journal_failures == 1:
                     raise engine.ReleaseError("terminal", engine.EXIT_SERVICE_TERMINAL)
@@ -1567,7 +1567,7 @@ def test_automatic_rollback_refuses_a_previous_release_it_cannot_start() -> None
 
 def test_deploy_refuses_when_the_unit_declares_no_executable() -> None:
     runner = FakeRunner()
-    runner.unit_show = "ExecStartPre={ path=/opt/framenest/current/.venv/bin/framenest-production ; argv[]=x }"
+    runner.unit_show = "ExecStartPre={ path=/opt/kronika/current/.venv/bin/kronika-production ; argv[]=x }"
 
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_UNIT_EXEC_GUARD
     assert "ln -s" not in _ssh_combined(runner)
@@ -1581,12 +1581,12 @@ def test_deploy_refuses_an_unknown_execution_form_before_switching() -> None:
 
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_UNIT_EXEC_GUARD
     assert "ln -s" not in _ssh_combined(runner)
-    assert "restart framenest.service" not in _ssh_combined(runner)
+    assert "restart kronika.service" not in _ssh_combined(runner)
 
 
 def test_deploy_refuses_a_symlink_standing_where_a_console_script_must_be() -> None:
     runner = FakeRunner()
-    runner.symlinked_executables = frozenset({".venv/bin/framenest-production"})
+    runner.symlinked_executables = frozenset({".venv/bin/kronika-production"})
 
     assert engine.main(_args("deploy"), runner=runner) == engine.EXIT_UNIT_EXEC_GUARD
     assert "ln -s" not in _ssh_combined(runner)
@@ -1606,3 +1606,154 @@ def test_routine_paths_never_migrate_install_or_restart_capture() -> None:
         assert "restart kronika-capture-runner.service" not in transcript
         assert "systemctl start kronika-capture-" not in transcript
         assert "systemctl stop kronika-capture-" not in transcript
+
+
+_TRANSPORT = {"target": "nuc", "user": "op", "identity": "identity"}
+_FORMER_LAYOUT_DEFAULTS = (
+    "framenest.service",
+    "/opt/framenest/current",
+    "/opt/framenest/capture-current",
+    "/opt/framenest/releases",
+    "/etc/framenest/framenest.env",
+    "/var/lib/framenest",
+    "/var/cache/framenest",
+    "/run/framenest",
+)
+_REMOVED_SELECTORS = (
+    "OLD_WEB_LAYOUT",
+    "WEB_LAYOUTS",
+    "OLD_CAPTURE_CURRENT",
+    "CAPTURE_POINTERS",
+    "SERVICE",
+    "SERVICE_USER",
+    "SERVICE_GROUP",
+    "RELEASE_ROOT",
+    "CURRENT",
+    "CAPTURE_CURRENT",
+    "ENV_FILE",
+)
+
+
+def test_selection_consumes_exactly_the_canonical_layout() -> None:
+    """One candidate is defined, and selection consumes that set.
+
+    Adding a second member to ``WEB_LAYOUT_CANDIDATES`` fails this test.
+    A routine builder default that names a former-layout path fails it too.
+    """
+    import ast
+
+    layout = engine.CANONICAL_WEB_LAYOUT
+    assert engine.WEB_LAYOUT_CANDIDATES == (layout,)
+    assert layout == engine.WebLayout(
+        key="canonical",
+        service="kronika.service",
+        user="kronika",
+        group="kronika",
+        release_root="/opt/kronika/releases",
+        current="/opt/kronika/current",
+        env_file="/etc/kronika/kronika.env",
+        state_root="/var/lib/kronika",
+        cache_root="/var/cache/kronika",
+        runtime_root="/run/kronika",
+        socket_path="/run/kronika/kronika.sock",
+    )
+    for probe in (
+        engine.WebLayout,
+        engine.WebLayoutReading,
+        engine.HostLayoutState,
+        engine.parse_web_layout_probe,
+        engine.select_web_layout,
+        engine.cmd_remote_layout_probe,
+    ):
+        assert probe is not None
+
+    tree = ast.parse(ENGINE_PATH.read_text(encoding="utf-8"))
+    consumed = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "resolve_host_layout"
+        for child in ast.walk(node)
+        if isinstance(child, ast.Name) and child.id == "WEB_LAYOUT_CANDIDATES"
+    ]
+    assert consumed
+
+    module_names: set[str] = set()
+    for node in tree.body:
+        targets: list[ast.expr] = []
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name):
+                module_names.add(target.id)
+    for name in _REMOVED_SELECTORS:
+        assert name not in module_names
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        defaults = [
+            item
+            for item in (*node.args.defaults, *node.args.kw_defaults)
+            if item is not None
+        ]
+        for default in defaults:
+            for child in ast.walk(default):
+                if isinstance(child, ast.Constant) and isinstance(child.value, str):
+                    for needle in _FORMER_LAYOUT_DEFAULTS:
+                        assert needle not in child.value
+
+
+def test_absent_capture_pointer_stays_on_the_canonical_path() -> None:
+    """A missing pointer is absent on the canonical path, never the retired one."""
+    runner = FakeRunner()
+    result = engine.resolve_capture_pointer(runner, _TRANSPORT)
+
+    assert result == (
+        "none",
+        "/opt/kronika/capture-current",
+        "/opt/kronika/releases",
+    )
+    assert result[1] != "/opt/framenest/capture-current"
+    transcript = _ssh_combined(runner)
+    assert "test -L /opt/kronika/capture-current" in transcript
+    assert "/opt/framenest/capture-current" not in transcript
+
+    live = FakeRunner()
+    live.new_capture_link = f"/opt/kronika/releases/{RELEASE}"
+    assert engine.resolve_capture_pointer(live, _TRANSPORT) == (
+        "canonical",
+        "/opt/kronika/capture-current",
+        "/opt/kronika/releases",
+    )
+
+
+def test_accepted_release_roots_is_the_canonical_root_only() -> None:
+    """Remote helpers accept writes under the one canonical release root."""
+    import ast
+
+    assert engine.accepted_release_roots() == ("/opt/kronika/releases",)
+    engine.validate_remote_path(
+        "/opt/kronika/releases/abc", *engine.accepted_release_roots()
+    )
+    with pytest.raises(engine.ReleaseError):
+        engine.validate_remote_path(
+            "/opt/framenest/releases/abc", *engine.accepted_release_roots()
+        )
+
+    tree = ast.parse(ENGINE_PATH.read_text(encoding="utf-8"))
+    for name in ("remote_extract", "relocate_venv_shebangs"):
+        function = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == name
+        )
+        calls = [
+            child
+            for child in ast.walk(function)
+            if isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Name)
+            and child.func.id == "accepted_release_roots"
+        ]
+        assert calls

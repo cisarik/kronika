@@ -9,6 +9,7 @@ temporary directories only. They never contact a real host or inspect secrets.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import importlib.util
 from pathlib import Path
 import tarfile
@@ -215,17 +216,22 @@ def test_verify_local_head_accepts_exact_match() -> None:
 
 
 def test_validate_remote_path_bounds_paths() -> None:
-    engine.validate_remote_path("/opt/framenest/releases/abc", engine.RELEASE_ROOT)
+    root = engine.CANONICAL_WEB_LAYOUT.release_root
+    engine.validate_remote_path(f"{root}/abc", root)
     with pytest.raises(engine.ReleaseError):
-        engine.validate_remote_path("/etc/passwd", engine.RELEASE_ROOT)
+        engine.validate_remote_path("/etc/passwd", root)
     with pytest.raises(engine.ReleaseError):
-        engine.validate_remote_path("/opt/framenest/../etc", engine.RELEASE_ROOT)
+        engine.validate_remote_path("/opt/kronika/../etc", root)
 
 
 def test_relocate_venv_shebangs_rewrites_staging_prefix_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging = tmp_path / f"{RELEASE}.staging"
     final = tmp_path / RELEASE
     bindir = staging / ".venv" / "bin"
@@ -252,7 +258,11 @@ def test_relocate_venv_shebangs_rewrites_staging_prefix_only(
 def test_relocate_venv_shebangs_fails_closed_when_none_rewritten(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging = tmp_path / f"{RELEASE}.staging"
     final = tmp_path / RELEASE
     bindir = staging / ".venv" / "bin"
@@ -286,7 +296,11 @@ def _editable_metadata_tree(tmp_path: Path) -> tuple[Path, Path, Path, Path, Pat
 def test_relocate_venv_rewrites_editable_pth_and_direct_url(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging, final, pth, direct_url, sibling, db = _editable_metadata_tree(tmp_path)
     pth.write_text(f"{staging}/src\n", encoding="utf-8")
     direct_url.write_text(
@@ -316,7 +330,11 @@ def test_relocate_venv_rewrites_editable_pth_and_direct_url(
 def test_relocate_venv_fails_closed_when_pth_retains_staging(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging, final, pth, direct_url, sibling, _db = _editable_metadata_tree(tmp_path)
     leftover = tmp_path / f"{'b' * 40}.staging"
     pth.write_text(f"{leftover}/src\n", encoding="utf-8")
@@ -335,7 +353,11 @@ def test_relocate_venv_fails_closed_when_pth_retains_staging(
 def test_relocate_venv_fails_closed_when_direct_url_retains_staging(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging, final, pth, direct_url, sibling, _db = _editable_metadata_tree(tmp_path)
     leftover = tmp_path / f"{'b' * 40}.staging"
     pth.write_text(f"{final}/src\n", encoding="utf-8")
@@ -352,7 +374,11 @@ def test_relocate_venv_fails_closed_when_direct_url_retains_staging(
 
 
 def _script_bindir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging = tmp_path / f"{RELEASE}.staging"
     final = tmp_path / RELEASE
     bindir = staging / ".venv" / "bin"
@@ -461,7 +487,11 @@ def test_relocate_venv_shebangs_rejects_a_bare_script_string(
 def test_capture_script_relocation_still_rejects_staging_metadata(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(engine, "RELEASE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        engine,
+        "CANONICAL_WEB_LAYOUT",
+        replace(engine.CANONICAL_WEB_LAYOUT, release_root=str(tmp_path)),
+    )
     staging, final, pth, _direct_url, _sibling, _db = _editable_metadata_tree(tmp_path)
     bindir = staging / ".venv" / "bin"
     _write_staging_script(bindir, staging, "kronika-capture")
