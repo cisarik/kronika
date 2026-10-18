@@ -154,10 +154,10 @@ managed-process liveness record and leaves every explicitly overridden path
 unchanged. Both operations refuse to run while the managed development server
 is running.
 
-The runtime default locations themselves do not change: until the later
-identity switch, launcher-managed state continues at its current locations and
-the migration copies it to the canonical destinations. The private migration
-receipts are the evidence required before that switch.
+Launcher defaults are already `~/Library/Application Support/Kronika` on macOS
+and `$XDG_DATA_HOME/Kronika` elsewhere. `kronika-dev migrate-identity-paths`
+remains the workstation copy tool for a leftover legacy tree, with the
+refusal safeguard in front of creating an empty catalog.
 
 ## Local `.env` And Explicit Environment Files
 

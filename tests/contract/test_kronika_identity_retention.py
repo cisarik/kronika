@@ -1943,7 +1943,12 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # They keep lowercase tokens and
 # remain in the content-path set. Environment, host, unit and console pins
 # are unchanged, as are deploy, scripts and docs per-tree measurements.
-CAPITALIZED_OCCURRENCE_COUNT = 2327
+# KSI-IMPL-C9B3, measured before the re-pin: occurrences 2327+1=2328.
+# The one addition is the class-residue sentence in ROADMAP.md. That file
+# already carried one capitalized spelling, so the file count stays 343.
+# Per-tree counts, content paths, environment tokens, the mutation header,
+# host paths, unit accounts and console scripts did not fail.
+CAPITALIZED_OCCURRENCE_COUNT = 2328
 CAPITALIZED_FILE_COUNT = 343
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
