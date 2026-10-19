@@ -170,13 +170,13 @@ def default_ai_config_path(
             resolved_home
             / "Library"
             / "Application Support"
-            / "FrameNest"
+            / "Kronika"
             / "ai"
             / "config.json"
         )
     xdg_config = source.get("XDG_CONFIG_HOME")
     config_home = _validated_absolute_path(xdg_config) if xdg_config else resolved_home / ".config"
-    return config_home / "framenest" / "ai" / "config.json"
+    return config_home / "kronika" / "ai" / "config.json"
 
 
 def default_ai_test_state_path(config_path: Path) -> Path:

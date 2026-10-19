@@ -381,7 +381,7 @@ def test_development_destinations_equal_the_public_default_functions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Development defaults now match the canonical side; AI defaults stay put."""
+    """Development and AI defaults match the canonical migration destinations."""
     home = tmp_path / "home"
     temp_root = tmp_path / "temp-root"
 
@@ -401,14 +401,36 @@ def test_development_destinations_equal_the_public_default_functions(
         darwin_paths.log_path.parent
     )
     darwin_ai = default_ai_config_path({}, platform="darwin", home=home)
-    assert darwin_plan.by_key("macos_ai_configuration").source == darwin_ai
-    assert darwin_plan.by_key("macos_ai_test_state").source == (
+    legacy_darwin_ai = (
+        home
+        / "Library"
+        / "Application Support"
+        / migration_module.LEGACY_APP_DIRECTORY_NAME
+        / migration_module.AI_DIRECTORY_NAME
+        / migration_module.AI_CONFIG_FILENAME
+    )
+    assert darwin_plan.by_key("macos_ai_configuration").destination == darwin_ai
+    assert darwin_plan.by_key("macos_ai_configuration").source == legacy_darwin_ai
+    assert darwin_ai == (
+        home
+        / "Library"
+        / "Application Support"
+        / migration_module.CANONICAL_APP_DIRECTORY_NAME
+        / migration_module.AI_DIRECTORY_NAME
+        / migration_module.AI_CONFIG_FILENAME
+    )
+    assert darwin_plan.by_key("macos_ai_test_state").destination == (
         default_ai_test_state_path(darwin_ai)
     )
-    assert darwin_plan.by_key("macos_ai_status_snapshot").source == (
+    assert darwin_plan.by_key("macos_ai_status_snapshot").destination == (
         default_ai_status_snapshot_path(darwin_ai)
     )
-    assert darwin_plan.by_key("macos_ai_configuration").destination != darwin_ai
+    assert darwin_plan.by_key("macos_ai_test_state").source == (
+        legacy_darwin_ai.parent / migration_module.AI_TEST_STATE_FILENAME
+    )
+    assert darwin_plan.by_key("macos_ai_status_snapshot").source == (
+        legacy_darwin_ai.parent / migration_module.AI_STATUS_SNAPSHOT_FILENAME
+    )
 
     xdg_environ = {
         "XDG_DATA_HOME": str(tmp_path / "xdg-data"),
@@ -427,17 +449,56 @@ def test_development_destinations_equal_the_public_default_functions(
     xdg_ai = default_ai_config_path(
         xdg_environ, platform="linux", home=home
     )
-    assert xdg_plan.by_key("xdg_ai_configuration").source == xdg_ai
-    assert xdg_plan.by_key("xdg_ai_test_state").source == default_ai_test_state_path(
+    legacy_xdg_ai = (
+        _resolved(Path(xdg_environ["XDG_CONFIG_HOME"]))
+        / migration_module.LEGACY_LOWER_DIRECTORY_NAME
+        / migration_module.AI_DIRECTORY_NAME
+        / migration_module.AI_CONFIG_FILENAME
+    )
+    assert xdg_plan.by_key("xdg_ai_configuration").destination == xdg_ai
+    assert xdg_plan.by_key("xdg_ai_configuration").source == legacy_xdg_ai
+    assert xdg_ai == (
+        _resolved(Path(xdg_environ["XDG_CONFIG_HOME"]))
+        / migration_module.CANONICAL_LOWER_DIRECTORY_NAME
+        / migration_module.AI_DIRECTORY_NAME
+        / migration_module.AI_CONFIG_FILENAME
+    )
+    assert xdg_plan.by_key("xdg_ai_test_state").destination == default_ai_test_state_path(
         xdg_ai
     )
-    assert xdg_plan.by_key("xdg_ai_status_snapshot").source == (
+    assert xdg_plan.by_key("xdg_ai_status_snapshot").destination == (
         default_ai_status_snapshot_path(xdg_ai)
     )
-    assert xdg_plan.by_key("xdg_ai_configuration").destination != xdg_ai
-    assert xdg_ai.parent.parent.name == "framenest"
+    assert xdg_plan.by_key("xdg_ai_test_state").source == (
+        legacy_xdg_ai.parent / migration_module.AI_TEST_STATE_FILENAME
+    )
+    assert xdg_plan.by_key("xdg_ai_status_snapshot").source == (
+        legacy_xdg_ai.parent / migration_module.AI_STATUS_SNAPSHOT_FILENAME
+    )
+    assert xdg_ai.parent.parent.name == migration_module.CANONICAL_LOWER_DIRECTORY_NAME
+    assert legacy_xdg_ai.parent.parent.name == migration_module.LEGACY_LOWER_DIRECTORY_NAME
     assert xdg_plan.by_key("xdg_ai_configuration").destination.parent.parent.name == (
-        "kronika"
+        migration_module.CANONICAL_LOWER_DIRECTORY_NAME
+    )
+    unset_xdg_plan = build_migration_plan(
+        environ={}, platform_name="linux", home=home, temp_root=temp_root
+    )
+    unset_xdg_ai = default_ai_config_path({}, platform="linux", home=home)
+    legacy_unset_xdg_ai = (
+        home
+        / ".config"
+        / migration_module.LEGACY_LOWER_DIRECTORY_NAME
+        / migration_module.AI_DIRECTORY_NAME
+        / migration_module.AI_CONFIG_FILENAME
+    )
+    assert unset_xdg_plan.by_key("xdg_ai_configuration").destination == unset_xdg_ai
+    assert unset_xdg_plan.by_key("xdg_ai_configuration").source == legacy_unset_xdg_ai
+    assert unset_xdg_ai == (
+        home
+        / ".config"
+        / migration_module.CANONICAL_LOWER_DIRECTORY_NAME
+        / migration_module.AI_DIRECTORY_NAME
+        / migration_module.AI_CONFIG_FILENAME
     )
 
     monkeypatch.setattr(

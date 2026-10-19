@@ -247,7 +247,9 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     # src/kronika_capture/bridge/server.py loses its last two retired tokens,
     # both operational capture labels. deploy/ubuntu/README.md loses its last
     # token, the former capture pointer. No path is renamed and no path is added.
-    "src": 183,
+    # KSI-CORR-C9B16B, measured before the re-pin: src 183-1=182.
+    # infrastructure/ai/configuration.py lost its last retired token.
+    "src": 182,
     # KSI-IMPL-C4A moved `deploy` by +1 and `tests` by +1, and nothing else.
     #
     # `deploy` +1: `deploy/ubuntu/kronika-release` and
@@ -584,7 +586,9 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # x-acquisition prefix, the youtube-acquisition task name, the backup
     # stderr-drain name, the two media-analysis reader names, and the
     # contact-sheet temporary prefix.
-    "src": 1587,
+    # KSI-CORR-C9B16B, measured before the re-pin: src 1587-2=1585.
+    # Both fallback directory literals in infrastructure/ai/configuration.py left.
+    "src": 1585,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -872,7 +876,11 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # youtube_acquisition_cockpit.test.js -1. The renamed tailscale test
     # title removes one further capitalized spelling that is not the header
     # token. No test file lost its last lowercase occurrence.
-    "tests": 987,
+    # KSI-CORR-C9B16B, measured before the re-pin: tests 987-1=986.
+    # test_local_state_migration.py no longer spells the legacy AI directory
+    # on the default it now compares with the canonical destination.
+    # No test file lost its last occurrence.
+    "tests": 986,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -1098,6 +1106,8 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
 # KSI-IMPL-C9B1 removes exactly one content path, with no additions:
 # tests/contract/test_kronika_identity_migration.py, deleted with the
 # one-time migration commands.
+# KSI-CORR-C9B16B, measured before the re-pin, removes exactly one content
+# path and adds none: src/kronika/infrastructure/ai/configuration.py.
 EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
     {
         ".gitignore",
@@ -1303,7 +1313,6 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "src/kronika/identity_env.py",
         "src/kronika/infrastructure/__init__.py",
         "src/kronika/infrastructure/ai/chatgpt_page/budget.py",
-        "src/kronika/infrastructure/ai/configuration.py",
         "src/kronika/infrastructure/ai/image_derivative.py",
         "src/kronika/infrastructure/ai/nvidia_nim.py",
         "src/kronika/infrastructure/ai/openai_chat_completions.py",
@@ -1979,8 +1988,13 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # count, and that same command's occurrence count matches the pytest
 # measurement of 2321. Per-tree file counts, content paths, environment
 # tokens, host paths, unit accounts and console scripts did not fail.
-CAPITALIZED_OCCURRENCE_COUNT = 2321
-CAPITALIZED_FILE_COUNT = 341
+# KSI-CORR-C9B16B, measured before the re-pin: occurrences 2321-1=2320
+# and files 341-1=340. The one departure is the darwin fallback literal in
+# infrastructure/ai/configuration.py. Pytest stopped on the occurrence
+# assert; the file count is the git grep -I -l count, and that command's
+# occurrence count matches the pytest measurement of 2320.
+CAPITALIZED_OCCURRENCE_COUNT = 2320
+CAPITALIZED_FILE_COUNT = 340
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

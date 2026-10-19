@@ -178,9 +178,12 @@ MEASURED = measured_product_strings()
 # inventory (two Constant nodes in each of _database_path, _runtime_dir and
 # _log_path). 57 + 6 = 63. The two excluded prompt openings stay outside
 # EXPECTED, so the in-scope pin is 55 + 6 = 61 and 63 = 61 + 2.
-OCCURRENCE_COUNT = 63
+# KSI-CORR-C9B16B, measured before the re-pin: occurrences 63+1=64 and
+# in-scope 61+1=62. The one addition is the darwin fallback Constant in
+# default_ai_config_path. The lowercase fallback is not a brand-bearing node.
+OCCURRENCE_COUNT = 64
 
-IN_SCOPE_OCCURRENCE_COUNT = 61
+IN_SCOPE_OCCURRENCE_COUNT = 62
 EXCLUDED_PROMPT_OCCURRENCE_COUNT = 2
 
 EXPECTED: dict[tuple[str, str, str, int], str] = {
@@ -234,6 +237,9 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
     ("src/kronika/domain/media_user_alias.py", "<module>", "Constant", 0): "Invalid Kronika media user alias.",
     # src/kronika/domain/uploads.py
     ("src/kronika/domain/uploads.py", "<module>", "Constant", 0): "Invalid Kronika upload session.",
+    # src/kronika/infrastructure/ai/configuration.py
+    # The darwin fallback directory. The XDG fallback is lowercase.
+    ("src/kronika/infrastructure/ai/configuration.py", "default_ai_config_path", "Constant", 0): "Kronika",
     # src/kronika/infrastructure/persistence/alembic_environment/env.py
     ("src/kronika/infrastructure/persistence/alembic_environment/env.py", "run_migrations_online", "Constant", 0): "Kronika migration connection is unavailable.",
     # src/kronika/infrastructure/persistence/cli.py
@@ -282,8 +288,9 @@ EXPECTED: dict[tuple[str, str, str, int], str] = {
 
 EXPECTED_DUPLICATE_LITERALS: dict[str, int] = {
     "Invalid Kronika media user alias.": 3,
-    # Two existing module constants plus the six development path components.
-    "Kronika": 8,
+    # Two existing module constants, the six development path components,
+    # and the darwin AI-config fallback. Measured 8+1=9.
+    "Kronika": 9,
     "Kronika configuration could not be loaded.": 3,
     "Kronika is stopped.": 3,
     "KronikaSettings": 3,
