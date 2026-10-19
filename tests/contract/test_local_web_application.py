@@ -2912,16 +2912,17 @@ def test_kronika_shell_adds_timeline_without_replacing_gallery(client: TestClien
 # ---------------------------------------------------------------------------
 
 
-def test_served_shell_sends_both_mutation_header_spellings(client: TestClient) -> None:
+def test_served_shell_sends_only_the_canonical_mutation_header(client: TestClient) -> None:
     script = client.get("/assets/app.js").text
     helper = _javascript_function(script, "framenestMutationHeaders")
 
-    assert script.count('"X-FrameNest-Request"') == 1, "the retired spelling stays single"
-    assert script.count('"X-Kronika-Request"') == 1, "the current spelling is single too"
+    assert script.count('"X-FrameNest-Request"') == 0
+    assert script.count('"X-Kronika-Request"') == 1
     assert 'merged["X-Kronika-Request"] = "1";' in helper
-    assert 'Object.assign({ "X-FrameNest-Request": "1" }, headers)' in helper
+    assert "const merged = Object.assign({}, headers);" in helper
+    assert 'Object.assign({ "X-FrameNest-Request": "1" }, headers)' not in helper
     assert helper.index("Object.assign") < helper.index('merged["X-Kronika-Request"]'), (
-        "the current spelling is applied after the merge so a caller cannot weaken the gate"
+        "the canonical spelling is applied after the merge so a caller cannot weaken the gate"
     )
     wrapped = script.count("headers: framenestMutationHeaders(")
     unsafe = len(re.findall(r'method: "(?:POST|PUT|PATCH|DELETE)"', script))

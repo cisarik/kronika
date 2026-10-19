@@ -719,7 +719,7 @@ class XAcquisitionCoordinator:
         if self._executor is None:
             self._executor = ThreadPoolExecutor(
                 max_workers=1,
-                thread_name_prefix="framenest-x-acquisition",
+                thread_name_prefix="kronika-x-acquisition",
             )
             self._owns_executor = True
         return self._executor

@@ -111,7 +111,7 @@ class MediaAnalysisCoordinator:
         self._wake = asyncio.Event()
         self._runner = asyncio.create_task(
             self._run(),
-            name="framenest-media-analysis-coordinator",
+            name="kronika-media-analysis-coordinator",
         )
         attach_unexpected_runner_observer(
             self._runner,
@@ -400,7 +400,7 @@ class MediaAnalysisCoordinator:
         if self._executor is None:
             self._executor = ThreadPoolExecutor(
                 max_workers=1,
-                thread_name_prefix="framenest-media-analysis",
+                thread_name_prefix="kronika-media-analysis",
             )
         return self._executor
 

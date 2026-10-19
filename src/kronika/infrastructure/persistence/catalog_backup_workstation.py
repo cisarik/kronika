@@ -424,7 +424,7 @@ def pull_workstation_snapshot(
         stderr_thread = threading.Thread(
             target=_drain_stderr,
             args=(process.stderr, stderr_state),
-            name="framenest-ssh-stderr-drain",
+            name="kronika-ssh-stderr-drain",
             daemon=True,
         )
         stderr_thread.start()

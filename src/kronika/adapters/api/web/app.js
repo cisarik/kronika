@@ -434,12 +434,8 @@ function clearMigratedStorageItem(storage, currentKey, retiredKey) {
 }
 
 function framenestMutationHeaders(headers) {
-  const merged = Object.assign({ "X-FrameNest-Request": "1" }, headers);
-  // The mutation gate is the one server contract this shell depends on. Both
-  // spellings are sent on every request so the shell keeps working against a
-  // server that predates the dual-read cut as well as one that has it: a server
-  // compares only the spelling it knows and ignores the extra header. The gate
-  // value is applied after the merge so a caller cannot weaken it.
+  const merged = Object.assign({}, headers);
+  // The shell sends only the canonical mutation header, applied after the merge so a caller cannot weaken it.
   merged["X-Kronika-Request"] = "1";
   return merged;
 }

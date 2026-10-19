@@ -517,7 +517,8 @@ test("publish batch requires confirmation and reuses the existing route and muta
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "/api/admin/media/m1/content-publication");
   assert.equal(calls[0].method, "PUT");
-  assert.equal(calls[0].headers["X-FrameNest-Request"], "1");
+  assert.equal(calls[0].headers["X-Kronika-Request"], "1");
+  assert.equal(calls[0].headers["X-FrameNest-Request"], undefined);
   const helper = extractFunction(APP_SOURCE, "executeAdminPublishBatchItem");
   assert.match(helper, /framenestMutationHeaders/);
   assert.match(helper, /ADMIN_MEDIA_ENDPOINT\}\/\$\{encodeURIComponent\(record\.mediaId\)\}\/content-publication/);
@@ -847,7 +848,8 @@ test("analysis batch enqueues sequentially with terminal polling before the next
       if (call.url.includes("durable-analysis")) {
         sequence.push(`POST ${call.url}`);
         assert.equal(call.method, "POST");
-        assert.equal(call.headers["X-FrameNest-Request"], "1");
+        assert.equal(call.headers["X-Kronika-Request"], "1");
+        assert.equal(call.headers["X-FrameNest-Request"], undefined);
         assert.equal(JSON.parse(call.body).confirm_cloud_upload, true);
         return response({ state: "pending", media_id: call.url.split("/")[4] });
       }

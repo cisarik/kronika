@@ -261,7 +261,7 @@ def _live_validation_threads() -> list[threading.Thread]:
     return [
         thread
         for thread in threading.enumerate()
-        if thread.name.startswith("framenest-upload-validation") and thread.is_alive()
+        if thread.name.startswith("kronika-upload-validation") and thread.is_alive()
     ]
 
 
@@ -402,7 +402,7 @@ def test_unexpected_validator_exception_does_not_permanently_kill_runner() -> No
         assert not [
             thread
             for thread in threading.enumerate()
-            if thread.name.startswith("framenest-upload-validation") and thread.is_alive()
+            if thread.name.startswith("kronika-upload-validation") and thread.is_alive()
         ]
 
     asyncio.run(scenario())

@@ -477,12 +477,13 @@ test("ping and pong run only on explicit actions and pong requires the in-dialog
   assert.deepEqual(pingCall.body, {});
 });
 
-test("every unsafe fetch call site uses framenestMutationHeaders and the literal stays single", () => {
+test("every unsafe fetch call site uses framenestMutationHeaders and the canonical literal stays single", () => {
   const mutationSites = APP_SOURCE.match(/method: "(?:POST|PUT|PATCH|DELETE)"/g) || [];
   const wrappedSites = APP_SOURCE.match(/headers: framenestMutationHeaders\(/g) || [];
   assert.ok(mutationSites.length > 0);
   assert.equal(mutationSites.length, wrappedSites.length);
-  assert.equal((APP_SOURCE.match(/"X-FrameNest-Request"/g) || []).length, 1);
+  assert.equal((APP_SOURCE.match(/"X-Kronika-Request"/g) || []).length, 1);
+  assert.equal((APP_SOURCE.match(/"X-FrameNest-Request"/g) || []).length, 0);
 });
 
 test("failure copy is sanitized and credential-missing providers disable actions", () => {

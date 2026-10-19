@@ -277,7 +277,7 @@ def extract_and_compose_contact_sheet(
 ) -> tuple[ContactSheetDerivative, tuple[str, ...]]:
     """Extract frames and compose one contact sheet with deterministic cleanup."""
     # media_path is local-only and never forwarded to providers.
-    work_dir = tempfile.mkdtemp(prefix="framenest-contact-")
+    work_dir = tempfile.mkdtemp(prefix="kronika-contact-")
     try:
         frames, warnings = extract_movie_identification_frames(
             runner,

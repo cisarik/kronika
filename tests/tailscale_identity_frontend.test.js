@@ -293,52 +293,51 @@ function createStatusTabHarness(fetchImpl, locationStub, role = "admin") {
   return context;
 }
 
-test("mutation helper always injects the FrameNest mutation header", () => {
+test("mutation helper always injects the canonical mutation header", () => {
   const context = createIdentityHarness(async () => response({}, 404));
   const merged = vm.runInContext(
     'framenestMutationHeaders({ Accept: "application/json", "Upload-Offset": "7" })',
     context,
   );
-  assert.equal(merged["X-FrameNest-Request"], "1");
+  assert.equal(merged["X-Kronika-Request"], "1");
+  assert.equal(merged["X-FrameNest-Request"], undefined);
   assert.equal(merged.Accept, "application/json");
   assert.equal(merged["Upload-Offset"], "7");
 });
 
-test("Class 1: the web shell mutation helper injects both header spellings", () => {
+test("the web shell mutation helper sends only the canonical header after the merge", () => {
   const context = createIdentityHarness(async () => response({}, 404));
   const merged = vm.runInContext(
     'framenestMutationHeaders({ Accept: "application/json", "Upload-Offset": "7" })',
     context,
   );
-  assert.equal(merged["X-FrameNest-Request"], "1");
   assert.equal(merged["X-Kronika-Request"], "1");
+  assert.equal(merged["X-FrameNest-Request"], undefined);
   assert.equal(merged.Accept, "application/json");
   assert.equal(merged["Upload-Offset"], "7");
 
   const hostile = vm.runInContext(
-    'framenestMutationHeaders({ "X-Kronika-Request": "0", "X-FrameNest-Request": "0" })',
+    'framenestMutationHeaders({ "X-Kronika-Request": "0" })',
     context,
-  );
-  assert.equal(
-    hostile["X-FrameNest-Request"],
-    "0",
-    "a caller may still override the retired spelling, as before this cut"
   );
   assert.equal(
     hostile["X-Kronika-Request"],
     "1",
-    "the current spelling is applied after the merge so a caller cannot weaken the gate"
+    "the canonical spelling is applied after the merge so a caller cannot weaken the gate"
   );
+  assert.equal(hostile["X-FrameNest-Request"], undefined);
 
   const bare = vm.runInContext("framenestMutationHeaders()", context);
-  assert.equal(bare["X-FrameNest-Request"], "1");
   assert.equal(bare["X-Kronika-Request"], "1");
+  assert.equal(bare["X-FrameNest-Request"], undefined);
 
+  assert.ok(APP_SOURCE.includes("const merged = Object.assign({}, headers);"));
+  assert.ok(APP_SOURCE.includes('merged["X-Kronika-Request"] = "1";'));
   assert.ok(
-    APP_SOURCE.includes('Object.assign({ "X-FrameNest-Request": "1" }, headers)'),
-    "the retired spelling stays pinned in the shared helper"
+    APP_SOURCE.indexOf("Object.assign") <
+      APP_SOURCE.indexOf('merged["X-Kronika-Request"] = "1";'),
   );
-  assert.equal((APP_SOURCE.match(/"X-FrameNest-Request"/g) || []).length, 1);
+  assert.equal((APP_SOURCE.match(/"X-FrameNest-Request"/g) || []).length, 0);
   assert.equal((APP_SOURCE.match(/X-Kronika-Request/g) || []).length, 1);
 });
 
@@ -347,7 +346,8 @@ test("every unsafe fetch call site sends the mutation header", () => {
   const wrappedSites = APP_SOURCE.match(/headers: framenestMutationHeaders\(/g) || [];
   assert.ok(mutationSites.length > 0);
   assert.equal(mutationSites.length, wrappedSites.length);
-  assert.equal((APP_SOURCE.match(/"X-FrameNest-Request"/g) || []).length, 1);
+  assert.equal((APP_SOURCE.match(/"X-Kronika-Request"/g) || []).length, 1);
+  assert.equal((APP_SOURCE.match(/"X-FrameNest-Request"/g) || []).length, 0);
 });
 
 test("identity bootstrap runs first and gates the initial catalog load", () => {

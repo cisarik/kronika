@@ -402,14 +402,14 @@ def test_temporary_artifacts_are_cleaned_up() -> None:
     runner = _ScriptedRunner(
         [ProcessRunResult(returncode=0, stdout=payload, stderr=b"") for payload in usable]
     )
-    before = set(Path(tempfile.gettempdir()).glob("framenest-contact-*"))
+    before = set(Path(tempfile.gettempdir()).glob("kronika-contact-*"))
     sheet, _warnings = extract_and_compose_contact_sheet(
         runner,
         ffmpeg_executable="/usr/bin/ffmpeg",
         media_path="/tmp/synthetic.mp4",
         duration_ms=100_000,
     )
-    after = set(Path(tempfile.gettempdir()).glob("framenest-contact-*"))
+    after = set(Path(tempfile.gettempdir()).glob("kronika-contact-*"))
     assert sheet.source_frame_count == 5
     assert after == before
 

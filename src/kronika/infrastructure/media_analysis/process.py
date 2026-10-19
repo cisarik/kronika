@@ -21,8 +21,8 @@ _READ_CHUNK_SIZE = 8192
 _JOIN_TIMEOUT_SECONDS = 5.0
 _TERMINATE_GRACE_SECONDS = 0.2
 _POLL_INTERVAL_SECONDS = 0.01
-_STDOUT_READER_THREAD_NAME = "framenest-media-analysis-stdout-reader"
-_STDERR_READER_THREAD_NAME = "framenest-media-analysis-stderr-reader"
+_STDOUT_READER_THREAD_NAME = "kronika-media-analysis-stdout-reader"
+_STDERR_READER_THREAD_NAME = "kronika-media-analysis-stderr-reader"
 
 
 class ProcessExecutionError(RuntimeError):

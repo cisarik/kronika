@@ -79,7 +79,7 @@ SUPPORTED_INGRESS_MODES = frozenset(
     }
 )
 WORKSPACE_UDS_PATH = Path("/run/framenest/framenest.sock")
-DEFAULT_PUBLIC_PUBLISHED_UDS_PATH = Path("/run/framenest/framenest-public.sock")
+DEFAULT_PUBLIC_PUBLISHED_UDS_PATH = Path("/run/kronika/kronika-public.sock")
 MAX_EXTERNAL_ORIGIN_LENGTH = 255
 MAX_COMPANION_EXTENSION_ORIGINS = 4
 _CHROME_EXTENSION_ORIGIN_PATTERN = re.compile(r"^chrome-extension://[a-p]{32}$")

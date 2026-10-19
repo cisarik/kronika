@@ -879,7 +879,7 @@ class YouTubeAcquisitionCoordinator:
         await self._reconcile_startup()
         self._runner = asyncio.create_task(
             self._run(),
-            name="framenest-youtube-acquisition-coordinator",
+            name="kronika-youtube-acquisition-coordinator",
         )
         attach_unexpected_runner_observer(
             self._runner,

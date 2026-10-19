@@ -280,7 +280,11 @@ function createHarness(fetchImpl, options = {}) {
     identityHasCapability: (capability) => identityState.capabilities.has(capability),
     isPublicPublishedAudience: () => identityState.audience === "public_published",
     framenestJSONHeaders: () => ({ Accept: "application/json", "Content-Type": "application/json" }),
-    framenestMutationHeaders: (headers) => Object.assign({ "X-FrameNest-Request": "1" }, headers || {}),
+    framenestMutationHeaders: (headers) => {
+      const merged = Object.assign({}, headers || {});
+      merged["X-Kronika-Request"] = "1";
+      return merged;
+    },
     loadCatalog: () => catalogLoads.push("catalog"),
     loadCatalogTags: () => catalogLoads.push("tags"),
     openDetailsDialog: (item) => detailsCalls.push(item),
@@ -440,7 +444,8 @@ test("submission retries keep the attempt id until the question changes", async 
   assert.equal(bodies[0].prompt, "Same question");
   assert.equal(bodies[0].consent_version, "kronika-research-v1");
   assert.equal(harness.calls.filter((call) => call.init && call.init.method === "POST").every((call) => (
-    call.init.headers["X-FrameNest-Request"] === "1"
+    call.init.headers["X-Kronika-Request"] === "1" &&
+    call.init.headers["X-FrameNest-Request"] === undefined
   )), true);
   const stored = harness.storage.get("kronika.research.attempt.v1");
   assert.equal(stored.includes("Same question"), false);

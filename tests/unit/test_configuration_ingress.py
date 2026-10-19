@@ -167,7 +167,7 @@ def test_public_published_uds_mode_defaults_distinct_socket(tmp_path: Path) -> N
         _env_file=None,
     )
     assert settings.ingress_mode == "public_published_uds"
-    assert settings.uds_path == Path("/run/framenest/framenest-public.sock")
+    assert settings.uds_path == Path("/run/kronika/kronika-public.sock")
     assert settings.uds_path != Path("/run/framenest/framenest.sock")
 
 

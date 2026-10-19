@@ -209,7 +209,11 @@ function createYouTubeAccessibilityHarness({ confirmationAccepted = true } = {})
     YOUTUBE_CLAIMS_ENDPOINT: "/api/admin/youtube/claims",
     identityAllowsAdminWorkflow: () => true,
     identityAllowsYouTubeClaim: () => true,
-    framenestMutationHeaders: (headers) => Object.assign({ "X-FrameNest-Request": "1" }, headers),
+    framenestMutationHeaders: (headers) => {
+      const merged = Object.assign({}, headers);
+      merged["X-Kronika-Request"] = "1";
+      return merged;
+    },
     saveYouTubeClaimRecovery(claimId) {
       storageWrites.push(String(claimId));
     },

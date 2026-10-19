@@ -474,7 +474,9 @@ function createFlowHarness({ confirmAccepted = true, reducedMotion = true } = {}
       return context.identityState.capabilities.has(capability);
     },
     framenestMutationHeaders(headers) {
-      return Object.assign({ "X-FrameNest-Request": "1" }, headers);
+      const merged = Object.assign({}, headers);
+      merged["X-Kronika-Request"] = "1";
+      return merged;
     },
     mediaAiSuggestionEndpoint(mediaId, locationId) {
       return `/api/media/${mediaId}/locations/${locationId}/ai-suggestion-preview`;
@@ -1263,7 +1265,8 @@ test("successful preview opens Edit before analysis and resolves in that modal w
 
   const previewCalls = harness.fetchCalls.filter((call) => call.url.includes("ai-suggestion-preview"));
   assert.equal(previewCalls.length, 1);
-  assert.equal(previewCalls[0].headers["X-FrameNest-Request"], "1");
+  assert.equal(previewCalls[0].headers["X-Kronika-Request"], "1");
+  assert.equal(previewCalls[0].headers["X-FrameNest-Request"], undefined);
   assert.equal(JSON.parse(previewCalls[0].body).confirm_cloud_upload, true);
   assert.equal(harness.fetchCalls.some((call) => call.method === "PUT"), false);
   assert.equal(harness.fetchCalls.some((call) => call.method === "POST" && call.url === "/api/canonical-tags"), false);
@@ -1458,7 +1461,8 @@ test("one acceptance creates one preview, locks through analyzing, and never PUT
 
   const previewCalls = harness.fetchCalls.filter((call) => call.url.includes("ai-suggestion-preview"));
   assert.equal(previewCalls.length, 1);
-  assert.equal(previewCalls[0].headers["X-FrameNest-Request"], "1");
+  assert.equal(previewCalls[0].headers["X-Kronika-Request"], "1");
+  assert.equal(previewCalls[0].headers["X-FrameNest-Request"], undefined);
   assert.equal(harness.fetchCalls.filter((call) => call.method === "PUT").length, 0);
   assert.equal(harness.fetchCalls.some((call) => call.method === "POST" && call.url === "/api/canonical-tags"), false);
   assert.equal(harness.context.openMetadataWorkspaceCalls.length, 1);
@@ -1662,6 +1666,11 @@ test("quick-action mutations use the sole framenestMutationHeaders helper", () =
   assert.equal(handleBody.includes('"X-FrameNest-Request": "1"'), false);
   assert.equal(runBody.includes('"X-FrameNest-Request": "1"'), false);
   assert.ok(APP_SOURCE.includes('function framenestMutationHeaders(headers)'));
-  assert.ok(APP_SOURCE.includes('Object.assign({ "X-FrameNest-Request": "1" }, headers)'));
+  assert.ok(APP_SOURCE.includes("const merged = Object.assign({}, headers);"));
+  assert.ok(APP_SOURCE.includes('merged["X-Kronika-Request"] = "1";'));
+  assert.equal(
+    APP_SOURCE.includes('Object.assign({ "X-FrameNest-Request": "1" }, headers)'),
+    false,
+  );
   assert.equal((APP_SOURCE.match(/function framenestMutationHeaders/g) || []).length, 1);
 });

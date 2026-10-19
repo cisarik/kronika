@@ -116,7 +116,7 @@ class UploadPublicationCoordinator:
         self._wake = asyncio.Event()
         self._runner = asyncio.create_task(
             self._run(),
-            name="framenest-upload-publication-coordinator",
+            name="kronika-upload-publication-coordinator",
         )
         attach_unexpected_runner_observer(
             self._runner,
@@ -369,7 +369,7 @@ class UploadPublicationCoordinator:
         if self._executor is None:
             self._executor = ThreadPoolExecutor(
                 max_workers=1,
-                thread_name_prefix="framenest-upload-publication",
+                thread_name_prefix="kronika-upload-publication",
             )
         return self._executor
 

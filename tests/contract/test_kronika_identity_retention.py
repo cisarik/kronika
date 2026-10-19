@@ -575,7 +575,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # adapters/api/web/companion_host.js -1 (retired protocol literal).
     # KSI-IMPL-C8BP moves src by -2 (1606 -> 1604). Both are the operational
     # labels in src/kronika_capture/bridge/server.py. No other src file moves.
-    "src": 1604,
+    # KSI-CORR-C9B16A, measured before the re-pin: src 1604-17=1587.
+    # app.js -1 is the retired mutation-header literal. configuration.py -2
+    # is the public-socket default, which names the retired component twice.
+    # The other fourteen are one runtime producer string each: the two
+    # media-analysis coordinator strings, the two upload-catalog strings, the
+    # two upload-publication strings, the two upload-validation strings, the
+    # x-acquisition prefix, the youtube-acquisition task name, the backup
+    # stderr-drain name, the two media-analysis reader names, and the
+    # contact-sheet temporary prefix.
+    "src": 1587,
     # KSI-CORR-C3B-2 moved `tests` by -16 and nothing else. Sixteen lowercase
     # occurrences left the `tests` tree, all of them test-side references to the
     # names C3-B moved: four `src/framenest` path literals across four files
@@ -854,7 +863,16 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # occurrence, so the file count stays. The remote-contract remainder
     # includes the forbidden former-layout defaults the single-layout test
     # names, the tooling-path match and the marker-spelling pattern.
-    "tests": 999,
+    # KSI-CORR-C9B16A, measured before the re-pin: tests 999-12=987.
+    # test_configuration_ingress.py -2 (the default-path pin),
+    # test_upload_validation_coordinator.py -2 and
+    # test_movie_contact_sheet_selection.py -2. Header-literal removals are
+    # catalog_card_ai_quick_action.test.js -1, kronika_ui.test.js -1,
+    # tailscale_identity_frontend.test.js -2 and
+    # youtube_acquisition_cockpit.test.js -1. The renamed tailscale test
+    # title removes one further capitalized spelling that is not the header
+    # token. No test file lost its last lowercase occurrence.
+    "tests": 987,
     # `deploy` -3: in `kronika_release.py` the two writer marker constants and
     # the release-manifest identity key now emit the canonical spelling. The
     # accepted marker tables keep both former spellings as frozen data, so a
@@ -1674,8 +1692,13 @@ MUTATION_HEADER = "X-FrameNest-Request"
 # public-UDS and browser-catalog-removal fixtures -1 each. The ten file exits
 # are those fixture modules except mutation-header and the two JS contracts,
 # which retain refusal or deliberately retained shell-emission assertions.
-MUTATION_HEADER_OCCURRENCE_COUNT = 37
-MUTATION_HEADER_FILE_COUNT = 16
+# KSI-CORR-C9B16A, measured before the re-pin: occurrences 37-6=31 and
+# files 16-2=14. The six literals are app.js -1, catalog_card -1,
+# kronika_ui -1, tailscale_identity_frontend -2 and youtube cockpit -1.
+# app.js and youtube_acquisition_cockpit.test.js leave the file set. The
+# other edited mirrors keep an absence check, so they stay.
+MUTATION_HEADER_OCCURRENCE_COUNT = 31
+MUTATION_HEADER_FILE_COUNT = 14
 
 # KSI-IMPL-C4A moved `/opt/framenest` by +6 and moved every other literal
 # nothing. The move itself is neutral: `framenest_release.py` loses 12 and
@@ -1948,8 +1971,16 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # already carried one capitalized spelling, so the file count stays 343.
 # Per-tree counts, content paths, environment tokens, the mutation header,
 # host paths, unit accounts and console scripts did not fail.
-CAPITALIZED_OCCURRENCE_COUNT = 2328
-CAPITALIZED_FILE_COUNT = 343
+# KSI-CORR-C9B16A, measured before the re-pin: occurrences 2328-7=2321
+# and files 343-2=341. Six of the seven are the removed header literals
+# recorded above. The seventh is the renamed tailscale test title. The two
+# file exits are app.js and youtube_acquisition_cockpit.test.js. Pytest
+# stopped on the occurrence assert; the file count is the git grep -I -l
+# count, and that same command's occurrence count matches the pytest
+# measurement of 2321. Per-tree file counts, content paths, environment
+# tokens, host paths, unit accounts and console scripts did not fail.
+CAPITALIZED_OCCURRENCE_COUNT = 2321
+CAPITALIZED_FILE_COUNT = 341
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds
