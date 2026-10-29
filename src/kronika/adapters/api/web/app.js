@@ -8517,7 +8517,7 @@ function adminAnalysisEligibility() {
   const ineligible = [];
   adminCatalogState.items.forEach((item) => {
     if (!adminBatchState.selectedMediaIds.has(item.media_id)) return;
-    if (item.analysis_state === "not_requested") eligible.push(item.media_id);
+    if (AUTOMATIC_ANALYSIS_TERMINAL_STATES.has(item.analysis_state)) eligible.push(item.media_id);
     else ineligible.push(item.media_id);
   });
   return { eligible, ineligible };
@@ -8574,7 +8574,7 @@ function adminBatchProgressText(driver) {
       (record) => activeStatuses.includes(record.status) || record.status === "pending",
     );
     const position = currentIndex === -1 ? driver.items.length : currentIndex + 1;
-    const verb = driver.type === "publish" ? "Publishing" : "Queueing first analysis";
+    const verb = driver.type === "publish" ? "Publishing" : "Queueing analysis";
     const base = `${verb} item ${position} of ${driver.items.length}…`;
     return driver.lifecycle === "stopping"
       ? `${base} Stopping after the current item…`
@@ -8690,9 +8690,9 @@ function renderAdminBatchBar() {
   if (adminBatchHint) {
     let hint = "";
     if (selectedCount > 0 && eligibility.eligible.length === 0) {
-      hint = "No selected item is eligible for first analysis; every selected item already has a requested or finished analysis.";
+      hint = "No selected item is eligible for analysis; wait for active analyses to finish before trying again.";
     } else if (eligibility.eligible.length > ADMIN_ANALYSIS_BATCH_MAX_ITEMS) {
-      hint = `${eligibility.eligible.length} selected items are eligible for first analysis. Narrow the selection to at most ${ADMIN_ANALYSIS_BATCH_MAX_ITEMS} eligible items.`;
+      hint = `${eligibility.eligible.length} selected items are eligible for analysis. Narrow the selection to at most ${ADMIN_ANALYSIS_BATCH_MAX_ITEMS} eligible items.`;
     }
     adminBatchHint.hidden = hint === "";
     adminBatchHint.textContent = hint;
@@ -8865,7 +8865,7 @@ async function startAdminAnalysisBatch(opener) {
     const record = adminBatchRecordForItem(item);
     if (!eligibleIds.has(mediaId)) {
       record.status = "ineligible";
-      record.message = `First analysis is only available before any analysis request; current state is "${adminAnalysisPresentation(item.analysis_state).label}".`;
+      record.message = `An analysis is already active; current state is "${adminAnalysisPresentation(item.analysis_state).label}".`;
     }
     return record;
   });
@@ -8876,8 +8876,8 @@ async function startAdminAnalysisBatch(opener) {
     ? ` ${eligibility.ineligible.length} selected ${eligibility.ineligible.length === 1 ? "item is" : "items are"} not eligible and will be skipped.`
     : "";
   const accepted = await requestConfirmation({
-    title: `Queue first analysis for ${eligibility.eligible.length} eligible ${eligibility.eligible.length === 1 ? "item" : "items"}?`,
-    message: `Eligible items are queued one at a time in the current page order.${skippedNote} Each eligible item may create one durable analysis run. Provider retries, when required, remain governed and recorded by the existing server policy. You can stop after the current item; already queued analysis continues under the server lifecycle.`,
+    title: `Queue analysis for ${eligibility.eligible.length} eligible ${eligibility.eligible.length === 1 ? "item" : "items"}?`,
+    message: `Eligible items are queued one at a time in the current page order.${skippedNote} Previously analyzed or failed items can be analyzed again. Each eligible item may create one durable analysis run. Provider retries, when required, remain governed and recorded by the existing server policy. You can stop after the current item; already queued analysis continues under the server lifecycle.`,
     dismissLabel: "Cancel",
     confirmLabel: "Analyze selected",
     destructive: false,

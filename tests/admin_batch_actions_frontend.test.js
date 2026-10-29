@@ -755,7 +755,7 @@ test("publish batch surfaces truthful per-item outcomes and an aggregate summary
   );
 });
 
-test("analysis eligibility accepts only not_requested items with exact counts", () => {
+test("analysis eligibility accepts terminal states and refuses active or unknown states with exact counts", () => {
   const harness = createBatchHarness();
   seedItems(harness, [
     adminItem({ media_id: "m1", analysis_state: "not_requested" }),
@@ -764,20 +764,79 @@ test("analysis eligibility accepts only not_requested items with exact counts", 
     adminItem({ media_id: "m4", analysis_state: "analyzed" }),
     adminItem({ media_id: "m5", analysis_state: "failed" }),
     adminItem({ media_id: "m6", analysis_state: "not_requested" }),
+    adminItem({ media_id: "m7", analysis_state: "unknown" }),
+    adminItem({ media_id: "m8", analysis_state: "analyzed" }),
+    adminItem({ media_id: "m9", analysis_state: "pending" }),
   ]);
   selectAll(harness);
+  vm.runInContext('setAdminItemSelection("m8", false, null)', harness.context);
+  vm.runInContext('setAdminItemSelection("m9", false, null)', harness.context);
   const eligibility = vm.runInContext("adminAnalysisEligibility()", harness.context);
-  assert.deepEqual([...eligibility.eligible], ["m1", "m6"]);
-  assert.deepEqual([...eligibility.ineligible], ["m2", "m3", "m4", "m5"]);
+  assert.deepEqual([...eligibility.eligible], ["m1", "m4", "m5", "m6"]);
+  assert.deepEqual([...eligibility.ineligible], ["m2", "m3", "m7"]);
 });
 
-test("analysis batch is disabled with zero eligible items and explains why", () => {
+for (const state of ["not_requested", "analyzed", "failed"]) {
+  test(`analysis batch enqueues a selected ${state} item and leaves unselected items untouched`, async () => {
+    const harness = createBatchHarness({
+      fetchHandler: (call) => response({ state: call.method === "POST" ? "pending" : "analyzed" }),
+    });
+    seedItems(harness, [
+      adminItem({ media_id: "m1", analysis_state: state }),
+      adminItem({ media_id: "m2", analysis_state: "analyzed" }),
+    ]);
+    vm.runInContext('setAdminItemSelection("m1", true, null)', harness.context);
+    assert.equal(harness.elements.adminBatchAnalyzeButton.disabled, false);
+    await vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
+    const posts = analysisPosts(harness.fetchLog);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].url, "/api/media/m1/locations/loc-1/durable-analysis");
+    assert.equal(posts[0].method, "POST");
+    assert.equal(posts[0].headers["X-Kronika-Request"], "1");
+    assert.deepEqual(JSON.parse(posts[0].body), { confirm_cloud_upload: true });
+    assert.equal(harness.fetchLog.some((call) => call.url.includes("/media/m2/")), false);
+    assert.equal(harness.context.adminBatchState.driver.items.length, 1);
+    assert.equal(harness.context.adminBatchState.driver.items[0].status, "analyzed");
+    assert.equal(harness.context.adminCatalogState.items[1].analysis_state, "analyzed");
+  });
+}
+
+test("analysis batch skips pending and analyzing items with an already-active reason", async () => {
+  const harness = createBatchHarness({ fetchHandler: () => response({ state: "analyzed" }) });
+  seedItems(harness, [
+    adminItem({ media_id: "m1" }),
+    adminItem({ media_id: "m2", analysis_state: "pending" }),
+    adminItem({ media_id: "m3", analysis_state: "analyzing" }),
+  ]);
+  selectAll(harness);
+  await vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
+  assert.deepEqual(analysisPosts(harness.fetchLog).map((call) => call.url), [
+    "/api/media/m1/locations/loc-1/durable-analysis",
+  ]);
+  assert.deepEqual(harness.context.adminBatchState.driver.items.slice(1).map((record) => ({
+    status: record.status,
+    message: record.message,
+  })), [
+    { status: "ineligible", message: 'An analysis is already active; current state is "Analysis queued".' },
+    { status: "ineligible", message: 'An analysis is already active; current state is "Analysis in progress".' },
+  ]);
+  assert.match(harness.confirmations[0].message, /2 selected items are not eligible and will be skipped\./);
+});
+
+test("analysis batch is disabled with zero eligible items and explains why", async () => {
   const harness = createBatchHarness();
-  seedItems(harness, [adminItem({ media_id: "m1", analysis_state: "analyzed" })]);
+  seedItems(harness, [
+    adminItem({ media_id: "m1", analysis_state: "pending" }),
+    adminItem({ media_id: "m2", analysis_state: "analyzing" }),
+  ]);
   selectAll(harness);
   assert.equal(harness.elements.adminBatchAnalyzeButton.disabled, true);
-  assert.match(harness.elements.adminBatchHint.textContent, /No selected item is eligible/);
+  assert.equal(harness.elements.adminBatchHint.textContent,
+    "No selected item is eligible for analysis; wait for active analyses to finish before trying again.");
   assert.equal(harness.elements.adminBatchHint.hidden, false);
+  await vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
+  assert.equal(harness.confirmations.length, 0);
+  assert.equal(harness.fetchLog.length, 0);
 });
 
 test("analysis batch rejects more than 10 eligible items without silent trimming", async () => {
@@ -789,8 +848,8 @@ test("analysis batch rejects more than 10 eligible items without silent trimming
   seedItems(harness, items);
   selectAll(harness);
   assert.equal(harness.elements.adminBatchAnalyzeButton.disabled, true);
-  assert.match(harness.elements.adminBatchHint.textContent, /11 selected items are eligible/);
-  assert.match(harness.elements.adminBatchHint.textContent, /Narrow the selection to at most 10/);
+  assert.equal(harness.elements.adminBatchHint.textContent,
+    "11 selected items are eligible for analysis. Narrow the selection to at most 10 eligible items.");
   await vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
   assert.equal(harness.confirmations.length, 0, "rejected before confirmation");
   assert.equal(harness.fetchLog.length, 0, "no request is sent");
@@ -813,6 +872,7 @@ test("analysis batch of exactly 10 eligible items is allowed", async () => {
   selectAll(harness);
   assert.equal(harness.elements.adminBatchAnalyzeButton.disabled, false);
   await vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
+  assert.equal(harness.confirmations[0].title, "Queue analysis for 10 eligible items?");
   assert.equal(analysisPosts(harness.fetchLog).length, 10);
   assert.equal(harness.context.adminBatchState.driver.lifecycle, "done");
 });
@@ -823,14 +883,16 @@ test("analysis confirmation states eligible and skipped counts with honest provi
   });
   seedItems(harness, [
     adminItem({ media_id: "m1" }),
-    adminItem({ media_id: "m2", analysis_state: "analyzed" }),
+    adminItem({ media_id: "m2", analysis_state: "pending" }),
   ]);
   selectAll(harness);
   await vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
   assert.equal(harness.confirmations.length, 1);
   const confirmation = harness.confirmations[0];
-  assert.equal(confirmation.title, "Queue first analysis for 1 eligible item?");
+  assert.equal(confirmation.title, "Queue analysis for 1 eligible item?");
+  assert.match(confirmation.message, /^Eligible items are queued one at a time in the current page order\./);
   assert.match(confirmation.message, /1 selected item is not eligible and will be skipped\./);
+  assert.match(confirmation.message, /Previously analyzed or failed items can be analyzed again\./);
   assert.match(confirmation.message, /may create one durable analysis run/);
   assert.match(
     confirmation.message,
@@ -865,7 +927,7 @@ test("analysis batch enqueues sequentially with terminal polling before the next
   });
   seedItems(harness, [
     adminItem({ media_id: "m1", display_title: "Alpha" }),
-    adminItem({ media_id: "m2", analysis_state: "analyzed", display_title: "Beta" }),
+    adminItem({ media_id: "m2", analysis_state: "analyzing", display_title: "Beta" }),
     adminItem({ media_id: "m3", display_title: "Gamma" }),
   ]);
   selectAll(harness);
@@ -884,8 +946,8 @@ test("analysis batch enqueues sequentially with terminal polling before the next
     driver.items.map((record) => record.status),
     ["analyzed", "ineligible", "analyzed"],
   );
-  assert.match(driver.items[1].message, /only available before any analysis request/);
-  assert.match(driver.items[1].message, /AI suggestion ready/);
+  assert.equal(driver.items[1].message,
+    'An analysis is already active; current state is "Analysis in progress".');
   assert.equal(driver.items[0].message, "AI suggestion ready for review.");
   assert.equal(harness.reloads.length, 1);
 });
@@ -1066,8 +1128,11 @@ test("analysis Stop keeps the queued run intact and marks remaining items not st
   selectAll(harness);
   const run = vm.runInContext("startAdminAnalysisBatch(opener)", harness.context);
   await flush();
+  assert.equal(harness.elements.adminBatchProgress.textContent, "Queueing analysis item 1 of 2…");
   assert.equal(analysisPosts(harness.fetchLog).length, 1);
   vm.runInContext("requestAdminBatchStop()", harness.context);
+  assert.equal(harness.elements.adminBatchProgress.textContent,
+    "Queueing analysis item 1 of 2… Stopping after the current item…");
   firstPoll.resolve(response({ state: "analyzing" }));
   await run;
   const driver = harness.context.adminBatchState.driver;
