@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import threading
@@ -73,6 +74,8 @@ def _write_fake_executable(
     printed_id: str = "1111111111111111111",
     delay: float = 0.0,
     stdout_json: str | None = None,
+    artifact_suffixes: tuple[str, ...] = ("",),
+    payload: bytes = b"\x00\x00\x00\x18ftypmp42fake",
 ) -> Path:
     json_literal = "None" if stdout_json is None else "'''" + stdout_json + "'''"
     header = (
@@ -93,8 +96,9 @@ def _write_fake_executable(
         "    sys.exit(%d)\n"
         "if '--output' in args:\n"
         "    name = args[args.index('--output') + 1]\n"
-        "    with open(name, 'wb') as f:\n"
-        "        f.write(b'\\x00\\x00\\x00\\x18ftypmp42fake')\n"
+        "    for suffix in %r:\n"
+        "        with open(name + suffix, 'wb') as f:\n"
+        "            f.write(%r)\n"
         "    sys.stdout.write(%r + '\\n')\n"
         "    sys.exit(%d)\n"
         "sys.exit(%d)\n"
@@ -106,6 +110,8 @@ def _write_fake_executable(
             json_literal,
             exit_code,
             exit_code,
+            artifact_suffixes,
+            payload,
             printed_id,
             exit_code,
             exit_code,
@@ -296,6 +302,77 @@ def test_download_missing_key_is_source_changed(tmp_path: Path) -> None:
     assert ctx.value.code == "X_SOURCE_MEDIA_CHANGED"
 
 
+@pytest.mark.parametrize("suffix", ["", ".mp4"])
+def test_download_video_resolves_size_digest_and_staging_reader(
+    tmp_path: Path, suffix: str,
+) -> None:
+    root = tmp_path / "xroot"
+    root.mkdir(mode=0o700)
+    staging = FilesystemXStaging(root)
+    payload = b"\x00\x00\x00\x18ftypmp42merged-video-and-audio"
+    exe = _write_fake_executable(
+        tmp_path / "fake_x", printed_id="video-1",
+        artifact_suffixes=(suffix,), payload=payload,
+    )
+    extractor = YtDlpXExtractor(
+        executable=str(exe),
+        extract_status=lambda _post_id: _status(_video_row("video-1")),
+    )
+    result = extractor.download(
+        post_id=POST_ID, ordinal=0, media_type="video", expected_mime="video/mp4",
+        source_media_key="video-1", selected_variant=X_VARIANT_VIDEO_MP4,
+        stage_key="a" * 32, submitted_url=SUBMITTED, staging=staging,
+    )
+    assert result.size_bytes == len(payload)
+    assert result.sha256 == hashlib.sha256(payload).hexdigest()
+    assert (root / ("a" * 32) / (ARTIFACT_FILENAME + suffix)).read_bytes() == payload
+    assert staging.artifact_size("a" * 32) == len(payload)
+    reader = staging.open_artifact("a" * 32, expected_size_bytes=result.size_bytes)
+    try:
+        reader.verify_still_consistent()
+        assert reader.read(len(payload)) == payload
+    finally:
+        reader.close()
+    staging.clear("a" * 32)
+    assert not (root / ("a" * 32)).exists()
+
+
+@pytest.mark.parametrize(
+    ("suffixes", "payload", "code", "message"),
+    [
+        ((), b"video", "X_STAGING_FAILED", "X produced no artifact."),
+        ((".part",), b"video", "X_STAGING_FAILED", "X produced no artifact."),
+        ((".tmp",), b"video", "X_STAGING_FAILED", "X produced no artifact."),
+        ((".mp4", ".mkv"), b"video", "X_STAGING_AMBIGUOUS", "X produced multiple artifacts."),
+        ((".mp4",), b"", "X_MEDIA_TYPE_UNSUPPORTED", "X artifact is empty."),
+    ],
+)
+def test_download_video_rejects_missing_ambiguous_or_empty_artifact(
+    tmp_path: Path, suffixes: tuple[str, ...], payload: bytes, code: str, message: str,
+) -> None:
+    root = tmp_path / "xroot"
+    root.mkdir(mode=0o700)
+    staging = FilesystemXStaging(root)
+    exe = _write_fake_executable(
+        tmp_path / "fake_x", printed_id="video-1",
+        artifact_suffixes=suffixes, payload=payload,
+    )
+    extractor = YtDlpXExtractor(
+        executable=str(exe),
+        extract_status=lambda _post_id: _status(_video_row("video-1")),
+    )
+    with pytest.raises(XExtractionError) as ctx:
+        extractor.download(
+            post_id=POST_ID, ordinal=0, media_type="video", expected_mime="video/mp4",
+            source_media_key="video-1", selected_variant=X_VARIANT_VIDEO_MP4,
+            stage_key="a" * 32, submitted_url=SUBMITTED, staging=staging,
+        )
+    assert ctx.value.code == code
+    assert str(ctx.value) == message
+    if not payload:
+        assert not (root / ("a" * 32) / (ARTIFACT_FILENAME + suffixes[0])).exists()
+
+
 def test_download_requires_selected_variant(tmp_path: Path) -> None:
     staging = FilesystemXStaging(tmp_path / "xroot")
     (tmp_path / "xroot").mkdir(mode=0o700)
@@ -338,11 +415,16 @@ def test_download_rejects_submitted_url_mismatched_post_id(tmp_path: Path) -> No
     assert ctx.value.code == "X_URL_INVALID_POST_ID"
 
 
-def test_download_id_mismatch_deletes_artifact(tmp_path: Path) -> None:
+@pytest.mark.parametrize("suffixes", [("",), (".mp4",), (".mp4", ".mkv")])
+def test_download_id_mismatch_deletes_artifact(
+    tmp_path: Path, suffixes: tuple[str, ...],
+) -> None:
     staging_root = tmp_path / "xroot"
     staging_root.mkdir(mode=0o700)
     staging = FilesystemXStaging(staging_root)
-    exe = _write_fake_executable(tmp_path / "fake_x", printed_id="other-id")
+    exe = _write_fake_executable(
+        tmp_path / "fake_x", printed_id="other-id", artifact_suffixes=suffixes,
+    )
     extractor = YtDlpXExtractor(
         executable=str(exe),
         extract_status=lambda _post_id: _status(_video_row("video-1")),
@@ -361,7 +443,13 @@ def test_download_id_mismatch_deletes_artifact(tmp_path: Path) -> None:
         )
     assert ctx.value.code == "X_SOURCE_MEDIA_CHANGED"
     claim_dir = staging_root / ("e" * 32)
-    assert not (claim_dir / ARTIFACT_FILENAME).exists()
+    if len(suffixes) == 1:
+        assert not (claim_dir / (ARTIFACT_FILENAME + suffixes[0])).exists()
+    else:
+        # Ambiguity must not replace the source-identity failure during cleanup.
+        assert all((claim_dir / (ARTIFACT_FILENAME + suffix)).exists() for suffix in suffixes)
+        staging.clear("e" * 32)
+        assert not claim_dir.exists()
 
 
 def test_download_photo_via_injected_transport(tmp_path: Path) -> None:

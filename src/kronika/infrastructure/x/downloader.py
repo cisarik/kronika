@@ -47,7 +47,10 @@ from kronika.domain.x_acquisition import (
     accept_x_post_url,
 )
 from kronika.infrastructure.x import status_bridge
-from kronika.infrastructure.x.staging import ARTIFACT_FILENAME
+from kronika.infrastructure.x.staging import (
+    ARTIFACT_FILENAME,
+    find_artifact as _find_artifact,
+)
 from kronika.infrastructure.x.status_bridge import (
     StatusBridgeError,
 )
@@ -198,15 +201,14 @@ class YtDlpXExtractor:
                     matched=matched,
                     source_media_key=source_media_key,
                     directory=Path(directory),
-                    destination=destination,
                 )
         except StatusBridgeError as exc:
-            _delete_path(destination)
+            _delete_artifact(Path(directory))
             raise _x_error_from_bridge(exc) from exc
         except XExtractionError:
-            _delete_path(destination)
+            _delete_artifact(Path(directory))
             raise
-        artifact = destination if destination.is_file() else _find_artifact(directory)
+        artifact = _find_artifact(Path(directory))
         if artifact is None:
             raise XExtractionError("X_STAGING_FAILED", "X produced no artifact.")
         size_bytes = os.path.getsize(artifact)
@@ -334,7 +336,6 @@ class YtDlpXExtractor:
         matched: XNormalizedAssetDescriptor,
         source_media_key: str,
         directory: Path,
-        destination: Path,
     ) -> None:
         if matched.provider_download_index is None:
             raise XExtractionError(
@@ -369,7 +370,6 @@ class YtDlpXExtractor:
         printed = (completed.stdout or b"").decode("utf-8", "replace").strip().splitlines()
         reported_id = printed[-1].strip() if printed else ""
         if reported_id != source_media_key:
-            _delete_path(destination)
             raise XExtractionError(
                 "X_SOURCE_MEDIA_CHANGED", "X source media is no longer available."
             )
@@ -479,6 +479,15 @@ def _delete_path(path: Path) -> None:
         return
 
 
+def _delete_artifact(directory: Path) -> None:
+    try:
+        artifact = _find_artifact(directory)
+    except (OSError, XExtractionError):
+        # Preserve the extraction failure; claim cleanup removes ambiguous files.
+        return
+    _delete_path(artifact if artifact is not None else directory / ARTIFACT_FILENAME)
+
+
 def _extraction_from_exit(returncode: int) -> XExtractionError:
     if returncode == -9:
         return XExtractionError("X_DOWNLOAD_TIMEOUT", "X download killed.")
@@ -551,10 +560,3 @@ def _terminate_process_group(
             process.wait(timeout=max(kill_seconds, 0.05))
         except subprocess.TimeoutExpired:
             pass
-
-
-def _find_artifact(directory: Path) -> Path | None:
-    candidate = Path(directory) / ARTIFACT_FILENAME
-    if candidate.is_file():
-        return candidate
-    return None

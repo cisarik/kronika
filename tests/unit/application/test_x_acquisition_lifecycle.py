@@ -219,6 +219,50 @@ def test_successful_multi_asset_submit_and_complete(lifecycle) -> None:
     assert not repo.has_live_requester_media_access(media_id=media_id, login_key="bob")
 
 
+def test_merged_artifact_handoff_copies_bytes_and_cleans_staging(lifecycle) -> None:
+    repo, service, _admin, coordinator, extractor, media_id = lifecycle
+    extractor.assets = extractor.assets[:1]
+    payload = b"merged-video-with-audio"
+    extractor.download_bytes = {0: payload}
+    original_download = extractor.download
+    staged_paths = []
+
+    def merged_download(**kwargs):
+        result = original_download(**kwargs)
+        directory = kwargs["staging"].prepare(kwargs["stage_key"])
+        exact = directory / "artifact.bin"
+        merged = directory / "artifact.bin.mp4"
+        exact.rename(merged)
+        staged_paths.append(merged)
+        return result
+
+    class CapturingTransport(_FakeTransport):
+        def __init__(self):
+            super().__init__()
+            self.copied = bytearray()
+
+        async def receive_chunk(self, upload_id, upload_offset, content_length, body):
+            async for chunk in body:
+                self.copied.extend(chunk)
+            return await super().receive_chunk(upload_id, upload_offset, content_length, body)
+
+    extractor.download = merged_download
+    transport = CapturingTransport()
+    coordinator._transport = transport
+    coordinator._chunk_size_bytes = 5
+    result = service.submit(URL, login_key="alice")
+    claim = _run(asyncio.wait_for(
+        _drain_until_terminal(coordinator, repo, result.request_id), timeout=5,
+    ))
+    assert claim.state is XAcquisitionState.COMPLETED
+    assets = repo.list_assets_for_post(claim.id)
+    assert len(assets) == 1
+    assert assets[0].state is XAssetState.CATALOGED
+    assert assets[0].media_id == media_id
+    assert bytes(transport.copied) == payload
+    assert staged_paths and all(not path.parent.exists() for path in staged_paths)
+
+
 def test_same_requester_idempotent_submit(lifecycle) -> None:
     repo, service, admin, coordinator, extractor, _ = lifecycle
     first = service.submit(URL, login_key="alice")
