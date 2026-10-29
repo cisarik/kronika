@@ -5,10 +5,17 @@ from __future__ import annotations
 import inspect
 import os
 import re
+import shlex
 import socket
 import stat
 from pathlib import Path
 
+import pytest
+
+from kronika.infrastructure.persistence import catalog_backup_ops as backup_ops
+from kronika.infrastructure.persistence.catalog_backup_offdevice import DEFAULT_OFFDEVICE_ROOT
+from kronika.infrastructure.persistence.catalog_backup_transfer import PROTOCOL_MAGIC
+from kronika_capture.config import STATE_DIR_NAME
 from tests.contract import test_nuc_release_remote_contract as _remote_contract
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +23,7 @@ AGENTS_PATH = REPOSITORY_ROOT / "AGENTS.md"
 README_PATH = REPOSITORY_ROOT / "README.md"
 SERVER_PATH = REPOSITORY_ROOT / "SERVER.md"
 RUNBOOK_PATH = REPOSITORY_ROOT / "docs" / "UBUNTU_NUC_DEPLOYMENT.md"
+CLEAN_INSTALL_PATH = REPOSITORY_ROOT / "docs" / "UBUNTU_NUC_CLEAN_INSTALL.md"
 INFOSEC_PATH = REPOSITORY_ROOT / "docs" / "INFOSEC.md"
 ACCEPTANCE_PATH = REPOSITORY_ROOT / "docs" / "ACCEPTANCE_DUAL_AUDIENCE.md"
 DEPLOY_README_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "README.md"
@@ -490,3 +498,149 @@ def test_the_installed_unit_guard_and_the_lock_are_engine_owned() -> None:
     assert "remote_deploy_lock" in engine_text
     assert "classify_deploy_lock_owner" in engine_text
     assert "read_release_markers" in engine_text
+
+
+def _repository_links(document: Path, text: str) -> set[Path]:
+    targets = re.findall(r"\[[^\]\n]+\]\(([^)\s]+)\)", text)
+    assert targets, "expected repository links"
+    resolved: set[Path] = set()
+    for target in targets:
+        assert "://" not in target, target
+        path = (document.parent / target).resolve()
+        assert path.is_relative_to(REPOSITORY_ROOT), target
+        assert path.exists(), target
+        resolved.add(path)
+    return resolved
+
+
+def test_clean_install_is_discoverable_and_every_new_link_resolves() -> None:
+    assert CLEAN_INSTALL_PATH.is_file()
+    readme_map = _text(README_PATH).split("## Documentation Map\n", 1)[1].split(
+        "\n## ", 1
+    )[0]
+    for document, text, target in (
+        (README_PATH, readme_map, "docs/UBUNTU_NUC_CLEAN_INSTALL.md"),
+        (RUNBOOK_PATH, _text(RUNBOOK_PATH), "UBUNTU_NUC_CLEAN_INSTALL.md"),
+    ):
+        assert len(re.findall(rf"\]\({re.escape(target)}\)", text)) == 1
+        assert (document.parent / target).resolve() == CLEAN_INSTALL_PATH
+    links = _repository_links(CLEAN_INSTALL_PATH, _text(CLEAN_INSTALL_PATH))
+    assert {RUNBOOK_PATH, CANONICAL_ENGINE_PATH, CANONICAL_FISH_PATH} <= links
+    # An impossible target must fail through the same resolver, not disappear
+    # into an empty successful scan.
+    with pytest.raises(AssertionError):
+        _repository_links(CLEAN_INSTALL_PATH, "[control](missing-clean-install-sentinel.md)")
+
+
+def test_clean_install_pins_the_ten_required_areas_and_operator_decisions() -> None:
+    text = _text(CLEAN_INSTALL_PATH)
+    sections = re.split(r"^## \d+\. ", text, flags=re.MULTILINE)[1:]
+    required = (
+        ("Purpose and installation boundary", "future installation", "not a receipt",
+         "live host retains", "no live reinstall"),
+        ("Canonical naming and frozen exceptions", "kronika-nuc", "Kronika NUC"),
+        ("Prepare Ubuntu, access, and bootstrap tooling", "Ubuntu Server 24.04 LTS",
+         "Wi-Fi", "wired-only", "never invokes `uv`", "Poetry 2.4.1"),
+        ("Accounts, directories, and original media", "read-only to the service",
+         "quarantine", "publication", "staging", "disjoint"),
+        ("Install configuration and units in dependency order", "tailscale_uds",
+         "KRONIKA_IDENTITY_MAP", "0600", "public_published_uds` off",
+         "Research stays disabled by default"),
+        ("First release, routine updates, and schema recovery", "not an empty-host installer",
+         "migration-required", "current_revision=head_revision=<H>",
+         "never from `current`", "sudo -K"),
+        ("Schedule backups and prove restore readiness", "scheduled success is the requirement",
+         "timer-triggered", "manual checkpoint", "48 hours", "new absent path"),
+        ("Optional parked capture provisioning", "Capture stays parked",
+         "separate host task", "no credential provisioning", "Cooperator performs real login"),
+        ("Private operator setup notes", "existing SSH identity filename",
+         "retired spelling", "canonical SSH identity filename", "exported user-dotfile",
+         "single existing source", "do not claim Fish universal-variable storage"),
+        ("Recovery cautions and final verification", "Historical operator finding",
+         "policy-table default route", "cleared separately", "not an instruction to delete routes",
+         "no completed installation"),
+    )
+    assert len(sections) == len(required) == 10
+    for section, markers in zip(sections, required, strict=True):
+        flattened = " ".join(section.split())
+        assert section.startswith(markers[0])
+        for marker in markers[1:]:
+            assert marker in flattened, marker
+    assert text.count("**Checkpoint:**") == 9
+
+
+def test_clean_install_retains_only_the_named_frozen_spellings() -> None:
+    text = _text(CLEAN_INSTALL_PATH)
+    exceptions = (POETRY_PATH, CPYTHON_PATH, str(DEFAULT_OFFDEVICE_ROOT), STATE_DIR_NAME)
+    assert PROTOCOL_MAGIC.rstrip(b"\0").decode("ascii") in text
+    for exception in exceptions:
+        assert text.count(exception) == 1, exception
+        text = text.replace(exception, "")
+    retired_spelling = Path(POETRY_PATH).parts[2]
+    assert retired_spelling not in text.lower()
+    assert "no executable alias of that name" in text
+    assert "explicit service state directory" in text
+
+
+def test_clean_install_unit_inventory_matches_every_source_unit() -> None:
+    text = _text(CLEAN_INSTALL_PATH)
+    links = _repository_links(CLEAN_INSTALL_PATH, text)
+    source_directory = REPOSITORY_ROOT / "deploy" / "systemd"
+    units = {path for path in source_directory.iterdir()
+             if path.suffix in {".service", ".timer"}}
+    assert units
+    assert {path for path in links if path.suffix in {".service", ".timer"}} == units
+    dropins = set(source_directory.glob("*.conf"))
+    assert {path for path in links if path.suffix == ".conf"} == dropins
+    for unit in units:
+        assert unit.name in text
+        if unit.suffix == ".timer":
+            source = _text(unit)
+            schedule = re.search(r"^OnCalendar=\*-\*-\* (.+)$", source, re.MULTILINE)
+            assert schedule is not None
+            assert f"`{schedule[1]}`" in text
+            for setting in ("Persistent=yes", "RandomizedDelaySec=900"):
+                assert setting in source and setting in text
+    capture = text.split("## 8. Optional parked capture provisioning\n", 1)[1].split(
+        "\n## 9.", 1
+    )[0]
+    ordered = ("xvfb", "bridge", "runner", "vnc", "view")
+    positions = [capture.index(f"[kronika-capture-{part}.service]") for part in ordered]
+    assert positions == sorted(positions)
+
+
+def test_clean_install_release_commands_parse_without_running_the_helper() -> None:
+    text = _text(CLEAN_INSTALL_PATH)
+    commands = re.findall(r"`deploy/ubuntu/kronika-release ([^`\n]+)`", text)
+    assert len(commands) == 5
+    parsed = [_ENGINE._build_parser().parse_args(shlex.split(
+        command.replace("<40-hex-SHA>", "a" * 40)
+    )) for command in commands]
+    assert {args.command for args in parsed} == {
+        "status", "check", "deploy", "rollback", "activate-capture",
+    }
+    for args in parsed:
+        if args.command != "status":
+            _ENGINE.validate_release_sha(args.release)
+        if args.command in {"deploy", "rollback", "activate-capture"}:
+            assert args.yes is True
+    with pytest.raises(SystemExit):
+        _ENGINE._build_parser().parse_args(["impossible-clean-install-command"])
+    assert _ENGINE.RELEASE_SHA_MARKER in text
+    assert _ENGINE.RELEASE_MANIFEST_MARKER in text
+    assert _ENGINE.CANONICAL_WEB_LAYOUT.env_file in text
+    assert _ENGINE.CANONICAL_CAPTURE_CURRENT in text
+
+
+def test_clean_install_backup_roots_and_console_environment_match_sources() -> None:
+    text = _text(CLEAN_INSTALL_PATH)
+    for root in (backup_ops.DEFAULT_BACKUP_ROOT, backup_ops.DEFAULT_RESTORE_VERIFY_ROOT,
+                 backup_ops.DEFAULT_OPS_ROOT):
+        assert f"`{root}`" in text
+    assert f"Default `{backup_ops.DEFAULT_KEEP_AUTO}`, minimum `{backup_ops.MIN_KEEP_AUTO}`" in text
+    blocks = re.findall(r"^```text\n(.*?)^```", text, re.MULTILINE | re.DOTALL)
+    assert len(blocks) == 1
+    lines = blocks[0].splitlines()
+    assert lines[0] == "# [NUC / bash]"
+    assert lines[-1] == "#------------------------------------------------------"
+    assert lines[1:-1] == [_ENGINE.cmd_remote_backup_status(_ENGINE.CANONICAL_WEB_LAYOUT.current)]

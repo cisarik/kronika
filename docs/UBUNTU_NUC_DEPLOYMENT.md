@@ -36,6 +36,9 @@ rollout is outside this stage and outside routine release updates.
 
 Classification: deployment operator runbook.
 
+For a future fresh or replacement host, begin with the
+[clean-install and recovery runbook](UBUNTU_NUC_CLEAN_INSTALL.md).
+
 Consumers: Cooperator, Orchestrator, Worker, Ubuntu operators, and security
 reviewers.
 

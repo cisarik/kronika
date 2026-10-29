@@ -759,6 +759,7 @@ Current foundation files:
 - [`.ap/AP_ORCHESTRATOR.md`](.ap/AP_ORCHESTRATOR.md) defines the universal Orchestrator handbook.
 - [`.ap/AP_WORKER.md`](.ap/AP_WORKER.md) defines the universal Worker handbook.
 - [`docs/NUC_HOST_BASELINE.md`](docs/NUC_HOST_BASELINE.md) preserves sanitized command-observed NUC host baseline facts.
+- [`docs/UBUNTU_NUC_CLEAN_INSTALL.md`](docs/UBUNTU_NUC_CLEAN_INSTALL.md) describes a future fresh or replacement NUC installation and recovery, without claiming a completed installation.
 - [`docs/ARCHITECTURE_FOUNDATION_EVIDENCE.md`](docs/ARCHITECTURE_FOUNDATION_EVIDENCE.md) collects primary-source evidence for the first architecture decisions. It is not an ADR and does not approve any option.
 - [`docs/adr/README.md`](docs/adr/README.md) indexes accepted architecture decision records.
 - [`docs/adr/0001-supported-python-version.md`](docs/adr/0001-supported-python-version.md) records the accepted CPython 3.13 runtime decision.

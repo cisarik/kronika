@@ -352,7 +352,9 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     "tests": 173,
     "deploy": 3,
     "scripts": 0,
-    "docs": 84,
+    # KSI-IMPL-CINSTALL, measured before the re-pin: docs 84+1=85.
+    # UBUNTU_NUC_CLEAN_INSTALL.md is the sole added content-carrying path.
+    "docs": 85,
     "extension": 0,
 }
 
@@ -941,7 +943,10 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-C9B1 moves docs by -3 (751 -> 748), the three former capture
     # pointer literals in the retired procedure in UBUNTU_NUC_DEPLOYMENT.md.
     # The file stays in the content set.
-    "docs": 748,
+    # KSI-IMPL-CINSTALL, measured before the re-pin: docs 748+4=752.
+    # The new clean-install runbook names only the four frozen exceptions:
+    # two tooling paths, one off-device mount and one capture state name.
+    "docs": 752,
     # KSI-IMPL-C7AC moved `extension` by -141 (145 -> 4). Per file:
     # `content/x_adapter.js` -101, `content/x_adapter_contract_v1.js` -10,
     # `ui/sidebar.js` -9, `background/service_worker.js` -7,
@@ -1124,6 +1129,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "docs/FEDORA_SERVICE.md",
         "docs/NUC_HOST_BASELINE.md",
         "docs/OPERATOR_NETWORK.md",
+        "docs/UBUNTU_NUC_CLEAN_INSTALL.md",
         "docs/UBUNTU_NUC_DEPLOYMENT.md",
         "docs/adr/0001-supported-python-version.md",
         "docs/adr/0002-python-environment-and-dependency-manager.md",
@@ -1795,7 +1801,9 @@ MUTATION_HEADER_FILE_COUNT = 14
 # and the same test names each root once as a forbidden default.
 # The frozen mount is unmoved.
 HOST_PATH_OCCURRENCE_COUNT = {
-    "/opt/framenest": 64,
+    # KSI-IMPL-CINSTALL, measured before the re-pin: /opt 64+2=66,
+    # one occurrence in each frozen tooling path in the clean-install table.
+    "/opt/framenest": 66,
     # KSI-IMPL-C7B1 removes test fixtures only: /etc -2, /var/lib -2 and
     # /var/cache -1. No production host path or frozen mount changes.
     # KSI-IMPL-C7B3: /opt 214-62=152, /etc 51-21=30, /var/lib 87-23=64,
@@ -1803,7 +1811,8 @@ HOST_PATH_OCCURRENCE_COUNT = {
     "/etc/framenest": 17,
     "/var/lib/framenest": 32,
     "/var/cache/framenest": 10,
-    "/mnt/framenest-catalog-offdevice": 13,
+    # The same table adds the single frozen mount: 13+1=14.
+    "/mnt/framenest-catalog-offdevice": 14,
 }
 
 # KSI-IMPL-C4B moved each of these by +3: one `User=framenest` and
