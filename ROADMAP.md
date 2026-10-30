@@ -465,6 +465,14 @@ Boundaries: embedded libVLC remains deferred.
 
 Status: partially implemented; the NUC is the disposable development-and-testing machine routinely refreshed toward public `main` ([ADR-0075](docs/adr/0075-nuc-development-test-target-and-routine-release-refresh.md)), while NUC security hardening remains open.
 
+The [NUC hardening bundle](docs/NUC_SECURITY_HARDENING.md) adds repository
+sources for web/local-backup sandbox restrictions and fixed-surface UFW/SSH
+recovery. NSH-IMPL-05 requires fresh independent candidate review (05V);
+host installation and proof remain row 08, network cuts rows 09–10, and
+deferred decisions D1–D8 rows 09–12. Source implementation is not host
+acceptance or logical-whole closure. The publication write exception remains
+deferred; dependencies, frozen runtimes, capture and providers are unchanged.
+
 Goal: deploy and harden the server foundation on Ubuntu Server 24.04 on the Intel NUC6i5SYH development-and-testing machine.
 
 Key deliverables: Ubuntu NUC deployment runbook, exact-release workflow, secure CPython 3.13 provisioning, hardware/storage inspection, hardening, AppArmor/UFW context, service user, systemd hardening, explicit migration and readiness, and catalog backup/recovery documentation.

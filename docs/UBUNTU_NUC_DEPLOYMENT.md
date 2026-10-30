@@ -52,6 +52,28 @@ Inbound links: [ADR-0032](adr/0032-ubuntu-nuc-deployment-foundation.md),
 Cleanup/update owner: future explicitly authorized Worker under an Orchestrator
 task. Git history remains the archive.
 
+## NUC Boundary Hardening Sources and Activation
+
+The [hardening contract](NUC_SECURITY_HARDENING.md) records the reviewed-source
+boundary and the separate host proof gates. The web and local-backup unit
+sources add device, hostname, clock, kernel-log, namespace, realtime,
+native-ABI and selected syscall restrictions. The web permits
+`AF_UNIX AF_INET AF_INET6`, sets cache `0700` and runtime `0750`, and still
+requires socket `0600`. Local backup permits only `AF_UNIX`, denies IP traffic,
+and makes `/srv/media` inaccessible. Capture and off-device sources are unchanged.
+
+The fixed-surface helper source is
+`scripts/operator/security/kronika_nuc_boundary_rollback.sh`; row 08 separately
+installs `/usr/local/libexec/kronika/nsh-boundary-rollback` with private recovery
+state `/var/lib/kronika-host-hardening`. UFW and SSH cuts require snapshot,
+verify, an independent root rollback timer, fresh intended authentication and
+selected denial proof before cancellation. File restoration alone does not
+reload effective policy. Follow the hardening contract for the exact surfaces
+and refusal rules. Repository source is not host acceptance. Routine release
+updates do not install units or the helper or activate host policy. The host
+drop-in `30-publication-write-path.conf` remains the deliberate deferred
+publication exception; no base-unit write path is added.
+
 ## Accepted Kronika Transition (Not Yet Deployed)
 
 [ADR-0082](adr/0082-kronika-one-product-and-private-records.md) accepts one

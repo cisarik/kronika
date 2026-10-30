@@ -192,6 +192,34 @@ def test_systemd_unit_keeps_working_directory_and_hardening_contract() -> None:
     assert "ProtectHome=read-only" in text
     assert "ProtectSystem=strict" in text
     assert "NoNewPrivileges=true" in text
+    assert "CacheDirectoryMode=0700" in text
+    assert "RuntimeDirectoryMode=0750" in text
+    assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6" in text
+
+
+def test_boundary_recovery_documentation_matches_the_fixed_helper() -> None:
+    document = (REPOSITORY_ROOT / "docs/NUC_SECURITY_HARDENING.md").read_text()
+    helper = (REPOSITORY_ROOT / "scripts/operator/security/kronika_nuc_boundary_rollback.sh").read_text()
+    for relative in (
+        "etc/ufw/user.rules", "etc/ufw/user6.rules",
+        "etc/ssh/sshd_config.d/00-kronika-hardening.conf",
+        "etc/ssh/sshd_config.d/50-cloud-init.conf",
+    ):
+        assert f"`/{relative}`" in document
+        assert relative in helper
+    for operation in ("snapshot", "verify", "restore"):
+        assert f"nsh-boundary-rollback {operation} ufw" in document
+        assert f"{operation} sshd" in document
+    flattened = " ".join(document.split())
+    for marker in (
+        "/usr/local/libexec/kronika/nsh-boundary-rollback",
+        "/var/lib/kronika-host-hardening", "KRONIKA_NSH_TEST_ROOT",
+        "console/recovery route", "snapshot", "verify", "independent root-owned rollback timer",
+        "without SSH, DNS, Tailscale", "sudo timestamp", "fresh",
+        "Cancel the timer only after every positive and negative gate passes",
+        "files-only restore does not change policy", "never evaluated as shell code",
+    ):
+        assert marker in flattened, marker
 
 
 def test_deploy_helper_privilege_switch_establishes_explicit_cwd() -> None:

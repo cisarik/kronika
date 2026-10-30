@@ -218,6 +218,19 @@ authorized host grant is required.
 
 ## Transient NUC rollback design
 
+For the separate UFW/SSH hardening cuts, follow the
+[NUC hardening contract](NUC_SECURITY_HARDENING.md). The source helper
+`scripts/operator/security/kronika_nuc_boundary_rollback.sh` accepts only
+`snapshot`, `verify`, or `restore` for `ufw` or `sshd`. Its later installed
+target is `/usr/local/libexec/kronika/nsh-boundary-rollback`; recovery state is
+root-only `/var/lib/kronika-host-hardening`. It restores exact recorded files
+and never reloads policy. Rows 09–10 must separately prove the matching reload
+and an independent root timer that works without SSH, DNS, Tailscale, or a
+sudo timestamp. Retain console access and the current session; cancel only
+after fresh intended authentication, selected denial, health and ingress
+gates all pass. Do not combine those cuts with exit-node changes. D1–D8 stay
+deferred to rows 09–12; source availability is not host acceptance.
+
 The headless NUC requires an automatic transient rollback *before* changing
 the NUC exit-node preference. The delay is exactly 10 minutes, and the
 rollback remains capable of firing if SSH disconnects or the Worker

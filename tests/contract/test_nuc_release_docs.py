@@ -24,6 +24,7 @@ README_PATH = REPOSITORY_ROOT / "README.md"
 SERVER_PATH = REPOSITORY_ROOT / "SERVER.md"
 RUNBOOK_PATH = REPOSITORY_ROOT / "docs" / "UBUNTU_NUC_DEPLOYMENT.md"
 CLEAN_INSTALL_PATH = REPOSITORY_ROOT / "docs" / "UBUNTU_NUC_CLEAN_INSTALL.md"
+HARDENING_PATH = REPOSITORY_ROOT / "docs" / "NUC_SECURITY_HARDENING.md"
 INFOSEC_PATH = REPOSITORY_ROOT / "docs" / "INFOSEC.md"
 ACCEPTANCE_PATH = REPOSITORY_ROOT / "docs" / "ACCEPTANCE_DUAL_AUDIENCE.md"
 DEPLOY_README_PATH = REPOSITORY_ROOT / "deploy" / "ubuntu" / "README.md"
@@ -644,3 +645,49 @@ def test_clean_install_backup_roots_and_console_environment_match_sources() -> N
     assert lines[0] == "# [NUC / bash]"
     assert lines[-1] == "#------------------------------------------------------"
     assert lines[1:-1] == [_ENGINE.cmd_remote_backup_status(_ENGINE.CANONICAL_WEB_LAYOUT.current)]
+
+
+def test_hardening_contract_is_discoverable_and_links_resolve() -> None:
+    documents = (README_PATH, RUNBOOK_PATH, CLEAN_INSTALL_PATH,
+                 REPOSITORY_ROOT / "docs/OPERATOR_NETWORK.md",
+                 REPOSITORY_ROOT / "docs/BACKUP_AND_RECOVERY.md",
+                 SERVER_PATH, REPOSITORY_ROOT / "ROADMAP.md",
+                 REPOSITORY_ROOT / "SECURITY.md")
+    for document in documents:
+        target = "docs/NUC_SECURITY_HARDENING.md" if document.parent == REPOSITORY_ROOT else "NUC_SECURITY_HARDENING.md"
+        assert len(re.findall(rf"\]\({re.escape(target)}\)", _text(document))) == 1
+        assert (document.parent / target).resolve() == HARDENING_PATH
+    # The common resolver also validates anchors' target files.
+    text = _text(HARDENING_PATH)
+    without_anchors = re.sub(r"(\]\([^\s)#]+)#[^\s)]+\)", r"\1)", text)
+    links = _repository_links(HARDENING_PATH, without_anchors)
+    assert {RUNBOOK_PATH, CLEAN_INSTALL_PATH,
+            REPOSITORY_ROOT / "docs/BACKUP_AND_RECOVERY.md",
+            REPOSITORY_ROOT / "docs/OPERATOR_NETWORK.md"} <= links
+    for target in re.findall(r"\]\(([^)]+#[^)]+)\)", text):
+        relative, anchor = target.split("#", 1)
+        headings = re.findall(r"^#+ (.+)$", _text(HARDENING_PATH.parent / relative), re.MULTILINE)
+        slugs = {re.sub(r"[^\w\s-]", "", heading.lower()).replace(" ", "-") for heading in headings}
+        assert anchor in slugs, target
+    with pytest.raises(AssertionError):
+        _repository_links(HARDENING_PATH, "[control](missing-hardening-sentinel.md)")
+
+
+def test_hardening_contract_preserves_separate_host_and_release_authority() -> None:
+    text = " ".join(_text(HARDENING_PATH).split())
+    for marker in (
+        "Classification:", "Consumers:", "Retention:", "Update owner:",
+        "Independent candidate review is row 05V", "installation and acceptance are row 08",
+        "UFW and SSH cuts remain rows 09–10", "D1–D8", "rows 09–12",
+        "does not claim host hardening is complete", "Research stays disabled by default",
+        "30-publication-write-path.conf", "no publication write path",
+        "systemd 255.x", "Socket", "`0600`", "`0750`", "`0700`",
+        "Synthetic SQLite", "Local IPv4/IPv6 HTTP stubs", "actual timer-triggered backup",
+        "Post-boot matrix", "Root or another authorized privileged writer",
+    ):
+        assert marker in text, marker
+    # Installed-unit and recovery changes are deliberately not a release-engine
+    # capability: keep the public command set and behavior contract separate.
+    engine_text = _text(CANONICAL_ENGINE_PATH)
+    assert "nsh-boundary-rollback" not in engine_text
+    assert "kronika-host-hardening" not in engine_text

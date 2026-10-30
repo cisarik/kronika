@@ -28,6 +28,15 @@ decision nor earlier disposable-state language authorizes deleting media,
 profiles or whole state directories. Actual host state requires later
 preflight verification.
 
+The [NUC hardening contract](docs/NUC_SECURITY_HARDENING.md) now records
+repository-source web/local-backup sandbox restrictions, private runtime/cache
+modes and a fixed-surface recovery helper. Independent review (05V), host
+activation/proof (08), UFW/SSH cuts (09–10), and deferred decisions D1–D8
+(09–12) remain separate. The publication write-path exception, privileged
+writer/pathname races, transient rollback loss on reboot, frozen-runtime
+maintenance and physical recovery risks remain explicit. Repository tests
+do not establish effective host hardening or close that logical whole.
+
 ## Accepted Kronika Privacy and Research Boundary
 
 [ADR-0082](docs/adr/0082-kronika-one-product-and-private-records.md) remains

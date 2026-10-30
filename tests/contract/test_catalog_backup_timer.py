@@ -96,7 +96,26 @@ def test_catalog_backup_service_contract() -> None:
     text = SERVICE_PATH.read_text(encoding="utf-8")
     assert "ListenStream" not in text
     assert "/mnt/umbrel-data" not in text
-    assert "/srv/media" not in text
+    assert service["InaccessiblePaths"] == "/srv/media"
+    assert service["RestrictAddressFamilies"] == "AF_UNIX"
+    assert service["IPAddressDeny"] == "any"
+    for name in ("PrivateDevices", "ProtectHostname", "ProtectClock",
+                 "ProtectKernelLogs", "RestrictNamespaces", "RestrictRealtime",
+                 "NoNewPrivileges", "PrivateTmp", "ProtectControlGroups",
+                 "ProtectKernelModules", "ProtectKernelTunables", "RestrictSUIDSGID",
+                 "LockPersonality"):
+        assert service[name] == "true"
+    assert service["SystemCallArchitectures"] == "native"
+    assert service["SystemCallFilter"] == "~@clock @module @mount @raw-io @reboot @swap"
+    assert service["SystemCallErrorNumber"] == "EPERM"
+    assert service["ProtectHome"] == "read-only"
+    assert service["UMask"] == "0077"
+    assert service["CapabilityBoundingSet"] == service["AmbientCapabilities"] == ""
+    assert service["Nice"] == "10"
+    assert service["KillMode"] == "mixed"
+    assert service["KillSignal"] == "SIGTERM"
+    assert service["StandardOutput"] == service["StandardError"] == "journal"
+    assert "ReadWritePaths" not in service
 
 
 def test_catalog_backup_timer_schedule_contract() -> None:

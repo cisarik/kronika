@@ -106,7 +106,9 @@ def test_systemd_service_directory_boundaries_are_mutable_state_cache_runtime_on
     assert service["StateDirectory"] == "kronika"
     assert service["StateDirectoryMode"] == "0700"
     assert service["CacheDirectory"] == "kronika"
+    assert service["CacheDirectoryMode"] == "0700"
     assert service["RuntimeDirectory"] == "kronika"
+    assert service["RuntimeDirectoryMode"] == "0750"
     assert "ConfigurationDirectory" not in service
     assert "LogsDirectory" not in service
     assert "ReadWritePaths" not in text
@@ -146,6 +148,15 @@ def test_systemd_service_removes_capabilities_and_retains_compatible_hardening()
     assert service["RestrictSUIDSGID"] == "true"
     assert service["LockPersonality"] == "true"
     assert service["UMask"] == "0077"
+    for name in ("PrivateDevices", "ProtectHostname", "ProtectClock",
+                 "ProtectKernelLogs", "RestrictNamespaces", "RestrictRealtime"):
+        assert service[name] == "true"
+    assert service["SystemCallArchitectures"] == "native"
+    assert service["RestrictAddressFamilies"] == "AF_UNIX AF_INET AF_INET6"
+    assert service["SystemCallFilter"] == "~@clock @module @mount @raw-io @reboot @swap"
+    assert service["SystemCallErrorNumber"] == "EPERM"
+    for forbidden in ("MemoryDenyWriteExecute", "PrivateUsers", "RemoveIPC", "ProcSubset"):
+        assert forbidden not in service
 
 
 def test_non_secret_environment_template_is_loopback_first_and_path_explicit() -> None:

@@ -65,6 +65,18 @@ monotonic `attempt_seq` in operator state so a later failure remains `failed`
 even when wall-clock timestamps collide in the same UTC second. Manual
 `verify-restore` never supersedes scheduled attempt order.
 
+The [NUC hardening contract](NUC_SECURITY_HARDENING.md) adds repository-source
+restrictions to the local-backup service: private devices, protected hostname,
+clock and kernel logs, restricted namespaces/realtime, native syscall ABI and
+the selected syscall deny groups. `RestrictAddressFamilies=AF_UNIX`,
+`IPAddressDeny=any`, and `InaccessiblePaths=/srv/media` preserve catalog-only
+scope without IP networking. Host installation and effective isolation proof
+belong to row 08, followed by actual timer-triggered backup success and
+restore-readiness `ready`; a manual checkpoint alone is insufficient.
+The off-device sources, retention policy and release helper are unchanged.
+The host-boundary helper's root-only recovery state is separate from catalog
+bundles and is never included in them.
+
 Shared exclusive non-blocking `fcntl.flock` on
 `/var/lib/kronika/catalog-backup-ops/catalog-backup.lock` protects:
 

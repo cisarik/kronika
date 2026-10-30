@@ -354,7 +354,9 @@ PER_TREE_FRAMENEST_FILE_COUNT = {
     "scripts": 0,
     # KSI-IMPL-CINSTALL, measured before the re-pin: docs 84+1=85.
     # UBUNTU_NUC_CLEAN_INSTALL.md is the sole added content-carrying path.
-    "docs": 85,
+    # NSH-IMPL-05, measured before re-pin: 85+1=86. The hardening
+    # contract enters solely through its historical host-baseline link label.
+    "docs": 86,
     "extension": 0,
 }
 
@@ -946,7 +948,9 @@ PER_TREE_FRAMENEST_OCCURRENCE_COUNT = {
     # KSI-IMPL-CINSTALL, measured before the re-pin: docs 748+4=752.
     # The new clean-install runbook names only the four frozen exceptions:
     # two tooling paths, one off-device mount and one capture state name.
-    "docs": 752,
+    # NSH-IMPL-05, measured before re-pin: 752+1=753. One historical
+    # FrameNest host-baseline link label; no frozen inventory is duplicated.
+    "docs": 753,
     # KSI-IMPL-C7AC moved `extension` by -141 (145 -> 4). Per file:
     # `content/x_adapter.js` -101, `content/x_adapter_contract_v1.js` -10,
     # `ui/sidebar.js` -9, `background/service_worker.js` -7,
@@ -1128,6 +1132,7 @@ EXPECTED_FRAMENEST_CONTENT_PATHS: frozenset[str] = frozenset(
         "docs/BACKUP_AND_RECOVERY.md",
         "docs/FEDORA_SERVICE.md",
         "docs/NUC_HOST_BASELINE.md",
+        "docs/NUC_SECURITY_HARDENING.md",
         "docs/OPERATOR_NETWORK.md",
         "docs/UBUNTU_NUC_CLEAN_INSTALL.md",
         "docs/UBUNTU_NUC_DEPLOYMENT.md",
@@ -2002,8 +2007,13 @@ UNIT_ACCOUNT_OCCURRENCE_COUNT = {
 # infrastructure/ai/configuration.py. Pytest stopped on the occurrence
 # assert; the file count is the git grep -I -l count, and that command's
 # occurrence count matches the pytest measurement of 2320.
-CAPITALIZED_OCCURRENCE_COUNT = 2320
-CAPITALIZED_FILE_COUNT = 340
+# NSH-IMPL-05, measured failure and independent git grep readback:
+# occurrences 2320+1=2321, files 340+1=341. The sole addition is the
+# historical host-baseline link label in docs/NUC_SECURITY_HARDENING.md.
+# Content paths gain exactly that file; docs files 85+1=86, occurrences
+# 752+1=753. All other Part C measurements, Part A and Part B stay unchanged.
+CAPITALIZED_OCCURRENCE_COUNT = 2321
+CAPITALIZED_FILE_COUNT = 341
 
 # KSI-IMPL-C3B added thirteen canonical `kronika-*` entries and thirteen
 # retained `framenest-*` aliases to the script table, so the table holds

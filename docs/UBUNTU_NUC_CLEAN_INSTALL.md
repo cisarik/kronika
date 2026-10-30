@@ -101,8 +101,8 @@ privilege, following the [web unit](../deploy/systemd/kronika.service) and
 | `/opt/kronika` | Root-controlled immutable `releases/<SHA>` trees and `current` pointer; service can read and traverse |
 | `/etc/kronika` | Operator-controlled `kronika.env`; optional root-controlled `credentials/` kept separate |
 | `/var/lib/kronika` | Service-owned private catalog and durable state; state directory mode `0700` |
-| `/var/cache/kronika` | Service-owned regenerable previews and cover thumbnails |
-| `/run/kronika` | systemd-managed runtime and protected `kronika.sock`; `UMask=0077` |
+| `/var/cache/kronika` | Service-owned regenerable previews and cover thumbnails; `CacheDirectoryMode=0700` |
+| `/run/kronika` | systemd-managed runtime `0750` and protected `kronika.sock` `0600`; `UMask=0077` |
 | `/srv/media` | Original media; read-only to the service by default |
 
 The catalog is `/var/lib/kronika/catalog.sqlite3`. Non-secret AI configuration
@@ -136,6 +136,19 @@ Do not broaden home-directory access to repair a service-account command.
 
 Use exact source artifacts from the selected release. Review the effective
 unit and any drop-ins, not just the base file.
+
+The [hardening contract](NUC_SECURITY_HARDENING.md) owns the selected web and
+local-backup restrictions and host proof matrix. Source review does not prove
+the sandbox works on the new host. Verify systemd 255.x syntax, effective
+settings, synthetic SQLite/media/preview workloads and local outbound stubs
+before acceptance. The base web unit grants no publication write path; any
+existing host exception remains a separate reviewed artifact. The recovery
+helper is installed only under a bounded host task at
+`/usr/local/libexec/kronika/nsh-boundary-rollback`, with root-only state
+`/var/lib/kronika-host-hardening`. Before any UFW/SSH cut, prove console access,
+snapshot/verify and an independent rollback timer that needs no SSH, DNS,
+Tailscale or sudo timestamp. Require fresh authentication and denial gates
+before cancelling it. No routine release update supplies that installation.
 
 1. Prepare accounts, mount availability, directories, and the first release as
    described in section 6. Put the non-secret template at
@@ -263,6 +276,11 @@ The service runs `kronika-backup run-scheduled` as `kronika`, with the web
 environment file and release working directory. The timer schedules
 `03:17:00 UTC` daily, `Persistent=yes`, `RandomizedDelaySec=900`.
 Reload systemd, enable/start the timer, and observe its actual service trigger.
+
+The local backup sandbox permits `AF_UNIX` only, sets `IPAddressDeny=any`,
+and denies access to `/srv/media`. Prove those restrictions with synthetic
+negative tests and require a new actual scheduled success after activation;
+the optional off-device unit has its own unchanged contract.
 
 | Environment key | Canonical root or retention |
 |---|---|

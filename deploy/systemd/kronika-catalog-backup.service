@@ -32,6 +32,18 @@ RestrictSUIDSGID=true
 LockPersonality=true
 CapabilityBoundingSet=
 AmbientCapabilities=
+PrivateDevices=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelLogs=true
+RestrictNamespaces=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+InaccessiblePaths=/srv/media
+SystemCallFilter=~@clock @module @mount @raw-io @reboot @swap
+SystemCallErrorNumber=EPERM
 
 [Install]
 WantedBy=multi-user.target

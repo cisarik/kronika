@@ -227,6 +227,15 @@ Sanitized command-observed NUC hardening and media-storage baseline facts are
 preserved in [docs/NUC_HOST_BASELINE.md](docs/NUC_HOST_BASELINE.md); that
 baseline is historical host evidence, not a substitute for current acceptance.
 
+The [NUC hardening contract](docs/NUC_SECURITY_HARDENING.md) supplies web and
+local-backup unit restrictions and fixed-surface recovery source. Web cache
+mode is `0700`, runtime mode `0750`, and socket provenance stays `0600`.
+Local backup has no IP network or original-media access. Fresh independent
+review (05V) precedes host installation and proof (08); network cuts (09–10)
+and D1–D8 (09–12) remain future. The host publication write exception remains
+deferred. Routine releases do not install this helper or activate these host
+changes, and source availability does not prove effective sandbox behavior.
+
 ## Same Core, Different Deployment Capabilities
 
 Desktop and server roles should reuse the same Kronika domain and application
