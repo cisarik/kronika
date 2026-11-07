@@ -862,3 +862,78 @@ body:has(.welcome:not([hidden])) .title-bar__action {
 .review-history-all[aria-expanded="true"]::after {
   content: " ▴";
 }
+
+/* --- Title-bar upload and settings connection --- */
+
+.title-bar__upload {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 255, 65, 0.08);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.title-bar__upload[hidden] {
+  display: none;
+}
+
+.title-bar__upload:hover,
+.title-bar__upload:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent);
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.settings-dialog__session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.settings-dialog__session-state {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.settings-dialog__session-state::before {
+  content: "🔌 ";
+}
+
+.settings-dialog .title-bar__action[aria-label="Connect Kronika"] {
+  display: none;
+}
+
+.settings-dialog .title-bar__action[aria-label="Disconnect Kronika"] {
+  border: 2px solid var(--danger);
+  background: rgba(255, 77, 77, 0.1);
+  color: var(--danger);
+}
+
+.settings-dialog .title-bar__action[aria-label="Disconnect Kronika"]:hover,
+.settings-dialog .title-bar__action[aria-label="Disconnect Kronika"]:focus-visible {
+  background: var(--danger);
+  color: #1a0505;
+  outline: 2px solid var(--danger);
+}

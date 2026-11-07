@@ -255,6 +255,7 @@ class KronikaSettings(BaseSettings):
         default_factory=_default_gallery_preview_cache_path,
         repr=False,
     )
+    gallery_preview_backfill_enabled: bool = Field(default=True)
     cover_storage_root: Path = Field(
         default_factory=_default_cover_storage_root,
         repr=False,

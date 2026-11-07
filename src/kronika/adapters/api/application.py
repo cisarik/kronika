@@ -148,6 +148,7 @@ from kronika.application.media_user_alias import (
 from kronika.application.media_analysis import PrepareLocalMediaAnalysis
 from kronika.application.media_content import ResolveMediaContent
 from kronika.application.gallery_preview import GalleryPreviewService
+from kronika.application.gallery_preview_backfill import GalleryPreviewBackfillCoordinator
 from kronika.application.media_cover import CoverService
 from kronika.application.media_suggestion import PreviewMediaSuggestion
 from kronika.application.media_suggestion import PreviewImportedMediaSuggestion
@@ -578,6 +579,7 @@ def create_app(
     owned_cover_storage = None
     owned_cover_thumbnail_cache = None
     owned_gallery_preview_cache = None
+    owned_gallery_preview_backfill: GalleryPreviewBackfillCoordinator | None = None
     owned_media_analysis_coordinator = None
     owned_youtube_claim_repository = None
     owned_youtube_staging = None
@@ -767,18 +769,24 @@ def create_app(
         owned_gallery_preview_cache = FilesystemGalleryPreviewCache(
             resolved_settings.gallery_preview_cache_path
         )
+        owned_gallery_preview_service = GalleryPreviewService(
+            owned_media_repository,
+            owned_library_repository,
+            LocalMediaContentReader(),
+            LocalMediaAnalysisAdapter(),
+            PillowGalleryPreviewEncoder(),
+            owned_gallery_preview_cache,
+        )
         gallery_preview_api_dependencies = GalleryPreviewApiDependencies(
-            preview_service=GalleryPreviewService(
-                owned_media_repository,
-                owned_library_repository,
-                LocalMediaContentReader(),
-                LocalMediaAnalysisAdapter(),
-                PillowGalleryPreviewEncoder(),
-                owned_gallery_preview_cache,
-            ),
+            preview_service=owned_gallery_preview_service,
             catalog_available=resolved_settings.database_path.exists,
             audience_policy=owned_content_audience_policy,
         )
+        if resolved_settings.gallery_preview_backfill_enabled:
+            owned_gallery_preview_backfill = GalleryPreviewBackfillCoordinator(
+                owned_gallery_preview_service,
+                catalog_available=resolved_settings.database_path.exists,
+            )
     if media_suggestion_api_dependencies is None:
         assert owned_library_repository is not None
         resolved_ai = resolve_ai_provider(resolved_settings)
@@ -1312,6 +1320,7 @@ def create_app(
         analysis_coordinator = owned_media_analysis_coordinator
         youtube_coordinator = owned_youtube_acquisition_coordinator
         x_coordinator = owned_x_acquisition_coordinator
+        preview_backfill = owned_gallery_preview_backfill
         started: list[StartedResource] = []
         budget = (
             APPLICATION_LIFESPAN_SHUTDOWN_BUDGET_SECONDS
@@ -1355,6 +1364,11 @@ def create_app(
                 await x_coordinator.start()
                 started.append(
                     StartedResource("x_acquisition", x_coordinator.shutdown)
+                )
+            if preview_backfill is not None:
+                await preview_backfill.start()
+                started.append(
+                    StartedResource("gallery_preview_backfill", preview_backfill.shutdown)
                 )
             yield
         finally:

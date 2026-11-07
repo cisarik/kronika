@@ -151,6 +151,10 @@ async function handle(message) {
       return fetchJson("automaticAnalysisCapability");
     case companion.TYPES.AUTOMATIC_ANALYSIS_SETTINGS:
       return putAutomaticAnalysisSettings(message.payload || {});
+    case companion.TYPES.SAVE_YOUTUBE:
+      return saveYouTube(message.payload || {});
+    case companion.TYPES.POLL_YOUTUBE:
+      return pollYouTube(message.payload || {});
     default:
       return { ok: false, error: "unknown_type" };
   }
@@ -230,6 +234,53 @@ async function savePost(payload) {
     await persistAwaitingAnalysisFromClaim(response.body, snapshot);
   }
   return snapshot;
+}
+
+const YOUTUBE_TERMINAL_PHASES = Object.freeze({
+  completed: "done",
+  completed_private: "done",
+  failed: "failed",
+  unavailable: "failed",
+});
+
+function youtubeSnapshot(body) {
+  const phase = body && typeof body.phase === "string" ? body.phase : "unknown";
+  const outcome = YOUTUBE_TERMINAL_PHASES[phase] || "pending";
+  return {
+    ok: true,
+    requestId: body && companion.isUuid(body.request_id) ? body.request_id : null,
+    phase,
+    outcome,
+    terminal: outcome !== "pending",
+    mediaId: body && companion.isUuid(body.media_id) ? body.media_id : null,
+    failureCategory: body && typeof body.failure_category === "string" ? body.failure_category : null,
+  };
+}
+
+async function saveYouTube(payload) {
+  const accepted = companion.acceptYouTubeVideoUrl(payload.url);
+  if (!accepted) {
+    return { ok: false, error: "invalid_url" };
+  }
+  const response = await fetchJson("youtubeRequests", {
+    method: "POST",
+    body: { url: accepted.canonicalUrl },
+  });
+  if (!response.ok) {
+    return response;
+  }
+  return Object.assign(youtubeSnapshot(response.body), { reused: response.status === 200 });
+}
+
+async function pollYouTube(payload) {
+  if (!companion.isUuid(payload.requestId)) {
+    return { ok: false, error: "invalid_request" };
+  }
+  const response = await fetchJson("youtubeRequest", { ids: { requestId: payload.requestId } });
+  if (!response.ok) {
+    return response;
+  }
+  return youtubeSnapshot(response.body);
 }
 
 function sanitizeAlias(raw) {

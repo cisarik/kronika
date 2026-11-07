@@ -26,7 +26,14 @@
             />
           </svg>
         </button>
-        <button id="chrome-action" class="title-bar__action" type="button">Connect</button>
+        <button
+          id="upload-open"
+          class="title-bar__upload"
+          type="button"
+          aria-label="Upload a file to Kronika"
+          title="Upload a video, image or GIF"
+          hidden
+        >📤</button>
       </div>
       <section id="review-history" hidden>
         <ul id="review-history-list" class="review-list review-list--compact" aria-label="Companion history"></ul>
@@ -58,8 +65,12 @@
             <p class="settings-dialog__note">
               Origin is the Kronika tailnet URL (https://&lt;node&gt;.&lt;tailnet&gt;.ts.net).
               Save accepts a pasted tailnet HTTPS origin and canonicalizes a trailing slash or host case.
-              Save writes settings. Connect and Disconnect in the title bar attach or clear the session.
+              Save writes settings and connects. Disconnect below clears the session.
             </p>
+            <section class="settings-dialog__session" aria-label="Connection">
+              <p id="connection-state" class="settings-dialog__session-state">Not connected</p>
+              <button id="chrome-action" class="title-bar__action settings-dialog__disconnect" type="button">Connect</button>
+            </section>
             <section id="admin-settings" class="settings-dialog__admin" hidden>
               <h3 class="settings-dialog__admin-title">Administration</h3>
               <label class="settings-dialog__check" for="automatic-analysis-enabled">

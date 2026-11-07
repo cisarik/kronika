@@ -19,6 +19,7 @@
     ATTACH_REQUEST: "attach_request",
     ATTACH_RESULT: "attach_result",
     OPEN_DETAILS: "open_details",
+    OPEN_UPLOAD: "open_upload",
   });
 
   function isUuid(value) {
@@ -35,6 +36,7 @@
     const framed = Boolean(win && parentWindow && parentWindow !== win);
     const listeners = [];
     const openDetailsListeners = [];
+    const openUploadListeners = [];
     const pending = [];
     let hosted = false;
     let attachSeq = 0;
@@ -91,6 +93,16 @@
         openDetailsListeners.slice().forEach((listener) => {
           try {
             listener(payload.mediaId);
+          } catch {
+            // listener failure must not break the host
+          }
+        });
+        return;
+      }
+      if (data.type === TYPES.OPEN_UPLOAD) {
+        openUploadListeners.slice().forEach((listener) => {
+          try {
+            listener();
           } catch {
             // listener failure must not break the host
           }
@@ -158,6 +170,11 @@
           openDetailsListeners.push(listener);
         }
       },
+      onOpenUpload: function onOpenUpload(listener) {
+        if (typeof listener === "function") {
+          openUploadListeners.push(listener);
+        }
+      },
       handleMessage: onMessage,
     };
   }
@@ -193,6 +210,11 @@
     onOpenDetails: function onOpenDetails(listener) {
       if (defaultHost) {
         defaultHost.onOpenDetails(listener);
+      }
+    },
+    onOpenUpload: function onOpenUpload(listener) {
+      if (defaultHost) {
+        defaultHost.onOpenUpload(listener);
       }
     },
   };

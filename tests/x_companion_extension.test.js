@@ -281,8 +281,13 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
     adapterSource,
     "[data-kronika-companion='save'] {"
   );
-  assert.match(saveRule, /bottom:\s*8px/);
-  assert.match(saveRule, /right:\s*8px/);
+  assert.match(saveRule, /bottom:\s*10px/);
+  assert.match(saveRule, /right:\s*10px/);
+  const videoSaveRule = companionStyleArrayRule(
+    adapterSource,
+    "[data-kronika-media-host]:has(video) > [data-kronika-companion='save'] {"
+  );
+  assert.match(videoSaveRule, /bottom:\s*76px/);
   assert.doesNotMatch(saveRule, /bottom:\s*0/);
   assert.doesNotMatch(saveRule, /right:\s*0;/);
   assert.doesNotMatch(saveRule, /top:\s*0/);
@@ -1448,7 +1453,7 @@ test("side-panel Settings is a sheet under the title bar, not a centered modal",
   assert.doesNotMatch(sidebarCss, /::backdrop\s*\{[\s\S]*rgba\(0,\s*0,\s*0,\s*0\.6\)/);
 });
 
-test("side-panel Settings Save sits under origin; empty title-bar Connect opens Settings", () => {
+test("side-panel Settings Save sits under origin; Disconnect lives in Settings and Upload in the title bar", () => {
   const sidebarHtml = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.html"), "utf8");
   const sidebarJs = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.js"), "utf8");
   const sidebarCss = fs.readFileSync(path.join(REPO, "extension/ui/sidebar.css"), "utf8");
@@ -1460,7 +1465,9 @@ test("side-panel Settings Save sits under origin; empty title-bar Connect opens 
   const mainAt = sidebarHtml.indexOf('class="sidebar-main"');
   assert.ok(originAt > settingsDialogAt);
   assert.ok(settingsSaveAt > originAt && settingsSaveAt < mainAt);
-  assert.ok(chromeActionAt >= 0 && chromeActionAt < settingsDialogAt);
+  assert.ok(chromeActionAt > settingsSaveAt && chromeActionAt < mainAt);
+  assert.match(sidebarHtml, /id="upload-open"/);
+  assert.ok(sidebarHtml.indexOf('id="upload-open"') < settingsDialogAt);
   assert.doesNotMatch(sidebarHtml, /id="settings-connect"/);
   assert.doesNotMatch(sidebarHtml, /settings-dialog__origin-row/);
   assert.match(sidebarHtml, /id="settings-save"/);
@@ -1469,7 +1476,7 @@ test("side-panel Settings Save sits under origin; empty title-bar Connect opens 
   assert.match(sidebarHtml, /id="chrome-action"/);
   assert.match(sidebarHtml, />Connect</);
   assert.match(sidebarHtml, /Save writes settings/);
-  assert.match(sidebarHtml, /Connect and Disconnect in the title bar/);
+  assert.match(sidebarHtml, /Disconnect below clears the session/);
   assert.doesNotMatch(sidebarHtml, /Connect in Settings saves the origin/);
   assert.doesNotMatch(sidebarHtml, />Reset</);
   assert.doesNotMatch(sidebarCss, /settings-dialog__origin-row/);

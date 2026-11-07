@@ -554,6 +554,7 @@ ROUTE_POLICIES: tuple[RoutePolicy, ...] = (
         capability=CAPABILITY_YOUTUBE_REQUEST,
         audit_action="youtube.request.submit",
         audit_target_type="youtube_request",
+        companion_mutation=True,
     ),
     RoutePolicy(
         method="POST",

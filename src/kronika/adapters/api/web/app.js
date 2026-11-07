@@ -11294,6 +11294,13 @@ if (
   globalThis.KronikaCompanionWeb
   && typeof globalThis.KronikaCompanionWeb.onOpenDetails === "function"
 ) {
+  if (typeof globalThis.KronikaCompanionWeb.onOpenUpload === "function") {
+    globalThis.KronikaCompanionWeb.onOpenUpload(() => {
+      if (uploadOpenButton && !uploadOpenButton.hidden && typeof openUploadDialog === "function") {
+        openUploadDialog();
+      }
+    });
+  }
   globalThis.KronikaCompanionWeb.onOpenDetails((mediaId) => {
     openDetailsDialog({ media_id: mediaId }, detailsCloseButton);
   });

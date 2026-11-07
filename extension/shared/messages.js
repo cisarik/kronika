@@ -43,6 +43,8 @@
     REVIEW_INBOX_APPLY: "review_inbox_apply",
     AUTOMATIC_ANALYSIS_CAPABILITY: "automatic_analysis_capability",
     AUTOMATIC_ANALYSIS_SETTINGS: "automatic_analysis_settings",
+    SAVE_YOUTUBE: "save_youtube",
+    POLL_YOUTUBE: "poll_youtube",
   });
   const REVIEW_APPLY_FIELDS = Object.freeze(["display_title", "tags", "description"]);
   const TAG_KEY_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
@@ -133,6 +135,49 @@
     }
     const message = error && typeof error.message === "string" ? error.message : "";
     return message.indexOf(EXTENSION_CONTEXT_INVALIDATED_SIGNATURE) !== -1;
+  }
+
+  const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"]);
+  const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+  // Reduce a YouTube page or share URL to the canonical watch URL. The server
+  // re-validates every submission; this only keeps tracking parameters,
+  // playlists and timestamps out of the request.
+  function acceptYouTubeVideoUrl(url) {
+    if (typeof url !== "string" || url.trim() !== url || url.length === 0 || url.length > 2048) {
+      return null;
+    }
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+      return null;
+    }
+    if (parsed.port && parsed.port !== "443") {
+      return null;
+    }
+    const host = parsed.hostname.toLowerCase();
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    let videoId = null;
+    if (host === "youtu.be") {
+      videoId = parts.length === 1 ? parts[0] : null;
+    } else if (YOUTUBE_HOSTS.has(host)) {
+      if (parts.length === 1 && parts[0] === "watch") {
+        videoId = parsed.searchParams.get("v");
+      } else if (parts.length === 2 && (parts[0] === "shorts" || parts[0] === "live" || parts[0] === "embed")) {
+        videoId = parts[1];
+      }
+    }
+    if (!videoId || !YOUTUBE_VIDEO_ID_PATTERN.test(videoId)) {
+      return null;
+    }
+    return {
+      videoId,
+      canonicalUrl: "https://www.youtube.com/watch?v=" + videoId,
+    };
   }
 
   function acceptXPostUrl(url) {
@@ -250,6 +295,13 @@
         return "/api/x/companion/media";
       case "xRequests":
         return "/api/x/requests";
+      case "youtubeRequests":
+        return "/api/youtube/requests";
+      case "youtubeRequest":
+        if (!isUuid(safe.requestId)) {
+          return null;
+        }
+        return "/api/youtube/requests/" + safe.requestId;
       case "xRequest":
         if (!isUuid(safe.claimId)) {
           return null;
@@ -700,6 +752,7 @@
     isUuid,
     isExtensionContextInvalidated,
     acceptXPostUrl,
+    acceptYouTubeVideoUrl,
     acceptXPostId,
     acceptContentCategory,
     savePopupDefaultContentCategory,

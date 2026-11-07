@@ -111,6 +111,9 @@ def test_only_companion_mutations_are_companion_flagged() -> None:
     assert own.capability == CAPABILITY_X_REQUEST
     assert own.additional_capabilities == ()
 
+    youtube_submit, youtube_submit_match = find_route_policy("POST", "/api/youtube/requests")
+    assert youtube_submit_match is not None and youtube_submit.companion_mutation is True
+    assert youtube_submit.audit_action == "youtube.request.submit"
     flagged = [policy for policy in ROUTE_POLICIES if policy.companion_mutation]
     assert {(policy.method, policy.pattern.pattern) for policy in flagged} == {
         (submit.method, submit.pattern.pattern),
@@ -118,6 +121,7 @@ def test_only_companion_mutations_are_companion_flagged() -> None:
         (opened.method, opened.pattern.pattern),
         (apply.method, apply.pattern.pattern),
         (settings_put.method, settings_put.pattern.pattern),
+        (youtube_submit.method, youtube_submit.pattern.pattern),
     }
 
 

@@ -1501,6 +1501,11 @@ def test_companion_origin_is_accepted_only_on_flagged_companion_routes(
             "tag_keys": [],
         },
     )
+    youtube_submit = client.post(
+        "/api/youtube/requests",
+        headers=_companion_mutation_headers(),
+        json={"url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"},
+    )
     settings_put = client.put(
         "/api/admin/settings/automatic-analysis",
         headers=_companion_mutation_headers(ADMIN_LOGIN),
@@ -1518,6 +1523,7 @@ def test_companion_origin_is_accepted_only_on_flagged_companion_routes(
     assert _error_code(retry) != "MUTATION_ORIGIN_FORBIDDEN"
     assert _error_code(opened) != "MUTATION_ORIGIN_FORBIDDEN"
     assert _error_code(apply) != "MUTATION_ORIGIN_FORBIDDEN"
+    assert _error_code(youtube_submit) != "MUTATION_ORIGIN_FORBIDDEN"
     assert settings_put.status_code == 200
     assert settings_put.json() == {"automatic_media_analysis_enabled": False}
     assert unflagged.status_code == 403

@@ -11,6 +11,7 @@
     ATTACH_REQUEST: "attach_request",
     ATTACH_RESULT: "attach_result",
     OPEN_DETAILS: "open_details",
+    OPEN_UPLOAD: "open_upload",
   });
   const HANDSHAKE_WAIT_MS = 10000;
   const RELOAD_RECOVERY = companion.EXTENSION_CONTEXT_RECOVERY_COPY;
@@ -405,6 +406,8 @@
   const welcome = document.getElementById("welcome");
   const welcomeForm = document.getElementById("welcome-form");
   const welcomeOrigin = document.getElementById("welcome-origin");
+  const uploadOpen = document.getElementById("upload-open");
+  const connectionState = document.getElementById("connection-state");
   if (
     !originInput ||
     !shellStatus ||
@@ -481,6 +484,12 @@
     chromeAction.setAttribute("aria-label", connected ? "Disconnect Kronika" : "Connect Kronika");
     if (welcome) {
       welcome.hidden = connected;
+    }
+    if (uploadOpen) {
+      uploadOpen.hidden = !connected;
+    }
+    if (connectionState) {
+      connectionState.textContent = connected ? "Connected to " + storedOrigin : "Not connected";
     }
   }
 
@@ -1026,6 +1035,17 @@
   }
 
   chromeAction.addEventListener("click", onChromeAction);
+  if (uploadOpen) {
+    uploadOpen.addEventListener("click", () => {
+      if (!storedOrigin || !handshakeSeen || !companion.acceptKronikaOrigin(storedOrigin)) {
+        const loaded = frameLoaded;
+        setText(shellStatus, handshakeTimeoutCopy(loaded), loaded ? "notice" : "error");
+        return;
+      }
+      closeSettings();
+      postToFrame({ v: WEB_PROTOCOL, type: WEB_TYPES.OPEN_UPLOAD }, storedOrigin);
+    });
+  }
   if (welcomeForm && welcomeOrigin) {
     welcomeForm.addEventListener("submit", (event) => {
       event.preventDefault();
