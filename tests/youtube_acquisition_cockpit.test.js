@@ -302,8 +302,9 @@ test("YouTube cockpit opener has exact visible and accessible identity", () => {
   assert.match(opener.attributes, /(?:^|\s)hidden(?:\s|$)/);
   assert.doesNotMatch(opener.attributes, /(?:^|\s)disabled(?:\s|$|=)/);
   assert.doesNotMatch(opener.attributes, /(?:^|\s)tabindex="-1"/);
-  assert.doesNotMatch(opener.content, /<[^>]+>/);
-  assert.equal(opener.content.trim().replace(/\s+/g, " "), "YouTube");
+  assert.match(opener.attributes, /role="menuitem"/);
+  const visibleText = opener.content.replace(/<small>[\s\S]*?<\/small>/g, "").replace(/<[^>]+>/g, " ");
+  assert.match(visibleText.replace(/\s+/g, " "), /▶ YouTube/);
   assert.doesNotMatch(opener.markup, /Claim YouTube/);
   assert.match(
     APP_SOURCE,

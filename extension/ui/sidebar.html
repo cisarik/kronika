@@ -83,6 +83,21 @@
       <p id="shell-status" class="shell-status" role="status"></p>
     </header>
     <main class="sidebar-main">
+      <section id="welcome" class="welcome" aria-labelledby="welcome-title" hidden>
+        <div class="welcome__logo" aria-hidden="true">K</div>
+        <h1 id="welcome-title" class="welcome__title">Welcome to Kronika</h1>
+        <p class="welcome__lead">Connect this browser to your Kronika server. Then save X posts in one click and browse your library right here in the side panel.</p>
+        <form id="welcome-form" class="welcome__form">
+          <label class="welcome__label" for="welcome-origin">Your Kronika address</label>
+          <input id="welcome-origin" class="welcome__input" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://your-server.your-tailnet.ts.net" />
+          <button id="welcome-connect" class="welcome__connect" type="submit">Connect</button>
+        </form>
+        <ul class="welcome__facts">
+          <li><span aria-hidden="true">🔒</span> Works only inside your private Tailscale network.</li>
+          <li><span aria-hidden="true">✋</span> Never posts on X on your behalf.</li>
+          <li><span aria-hidden="true">⚙️</span> Change the address any time in Settings.</li>
+        </ul>
+      </section>
       <iframe id="frame" title="Kronika" hidden></iframe>
       <dialog id="review-dialog" class="review-dialog" aria-label="Review suggestion">
         <iframe id="review-frame" class="review-dialog__frame" title="Review suggestion"></iframe>

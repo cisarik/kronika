@@ -402,6 +402,9 @@
   const reviewHistoryExpanded = document.getElementById("review-history-expanded");
   const reviewDialog = document.getElementById("review-dialog");
   const reviewFrame = document.getElementById("review-frame");
+  const welcome = document.getElementById("welcome");
+  const welcomeForm = document.getElementById("welcome-form");
+  const welcomeOrigin = document.getElementById("welcome-origin");
   if (
     !originInput ||
     !shellStatus ||
@@ -476,6 +479,9 @@
     const connected = Boolean(storedOrigin);
     chromeAction.textContent = connected ? "Disconnect" : "Connect";
     chromeAction.setAttribute("aria-label", connected ? "Disconnect Kronika" : "Connect Kronika");
+    if (welcome) {
+      welcome.hidden = connected;
+    }
   }
 
   function request(type, payload) {
@@ -954,6 +960,7 @@
       },
       function unusedPendingOverlay() {}
     );
+    historyUserExpanded = setReviewHistoryExpanded(reviewHistoryToggle, reviewHistory, false);
   }
 
   function onReviewOverlayMessage(event) {
@@ -1019,6 +1026,20 @@
   }
 
   chromeAction.addEventListener("click", onChromeAction);
+  if (welcomeForm && welcomeOrigin) {
+    welcomeForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const origin = welcomeOrigin.value.trim();
+      if (!origin) {
+        setText(shellStatus, "Enter your Kronika address to connect", "error");
+        welcomeOrigin.focus();
+        return;
+      }
+      originInput.value = origin;
+      syncSettingsSave();
+      void connect();
+    });
+  }
   reviewHistoryToggle.addEventListener("click", onHistoryToggle);
   reviewHistoryAll.addEventListener("click", onAllClick);
   reviewHistoryList.addEventListener("click", (event) => {
@@ -1071,6 +1092,11 @@
   frame.addEventListener("load", onFrameLoad);
   frame.addEventListener("error", onFrameError);
   window.addEventListener("message", onWindowMessage);
+  window.addEventListener("blur", () => {
+    if (reviewHistoryToggle.getAttribute("aria-expanded") === "true") {
+      historyUserExpanded = setReviewHistoryExpanded(reviewHistoryToggle, reviewHistory, false);
+    }
+  });
   chrome.storage.local.get(
     companion.storageKeyRequest(companion.STORAGE.origin),
     (stored) => {

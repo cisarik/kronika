@@ -310,7 +310,7 @@ async function settle() {
 
 test("shell markup keeps the gallery and sandboxed answer frame", () => {
   assert.match(INDEX_SOURCE, /<title>Kronika<\/title>/);
-  assert.match(INDEX_SOURCE, /class="brand-mark"[^>]*>FN</);
+  assert.match(INDEX_SOURCE, /class="brand-mark"[^>]*>K</);
   assert.match(INDEX_SOURCE, /class="brand-wordmark">Kronika</);
   assert.match(INDEX_SOURCE, /href="#\/timeline"/);
   assert.match(INDEX_SOURCE, /href="#\/gallery"/);

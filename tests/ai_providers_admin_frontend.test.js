@@ -264,7 +264,8 @@ test("AI providers header control exists hidden by default and the dialog reuses
   const buttonStart = INDEX_SOURCE.indexOf('id="ai-providers-button"');
   const buttonTag = INDEX_SOURCE.slice(buttonStart, INDEX_SOURCE.indexOf(">", buttonStart) + 1);
   assert.match(buttonTag, /hidden/);
-  assert.match(buttonTag, /status-button--icon/);
+  assert.match(buttonTag, /header-menu__item/);
+  assert.match(buttonTag, /role="menuitem"/);
 
   const dialogStart = INDEX_SOURCE.indexOf('id="ai-providers-dialog"');
   assert.notEqual(dialogStart, -1);

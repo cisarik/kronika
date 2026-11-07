@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
     <title>Kronika</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='29' fill='%230a0e0a' stroke='%2300ff41' stroke-width='4'%2F%3E%3Ctext x='32' y='43' font-family='Menlo,monospace' font-size='32' font-weight='800' fill='%2339ff14' text-anchor='middle'%3EK%3C%2Ftext%3E%3C%2Fsvg%3E">
     <link rel="stylesheet" href="/assets/styles.css">
     <script src="/assets/companion_host.js" defer></script>
     <script src="/assets/app.js" defer></script>
@@ -13,12 +14,12 @@
     <a class="skip-link" href="#main">Skip to main content</a>
     <header class="app-header" aria-label="Kronika application header">
       <div class="brand" aria-label="Kronika">
-        <span class="brand-mark" aria-hidden="true">FN</span>
+        <span class="brand-mark" aria-hidden="true">K</span>
         <span class="brand-wordmark">Kronika</span>
       </div>
       <div class="header-search" role="search" aria-label="Search catalog">
         <div class="header-search__control">
-          <span class="header-search__prompt" aria-hidden="true">&gt;</span>
+          <span class="header-search__prompt" aria-hidden="true">🔎</span>
           <input
             id="command-search-input"
             class="header-search__input"
@@ -37,75 +38,139 @@
         </div>
       </div>
       <div class="header-status-group">
+        <div class="header-menu" data-header-menu="add">
+          <button
+            id="header-menu-add-trigger"
+            class="status-button status-button--icon header-menu__trigger header-menu__trigger--primary"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="header-menu-add"
+            aria-label="Add media"
+            data-tooltip="Add media"
+          >
+            <span class="status-button__glyph" aria-hidden="true">＋</span>
+          </button>
+          <div id="header-menu-add" class="header-menu__panel" role="menu" aria-label="Add media" hidden>
+            <p class="header-menu__heading" aria-hidden="true">Add media</p>
+            <button
+              id="upload-open-button"
+              class="header-menu__item upload-action-button"
+              type="button"
+              role="menuitem"
+              aria-label="Upload media"
+              title="Upload media"
+            >
+              <span class="header-menu__icon" aria-hidden="true">↑</span>
+              <span class="header-menu__text">Upload a file<small>GIF, MP4, JPEG or PNG from this device</small></span>
+            </button>
+            <button
+              id="youtube-claim-open-button"
+              class="header-menu__item youtube-claim-nav-button"
+              type="button"
+              role="menuitem"
+              aria-label="Acquire YouTube media"
+              hidden
+            >
+              <span class="header-menu__icon header-menu__icon--youtube" aria-hidden="true">▶</span>
+              <span class="header-menu__text">YouTube<small>Add a video straight to the library</small></span>
+            </button>
+            <button
+              id="youtube-request-open-button"
+              class="header-menu__item youtube-request-nav-button"
+              type="button"
+              role="menuitem"
+              aria-label="My YouTube downloads"
+              hidden
+            >
+              <span class="header-menu__icon header-menu__icon--youtube" aria-hidden="true">▶</span>
+              <span class="header-menu__text">My YouTube downloads<small>Request a video and follow its progress</small></span>
+            </button>
+            <button
+              id="x-request-open-button"
+              class="header-menu__item youtube-request-nav-button"
+              type="button"
+              role="menuitem"
+              aria-label="My X downloads"
+              hidden
+            >
+              <span class="header-menu__icon header-menu__icon--x" aria-hidden="true">𝕏</span>
+              <span class="header-menu__text">My X downloads<small>Request a post's media and follow its progress</small></span>
+            </button>
+          </div>
+        </div>
         <button
           id="workspace-media-open-button"
-          class="status-button workspace-media-nav-button"
+          class="status-button status-button--icon workspace-media-nav-button"
           type="button"
+          aria-label="My contributions"
+          data-tooltip="My contributions"
           hidden
         >
-          My contributions
+          <span class="status-button__glyph" aria-hidden="true">🗂️</span>
+          <span class="visually-hidden">My contributions</span>
         </button>
-        <button
-          id="admin-media-open-button"
-          class="status-button admin-media-nav-button"
-          type="button"
-          hidden
-        >
-          Manage media
-        </button>
-        <button
-          id="analysis-proposals-open-button"
-          class="status-button admin-media-nav-button"
-          type="button"
-          hidden
-        >
-          Analysis proposals
-        </button>
-        <button
-          id="youtube-claim-open-button"
-          class="status-button youtube-claim-nav-button"
-          type="button"
-          aria-label="Acquire YouTube media"
-          hidden
-        >
-          YouTube
-        </button>
-        <button
-          id="youtube-request-open-button"
-          class="status-button youtube-request-nav-button"
-          type="button"
-          aria-label="My YouTube downloads"
-          hidden
-        >
-          My YouTube downloads
-        </button>
-        <button
-          id="x-request-open-button"
-          class="status-button youtube-request-nav-button"
-          type="button"
-          aria-label="My X downloads"
-          hidden
-        >
-          My X downloads
-        </button>
-        <button
-          id="x-admin-open-button"
-          class="status-button youtube-claim-nav-button"
-          type="button"
-          aria-label="Review X acquisition"
-          hidden
-        >
-          X review
-        </button>
-        <button
-          id="upload-open-button"
-          class="status-button status-button--icon upload-action-button"
-          type="button"
-          aria-label="Upload media"
-          title="Upload media"
-        >
-          <span class="status-button__glyph" aria-hidden="true">↑</span>
-        </button>
+        <div class="header-menu" data-header-menu="admin">
+          <button
+            id="header-menu-admin-trigger"
+            class="status-button status-button--icon header-menu__trigger"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="header-menu-admin"
+            aria-label="Administration"
+            data-tooltip="Administration"
+          >
+            <span class="status-button__glyph" aria-hidden="true">⚙️</span>
+          </button>
+          <div id="header-menu-admin" class="header-menu__panel" role="menu" aria-label="Administration" hidden>
+            <p class="header-menu__heading" aria-hidden="true">Administration</p>
+            <button
+              id="admin-media-open-button"
+              class="header-menu__item admin-media-nav-button"
+              type="button"
+              role="menuitem"
+              hidden
+            >
+              <span class="header-menu__icon" aria-hidden="true">🗃️</span>
+              <span class="header-menu__text">Manage media<small>Publish, analyze and tidy the library</small></span>
+            </button>
+            <button
+              id="analysis-proposals-open-button"
+              class="header-menu__item admin-media-nav-button"
+              type="button"
+              role="menuitem"
+              hidden
+            >
+              <span class="header-menu__icon" aria-hidden="true">✨</span>
+              <span class="header-menu__text">Analysis proposals<small>Accept or reject AI metadata suggestions</small></span>
+            </button>
+            <button
+              id="x-admin-open-button"
+              class="header-menu__item youtube-claim-nav-button"
+              type="button"
+              role="menuitem"
+              aria-label="Review X acquisition"
+              hidden
+            >
+              <span class="header-menu__icon header-menu__icon--x" aria-hidden="true">𝕏</span>
+              <span class="header-menu__text">X review<small>Approve or decline requested X media</small></span>
+            </button>
+            <button
+              id="ai-providers-button"
+              class="header-menu__item"
+              type="button"
+              role="menuitem"
+              hidden
+              aria-label="AI provider administration"
+              title="AI provider administration"
+            >
+              <span class="header-menu__icon" aria-hidden="true">🛠️</span>
+              <span class="header-menu__text"><span id="ai-providers-button-text">AI providers</span><small>Models, keys and research settings</small></span>
+            </button>
+          </div>
+        </div>
+        <span class="header-divider" aria-hidden="true"></span>
         <button
           id="server-health-button"
           class="status-button status-button--icon status-button--checking"
@@ -127,17 +192,6 @@
           <span id="ai-status-button-text" class="visually-hidden">Checking AI</span>
         </button>
         <button
-          id="ai-providers-button"
-          class="status-button status-button--icon"
-          type="button"
-          hidden
-          aria-label="AI provider administration"
-          title="AI provider administration"
-        >
-          <span class="status-button__glyph" aria-hidden="true">🛠️</span>
-          <span id="ai-providers-button-text" class="visually-hidden">AI providers</span>
-        </button>
-        <button
           id="identity-badge"
           class="status-button identity-badge"
           type="button"
@@ -145,6 +199,7 @@
           aria-label="Tailscale identity status"
           title="Open Tailscale identity status"
         >
+          <span class="identity-badge__avatar" aria-hidden="true"></span>
           <span id="identity-status-name" class="identity-badge__name"></span>
         </button>
       </div>
@@ -780,126 +835,164 @@
 
     <main id="main" class="app-shell" tabindex="-1">
       <nav class="kronika-nav" aria-label="Primary" hidden>
-        <a id="kronika-nav-timeline" href="#/timeline" data-kronika-nav="timeline">Timeline</a>
-        <a id="kronika-nav-gallery" href="#/gallery" data-kronika-nav="gallery">Gallery</a>
-        <a id="kronika-nav-history" href="#/history" data-kronika-nav="history">History</a>
-        <a id="kronika-nav-search" href="#/search" data-kronika-nav="search">Search</a>
-        <a id="kronika-nav-research" href="#/research" data-kronika-nav="research">Research</a>
-        <a id="kronika-nav-review" href="#/review" data-kronika-nav="review" hidden>Review</a>
+        <a id="kronika-nav-timeline" href="#/timeline" data-kronika-nav="timeline"><span class="kronika-nav__icon" aria-hidden="true">🕰️</span><span class="kronika-nav__label">Timeline</span></a>
+        <a id="kronika-nav-gallery" href="#/gallery" data-kronika-nav="gallery"><span class="kronika-nav__icon" aria-hidden="true">🖼️</span><span class="kronika-nav__label">Gallery</span></a>
+        <a id="kronika-nav-history" href="#/history" data-kronika-nav="history"><span class="kronika-nav__icon" aria-hidden="true">📜</span><span class="kronika-nav__label">History</span></a>
+        <a id="kronika-nav-search" href="#/search" data-kronika-nav="search"><span class="kronika-nav__icon" aria-hidden="true">💬</span><span class="kronika-nav__label">Search</span></a>
+        <a id="kronika-nav-research" href="#/research" data-kronika-nav="research"><span class="kronika-nav__icon" aria-hidden="true">🔬</span><span class="kronika-nav__label">Research</span></a>
+        <a id="kronika-nav-review" href="#/review" data-kronika-nav="review" hidden><span class="kronika-nav__icon" aria-hidden="true">✅</span><span class="kronika-nav__label">Review</span></a>
       </nav>
 
       <section id="kronika-timeline" class="kronika-section" data-kronika-view="timeline" aria-labelledby="kronika-timeline-heading" hidden>
-        <h1 id="kronika-timeline-heading" tabindex="-1">Timeline</h1>
+        <header class="kronika-hero">
+          <span class="kronika-hero__icon" aria-hidden="true">🕰️</span>
+          <div>
+            <h1 id="kronika-timeline-heading" tabindex="-1">Timeline</h1>
+            <p class="kronika-lede">Everything your household chose to keep — newest first.</p>
+          </div>
+        </header>
         <div id="kronika-timeline-filters" class="kronika-filters" role="group" aria-label="Timeline filters">
-          <button type="button" class="kronika-action" data-kronika-filter="all">All</button>
-          <button type="button" class="kronika-action" data-kronika-filter="search">Search</button>
-          <button type="button" class="kronika-action" data-kronika-filter="research">Research</button>
-          <button type="button" class="kronika-action" data-kronika-filter="media">Media</button>
-          <button type="button" class="kronika-action" data-kronika-filter="general">General</button>
-          <button type="button" class="kronika-action" data-kronika-filter="meme">Memes</button>
-          <button type="button" class="kronika-action" data-kronika-filter="movie">Movies</button>
-          <button type="button" class="kronika-action" data-kronika-filter="youtube">YouTube</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="all"><span class="kronika-chip__icon" aria-hidden="true">🌐</span>All</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="search"><span class="kronika-chip__icon" aria-hidden="true">💬</span>Search</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="research"><span class="kronika-chip__icon" aria-hidden="true">🔬</span>Research</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="media"><span class="kronika-chip__icon" aria-hidden="true">🎞️</span>Media</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="general"><span class="kronika-chip__icon" aria-hidden="true">📁</span>General</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="meme"><span class="kronika-chip__icon" aria-hidden="true">😂</span>Memes</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="movie"><span class="kronika-chip__icon" aria-hidden="true">🎬</span>Movies</button>
+          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="youtube"><span class="kronika-chip__icon" aria-hidden="true">▶️</span>YouTube</button>
         </div>
         <p id="kronika-timeline-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <div id="kronika-timeline-results" class="kronika-grid"></div>
+        <div id="kronika-timeline-results" class="kronika-grid" data-kronika-list="timeline"></div>
         <div class="kronika-pager">
-          <button id="kronika-timeline-prev" class="kronika-action" type="button">Previous</button>
-          <button id="kronika-timeline-next" class="kronika-action" type="button">Next</button>
-          <button id="kronika-timeline-retry" class="kronika-action" type="button" hidden>Retry</button>
+          <button id="kronika-timeline-prev" class="kronika-action kronika-pager__button" type="button" aria-label="Previous page" title="Previous page"><span aria-hidden="true">←</span></button>
+          <button id="kronika-timeline-next" class="kronika-action kronika-pager__button" type="button" aria-label="Next page" title="Next page"><span aria-hidden="true">→</span></button>
+          <button id="kronika-timeline-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry</button>
         </div>
       </section>
 
       <section id="kronika-history" class="kronika-section" data-kronika-view="history" aria-labelledby="kronika-history-heading" hidden>
-        <h1 id="kronika-history-heading" tabindex="-1">History</h1>
-        <div class="kronika-filters" role="group" aria-label="History">
-          <a id="kronika-history-questions" class="kronika-action" href="#/history">Questions</a>
-          <a id="kronika-history-records-tab" class="kronika-action" href="#/history/records">Records</a>
+        <header class="kronika-hero">
+          <span class="kronika-hero__icon" aria-hidden="true">📜</span>
+          <div>
+            <h1 id="kronika-history-heading" tabindex="-1">History</h1>
+            <p class="kronika-lede">Your own questions, answers and saved records. Private until an administrator shares them.</p>
+          </div>
+        </header>
+        <div class="kronika-filters kronika-tabs" role="group" aria-label="History">
+          <a id="kronika-history-questions" class="kronika-action kronika-chip" href="#/history"><span class="kronika-chip__icon" aria-hidden="true">💬</span>Questions</a>
+          <a id="kronika-history-records-tab" class="kronika-action kronika-chip" href="#/history/records"><span class="kronika-chip__icon" aria-hidden="true">🗂️</span>Records</a>
         </div>
         <p id="kronika-history-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <div id="kronika-history-results" class="kronika-grid"></div>
+        <div id="kronika-history-results" class="kronika-grid" data-kronika-list="history"></div>
         <div class="kronika-pager">
-          <button id="kronika-history-prev" class="kronika-action" type="button">Previous</button>
-          <button id="kronika-history-next" class="kronika-action" type="button">Next</button>
-          <button id="kronika-history-retry" class="kronika-action" type="button" hidden>Retry</button>
+          <button id="kronika-history-prev" class="kronika-action kronika-pager__button" type="button" aria-label="Previous page" title="Previous page"><span aria-hidden="true">←</span></button>
+          <button id="kronika-history-next" class="kronika-action kronika-pager__button" type="button" aria-label="Next page" title="Next page"><span aria-hidden="true">→</span></button>
+          <button id="kronika-history-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry</button>
         </div>
       </section>
 
       <section id="kronika-question" class="kronika-section" data-kronika-view="question" aria-labelledby="kronika-question-heading" hidden>
-        <h1 id="kronika-question-heading" tabindex="-1">Search</h1>
-        <p id="kronika-capabilities-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <p><a href="#/history">History</a></p>
-        <form id="kronika-question-form">
-          <label for="kronika-question-input">Question</label>
-          <textarea id="kronika-question-input" name="question" rows="6" aria-describedby="kronika-question-hint"></textarea>
-          <p id="kronika-question-hint">The question is sent only after you submit it. Acknowledgement is not stored as a separate setting.</p>
-          <label for="kronika-consent">
+        <header class="kronika-hero">
+          <span id="kronika-question-icon" class="kronika-hero__icon" aria-hidden="true">💬</span>
+          <div>
+            <h1 id="kronika-question-heading" tabindex="-1">Search</h1>
+            <p id="kronika-question-lede" class="kronika-lede">Ask a quick question and get a short answer with sources.</p>
+          </div>
+        </header>
+        <form id="kronika-question-form" class="kronika-composer">
+          <label class="visually-hidden" for="kronika-question-input">Question</label>
+          <textarea id="kronika-question-input" name="question" rows="5" placeholder="What would you like to know?" aria-describedby="kronika-question-hint"></textarea>
+          <label class="kronika-consent" for="kronika-consent">
             <input id="kronika-consent" type="checkbox">
-            I agree to send this question to the configured provider. The answer is stored locally; provider retention may still apply.
+            <span>I agree to send this question to the configured provider. The answer is stored locally; provider retention may still apply.</span>
           </label>
           <p id="kronika-question-error" class="kronika-error" role="alert"></p>
-          <button id="kronika-question-submit" class="kronika-action" type="submit">Submit</button>
-          <button id="kronika-question-retry" class="kronika-action" type="button" hidden>Retry the same submission</button>
+          <div class="kronika-composer__actions">
+            <button id="kronika-question-submit" class="kronika-action kronika-action--primary" type="submit"><span aria-hidden="true">➤</span> Ask</button>
+            <button id="kronika-question-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry the same submission</button>
+            <a class="kronika-composer__link" href="#/history"><span aria-hidden="true">📜</span> Past answers</a>
+          </div>
         </form>
+        <details class="kronika-fineprint">
+          <summary><span aria-hidden="true">ℹ️</span> Privacy, cost and limits</summary>
+          <p id="kronika-question-hint">The question is sent only after you submit it. Acknowledgement is not stored as a separate setting.</p>
+          <p id="kronika-capabilities-status" class="kronika-status" role="status" aria-live="polite"></p>
+        </details>
         <p id="kronika-question-status" class="kronika-status" role="status" aria-live="polite"></p>
       </section>
 
       <section id="kronika-request" class="kronika-section" data-kronika-view="request" aria-labelledby="kronika-request-heading" hidden>
-        <h1 id="kronika-request-heading" tabindex="-1">Request</h1>
+        <header class="kronika-hero">
+          <span class="kronika-hero__icon kronika-hero__icon--busy" aria-hidden="true">⏳</span>
+          <div>
+            <h1 id="kronika-request-heading" tabindex="-1">Request</h1>
+            <p class="kronika-lede">Your question is being answered.</p>
+          </div>
+        </header>
         <p id="kronika-request-status" class="kronika-status" role="status" aria-live="polite"></p>
         <p id="kronika-request-note">Processing continues while this page is open and visible. Closing the page pauses these updates.</p>
-        <button id="kronika-request-cancel" class="kronika-action" type="button" hidden>Cancel request</button>
-        <button id="kronika-request-resume" class="kronika-action" type="button" hidden>Resume updates</button>
-        <a id="kronika-request-open-answer" class="kronika-action" href="#/timeline" hidden>Open answer</a>
+        <button id="kronika-request-cancel" class="kronika-action kronika-action--danger" type="button" hidden><span aria-hidden="true">✕</span> Cancel request</button>
+        <button id="kronika-request-resume" class="kronika-action" type="button" hidden><span aria-hidden="true">▶</span> Resume updates</button>
+        <a id="kronika-request-open-answer" class="kronika-action kronika-action--primary" href="#/timeline" hidden><span aria-hidden="true">📄</span> Open answer</a>
       </section>
 
       <section id="kronika-record" class="kronika-section" data-kronika-view="record" aria-labelledby="kronika-record-heading" hidden>
         <h1 id="kronika-record-heading" tabindex="-1">Record</h1>
         <p id="kronika-record-question"></p>
         <p id="kronika-record-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <button id="kronika-record-retry" class="kronika-action" type="button" hidden>Retry answer</button>
+        <button id="kronika-record-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry answer</button>
         <ul id="kronika-record-citations"></ul>
         <iframe id="kronika-document-frame" class="kronika-frame" title="Completed answer" sandbox="" referrerpolicy="no-referrer"></iframe>
       </section>
 
       <section id="kronika-review" class="kronika-section" data-kronika-view="review" aria-labelledby="kronika-review-heading" hidden>
-        <h1 id="kronika-review-heading" tabindex="-1">Review</h1>
-        <div class="kronika-filters" role="group" aria-label="Review">
-          <a id="kronika-review-private" class="kronika-action" href="#/review">Not on Timeline</a>
-          <a id="kronika-review-shared" class="kronika-action" href="#/review/shared">On Timeline</a>
-          <a id="kronika-review-requests" class="kronika-action" href="#/review/requests">Requests</a>
+        <header class="kronika-hero">
+          <span class="kronika-hero__icon" aria-hidden="true">✅</span>
+          <div>
+            <h1 id="kronika-review-heading" tabindex="-1">Review</h1>
+            <p class="kronika-lede">Decide what the whole household sees on the Timeline.</p>
+          </div>
+        </header>
+        <div class="kronika-filters kronika-tabs" role="group" aria-label="Review">
+          <a id="kronika-review-private" class="kronika-action kronika-chip" href="#/review"><span class="kronika-chip__icon" aria-hidden="true">🔒</span>Not on Timeline</a>
+          <a id="kronika-review-shared" class="kronika-action kronika-chip" href="#/review/shared"><span class="kronika-chip__icon" aria-hidden="true">🕰️</span>On Timeline</a>
+          <a id="kronika-review-requests" class="kronika-action kronika-chip" href="#/review/requests"><span class="kronika-chip__icon" aria-hidden="true">📨</span>Requests</a>
         </div>
         <p id="kronika-review-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <div id="kronika-review-results" class="kronika-grid"></div>
+        <div id="kronika-review-results" class="kronika-grid" data-kronika-list="review"></div>
         <div class="kronika-pager">
-          <button id="kronika-review-prev" class="kronika-action" type="button">Previous</button>
-          <button id="kronika-review-next" class="kronika-action" type="button">Next</button>
-          <button id="kronika-review-retry" class="kronika-action" type="button" hidden>Retry</button>
+          <button id="kronika-review-prev" class="kronika-action kronika-pager__button" type="button" aria-label="Previous page" title="Previous page"><span aria-hidden="true">←</span></button>
+          <button id="kronika-review-next" class="kronika-action kronika-pager__button" type="button" aria-label="Next page" title="Next page"><span aria-hidden="true">→</span></button>
+          <button id="kronika-review-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry</button>
         </div>
         <div id="kronika-review-detail" hidden>
           <p id="kronika-review-version"></p>
           <p id="kronika-review-readiness" hidden>The server still checks successful analysis and saved metadata readiness.</p>
-          <button id="kronika-review-approve" class="kronika-action" type="button">Approve for Timeline</button>
-          <button id="kronika-review-withdraw" class="kronika-action" type="button" hidden>Withdraw from Timeline</button>
-          <button id="kronika-review-reload" class="kronika-action" type="button" hidden>Reload</button>
+          <button id="kronika-review-approve" class="kronika-action kronika-action--primary" type="button"><span aria-hidden="true">✓</span> Approve for Timeline</button>
+          <button id="kronika-review-withdraw" class="kronika-action kronika-action--danger" type="button" hidden><span aria-hidden="true">↩</span> Withdraw from Timeline</button>
+          <button id="kronika-review-reload" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Reload</button>
           <div id="kronika-review-media"></div>
         </div>
       </section>
 
       <section id="kronika-unknown" class="kronika-section" data-kronika-view="unknown" aria-labelledby="kronika-unknown-heading" hidden>
-        <h1 id="kronika-unknown-heading" tabindex="-1">This address is unavailable</h1>
-        <p>Choose Timeline or Gallery.</p>
-        <p><a href="#/timeline">Timeline</a> <a href="#/gallery">Gallery</a></p>
+        <div class="kronika-empty">
+          <span class="kronika-empty__icon" aria-hidden="true">🧭</span>
+          <h1 id="kronika-unknown-heading" tabindex="-1">This address is unavailable</h1>
+          <p>Choose Timeline or Gallery.</p>
+          <p class="kronika-composer__actions"><a class="kronika-action kronika-chip" href="#/timeline"><span class="kronika-chip__icon" aria-hidden="true">🕰️</span>Timeline</a> <a class="kronika-action kronika-chip" href="#/gallery"><span class="kronika-chip__icon" aria-hidden="true">🖼️</span>Gallery</a></p>
+        </div>
       </section>
 
       <section id="catalog-browser" class="catalog-browser" aria-label="Media browser">
         <div class="catalog-scope" role="group" aria-label="Catalog scope">
-          <button id="catalog-scope-all" type="button" class="scope-active">All media</button>
-          <button id="catalog-scope-processed" type="button">Processed</button>
+          <button id="catalog-scope-all" type="button" class="scope-active"><span class="chip-icon" aria-hidden="true">🌐</span>All media</button>
+          <button id="catalog-scope-processed" type="button"><span class="chip-icon" aria-hidden="true">✨</span>Processed</button>
         </div>
         <div class="catalog-class-filters" role="group" aria-label="Content and source filters">
-          <button id="catalog-filter-memes" type="button" data-content-category="meme" aria-pressed="false">Memes</button>
-          <button id="catalog-filter-movies" type="button" data-content-category="movie" aria-pressed="false">Movies</button>
-          <button id="catalog-filter-youtube" type="button" data-content-category="youtube" aria-pressed="false">YouTube</button>
+          <button id="catalog-filter-memes" type="button" data-content-category="meme" aria-pressed="false"><span class="chip-icon" aria-hidden="true">😂</span>Memes</button>
+          <button id="catalog-filter-movies" type="button" data-content-category="movie" aria-pressed="false"><span class="chip-icon" aria-hidden="true">🎬</span>Movies</button>
+          <button id="catalog-filter-youtube" type="button" data-content-category="youtube" aria-pressed="false"><span class="chip-icon" aria-hidden="true">▶️</span>YouTube</button>
         </div>
         <p id="catalog-tags-state" class="catalog-tags-state" role="status" hidden></p>
         <div
@@ -922,7 +1015,7 @@
         </div>
         <div id="catalog-state-error" class="library-state library-state--error" hidden role="alert">
           <p class="library-state__message">Media could not be loaded.</p>
-          <button id="catalog-retry-button" class="library-state__action" type="button">Retry</button>
+          <button id="catalog-retry-button" class="library-state__action" type="button"><span aria-hidden="true">↻</span> Retry</button>
         </div>
         <div id="catalog-results" class="catalog-results gallery-grid" aria-live="polite"></div>
         <div class="catalog-pagination" aria-label="Catalog pagination">
@@ -936,8 +1029,8 @@
           </label>
           <p id="catalog-page-summary" role="status">No catalog page loaded.</p>
           <div class="catalog-pagination__nav">
-            <button id="catalog-prev-button" type="button" aria-label="Previous page">&lt;</button>
-            <button id="catalog-next-button" type="button" aria-label="Next page">&gt;</button>
+            <button id="catalog-prev-button" type="button" aria-label="Previous page">←</button>
+            <button id="catalog-next-button" type="button" aria-label="Next page">→</button>
           </div>
         </div>
       </section>
@@ -1015,7 +1108,7 @@
               placeholder="Filter by contributor login"
             >
           </label>
-          <button id="admin-media-refresh-button" class="admin-media-action-control" type="submit">Refresh</button>
+          <button id="admin-media-refresh-button" class="admin-media-action-control" type="submit"><span aria-hidden="true">↻</span> Refresh</button>
         </form>
 
         <p
@@ -1042,10 +1135,10 @@
             </label>
             <p id="admin-batch-selection-count" class="admin-batch__count">0 selected</p>
             <div class="admin-batch__actions">
-              <button id="admin-batch-publish-button" class="admin-media-action-control" type="button">Publish selected</button>
-              <button id="admin-batch-analyze-button" class="admin-media-action-control" type="button">Analyze selected</button>
-              <button id="admin-batch-clear-button" class="admin-media-action-control" type="button">Clear selection</button>
-              <button id="admin-batch-stop-button" class="admin-media-action-control admin-batch__stop" type="button" hidden>Stop</button>
+              <button id="admin-batch-publish-button" class="admin-media-action-control" type="button"><span aria-hidden="true">🚀</span> Publish selected</button>
+              <button id="admin-batch-analyze-button" class="admin-media-action-control" type="button"><span aria-hidden="true">✨</span> Analyze selected</button>
+              <button id="admin-batch-clear-button" class="admin-media-action-control" type="button"><span aria-hidden="true">✕</span> Clear selection</button>
+              <button id="admin-batch-stop-button" class="admin-media-action-control admin-batch__stop" type="button" hidden><span aria-hidden="true">■</span> Stop</button>
             </div>
           </div>
           <p id="admin-batch-hint" class="admin-batch__hint" hidden></p>
@@ -1075,7 +1168,7 @@
         </div>
         <div id="admin-media-error" class="library-state library-state--error" hidden role="alert">
           <p class="library-state__message">The publication workflow could not be loaded.</p>
-          <button id="admin-media-retry-button" class="library-state__action" type="button">Retry</button>
+          <button id="admin-media-retry-button" class="library-state__action" type="button"><span aria-hidden="true">↻</span> Retry</button>
         </div>
 
         <div
@@ -1106,8 +1199,8 @@
         <div class="catalog-pagination admin-media-pagination" aria-label="Admin media pagination">
           <p id="admin-media-page-summary" role="status">No workflow page loaded.</p>
           <div class="catalog-pagination__nav">
-            <button id="admin-media-prev-button" type="button">Previous</button>
-            <button id="admin-media-next-button" type="button">Next</button>
+            <button id="admin-media-prev-button" type="button" aria-label="Previous page" title="Previous page">←</button>
+            <button id="admin-media-next-button" type="button" aria-label="Next page" title="Next page">→</button>
           </div>
         </div>
       </section>
@@ -1157,14 +1250,14 @@
         </div>
         <div id="workspace-media-error" class="library-state library-state--error" hidden role="alert">
           <p class="library-state__message">Contributions could not be loaded.</p>
-          <button id="workspace-media-retry-button" class="library-state__action" type="button">Retry</button>
+          <button id="workspace-media-retry-button" class="library-state__action" type="button"><span aria-hidden="true">↻</span> Retry</button>
         </div>
         <div id="workspace-media-results" class="admin-media-results" role="table" aria-label="My contributions"></div>
         <div class="catalog-pagination admin-media-pagination" aria-label="Workspace media pagination">
           <p id="workspace-media-page-summary" role="status">No contribution page loaded.</p>
           <div class="catalog-pagination__nav">
-            <button id="workspace-media-prev-button" type="button">Previous</button>
-            <button id="workspace-media-next-button" type="button">Next</button>
+            <button id="workspace-media-prev-button" type="button" aria-label="Previous page" title="Previous page">←</button>
+            <button id="workspace-media-next-button" type="button" aria-label="Next page" title="Next page">→</button>
           </div>
         </div>
       </section>
@@ -1214,7 +1307,7 @@
         </div>
         <div id="analysis-proposals-error" class="library-state library-state--error" hidden role="alert">
           <p class="library-state__message">Analysis proposals could not be loaded.</p>
-          <button id="analysis-proposals-retry-button" class="library-state__action" type="button">Retry</button>
+          <button id="analysis-proposals-retry-button" class="library-state__action" type="button"><span aria-hidden="true">↻</span> Retry</button>
         </div>
         <div
           id="analysis-proposals-results"
@@ -1225,8 +1318,8 @@
         <div class="catalog-pagination admin-media-pagination" aria-label="Analysis proposal pagination">
           <p id="analysis-proposals-page-summary" role="status">No proposal page loaded.</p>
           <div class="catalog-pagination__nav">
-            <button id="analysis-proposals-prev-button" type="button">Previous</button>
-            <button id="analysis-proposals-next-button" type="button">Next</button>
+            <button id="analysis-proposals-prev-button" type="button" aria-label="Previous page" title="Previous page">←</button>
+            <button id="analysis-proposals-next-button" type="button" aria-label="Next page" title="Next page">→</button>
           </div>
         </div>
       </section>

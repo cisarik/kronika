@@ -612,6 +612,10 @@ function renderIdentityBadge() {
   }
   const label = identityState.displayName || identityState.login;
   if (identityStatusName) identityStatusName.textContent = label;
+  const avatar = typeof identityBadge.querySelector === "function"
+    ? identityBadge.querySelector(".identity-badge__avatar")
+    : null;
+  if (avatar) avatar.textContent = (String(label).trim().charAt(0) || "?").toUpperCase();
   identityBadge.classList.remove("status-button--checking", "status-button--unhealthy");
   identityBadge.setAttribute(
     "aria-label",
@@ -4759,7 +4763,7 @@ function renderPreviewFallback(surface, title) {
   surface.replaceChildren();
   surface.setAttribute("data-media-state", "preview-unavailable");
   const text = document.createElement("span");
-  text.className = "media-placeholder__error";
+  text.className = "media-placeholder__note";
   text.textContent = "Preview unavailable.";
   surface.appendChild(text);
 }
@@ -5384,6 +5388,12 @@ function reconcileCatalogSelectedCard() {
 function companionWebHosted() {
   const host = globalThis.KronikaCompanionWeb;
   return Boolean(host && typeof host.isHosted === "function" && host.isHosted());
+}
+
+function syncCompanionHostedClass() {
+  const root = typeof document !== "undefined" ? document.documentElement : null;
+  if (!root || !root.classList) return;
+  root.classList.toggle("kronika-companion-hosted", companionWebHosted());
 }
 
 function renderCatalogCard(item) {
@@ -11275,9 +11285,11 @@ if (
   && typeof globalThis.KronikaCompanionWeb.onHostedChange === "function"
 ) {
   globalThis.KronikaCompanionWeb.onHostedChange(() => {
+    syncCompanionHostedClass();
     void loadCatalog();
   });
 }
+syncCompanionHostedClass();
 if (
   globalThis.KronikaCompanionWeb
   && typeof globalThis.KronikaCompanionWeb.onOpenDetails === "function"
@@ -14059,6 +14071,14 @@ function kronikaKindLabel(item) {
   return "Record";
 }
 
+function kronikaTagCardKind(card, item) {
+  if (!card || typeof card.setAttribute !== "function" || !item) return;
+  const kind = item.kind === "media"
+    ? (item.content_category || "media")
+    : (item.kind || "record");
+  card.setAttribute("data-kronika-kind", String(kind));
+}
+
 function kronikaFormatDay(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "";
   try {
@@ -14080,6 +14100,7 @@ function kronikaRenderCards(container, items, hrefFor) {
   items.forEach((item) => {
     const link = document.createElement("a");
     link.className = "kronika-card";
+    kronikaTagCardKind(link, item);
     link.href = hrefFor(item);
     const title = document.createElement("strong");
     title.textContent = kronikaCardTitle(item);
@@ -14208,6 +14229,7 @@ async function kronikaLoadHistory(route) {
   list.items.forEach((item) => {
     const link = document.createElement("a");
     link.className = "kronika-card";
+    kronikaTagCardKind(link, item);
     if (kronikaRuntime.historyMode === "records") {
       link.href = item.kind === "media" && item.media_id
         ? `#/details/${encodeURIComponent(item.media_id)}`
@@ -14234,6 +14256,12 @@ async function kronikaLoadHistory(route) {
   kronikaPager("kronika-history-prev", "kronika-history-next", list);
 }
 
+function kronikaUsdFromMicros(micros) {
+  const dollars = micros / 1000000;
+  const digits = dollars > 0 && dollars < 0.01 ? 6 : 2;
+  return `$${dollars.toFixed(digits)}`;
+}
+
 function kronikaBudgetText(payload) {
   const parts = [];
   if (payload && typeof payload.retention_notice === "string") parts.push(payload.retention_notice);
@@ -14241,10 +14269,10 @@ function kronikaBudgetText(payload) {
   const research = payload && payload.research;
   const reservation = kronikaRuntime.questionKind === "research" ? research : search;
   if (reservation && typeof reservation.budget_reservation_usd_micros === "number") {
-    parts.push(`Budget reservation: ${reservation.budget_reservation_usd_micros} micros. A reservation is not a guaranteed invoice cap.`);
+    parts.push(`Budget reservation per question: ${kronikaUsdFromMicros(reservation.budget_reservation_usd_micros)}. A reservation is not a guaranteed invoice cap.`);
   }
   if (payload && typeof payload.daily_budget_usd_micros === "number") {
-    parts.push(`Daily budget: ${payload.daily_budget_usd_micros} micros.`);
+    parts.push(`Daily budget: ${kronikaUsdFromMicros(payload.daily_budget_usd_micros)}.`);
   }
   parts.push("This does not confirm that the provider is ready.");
   return parts.join(" ");
@@ -14254,6 +14282,22 @@ async function kronikaShowQuestion(route) {
   kronikaRuntime.questionKind = route.name === "research" ? "research" : "search";
   const heading = document.getElementById("kronika-question-heading");
   if (heading) heading.textContent = kronikaRuntime.questionKind === "research" ? "Research" : "Search";
+  const research = kronikaRuntime.questionKind === "research";
+  const questionIcon = document.getElementById("kronika-question-icon");
+  if (questionIcon) questionIcon.textContent = research ? "🔬" : "💬";
+  const questionLede = document.getElementById("kronika-question-lede");
+  if (questionLede) {
+    questionLede.textContent = research
+      ? "Ask for an in-depth report. It takes longer and cites its sources."
+      : "Ask a quick question and get a short answer with sources.";
+  }
+  const questionInput = document.getElementById("kronika-question-input");
+  if (questionInput && typeof questionInput.setAttribute === "function") {
+    questionInput.setAttribute(
+      "placeholder",
+      research ? "What should be researched in depth?" : "What would you like to know?",
+    );
+  }
   const submit = document.getElementById("kronika-question-submit");
   const generation = kronikaIdentityGeneration;
   kronikaSetText("kronika-capabilities-status", "Loading…");
@@ -14758,6 +14802,7 @@ async function kronikaLoadReview(route) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "kronika-card";
+    kronikaTagCardKind(button, item);
     const title = document.createElement("strong");
     title.textContent = kronikaCardTitle(item);
     const meta = document.createElement("small");
@@ -15027,3 +15072,147 @@ Object.assign(globalThis, {
   kronikaReleaseDetailsAddress,
 });
 /* KRONIKA_SHELL_END */
+
+/* KRONIKA_HEADER_MENUS_START */
+function setupHeaderMenus(doc) {
+  if (!doc || typeof doc.querySelectorAll !== "function") return;
+  const menus = [...doc.querySelectorAll("[data-header-menu]")];
+  if (!menus.length) return;
+  const entries = [];
+
+  function closeMenu(entry, restoreFocus) {
+    if (!entry || entry.panel.hidden) return;
+    entry.panel.hidden = true;
+    entry.trigger.setAttribute("aria-expanded", "false");
+    if (restoreFocus && typeof entry.trigger.focus === "function") entry.trigger.focus();
+  }
+
+  function closeAll(except) {
+    entries.forEach((entry) => {
+      if (entry !== except) closeMenu(entry, false);
+    });
+  }
+
+  function visibleItems(entry) {
+    return [...entry.panel.querySelectorAll(".header-menu__item")].filter((item) => !item.hidden);
+  }
+
+  function openMenu(entry, focusFirst) {
+    closeAll(entry);
+    entry.panel.hidden = false;
+    entry.trigger.setAttribute("aria-expanded", "true");
+    if (focusFirst) {
+      const first = visibleItems(entry)[0];
+      if (first) first.focus();
+    }
+  }
+
+  menus.forEach((menu) => {
+    const trigger = menu.querySelector(".header-menu__trigger");
+    const panel = menu.querySelector(".header-menu__panel");
+    if (!trigger || !panel) return;
+    const entry = { menu, trigger, panel };
+    entries.push(entry);
+
+    trigger.addEventListener("click", () => {
+      if (panel.hidden) openMenu(entry, false);
+      else closeMenu(entry, false);
+    });
+    trigger.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openMenu(entry, true);
+      }
+    });
+    panel.addEventListener("keydown", (event) => {
+      const items = visibleItems(entry);
+      const index = items.indexOf(doc.activeElement);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu(entry, true);
+      } else if (event.key === "ArrowDown" && items.length) {
+        event.preventDefault();
+        items[(index + 1) % items.length].focus();
+      } else if (event.key === "ArrowUp" && items.length) {
+        event.preventDefault();
+        items[(index - 1 + items.length) % items.length].focus();
+      } else if (event.key === "Tab") {
+        closeMenu(entry, false);
+      }
+    });
+    panel.querySelectorAll(".header-menu__item").forEach((item) => {
+      // Dialogs restore focus to their opener; an opener inside a closed menu
+      // cannot take focus, so hand it to the menu trigger instead.
+      const nativeFocus = item.focus.bind(item);
+      item.focus = (options) => (panel.hidden ? trigger.focus(options) : nativeFocus(options));
+      item.addEventListener("click", () => closeMenu(entry, false));
+    });
+  });
+
+  doc.addEventListener("click", (event) => {
+    entries.forEach((entry) => {
+      if (!entry.menu.contains(event.target)) closeMenu(entry, false);
+    });
+  });
+  doc.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    entries.forEach((entry) => {
+      if (!entry.panel.hidden) closeMenu(entry, true);
+    });
+  });
+}
+
+if (typeof document !== "undefined" && typeof window !== "undefined" && typeof HTMLElement !== "undefined") {
+  try {
+    setupHeaderMenus(document);
+  } catch {
+    // Menus are an enhancement; every action stays reachable without them.
+  }
+}
+/* KRONIKA_HEADER_MENUS_END */
+
+/* KRONIKA_UPLOAD_DROP_START */
+function setupUploadDropZone(doc) {
+  if (!doc || typeof doc.getElementById !== "function") return;
+  const dialog = doc.getElementById("upload-dialog");
+  const input = doc.getElementById("upload-file-input");
+  if (!dialog || !input || typeof DataTransfer === "undefined") return;
+  const hasFiles = (event) => Boolean(event.dataTransfer)
+    && [...(event.dataTransfer.types || [])].includes("Files");
+  let depth = 0;
+  dialog.addEventListener("dragenter", (event) => {
+    if (!hasFiles(event) || input.disabled) return;
+    depth += 1;
+    dialog.classList.add("upload-dialog--dragging");
+  });
+  dialog.addEventListener("dragleave", () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) dialog.classList.remove("upload-dialog--dragging");
+  });
+  dialog.addEventListener("dragover", (event) => {
+    if (!hasFiles(event) || input.disabled) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  });
+  dialog.addEventListener("drop", (event) => {
+    depth = 0;
+    dialog.classList.remove("upload-dialog--dragging");
+    if (!hasFiles(event) || input.disabled) return;
+    event.preventDefault();
+    const file = event.dataTransfer.files && event.dataTransfer.files[0];
+    if (!file) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+if (typeof document !== "undefined" && typeof window !== "undefined" && typeof HTMLElement !== "undefined") {
+  try {
+    setupUploadDropZone(document);
+  } catch {
+    // The file picker remains the primary upload path.
+  }
+}
+/* KRONIKA_UPLOAD_DROP_END */

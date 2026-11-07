@@ -980,7 +980,8 @@ def test_header_brand_mark_is_circular_branding_not_button(client: TestClient) -
     brand_section = html[brand_start : html.index("</div>", brand_start)]
     brand_css = css[css.index(".brand-mark") : css.index("/* --- Header command search ---")]
 
-    assert "FN" in brand_section
+    assert 'aria-hidden="true">K<' in brand_section
+    assert "FN" not in brand_section
     assert "<button" not in brand_section
     assert "role=" not in brand_section
     assert "tabindex" not in brand_section
@@ -2532,7 +2533,8 @@ def test_header_uses_compact_brand_and_accessible_status_labels(client: TestClie
     html = client.get("/").text
     header_section = html[html.index("app-header") : html.index("</header>")]
 
-    assert ">FN<" in header_section
+    assert ">K<" in header_section
+    assert ">FN<" not in header_section
     assert ">FrameNest<" not in header_section
     assert 'aria-label="Cloud status: checking"' in header_section
     assert 'aria-label="AI status: checking"' in header_section
@@ -2888,7 +2890,8 @@ def test_kronika_shell_adds_timeline_without_replacing_gallery(client: TestClien
     header = html[html.index("app-header") : html.index("</header>")]
     assert "<title>Kronika</title>" in html
     assert ">Kronika<" in header
-    assert ">FN<" in header
+    assert ">K<" in header
+    assert ">FN<" not in header
     assert ">FrameNest<" not in header
     assert 'aria-label="Kronika application header"' in header
     assert 'href="#main"' in html

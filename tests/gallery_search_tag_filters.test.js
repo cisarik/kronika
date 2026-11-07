@@ -501,7 +501,7 @@ test("Search markup keeps an exact prominent-purpose placeholder and an independ
   assert.match(input, /placeholder="Search titles and tags"/);
   assert.match(input, /aria-label="Search catalog by title or tag"/);
   assert.notEqual("Search titles and tags", "Search catalog by title or tag");
-  assert.match(INDEX_SOURCE, /header-search__prompt[^>]*aria-hidden="true"[^>]*>&gt;</);
+  assert.match(INDEX_SOURCE, /header-search__prompt[^>]*aria-hidden="true"[^>]*>🔎</);
   assert.match(INDEX_SOURCE, /id="catalog-tag-filters"[^>]*aria-label="Active tag filters"/);
 });
 
