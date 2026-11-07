@@ -15216,3 +15216,100 @@ if (typeof document !== "undefined" && typeof window !== "undefined" && typeof H
   }
 }
 /* KRONIKA_UPLOAD_DROP_END */
+
+/* KRONIKA_BUTTON_ICONS_START */
+// Leading icons for plain text action buttons, including buttons rendered
+// later by dialogs and cockpits. Only the data-icon attribute is touched, so
+// visible and accessible text stays exactly as written.
+const KRONIKA_BUTTON_ICONS = Object.freeze({
+  "Add model": "➕",
+  "Analyze by AI": "✨",
+  "Analyze selected": "✨",
+  "Cancel": "✕",
+  "Cancel upload": "✕",
+  "Choose cover": "🖼️",
+  "Claim another URL": "➕",
+  "Claim media": "⬇️",
+  "Confirm": "✓",
+  "Copy": "📋",
+  "Delete": "🗑️",
+  "Discard changes": "🗑️",
+  "Discard duplicate": "🗑️",
+  "Edit": "✏️",
+  "Identify movie": "🎬",
+  "Keep as separate item": "📄",
+  "Keep current": "✋",
+  "Keep editing": "✏️",
+  "Keep reviewing": "👀",
+  "Keep upload": "⬆️",
+  "Manage media": "🗃️",
+  "Not now": "⏭️",
+  "Open Details": "📄",
+  "Open media": "📄",
+  "Open result": "📄",
+  "Pause": "⏸️",
+  "Ping": "📡",
+  "Preview frame": "👁️",
+  "Propose analysis": "✨",
+  "Publish selected": "🚀",
+  "Reload": "↻",
+  "Remove": "🗑️",
+  "Remove from catalog": "🗑️",
+  "Replace cover": "🔁",
+  "Request download": "⬇️",
+  "Resume": "▶️",
+  "Retry": "↻",
+  "Retry claim": "↻",
+  "Review": "🔍",
+  "Review claim": "🔍",
+  "Save": "💾",
+  "Save record": "💾",
+  "Save research settings": "💾",
+  "Send the color test": "🎨",
+  "Set as cover": "🖼️",
+  "Start upload": "⬆️",
+  "Test vision": "🎨",
+  "Use for analysis": "⭐",
+  "AI": "🧠",
+  "Cloud": "☁️",
+  "Tailscale": "🔐",
+});
+
+function kronikaDecorateButton(button) {
+  if (!button || typeof button.getAttribute !== "function") return;
+  if (button.closest(".admin-media-cell--actions")) return;
+  const plain = button.children.length === 0;
+  const icon = plain ? KRONIKA_BUTTON_ICONS[(button.textContent || "").trim()] : undefined;
+  if (icon) {
+    if (button.getAttribute("data-icon") !== icon) button.setAttribute("data-icon", icon);
+  } else if (button.hasAttribute("data-icon")) {
+    button.removeAttribute("data-icon");
+  }
+}
+
+function setupButtonIcons(doc) {
+  if (!doc || !doc.body || typeof MutationObserver === "undefined") return;
+  const decorateWithin = (node) => {
+    if (!node || node.nodeType !== 1) return;
+    if (node.tagName === "BUTTON") kronikaDecorateButton(node);
+    node.querySelectorAll("button").forEach(kronikaDecorateButton);
+  };
+  decorateWithin(doc.body);
+  new MutationObserver((records) => {
+    records.forEach((record) => {
+      const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      const button = target && target.closest ? target.closest("button") : null;
+      if (button) kronikaDecorateButton(button);
+      record.addedNodes.forEach(decorateWithin);
+    });
+  }).observe(doc.body, { childList: true, subtree: true, characterData: true });
+}
+
+if (typeof document !== "undefined" && typeof window !== "undefined" && typeof HTMLElement !== "undefined") {
+  try {
+    setupButtonIcons(document);
+  } catch {
+    // Icons are decorative; buttons keep their text labels.
+  }
+}
+/* KRONIKA_BUTTON_ICONS_END */

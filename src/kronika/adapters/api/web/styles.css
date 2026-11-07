@@ -6385,3 +6385,13 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   background: var(--accent);
   color: #04130a;
 }
+
+/* --- Leading icons for text action buttons (see KRONIKA_BUTTON_ICONS) --- */
+
+button[data-icon]::before {
+  content: attr(data-icon);
+  display: inline-block;
+  margin-right: 0.45em;
+  font-size: 1.02em;
+  line-height: 1;
+}
