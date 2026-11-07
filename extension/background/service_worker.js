@@ -264,7 +264,8 @@ async function saveYouTube(payload) {
   }
   const response = await fetchJson("youtubeRequests", {
     method: "POST",
-    body: { url: accepted.canonicalUrl },
+    // The click on the in-player button is the interactive confirmation.
+    body: { url: accepted.canonicalUrl, confirmation_method: "interactive" },
   });
   if (!response.ok) {
     return response;

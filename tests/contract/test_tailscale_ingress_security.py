@@ -1504,7 +1504,10 @@ def test_companion_origin_is_accepted_only_on_flagged_companion_routes(
     youtube_submit = client.post(
         "/api/youtube/requests",
         headers=_companion_mutation_headers(),
-        json={"url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"},
+        json={
+            "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+            "confirmation_method": "interactive",
+        },
     )
     settings_put = client.put(
         "/api/admin/settings/automatic-analysis",
