@@ -178,6 +178,14 @@ test("manifest permissions stay minimized and omit X host access", () => {
   assert.equal((manifest.permissions || []).includes("cookies"), false);
   const matches = manifest.content_scripts[0].matches.sort();
   assert.deepEqual(matches, ["https://twitter.com/*", "https://x.com/*"]);
+  const youtubeScripts = manifest.content_scripts.filter((script) =>
+    (script.js || []).includes("content/youtube_adapter.js")
+  );
+  assert.equal(youtubeScripts.length, 1);
+  assert.deepEqual(youtubeScripts[0].matches, [
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+  ]);
 });
 
 test("chunk reassembly stays bounded", () => {
@@ -186,6 +194,11 @@ test("chunk reassembly stays bounded", () => {
   const joined = companion.concatChunks([first, second], 6);
   assert.equal(Buffer.from(joined).toString(), "abcdef");
   assert.equal(companion.MAX_ATTACH_BYTES, 32 * 1024 * 1024);
+});
+
+test("YouTube save posts an interactive confirmation", () => {
+  const saveYouTube = extractNamedFunction(workerSource, "saveYouTube");
+  assert.match(saveYouTube, /confirmation_method:\s*"interactive"/);
 });
 
 test("service worker recovers inflight claim ids from storage", () => {

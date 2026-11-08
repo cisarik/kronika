@@ -10,7 +10,7 @@ planned. [ADR-0083](docs/adr/0083-modular-research-providers-and-administrator-c
 is the current target for Search, Research and the shared Timeline. The
 internal `kronika` package, migration history, HTTP headers, storage keys
 and deployment identifiers remain. The shell now shows Kronika in the title,
-header label and wordmark while keeping the `FN` mark. The public repository
+header label and wordmark, and the visible mark is `K`. The public repository
 is `cisarik/kronika`. The former capture repository is `cisarik/cli_chatgpt`
 and stays active.
 
@@ -155,6 +155,11 @@ administrator companion Settings **Automatic media analysis** toggle is backed
 by the fifth `companion_mutation` route,
 `PUT /api/admin/settings/automatic-analysis`
 ([ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md)).
+The companion can save a YouTube video from the player through the sixth
+`companion_mutation` route, `POST /api/youtube/requests`
+([ADR-0086](docs/adr/0086-companion-youtube-save-upload-message-and-preview-backfill.md)).
+Missing gallery previews are filled in-process when preview backfill is
+enabled. Gallery preview GET requests do not generate previews.
 
 The upload path receives untrusted bytes only into
 configured server quarantine, performs bounded server-side validation, and
@@ -812,6 +817,7 @@ Current foundation files:
 - [`docs/adr/0066-administrator-owned-x-automatic-generic-analysis.md`](docs/adr/0066-administrator-owned-x-automatic-generic-analysis.md) records administrator-owned X automatic generic analysis (default-off).
 - [`docs/adr/0067-administrator-companion-review-inbox-and-mutation-trust.md`](docs/adr/0067-administrator-companion-review-inbox-and-mutation-trust.md) records the companion review inbox and the first four `companion_mutation` routes.
 - [`docs/adr/0079-administrator-automatic-analysis-runtime-setting.md`](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md) records the administrator companion Settings overlay and the fifth `companion_mutation` route.
+- [`docs/adr/0086-companion-youtube-save-upload-message-and-preview-backfill.md`](docs/adr/0086-companion-youtube-save-upload-message-and-preview-backfill.md) records companion YouTube save, the `open_upload` message, and in-process gallery preview backfill.
 - [`docs/adr/0077-ordinary-alias-edit-affordance-and-per-field-ai-suggestions.md`](docs/adr/0077-ordinary-alias-edit-affordance-and-per-field-ai-suggestions.md) records the ordinary alias-edit affordance, per-field AI suggestion strips, and the workspace `GET /api/media/{media_id}/ai-suggestions` read route.
 - [`docs/adr/0078-gallery-card-ai-per-field-review.md`](docs/adr/0078-gallery-card-ai-per-field-review.md) records the Gallery card Analyze (brain-symbol) control as a per-field review path through the existing Edit dialog.
 - [`docs/adr/0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md`](docs/adr/0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md) records immediate newest-suggestion reveal, removal of Load, dropdown switching, and in-modal card/editor analysis progress.

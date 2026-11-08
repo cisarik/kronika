@@ -265,13 +265,19 @@ leaves the durable published file untouched under the trusted-loopback
 single-tenant boundary; Tailscale multi-user ownership follows ADR-0053.
 Browser mutation requests with an `Origin` header must match the effective same
 origin; this is a bounded loopback protection and not authentication or
-authorization. In Tailscale UDS mode, five `companion_mutation` routes may also accept an
+authorization. In Tailscale UDS mode, six `companion_mutation` routes may also accept an
 exact allowlisted `chrome-extension://` origin after
 `KRONIKA_COMPANION_EXTENSION_ORIGINS` is set: `POST /api/x/requests`,
 `POST /api/x/requests/{claim_id}/retry`,
 `POST /api/companion/review-inbox/{media_id}/opened`,
-`POST /api/companion/review-inbox/{media_id}/apply`, and
-`PUT /api/admin/settings/automatic-analysis`. That allowlist defaults to
+`POST /api/companion/review-inbox/{media_id}/apply`,
+`PUT /api/admin/settings/automatic-analysis`, and
+`POST /api/youtube/requests`. YouTube retry stays unflagged.
+`POST /api/youtube/requests` requires capability `youtube.request`, records
+audit action `youtube.request.submit` before the action, and accepts only
+`confirmation_method: "interactive"`. An omitted or non-interactive
+confirmation, including `yes_flag`, returns 400 and does not submit.
+That allowlist defaults to
 empty, still requires `X-Kronika-Request: 1`, and adds no CORS headers. GET
 inbox and own-history routes do not require the allowlist the same way;
 mutations that carry the extension Origin fail closed when the allowlist is
@@ -285,10 +291,16 @@ the key or setting it to `[]` and restarting. See
 and
 [docs/X_COMPANION.md](docs/X_COMPANION.md). The fifth mutation is
 [ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md).
+The sixth mutation is
+[ADR-0086](docs/adr/0086-companion-youtube-save-upload-message-and-preview-backfill.md).
 Public JPEG/PNG X photographs are
 acquired through an isolated status bridge and a strict `pbs.twimg.com`
 transport; WebP is rejected; content scripts never fetch Kronika or the CDN.
-The companion still adds no CORS headers.
+The companion still adds no CORS headers. The YouTube content script matches
+only `https://www.youtube.com/*` and `https://m.youtube.com/*`.
+`optional_host_permissions` remains `https://*.ts.net/*`. There is no
+`host_permissions` key. Ordinary clients receive no provider secrets, browser
+credentials, or host secrets.
 
 Three companion/workspace positions are accepted residuals documented here,
 not new rules. Workspace embeddability: workspace HTML responses set no

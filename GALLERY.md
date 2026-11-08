@@ -133,9 +133,10 @@ Generic visible media-kind text and the prominent `Processed since` panel are
 not part of the main Details presentation; processed data remains internal and
 may appear inside Technical details. After acceptance of this presentation,
 Gallery cards and Details visual presentation are frozen for the MVP except for
-concrete defects.
+concrete defects. The Cooperator asked for the 40 px glass card overlay; that
+work is inside this exception and does not reopen the freeze.
 
-The Gallery header and pagination should stay compact: the temporary `FN` mark
+The Gallery header and pagination should stay compact: the visible `K` mark
 is sufficient non-interactive branding in the current shell, visible `Cloud`
 and `🧠 AI` status labels should stay short while preserving accessible state
 truth, and pagination should offer bounded page-size choices without verbose

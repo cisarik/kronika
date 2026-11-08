@@ -1514,6 +1514,16 @@ def test_companion_origin_is_accepted_only_on_flagged_companion_routes(
         headers=_companion_mutation_headers(ADMIN_LOGIN),
         json={"automatic_media_analysis_enabled": False},
     )
+    youtube_retry = client.post(
+        f"/api/youtube/requests/{uuid.uuid4()}/retry",
+        headers=_companion_mutation_headers(),
+        json={"confirmation_method": "interactive"},
+    )
+    uploads = client.post(
+        "/api/uploads",
+        headers=_companion_mutation_headers(),
+        json={"display_filename": "clip.mp4", "declared_size_bytes": 8},
+    )
     unflagged = client.post(
         "/api/canonical-tags",
         headers=_companion_mutation_headers(ADMIN_LOGIN),
@@ -1527,6 +1537,10 @@ def test_companion_origin_is_accepted_only_on_flagged_companion_routes(
     assert _error_code(opened) != "MUTATION_ORIGIN_FORBIDDEN"
     assert _error_code(apply) != "MUTATION_ORIGIN_FORBIDDEN"
     assert _error_code(youtube_submit) != "MUTATION_ORIGIN_FORBIDDEN"
+    assert youtube_retry.status_code == 403
+    assert _error_code(youtube_retry) == "MUTATION_ORIGIN_FORBIDDEN"
+    assert uploads.status_code == 403
+    assert _error_code(uploads) == "MUTATION_ORIGIN_FORBIDDEN"
     assert settings_put.status_code == 200
     assert settings_put.json() == {"automatic_media_analysis_enabled": False}
     assert unflagged.status_code == 403
@@ -1534,6 +1548,7 @@ def test_companion_origin_is_accepted_only_on_flagged_companion_routes(
     assert "access-control-allow-origin" not in submit.headers
     rows = _audit_rows(settings.database_path)
     assert any(row["action"] == "x.request.submit" for row in rows)
+    assert any(row["action"] == "youtube.request.submit" for row in rows)
 
 
 def test_empty_companion_allowlist_rejects_extension_origin(

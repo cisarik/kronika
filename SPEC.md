@@ -594,6 +594,14 @@ Accessibility, reduced motion, reduced transparency, and lower-resource modes MU
 
 This document does not select a frontend framework.
 
+When `gallery_preview_backfill_enabled` is true (the default;
+`KRONIKA_GALLERY_PREVIEW_BACKFILL_ENABLED`),
+`GalleryPreviewBackfillCoordinator` MUST fill missing gallery previews
+in-process on one thread, at most 12 items per pass, on a 60-second interval,
+skipping a failed item for 60 passes, and inside the 20-second application
+shutdown budget. `GET /api/media/{media_id}/locations/{location_id}/gallery-preview`
+MUST NOT generate a preview.
+
 ## 15. GIF, Short Media, and MEME Requirements
 
 Kronika SHOULD support GIF files and short videos as first-class media.
@@ -642,6 +650,14 @@ Acquisition SHOULD support metadata inspection, progress, cancellation, temporar
 Kronika SHOULD NOT perform unnecessary transcoding by default.
 
 The exact format policy remains unresolved.
+
+`POST /api/youtube/requests` MUST be the one flagged YouTube
+`companion_mutation` route. It MUST require capability `youtube.request`,
+MUST record audit action `youtube.request.submit` before the action, and MUST
+accept only `confirmation_method: "interactive"`. An omitted or
+non-interactive confirmation, including `yes_flag`, MUST return 400 and MUST
+NOT submit. YouTube retry MUST stay unflagged. See
+[ADR-0086](docs/adr/0086-companion-youtube-save-upload-message-and-preview-backfill.md).
 
 ## 17. Playback
 
@@ -771,6 +787,12 @@ Kronika MUST NOT use Tailscale Funnel against the workspace socket
 The normal application process MUST NOT invoke privileged Tailscale provisioning on every startup.
 
 Network identity alone is insufficient authorization.
+
+The hosted shell MUST accept `open_upload` only from the pinned companion
+extension origin and only when the message source is the parent window. The
+shell MUST open the upload dialog only when the upload control is visible.
+That visibility follows capability `upload.submit`. The companion title-bar
+upload control MUST post `open_upload` only after the sidebar handshake.
 
 Application capabilities must later be defined.
 
@@ -1237,9 +1259,10 @@ and block Apply when that opened retry fails. Successful connection MUST render
 no status line; failure guidance, `Cleared`, and `Attached` remain visible. The
 toolbar badge MUST derive only from server `unopened_count`; pending rows MUST
 NOT increment it. Ordinary identities MUST receive own-history rather than inbox
-list/detail/apply. Exactly five `companion_mutation` routes exist: X submit, X
-retry, review opened, review apply, and
-`PUT /api/admin/settings/automatic-analysis`. GET inbox and GET own-history routes MUST
+list/detail/apply. Exactly six `companion_mutation` routes exist: X submit, X
+retry, review opened, review apply,
+`PUT /api/admin/settings/automatic-analysis`, and `POST /api/youtube/requests`.
+YouTube retry stays unflagged. GET inbox and GET own-history routes MUST
 work with an empty
 `companion_extension_origins` allowlist. Mutations that carry the extension
 Origin MUST fail closed when that allowlist is empty. `GET /api/canonical-tags`

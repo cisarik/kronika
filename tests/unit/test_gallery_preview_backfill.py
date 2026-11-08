@@ -9,7 +9,12 @@ from kronika.application.gallery_preview import (
     GalleryPreviewGenerationPlan,
     GalleryPreviewUnavailableError,
 )
-from kronika.application.gallery_preview_backfill import GalleryPreviewBackfillCoordinator
+from kronika.application.gallery_preview_backfill import (
+    DEFAULT_FAILURE_RETRY_PASSES,
+    DEFAULT_INTERVAL_SECONDS,
+    DEFAULT_ITEMS_PER_PASS,
+    GalleryPreviewBackfillCoordinator,
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +53,12 @@ class _FakeService:
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+def test_default_bounds_are_twelve_items_sixty_seconds_and_sixty_pass_skip() -> None:
+    assert DEFAULT_ITEMS_PER_PASS == 12
+    assert DEFAULT_INTERVAL_SECONDS == 60.0
+    assert DEFAULT_FAILURE_RETRY_PASSES == 60
 
 
 def test_pass_generates_missing_previews_up_to_the_per_pass_bound() -> None:

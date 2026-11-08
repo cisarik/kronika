@@ -10,6 +10,20 @@ shell or the browser companion.
 Retention: remains while the findings below guide UI work. Git history is the
 archive for superseded rounds.
 
+Relationship: historical product record of one UX round. Not task authority.
+
+Authority: Cooperator observations from that round, already implemented in
+01dda1f..cb5fa4d. The documentation grant may add this metadata and must not
+treat the file as a new product grant.
+
+Discoverability: one inbound link from DEVELOPMENT.md.
+
+Cleanup owner: ORCHESTRATOR, by leaving the file as frozen history rather than
+deleting it.
+
+Cleanup trigger: closure of ux-refresh-acceptance-and-promotion, or a later UX
+whole that supersedes the findings.
+
 ## Scope
 
 The audit covered the served web shell (`src/kronika/adapters/api/web`), the

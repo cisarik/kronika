@@ -267,6 +267,18 @@ Opt-in repository browser evidence (system Chrome/CDP, not Playwright authority)
 KRONIKA_RUN_BROWSER_EVIDENCE=1 node --test tests/browser_<name>_evidence.test.js
 ```
 
+## Companion And Gallery Preview Backfill
+
+Load the unpacked companion by following
+[docs/X_COMPANION.md](docs/X_COMPANION.md).
+
+`KRONIKA_GALLERY_PREVIEW_BACKFILL_ENABLED` defaults to true. When it is true,
+the server fills missing gallery previews in-process. Set it to `false` to
+disable that coordinator. A gallery-preview GET never generates a preview.
+
+[docs/UX_AUDIT.md](docs/UX_AUDIT.md) is the historical record of one UX round.
+It is not task authority.
+
 ## Manual No-Browser Run
 
 For disposable validation:

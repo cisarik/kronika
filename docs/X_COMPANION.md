@@ -105,9 +105,12 @@ inbox `limit=1`; ordinary identities refresh it from own-history `limit=1`.
 Alarm `kronika.review-inbox` runs every 1 minute. There is no `notifications`
 permission or second counter. The hosted `#frame` stays mounted and Attach
 survives. Ingest Save remains Title→Tags→Description→Save with no radios or
-Analyze. Exactly five `companion_mutation` routes remain: X submit, X retry,
-review opened, review apply, and
-`PUT /api/admin/settings/automatic-analysis`. Opened remains one of those
+Analyze. Exactly six `companion_mutation` routes remain: X submit, X retry,
+review opened, review apply,
+`PUT /api/admin/settings/automatic-analysis`, and `POST /api/youtube/requests`.
+YouTube retry stays unflagged. A YouTube content script matches only
+`https://www.youtube.com/*` and `https://m.youtube.com/*` and adds the
+in-player Save control. Opened remains one of those
 mutations; ordinary
 callers may mark opened only on an owned cataloged X item (uniform 404
 otherwise). Inbox list, detail, and apply stay administrator-only. Companion
@@ -132,10 +135,11 @@ typing `++` in the reply composer opens the picker and consumes the token.
 After connect, the in-page picker has no Settings sheet; an empty origin tells
 the user to connect Kronika in the side panel. Settings persists the origin
 with Save under the origin field. Connected administrators also see
-Administration with **Automatic media analysis**. The title-bar control is Connect when
-disconnected and Disconnect (existing Reset) when connected. Empty title-bar
-Connect opens Settings. Save writes settings; Connect and Disconnect in the
-title bar attach or clear the session. The toolbar opens
+Administration with **Automatic media analysis**. The title bar has history,
+Settings, and, once connected, Upload. Upload posts `open_upload` only after
+the sidebar handshake. Disconnect stays in Settings: that button reads Connect
+when disconnected and Disconnect when connected. Save writes settings and
+connects. Disconnect clears the session. The toolbar opens
 that shell, which iframes Kronika only after the stored origin is granted.
 If the iframe does not load, the shell reports that Kronika did not load and
 does not open a new tab. If the iframe loads without the companion host, the
@@ -167,10 +171,10 @@ requires an allowlist update.
 
 ## Server allowlist (inert until set)
 
-Default `KRONIKA_COMPANION_EXTENSION_ORIGINS` is empty. Five
+Default `KRONIKA_COMPANION_EXTENSION_ORIGINS` is empty. Six
 `companion_mutation` routes may accept that exact `chrome-extension://` origin:
-X submit, X retry, review opened, review apply, and automatic-analysis
-settings PUT. GET inbox routes do not
+X submit, X retry, review opened, review apply, automatic-analysis
+settings PUT, and YouTube submit. YouTube retry stays unflagged. GET inbox routes do not
 require the allowlist in the same way; mutations that carry the extension Origin
 fail closed when it is empty. Other browser mutations stay on the exact
 Tailscale web origin. To enable the companion:
@@ -191,12 +195,14 @@ Rollback: remove the key or set it to `[]` and restart. No CORS is enabled.
    in the green title bar, enter a Kronika HTTPS tailnet origin
    (`https://<node>.<tailnet>.ts.net`, no path). Save accepts that pasted origin
    and canonicalizes a trailing slash or host case. Then click Save under the
-   origin field and grant the host permission when prompted. After Save, Settings closes,
-   the success status stays blank, the shell iframes that origin, and the
-   title-bar control reads Disconnect. Save stays disabled until the origin
-   differs from the stored value. Connect and Disconnect live in the title bar.
+   origin field and grant the host permission when prompted. After Save,
+   Settings closes, the success status stays blank, and the shell iframes
+   that origin. Save stays disabled until the origin
+   differs from the stored value. Connect and Disconnect live in Settings.
+   The title bar shows Upload once connected; that control posts `open_upload`
+   only after the sidebar handshake.
    The in-page Search memes picker has no Settings sheet.
-6. Use Disconnect in the side-panel title bar to clear stored origin, in-flight
+6. Use Disconnect in Settings to clear stored origin, in-flight
    claim ids, and the granted host permission. Settings then opens so reconnect
    stays in one place. Clearing the origin field does not Disconnect.
 
@@ -208,8 +214,10 @@ Save/picker hosts, and disables the affected controls. The notice is specific to
 a missing runtime ID or the exact `Extension context invalidated` failure;
 unrelated runtime failures keep their existing behavior.
 
-Content scripts match only `https://x.com/*` and `https://twitter.com/*`. The
-service worker has no X host permission.
+Content scripts match `https://x.com/*` and `https://twitter.com/*` for X, and
+`https://www.youtube.com/*` and `https://m.youtube.com/*` for YouTube.
+`optional_host_permissions` remains `https://*.ts.net/*`. There is no
+`host_permissions` key. The service worker has no X host permission.
 
 ## Residual gaps
 

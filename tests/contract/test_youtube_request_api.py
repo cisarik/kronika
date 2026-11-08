@@ -180,6 +180,29 @@ def test_submit_list_detail_and_field_allowlist() -> None:
     assert detail.status_code == 200
 
 
+def test_submit_rejects_missing_noninteractive_and_yes_flag_confirmation() -> None:
+    service = _Service()
+    client = _client(service, identity=_identity())
+    url = f"https://youtu.be/{VIDEO_ID}"
+    missing = client.post("/api/youtube/requests", json={"url": url})
+    noninteractive = client.post(
+        "/api/youtube/requests",
+        json={"url": url, "confirmation_method": "automatic"},
+    )
+    yes_flag = client.post(
+        "/api/youtube/requests",
+        json={
+            "url": url,
+            "confirmation_method": "interactive",
+            "yes_flag": True,
+        },
+    )
+    for response in (missing, noninteractive, yes_flag):
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "YOUTUBE_REQUEST_INVALID_REQUEST"
+    assert service.submits == []
+
+
 def test_foreign_or_missing_is_identical_404() -> None:
     service = _Service()
     service.failure = YouTubeAcquisitionNotFoundError("missing")

@@ -478,8 +478,10 @@ for (const protocol of [CURRENT_WEB_PROTOCOL]) {
 async function assertHostRefuses(protocol, overrides) {
   const { host, posted, send } = createHostHarness();
   const opened = [];
+  const uploads = [];
   const changes = [];
   host.onOpenDetails((mediaId) => opened.push(mediaId));
+  host.onOpenUpload(() => uploads.push("upload"));
   host.onHostedChange((hosted) => changes.push(hosted));
   assert.equal(send(protocol, "host_hello", undefined, overrides), undefined);
   assert.equal(host.isHosted(), false);
@@ -497,14 +499,18 @@ async function assertHostRefuses(protocol, overrides) {
   });
   assert.equal(send(protocol, "attach_result", { ok: true }, overrides), undefined);
   assert.equal(send(protocol, "open_details", { mediaId: MEDIA_ID }, overrides), undefined);
+  assert.equal(send(protocol, "open_upload", undefined, overrides), undefined);
   await Promise.resolve();
   assert.equal(settled, false, "refused result does not consume the waiter");
   assert.deepEqual(opened, [], "refused details does not notify listeners");
+  assert.deepEqual(uploads, [], "refused upload does not notify listeners");
   assert.equal(posted.length, 3, "refused messages emit nothing");
   send(CURRENT_WEB_PROTOCOL, "attach_result", { ok: false, error: "composer_unbound" });
   assert.deepEqual(await pending, { ok: false, error: "composer_unbound" });
   send(CURRENT_WEB_PROTOCOL, "open_details", { mediaId: MEDIA_ID });
   assert.deepEqual(opened, [MEDIA_ID], "a valid details control still opens");
+  send(CURRENT_WEB_PROTOCOL, "open_upload");
+  assert.deepEqual(uploads, ["upload"], "a valid upload control still opens");
 }
 
 test("host refuses the retired protocol, every near-miss and unknown on all three inbound branches", async () => {
@@ -576,6 +582,37 @@ test("open_details opens hosted media-details from the pinned extension only", (
   posted.forEach((entry) => {
     assert.equal(entry.targetOrigin, PIN);
   });
+});
+
+test("open_upload opens only from the pinned extension parent", () => {
+  const opened = [];
+  const parentWindow = {
+    postMessage() {},
+  };
+  const iframeWindow = {
+    parent: parentWindow,
+    addEventListener() {},
+  };
+  const host = webHost.createHost({
+    window: iframeWindow,
+    parent: parentWindow,
+  });
+  host.onOpenUpload(() => {
+    opened.push("upload");
+  });
+  host.handleMessage({
+    origin: PIN,
+    source: parentWindow,
+    data: { v: webHost.PROTOCOL, type: webHost.TYPES.OPEN_UPLOAD },
+  });
+  assert.deepEqual(opened, ["upload"]);
+  assert.equal(webHost.TYPES.OPEN_UPLOAD, "open_upload");
+  assert.match(
+    sidebarSource,
+    /if \(!storedOrigin \|\| !handshakeSeen \|\| !companion\.acceptKronikaOrigin\(storedOrigin\)\)/
+  );
+  assert.match(sidebarSource, /type: WEB_TYPES\.OPEN_UPLOAD/);
+  assert.match(appSource, /uploadOpenButton && !uploadOpenButton\.hidden/);
 });
 
 test("sidebar Attached follows ATTACH_BEGIN result.ok", () => {
