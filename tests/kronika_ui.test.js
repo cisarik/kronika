@@ -139,6 +139,7 @@ function createHarness(fetchImpl, options = {}) {
   const byId = {};
   const documentListeners = [];
   const hashListeners = [];
+  const windowListeners = [];
   const ids = [
     "kronika-timeline",
     "kronika-timeline-heading",
@@ -296,6 +297,7 @@ function createHarness(fetchImpl, options = {}) {
     window: {
       addEventListener: (type, listener) => {
         if (type === "hashchange") hashListeners.push(listener);
+        else windowListeners.push({ type, listener });
       },
     },
     sessionStorage: {
@@ -328,6 +330,8 @@ function createHarness(fetchImpl, options = {}) {
     catalogLoads,
     timers,
     byId,
+    documentListeners,
+    windowListeners,
   };
   vm.createContext(context);
   vm.runInContext(
@@ -1001,6 +1005,78 @@ test("cancelled dirty navigation preserves the current preview page", async () =
   assert.notEqual(image.src, "");
   assert.equal(harness.calls[0].init.signal.aborted, false);
   assert.equal(harness.catalogLoads.length, 0);
+});
+
+test("visibility changes keep card previews and in-flight lists while pagehide retires", async () => {
+  let secondResolve = null;
+  let timelineCalls = 0;
+  const harness = createHarness(async (url) => {
+    assert.equal(url.startsWith("/api/timeline"), true);
+    timelineCalls += 1;
+    if (timelineCalls === 1) {
+      return jsonResponse({
+        items: [mediaItem(1)],
+        total: 2,
+        limit: 24,
+        offset: 0,
+      });
+    }
+    return new Promise((resolve) => {
+      secondResolve = resolve;
+    });
+  });
+  harness.kronikaStartNavigation();
+  await settle();
+  const results = harness.byId["kronika-timeline-results"];
+  const image = results.querySelector(".kronika-card__preview");
+  fireImage(image, "load");
+  assert.equal(image.getAttribute("data-kronika-preview"), "ready");
+  const firstCall = harness.calls[0];
+  const fireVisibility = () => {
+    harness.documentListeners
+      .filter((entry) => entry.type === "visibilitychange")
+      .forEach((entry) => entry.listener());
+  };
+
+  harness.document.hidden = true;
+  fireVisibility();
+  assert.equal(image.getAttribute("data-kronika-preview"), "ready");
+  assert.notEqual(image.src, "");
+  assert.equal(image.parentNode, results.children[0]);
+  assert.equal(firstCall.init.signal.aborted, false);
+  harness.document.hidden = false;
+  fireVisibility();
+  assert.equal(image.getAttribute("data-kronika-preview"), "ready");
+  assert.equal(results.children.length, 1);
+
+  const pending = harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline?offset=24"));
+  await settle();
+  assert.equal(timelineCalls, 2);
+  const secondCall = harness.calls.at(-1);
+  harness.document.hidden = true;
+  fireVisibility();
+  assert.equal(secondCall.init.signal.aborted, false);
+  harness.document.hidden = false;
+  fireVisibility();
+  assert.equal(secondCall.init.signal.aborted, false);
+
+  secondResolve(jsonResponse({
+    items: [mediaItem(2)],
+    total: 2,
+    limit: 24,
+    offset: 24,
+  }));
+  await pending;
+  const secondImage = results.querySelector(".kronika-card__preview");
+  fireImage(secondImage, "load");
+  assert.equal(secondImage.getAttribute("data-kronika-preview"), "ready");
+
+  const pageHideListeners = harness.windowListeners.filter((entry) => entry.type === "pagehide");
+  assert.equal(pageHideListeners.length, 2);
+  pageHideListeners.forEach((entry) => entry.listener());
+  assert.equal(secondImage.src, "");
+  assert.equal(secondImage.parentNode, null);
+  assert.equal(secondCall.init.signal.aborted, true);
 });
 
 test("thumbnail CSS changes only the Timeline and History icon slots", () => {

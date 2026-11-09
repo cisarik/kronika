@@ -14815,10 +14815,13 @@ function kronikaResumeUpdates() {
 }
 
 function kronikaPauseForHide() {
-  kronikaRetirePreviews();
-  ["timeline", "questions", "records"].forEach((key) => kronikaCancelListRequest(key));
   kronikaClearPollTimer();
   kronikaRuntime.hiddenHold = true;
+}
+
+function kronikaRetireListsForPageHide() {
+  kronikaRetirePreviews();
+  ["timeline", "questions", "records"].forEach((key) => kronikaCancelListRequest(key));
 }
 
 function kronikaOnVisibility() {
@@ -15203,6 +15206,7 @@ function kronikaStartNavigation() {
   window.addEventListener("hashchange", kronikaOnHashChange);
   document.addEventListener("visibilitychange", kronikaOnVisibility);
   window.addEventListener("pagehide", kronikaPauseForHide);
+  window.addEventListener("pagehide", kronikaRetireListsForPageHide);
   void kronikaFollowHash();
 }
 
