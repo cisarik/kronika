@@ -96,6 +96,35 @@ carry answer text. Timeline titles for every caller come from the approved
 projection. S8 is on public main. Research configuration stays disabled by
 default. S9 live-provider acceptance and the empty-catalog reset are closed.
 
+The Timeline and personal-record History list payloads MAY carry one nullable
+`preview_location_id` on media items. It MUST be an opaque catalog location
+identifier, never a path, URL, cache key, readiness guarantee, or
+authorization token. The Timeline identifier MUST come only from
+`kronika_approved_media_locations` joined through the approved medium and
+restricted to `availability = 'available'`. Personal-record History MUST use
+current `physical_media_locations` restricted to `availability = 'available'`.
+Both paths MUST restrict eligible media kinds to `video` and `animated_image`
+and MUST select one deterministic eligible location without probing readiness,
+retrying another location or reading the preview cache. The locator is a
+candidate: the existing gallery-preview route MUST re-authorize every request
+and MAY still return not-found or unavailable. Administrator inventory and
+record detail MUST NOT expose the field.
+
+The browser MUST render at most one lazy decorative 36 px image over the
+existing kind-icon slot on Timeline media cards and personal-record History
+media cards, using the existing same-origin `gallery-preview` endpoint and the
+existing URL helper. The kind icon MUST remain visible while loading and after
+every load, network, authorization, readiness or decode failure. The image MUST
+be empty-alt and aria-hidden, MUST NOT add a focus target, and MUST be revealed
+only after a successful load. Question History, non-media records, still
+images and surfaces without a locator MUST make no preview request.
+
+Lists MUST resolve locators with at most one additional page-bounded query and
+MUST NOT add per-record detail reads, location discovery, filesystem probes or
+cache reads. The client page size MUST remain 24. There is no automatic retry,
+alternate-location cascade, generation request or still-image/original-content
+fallback. A later explicit navigation or reload may make a new attempt.
+
 ### Research Provider Contract and Resource Limits
 
 Search and Research MUST use a provider-neutral application boundary. The

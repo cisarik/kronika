@@ -276,6 +276,27 @@ Load the unpacked companion by following
 the server fills missing gallery previews in-process. Set it to `false` to
 disable that coordinator. A gallery-preview GET never generates a preview.
 
+Timeline media cards and personal-record History media cards reuse ready
+gallery previews over their existing kind-icon slot, with the icon retained
+while loading and after every failure. The focused validation route is:
+
+```text
+# [MacBook / fish]
+./.ap/ap project check --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline>
+./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation test-focus -- tests/integration/persistence/test_kronika_record_repository.py tests/contract/test_records_api.py tests/contract/test_gallery_preview_api.py
+node --test tests/kronika_ui.test.js
+#------------------------------------------------------
+```
+
+Use only synthetic records, temporary catalogs and harmless fixture bytes for
+manual checks. A video or animated-image card with an authorized ready
+derivative should reveal the JPEG; still images, non-media records, question
+History and every missing, unavailable, denied or failed derivative should keep
+the kind icon with no broken-image chrome and no automatic retry. Rendered
+acceptance requires the exact accepted commit to be published on public `main`
+and refreshed onto the NUC first; do not request visual acceptance against a
+local or unpublished checkout.
+
 [docs/UX_AUDIT.md](docs/UX_AUDIT.md) is the historical record of one UX round.
 It is not task authority.
 

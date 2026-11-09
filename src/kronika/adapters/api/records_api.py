@@ -95,8 +95,10 @@ def _page_params(request: Request) -> tuple[int, int]:
     return limit, offset
 
 
-def _summary_payload(summary: object) -> dict[str, object]:
-    return {
+def _summary_payload(
+    summary: object, *, include_preview_location: bool = False
+) -> dict[str, object]:
+    payload = {
         "record_id": summary.record_id,
         "kind": summary.kind.value,
         "owner_login_key": summary.owner_login_key,
@@ -110,6 +112,9 @@ def _summary_payload(summary: object) -> dict[str, object]:
         "display_title": summary.display_title,
         "content_category": summary.content_category,
     }
+    if include_preview_location:
+        payload["preview_location_id"] = summary.preview_location_id
+    return payload
 
 
 def _optional_query(request: Request, name: str) -> str | None:
@@ -152,9 +157,17 @@ def _detail_payload(detail: object) -> dict[str, object]:
     }
 
 
-def _page_payload(page: object) -> dict[str, object]:
+def _page_payload(
+    page: object, *, include_preview_location: bool = False
+) -> dict[str, object]:
     return {
-        "items": [_summary_payload(item) for item in page.items],
+        "items": [
+            _summary_payload(
+                item,
+                include_preview_location=include_preview_location,
+            )
+            for item in page.items
+        ],
         "total": page.total,
         "limit": page.limit,
         "offset": page.offset,
@@ -183,7 +196,10 @@ def create_records_api_router(dependencies: RecordsApiDependencies) -> APIRouter
             )
         except RecordValueError:
             return _error_response(422, "INVALID_REQUEST", "The list request is invalid.")
-        return JSONResponse(status_code=200, content=_page_payload(page))
+        return JSONResponse(
+            status_code=200,
+            content=_page_payload(page, include_preview_location=True),
+        )
 
     @router.get("/api/timeline")
     def list_timeline(request: Request) -> JSONResponse:
@@ -203,7 +219,10 @@ def create_records_api_router(dependencies: RecordsApiDependencies) -> APIRouter
             )
         except RecordValueError:
             return _error_response(422, "INVALID_REQUEST", "The list request is invalid.")
-        return JSONResponse(status_code=200, content=_page_payload(page))
+        return JSONResponse(
+            status_code=200,
+            content=_page_payload(page, include_preview_location=True),
+        )
 
     @router.get("/api/admin/records")
     def list_admin_records(request: Request) -> JSONResponse:

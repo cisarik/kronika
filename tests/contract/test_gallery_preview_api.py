@@ -9,7 +9,11 @@ from fastapi.testclient import TestClient
 
 from kronika.adapters.api.application import create_app
 from kronika.adapters.api.gallery_preview_api import GalleryPreviewApiDependencies
-from kronika.application.gallery_preview import GalleryPreviewNotFoundError, GalleryPreviewUnavailableError
+from kronika.application.gallery_preview import (
+    GalleryPreviewFailedError,
+    GalleryPreviewNotFoundError,
+    GalleryPreviewUnavailableError,
+)
 from kronika.application.ports.gallery_preview import OpenedGalleryPreview
 from kronika.configuration import KronikaSettings
 from tests.support.record_access import install_synthetic_caller, scoped_policy
@@ -49,6 +53,7 @@ def _client(
     *,
     catalog_available: bool = True,
     audience_ids: set[str] | None = None,
+    audience_policy: object | None = None,
 ) -> TestClient:
     settings = KronikaSettings(
         database_path=Path("/tmp/framenest-gallery-preview-api.sqlite3"),
@@ -58,8 +63,10 @@ def _client(
     deps = GalleryPreviewApiDependencies(
         preview_service=service,
         catalog_available=lambda: catalog_available,
-        audience_policy=scoped_policy(
-            {MEDIA_ID} if audience_ids is None else audience_ids
+        audience_policy=(
+            scoped_policy({MEDIA_ID} if audience_ids is None else audience_ids)
+            if audience_policy is None
+            else audience_policy
         ),
     )
     app = create_app(settings=settings, gallery_preview_api_dependencies=deps)
@@ -115,3 +122,60 @@ def test_catalog_unavailable_returns_503_without_path_disclosure() -> None:
     response = _client(_FakePreviewService(result=_opened()), catalog_available=False).get(PREVIEW_PATH)
     assert response.status_code == 503
     assert PRIVATE_PATH not in response.text
+
+
+class _ExplodingPolicy:
+    """Synthetic audience-policy failure for sanitized error coverage."""
+
+    def read_decision(self, media_id, identity):
+        raise RuntimeError(PRIVATE_PATH)
+
+
+def test_preview_errors_are_no_store_and_sanitized() -> None:
+    failed = _client(_FakePreviewService(error=GalleryPreviewFailedError(PRIVATE_PATH)))
+    response = failed.get(PREVIEW_PATH, headers={"If-None-Match": '"abc"'})
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "GALLERY_PREVIEW_FAILED"
+    assert PRIVATE_PATH not in response.text
+    assert response.headers["cache-control"] == "no-store"
+    unavailable = _client(
+        _FakePreviewService(error=GalleryPreviewUnavailableError(PRIVATE_PATH))
+    )
+    not_ready = unavailable.get(PREVIEW_PATH, headers={"If-None-Match": '"abc"'})
+    assert not_ready.status_code == 409
+    assert not_ready.json()["error"]["code"] == "GALLERY_PREVIEW_UNAVAILABLE"
+    assert PRIVATE_PATH not in not_ready.text
+    assert not_ready.headers["cache-control"] == "no-store"
+    exploding = _client(
+        _FakePreviewService(result=_opened()),
+        audience_policy=_ExplodingPolicy(),
+    )
+    policy_failure = exploding.get(PREVIEW_PATH, headers={"If-None-Match": '"abc"'})
+    assert policy_failure.status_code == 500
+    assert policy_failure.json()["error"]["code"] == "GALLERY_PREVIEW_FAILED"
+    assert PRIVATE_PATH not in policy_failure.text
+    assert policy_failure.headers["cache-control"] == "no-store"
+
+
+def test_preview_denial_with_if_none_match_does_not_open_cache() -> None:
+    service = _FakePreviewService(result=_opened())
+    response = _client(service, audience_ids=set()).get(
+        PREVIEW_PATH,
+        headers={"If-None-Match": '"abc"'},
+    )
+    assert response.status_code == 404
+    assert response.content != b""
+    assert response.headers["cache-control"] == "no-store"
+    assert service.calls == 0
+
+
+def test_preview_not_ready_with_if_none_match_does_not_return_304() -> None:
+    service = _FakePreviewService(error=GalleryPreviewUnavailableError(PRIVATE_PATH))
+    response = _client(service).get(
+        PREVIEW_PATH,
+        headers={"If-None-Match": '"abc"'},
+    )
+    assert response.status_code == 409
+    assert response.status_code != 304
+    assert response.headers["cache-control"] == "no-store"
+    assert service.calls == 1

@@ -13442,6 +13442,17 @@ const kronikaLists = {
   adminRequests: kronikaBlankList(),
 };
 
+const kronikaListControllers = {
+  timeline: null,
+  questions: null,
+  records: null,
+};
+
+const kronikaPreviewRuntime = {
+  timeline: { generation: 0, entries: new Set() },
+  records: { generation: 0, entries: new Set() },
+};
+
 const kronikaAttempt = {
   id: "",
   kind: "",
@@ -13785,6 +13796,8 @@ function kronikaDocumentReady() {
 }
 
 function kronikaClearPrivate() {
+  kronikaRetirePreviews();
+  ["timeline", "questions", "records"].forEach((key) => kronikaCancelListRequest(key));
   Object.keys(kronikaLists).forEach((key) => {
     kronikaLists[key] = kronikaBlankList();
   });
@@ -13885,6 +13898,15 @@ function kronikaShowShell(view) {
   document.querySelectorAll("[data-kronika-view]").forEach((node) => {
     node.hidden = node.getAttribute("data-kronika-view") !== view;
   });
+  if (view !== "timeline") {
+    kronikaRetirePreviews("timeline");
+    kronikaCancelListRequest("timeline");
+  }
+  if (view !== "history") {
+    kronikaRetirePreviews("records");
+    kronikaCancelListRequest("questions");
+    kronikaCancelListRequest("records");
+  }
   const catalog = document.getElementById("catalog-browser");
   const search = document.querySelector(".header-search");
   const gallery = view === "gallery";
@@ -14007,12 +14029,14 @@ function kronikaListUrl(path, offset, extra) {
   return `${path}?${params.toString()}`;
 }
 
-async function kronikaReadJson(url, generation) {
+async function kronikaReadJson(url, generation, signal) {
   try {
-    const response = await fetch(url, {
+    const init = {
       headers: { Accept: "application/json" },
       cache: "no-store",
-    });
+    };
+    if (signal) init.signal = signal;
+    const response = await fetch(url, init);
     if (generation !== kronikaIdentityGeneration) return { stale: true };
     let payload = null;
     try {
@@ -14024,6 +14048,7 @@ async function kronikaReadJson(url, generation) {
     const code = payload && payload.error ? payload.error.code : "";
     return { stale: false, ok: response.ok, status: response.status, payload, code };
   } catch {
+    if (signal && signal.aborted) return { stale: true };
     if (generation !== kronikaIdentityGeneration) return { stale: true };
     return { stale: false, ok: false, status: 0, payload: null, code: "" };
   }
@@ -14086,6 +14111,116 @@ function kronikaTagCardKind(card, item) {
   card.setAttribute("data-kronika-kind", String(kind));
 }
 
+function kronikaRetirePreviewImage(image) {
+  if (!image) return;
+  if (typeof image.removeAttribute === "function") image.removeAttribute("src");
+  else image.src = "";
+  if (typeof image.remove === "function") {
+    image.remove();
+    return;
+  }
+  if (image.parentNode && typeof image.parentNode.removeChild === "function") {
+    image.parentNode.removeChild(image);
+  }
+}
+
+function kronikaRetirePreviewEntry(entry) {
+  if (!entry) return;
+  const image = entry.image;
+  if (image && typeof image.removeEventListener === "function") {
+    image.removeEventListener("load", entry.onLoad);
+    image.removeEventListener("error", entry.onError);
+  }
+  if (entry.bucket) entry.bucket.entries.delete(entry);
+  kronikaRetirePreviewImage(image);
+}
+
+function kronikaRetirePreviews(surface) {
+  const keys = surface ? [surface] : ["timeline", "records"];
+  keys.forEach((key) => {
+    const bucket = kronikaPreviewRuntime[key];
+    if (!bucket) return;
+    bucket.generation += 1;
+    Array.from(bucket.entries).forEach((entry) => kronikaRetirePreviewEntry(entry));
+    bucket.entries.clear();
+  });
+}
+
+function kronikaCancelListRequest(key) {
+  const controller = kronikaListControllers[key];
+  kronikaListControllers[key] = null;
+  if (controller && typeof controller.abort === "function") {
+    try {
+      controller.abort();
+    } catch {
+      /* an already-settled request needs no second abort */
+    }
+  }
+  const list = kronikaLists[key];
+  if (list) list.generation += 1;
+}
+
+function kronikaBeginListController(key) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  kronikaListControllers[key] = controller;
+  return controller;
+}
+
+function kronikaAttachCardPreview(card, item, surface) {
+  const bucket = kronikaPreviewRuntime[surface];
+  if (!card || !bucket || !item || item.kind !== "media") return;
+  const mediaId = typeof item.media_id === "string" ? item.media_id : "";
+  const locationId = typeof item.preview_location_id === "string" ? item.preview_location_id : "";
+  if (!mediaId || !locationId) return;
+  if (typeof document === "undefined" || typeof document.createElement !== "function") return;
+  const image = document.createElement("img");
+  image.className = "kronika-card__preview";
+  image.setAttribute("alt", "");
+  image.setAttribute("aria-hidden", "true");
+  image.setAttribute("loading", "lazy");
+  image.setAttribute("decoding", "async");
+  image.width = 36;
+  image.height = 36;
+  image.setAttribute("data-kronika-preview", "loading");
+  const identityGeneration = kronikaIdentityGeneration;
+  const pageGeneration = bucket.generation;
+  const list = kronikaLists[surface];
+  const listGeneration = list ? list.generation : 0;
+  const entry = { image, bucket, onLoad: null, onError: null };
+  const stale = () => identityGeneration !== kronikaIdentityGeneration
+    || pageGeneration !== bucket.generation
+    || (list ? listGeneration !== list.generation : false);
+  const detach = () => {
+    if (typeof image.removeEventListener === "function") {
+      image.removeEventListener("load", entry.onLoad);
+      image.removeEventListener("error", entry.onError);
+    }
+  };
+  entry.onLoad = () => {
+    detach();
+    if (stale()) {
+      kronikaRetirePreviewEntry(entry);
+      return;
+    }
+    image.setAttribute("data-kronika-preview", "ready");
+  };
+  entry.onError = () => {
+    detach();
+    if (stale()) {
+      kronikaRetirePreviewEntry(entry);
+      return;
+    }
+    image.setAttribute("data-kronika-preview", "fallback");
+    if (typeof image.removeAttribute === "function") image.removeAttribute("src");
+    else image.src = "";
+  };
+  bucket.entries.add(entry);
+  image.addEventListener("load", entry.onLoad);
+  image.addEventListener("error", entry.onError);
+  card.appendChild(image);
+  image.src = mediaGalleryPreviewUrl(mediaId, locationId);
+}
+
 function kronikaFormatDay(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "";
   try {
@@ -14115,6 +14250,7 @@ function kronikaRenderCards(container, items, hrefFor) {
     meta.textContent = kronikaKindLabel(item);
     link.appendChild(title);
     link.appendChild(meta);
+    kronikaAttachCardPreview(link, item, "timeline");
     container.appendChild(link);
   });
 }
@@ -14131,20 +14267,25 @@ async function kronikaLoadTimeline(route) {
   const results = document.getElementById("kronika-timeline-results");
   const section = document.getElementById("kronika-timeline");
   if (!kronikaVerified()) {
+    kronikaRetirePreviews("timeline");
+    kronikaCancelListRequest("timeline");
     kronikaSetText("kronika-timeline-status", kronikaErrorCopy("IDENTITY_REQUIRED"));
     if (results) results.replaceChildren();
     return;
   }
+  kronikaRetirePreviews("timeline");
+  kronikaCancelListRequest("timeline");
+  const controller = kronikaBeginListController("timeline");
   const extra = kronikaFilterQuery(route.filter);
   const queryKey = JSON.stringify({ offset: route.offset, extra, login: kronikaLogin() });
   const generation = kronikaIdentityGeneration;
-  kronikaLists.timeline.generation += 1;
   const requestGeneration = kronikaLists.timeline.generation;
   if (section) section.setAttribute("aria-busy", "true");
   if (!kronikaLists.timeline.items.length) kronikaSetText("kronika-timeline-status", "Loading…");
   const result = await kronikaReadJson(
     kronikaListUrl("/api/timeline", route.offset, extra),
     generation,
+    controller ? controller.signal : undefined,
   );
   if (requestGeneration !== kronikaLists.timeline.generation || generation !== kronikaIdentityGeneration) return;
   if (section) section.setAttribute("aria-busy", "false");
@@ -14193,6 +14334,9 @@ async function kronikaLoadTimeline(route) {
 
 async function kronikaLoadHistory(route) {
   kronikaRuntime.historyMode = route.name === "history-records" ? "records" : "questions";
+  kronikaRetirePreviews("records");
+  kronikaCancelListRequest("questions");
+  kronikaCancelListRequest("records");
   const questions = document.getElementById("kronika-history-questions");
   const recordsTab = document.getElementById("kronika-history-records-tab");
   if (questions) {
@@ -14212,12 +14356,17 @@ async function kronikaLoadHistory(route) {
     return;
   }
   const list = kronikaRuntime.historyMode === "records" ? kronikaLists.records : kronikaLists.questions;
+  const listKey = kronikaRuntime.historyMode === "records" ? "records" : "questions";
+  const controller = kronikaBeginListController(listKey);
   const path = kronikaRuntime.historyMode === "records" ? "/api/my/records" : "/api/research-requests";
   const queryKey = JSON.stringify({ mode: kronikaRuntime.historyMode, offset: route.offset, login: kronikaLogin() });
   const generation = kronikaIdentityGeneration;
-  list.generation += 1;
   const requestGeneration = list.generation;
-  const result = await kronikaReadJson(kronikaListUrl(path, route.offset, {}), generation);
+  const result = await kronikaReadJson(
+    kronikaListUrl(path, route.offset, {}),
+    generation,
+    controller ? controller.signal : undefined,
+  );
   if (requestGeneration !== list.generation || generation !== kronikaIdentityGeneration) return;
   if (!kronikaAcceptList(list, queryKey, result)) return;
   const results = document.getElementById("kronika-history-results");
@@ -14247,6 +14396,7 @@ async function kronikaLoadHistory(route) {
       meta.textContent = `${kronikaKindLabel(item)} · ${kronikaVisibilityLabel(item.visibility)}`;
       link.appendChild(title);
       link.appendChild(meta);
+      kronikaAttachCardPreview(link, item, "records");
     } else {
       link.href = item.record_id
         ? `#/records/${encodeURIComponent(item.record_id)}`
@@ -14665,6 +14815,8 @@ function kronikaResumeUpdates() {
 }
 
 function kronikaPauseForHide() {
+  kronikaRetirePreviews();
+  ["timeline", "questions", "records"].forEach((key) => kronikaCancelListRequest(key));
   kronikaClearPollTimer();
   kronikaRuntime.hiddenHold = true;
 }

@@ -6,11 +6,18 @@ const vm = require("node:vm");
 
 const APP_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/app.js");
 const INDEX_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/index.html");
+const STYLES_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/styles.css");
 const APP_SOURCE = fs.readFileSync(APP_PATH, "utf8");
 const INDEX_SOURCE = fs.readFileSync(INDEX_PATH, "utf8");
+const STYLES_SOURCE = fs.readFileSync(STYLES_PATH, "utf8");
 const SHELL_START = APP_SOURCE.indexOf("/* KRONIKA_SHELL_START */");
 const SHELL_END = APP_SOURCE.indexOf("/* KRONIKA_SHELL_END */");
 const SHELL_SOURCE = APP_SOURCE.slice(SHELL_START, SHELL_END);
+const ENDPOINT_SOURCE = APP_SOURCE.match(/const MEDIA_CATALOG_ENDPOINT = "[^"]+";/)[0];
+const PREVIEW_URL_START = APP_SOURCE.indexOf("function mediaGalleryPreviewUrl(");
+const PREVIEW_URL_END = APP_SOURCE.indexOf("\n}", PREVIEW_URL_START) + 2;
+const PREVIEW_URL_SOURCE = APP_SOURCE.slice(PREVIEW_URL_START, PREVIEW_URL_END);
+assert.match(PREVIEW_URL_SOURCE, /gallery-preview/);
 
 function jsonResponse(payload, status = 200, text) {
   return {
@@ -35,6 +42,9 @@ class El {
     this.rel = "";
     this.target = "";
     this.srcdoc = "";
+    this.src = "";
+    this.width = 0;
+    this.height = 0;
     this.className = "";
     this.children = [];
     this.parentNode = null;
@@ -54,11 +64,26 @@ class El {
 
   removeAttribute(name) {
     this.attributes.delete(name);
+    if (name === "src") this.src = "";
   }
 
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) this.listeners.set(type, []);
     this.listeners.get(type).push(listener);
+  }
+
+  removeEventListener(type, listener) {
+    const entries = this.listeners.get(type);
+    if (!entries) return;
+    const index = entries.indexOf(listener);
+    if (index >= 0) entries.splice(index, 1);
+  }
+
+  remove() {
+    if (!this.parentNode) return;
+    const index = this.parentNode.children.indexOf(this);
+    if (index >= 0) this.parentNode.children.splice(index, 1);
+    this.parentNode = null;
   }
 
   appendChild(node) {
@@ -101,6 +126,10 @@ function matches(node, selector) {
     return node.attributes.has("data-kronika-filter");
   }
   if (selector === ".kronika-card") return node.className.split(/\s+/).includes("kronika-card");
+  if (selector === ".kronika-card__preview") {
+    return node.className.split(/\s+/).includes("kronika-card__preview");
+  }
+  if (selector === "img") return node.tag === "img";
   if (selector === "small") return node.tag === "small";
   if (selector.startsWith("#") && !selector.includes(" ")) return node.id === selector.slice(1);
   return false;
@@ -261,6 +290,7 @@ function createHarness(fetchImpl, options = {}) {
       if (index >= 0) timers.splice(index, 1);
     },
     crypto: globalThis.crypto,
+    AbortController,
     document,
     location,
     window: {
@@ -300,7 +330,10 @@ function createHarness(fetchImpl, options = {}) {
     byId,
   };
   vm.createContext(context);
-  vm.runInContext(`"use strict";\n${SHELL_SOURCE}`, context);
+  vm.runInContext(
+    `"use strict";\n${ENDPOINT_SOURCE}\n${PREVIEW_URL_SOURCE}\n${SHELL_SOURCE}`,
+    context,
+  );
   return context;
 }
 
@@ -685,4 +718,305 @@ test("reload recovery reuses the request id only when the fingerprint matches", 
   await otherLogin.harness.kronikaSubmitQuestion({ preventDefault() {} });
   assert.equal(otherLogin.bodies.length, 1);
   assert.notEqual(otherLogin.bodies[0].client_request_id, bodiesA[0].client_request_id);
+});
+
+function mediaItem(index, overrides = {}) {
+  return Object.assign({
+    record_id: `record-${index}`,
+    kind: "media",
+    display_title: `Media ${index}`,
+    media_id: `media-${index}`,
+    preview_location_id: `location-${index}`,
+    timeline_entered_at_ms: 1_700_000_000_000 + index,
+    content_category: "general",
+  }, overrides);
+}
+
+function fireImage(node, type) {
+  const listeners = (node.listeners.get(type) || []).slice();
+  listeners.forEach((listener) => listener());
+}
+
+test("media cards use one lazy decorative preview and preserve their link names", async () => {
+  const harness = createHarness(async (url) => {
+    assert.equal(url.startsWith("/api/timeline"), true);
+    return jsonResponse({
+      items: [mediaItem(1)],
+      total: 1,
+      limit: 24,
+      offset: 0,
+    });
+  });
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const card = harness.byId["kronika-timeline-results"].children[0];
+  assert.equal(card.href, "#/details/media-1");
+  assert.equal(card.children[0].textContent, "Media 1");
+  assert.match(card.children[1].textContent, /^General · \d{4}-\d{2}-\d{2}$/);
+  assert.equal(card.children.length, 3);
+  const images = card.querySelectorAll(".kronika-card__preview");
+  assert.equal(images.length, 1);
+  const image = images[0];
+  assert.equal(image.tag, "img");
+  assert.equal(image.getAttribute("alt"), "");
+  assert.equal(image.getAttribute("aria-hidden"), "true");
+  assert.equal(image.getAttribute("loading"), "lazy");
+  assert.equal(image.getAttribute("decoding"), "async");
+  assert.equal(image.width, 36);
+  assert.equal(image.height, 36);
+  assert.equal(image.getAttribute("data-kronika-preview"), "loading");
+  assert.equal(image.src, harness.mediaGalleryPreviewUrl("media-1", "location-1"));
+  assert.equal(image.getAttribute("tabindex"), null);
+  assert.equal(harness.calls.length, 1);
+});
+
+test("question history and non-media cards never request previews", async () => {
+  const harness = createHarness(async (url) => {
+    if (url.startsWith("/api/research-requests")) {
+      return jsonResponse({
+        items: [{
+          operation_id: "op-1",
+          kind: "search",
+          state: "saved",
+          prompt: "Saved question",
+          record_id: "record-q",
+        }],
+        total: 1,
+        limit: 24,
+        offset: 0,
+      });
+    }
+    if (url.startsWith("/api/my/records")) {
+      return jsonResponse({
+        items: [{
+          record_id: "record-s",
+          kind: "search",
+          display_title: "Saved question",
+          visibility: "private",
+        }],
+        total: 1,
+        limit: 24,
+        offset: 0,
+      });
+    }
+    return jsonResponse({
+      items: [{
+        record_id: "record-s",
+        kind: "search",
+        display_title: "Timeline question",
+        timeline_entered_at_ms: 1_700_000_000_000,
+        content_category: null,
+      }],
+      total: 1,
+      limit: 24,
+      offset: 0,
+    });
+  });
+  await harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history"));
+  const historyResults = harness.byId["kronika-history-results"];
+  assert.equal(historyResults.children.length, 1);
+  assert.equal(historyResults.querySelectorAll(".kronika-card__preview").length, 0);
+  await harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history/records"));
+  assert.equal(historyResults.children.length, 1);
+  assert.equal(historyResults.querySelectorAll(".kronika-card__preview").length, 0);
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  assert.equal(
+    harness.byId["kronika-timeline-results"].querySelectorAll(".kronika-card__preview").length,
+    0,
+  );
+  assert.equal(harness.calls.some((call) => call.url.includes("gallery-preview")), false);
+  assert.equal(harness.calls.every((call) => (
+    call.url.startsWith("/api/research-requests")
+    || call.url.startsWith("/api/my/records")
+    || call.url.startsWith("/api/timeline")
+  )), true);
+});
+
+test("preview load reveals the image and every error retains the kind icon", async () => {
+  const harness = createHarness(async () => jsonResponse({
+    items: [mediaItem(1), mediaItem(2)],
+    total: 2,
+    limit: 24,
+    offset: 0,
+  }));
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const cards = harness.byId["kronika-timeline-results"].children;
+  const loaded = cards[0].querySelector(".kronika-card__preview");
+  assert.equal(loaded.getAttribute("data-kronika-preview"), "loading");
+  fireImage(loaded, "load");
+  assert.equal(loaded.getAttribute("data-kronika-preview"), "ready");
+  assert.equal(cards[0].querySelectorAll(".kronika-card__preview").length, 1);
+  assert.equal((loaded.listeners.get("load") || []).length, 0);
+  const failed = cards[1].querySelector(".kronika-card__preview");
+  fireImage(failed, "error");
+  assert.equal(failed.getAttribute("data-kronika-preview"), "fallback");
+  assert.equal(failed.src, "");
+  assert.equal((failed.listeners.get("error") || []).length, 0);
+  assert.equal(cards[1].getAttribute("data-kronika-kind"), "general");
+  assert.equal(cards[1].children[0].textContent, "Media 2");
+  assert.equal(cards[0].getAttribute("data-kronika-kind"), "general");
+});
+
+test("24 media cards require no media detail discovery or automatic retries", async () => {
+  const items = Array.from({ length: 24 }, (_value, index) => mediaItem(index + 1));
+  const harness = createHarness(async (url) => {
+    assert.equal(url.startsWith("/api/timeline"), true);
+    return jsonResponse({ items, total: 24, limit: 24, offset: 0 });
+  });
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const results = harness.byId["kronika-timeline-results"];
+  assert.equal(results.children.length, 24);
+  const images = results.querySelectorAll(".kronika-card__preview");
+  assert.equal(images.length, 24);
+  images.forEach((image, index) => {
+    assert.equal(
+      image.src,
+      harness.mediaGalleryPreviewUrl(`media-${index + 1}`, `location-${index + 1}`),
+    );
+  });
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.timers.length, 0);
+  fireImage(images[0], "error");
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.timers.length, 0);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/media/")), false);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/records/")), false);
+});
+
+test("navigation and identity changes retire previews and ignore late events", async () => {
+  const harness = createHarness(async () => jsonResponse({
+    items: [mediaItem(1)],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }));
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  harness.kronikaNoteIdentity();
+  const results = harness.byId["kronika-timeline-results"];
+  const late = results.children[0].querySelector(".kronika-card__preview");
+  const lateLoad = late.listeners.get("load")[0];
+  assert.equal(typeof lateLoad, "function");
+  harness.location._hash = "#/gallery";
+  await harness.kronikaFollowHash();
+  assert.equal(late.src, "");
+  assert.equal(late.parentNode, null);
+  lateLoad();
+  assert.notEqual(late.getAttribute("data-kronika-preview"), "ready");
+
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const identityImage = results.children[0].querySelector(".kronika-card__preview");
+  const identityLate = identityImage.listeners.get("load")[0];
+  assert.equal(typeof identityLate, "function");
+  harness.identityState.login = "bob";
+  harness.kronikaNoteIdentity();
+  assert.equal(results.children.length, 0);
+  assert.equal(identityImage.src, "");
+  identityLate();
+  assert.notEqual(identityImage.getAttribute("data-kronika-preview"), "ready");
+});
+
+test("superseded Timeline and History requests cannot repaint a departed view", async () => {
+  let timelineResolve = null;
+  let questionResolve = null;
+  const harness = createHarness(async (url) => {
+    if (url.startsWith("/api/timeline")) {
+      return new Promise((resolve) => {
+        timelineResolve = resolve;
+      });
+    }
+    if (url.startsWith("/api/research-requests")) {
+      return new Promise((resolve) => {
+        questionResolve = resolve;
+      });
+    }
+    return jsonResponse({
+      items: [{
+        record_id: "record-r",
+        kind: "media",
+        display_title: "Record card",
+        media_id: "media-r",
+        preview_location_id: "location-r",
+        visibility: "private",
+      }],
+      total: 1,
+      limit: 24,
+      offset: 0,
+    });
+  });
+  const pendingTimeline = harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  await settle();
+  const timelineCall = harness.calls.find((call) => call.url.startsWith("/api/timeline"));
+  harness.location._hash = "#/gallery";
+  await harness.kronikaFollowHash();
+  assert.equal(timelineCall.init.signal.aborted, true);
+  timelineResolve(jsonResponse({
+    items: [mediaItem(1)],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }));
+  await pendingTimeline;
+  assert.equal(harness.byId["kronika-timeline-results"].children.length, 0);
+
+  const pendingQuestions = harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history"));
+  await settle();
+  const questionCall = harness.calls.find((call) => call.url.startsWith("/api/research-requests"));
+  await harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history/records"));
+  assert.equal(questionCall.init.signal.aborted, true);
+  questionResolve(jsonResponse({
+    items: [{
+      operation_id: "op-late",
+      kind: "search",
+      state: "saved",
+      prompt: "Late question",
+      record_id: "record-late",
+    }],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }));
+  await pendingQuestions;
+  const historyResults = harness.byId["kronika-history-results"];
+  assert.equal(historyResults.children.length, 1);
+  assert.equal(historyResults.children[0].children[0].textContent, "Record card");
+});
+
+test("cancelled dirty navigation preserves the current preview page", async () => {
+  const harness = createHarness(async () => jsonResponse({
+    items: [mediaItem(1)],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }), { dirty: true, discard: false });
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const results = harness.byId["kronika-timeline-results"];
+  const image = results.querySelector(".kronika-card__preview");
+  fireImage(image, "load");
+  assert.equal(image.getAttribute("data-kronika-preview"), "ready");
+  harness.location._hash = "#/gallery";
+  await harness.kronikaFollowHash();
+  assert.equal(harness.location.hash, "#/timeline");
+  assert.equal(results.children.length, 1);
+  assert.equal(image.parentNode, results.children[0]);
+  assert.equal(image.getAttribute("data-kronika-preview"), "ready");
+  assert.notEqual(image.src, "");
+  assert.equal(harness.calls[0].init.signal.aborted, false);
+  assert.equal(harness.catalogLoads.length, 0);
+});
+
+test("thumbnail CSS changes only the Timeline and History icon slots", () => {
+  const selectorLines = STYLES_SOURCE.split("\n").filter((line) => (
+    line.includes(".kronika-card__preview") || line.includes("data-kronika-preview")
+  ));
+  assert.equal(selectorLines.length >= 4, true);
+  selectorLines.forEach((line) => {
+    const selectors = line.replace(/\s*\{\s*$/, "").split(",");
+    selectors.forEach((selector) => {
+      const trimmed = selector.trim();
+      if (!trimmed || trimmed.startsWith("/*")) return;
+      assert.match(trimmed, /^#kronika-(timeline|history)-results /);
+    });
+  });
+  assert.match(STYLES_SOURCE, /\.kronika-card \{[^}]*padding: 16px 16px 14px 64px;/s);
+  assert.match(STYLES_SOURCE, /\.kronika-card::before \{[^}]*width: 36px;[^}]*height: 36px;/s);
+  assert.equal(STYLES_SOURCE.includes("#kronika-review-results .kronika-card__preview"), false);
 });

@@ -36,6 +36,10 @@ Accepted target:
   The shared page is for verified household members only. Internet publication
   stays disabled.
 
+The Timeline and personal Records cards reuse ready media previews over their
+existing kind-icon slot, with the icon retained while loading and after every
+failure; [SPEC.md](SPEC.md) owns the bounded behavior.
+
 Published on public `main`:
 
 - MEME and Movie behavior already in the application remains.

@@ -89,7 +89,11 @@ the same card with original GIF or MP4 content from the identity-only
 corner badge, or playback overlay; the media surface itself remains the
 accessible playback control with visible focus. Opening Details from the card
 title continues to use original GIF/MP4 content and Details playback semantics.
-Gallery-preview generation remains an explicit server-operator action. These
+Gallery-preview generation is either the accepted ADR-0086 in-process backfill
+or an explicit server-operator action; a gallery-preview GET never generates a
+derivative. [SPEC.md](SPEC.md) owns the bounded Timeline and personal-record
+History card reuse of the same ready previews over the existing kind-icon slot,
+including icon retention while loading and after every failure. These
 persistent gallery previews are not durable accepted covers, cover candidates,
 catalog metadata, or Cover Studio state. Details uses a black player-first
 surface. Native/VLC playback, managed downloads, and a broader media player are

@@ -5989,6 +5989,38 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
 .kronika-card[data-kronika-kind="movie"]::before { content: "🎬"; }
 .kronika-card[data-kronika-kind="youtube"]::before { content: "▶️"; }
 
+/* Timeline and personal-record History previews occupy the existing icon slot. */
+#kronika-timeline-results .kronika-card__preview,
+#kronika-history-results .kronika-card__preview {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: block;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#kronika-timeline-results .kronika-card__preview[data-kronika-preview="ready"],
+#kronika-history-results .kronika-card__preview[data-kronika-preview="ready"] {
+  opacity: 1;
+}
+
+#kronika-timeline-results .kronika-card__preview[data-kronika-preview="fallback"],
+#kronika-history-results .kronika-card__preview[data-kronika-preview="fallback"] {
+  display: none;
+}
+
+#kronika-timeline-results .kronika-card:has(> .kronika-card__preview[data-kronika-preview="ready"])::before,
+#kronika-history-results .kronika-card:has(> .kronika-card__preview[data-kronika-preview="ready"])::before {
+  visibility: hidden;
+}
+
 .kronika-card:hover {
   border-color: var(--accent-border);
   background: var(--surface-raised);

@@ -38,6 +38,7 @@ class RecordSummary:
     read_decision: str
     display_title: str | None = None
     content_category: str | None = None
+    preview_location_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

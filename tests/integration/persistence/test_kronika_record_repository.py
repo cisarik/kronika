@@ -8,6 +8,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event
 
 from kronika.configuration import KronikaSettings
 from kronika.domain.identity_access import ROLE_USER
@@ -36,11 +37,15 @@ from kronika.infrastructure.persistence.record_repository import (
 from tests.support.record_access import synthetic_identity
 
 
-def _engine(tmp_path: Path):
-    settings = KronikaSettings(
+def _settings(tmp_path: Path) -> KronikaSettings:
+    return KronikaSettings(
         database_path=tmp_path / "catalog.sqlite3",
         _env_file=None,
     )
+
+
+def _engine(tmp_path: Path):
+    settings = _settings(tmp_path)
     upgrade_database_to_head(settings)
     return create_sqlite_engine(settings.database_path)
 
@@ -465,5 +470,420 @@ def test_timeline_titles_stay_on_the_approved_projection(tmp_path: Path) -> None
         assert withdrawn.changed is True
         for caller in (alice, bob, ada):
             assert service.list_timeline(caller).total == 0
+    finally:
+        dispose_engine(engine)
+
+
+_PREVIEW_DEVICE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+_PREVIEW_LIBRARY_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+_PREVIEW_TAG_KEY = "clip"
+
+
+def _catalog_many(
+    settings: KronikaSettings,
+    entries: list[tuple[str, str, tuple[tuple[str, str], ...], str]],
+) -> None:
+    """Insert synthetic catalog rows for preview-locator tests."""
+    connection = sqlite3.connect(settings.database_path)
+    try:
+        connection.execute(
+            "INSERT OR IGNORE INTO devices (id, display_name) VALUES (?, 'Synthetic')",
+            (_PREVIEW_DEVICE_ID,),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO libraries ("
+            "id, device_id, display_name, path_flavor, root_path"
+            ") VALUES (?, ?, 'Synthetic', 'posix', ?)",
+            (_PREVIEW_LIBRARY_ID, _PREVIEW_DEVICE_ID, "/tmp/synthetic-library"),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO canonical_tags (key, display_name, created_at_ms, updated_at_ms) "
+            "VALUES (?, 'Clip', 10, 10)",
+            (_PREVIEW_TAG_KEY,),
+        )
+        for media_id, media_kind, locations, title in entries:
+            connection.execute(
+                "INSERT INTO logical_media (id, media_kind, created_at_ms, updated_at_ms) "
+                "VALUES (?, ?, 10, 10)",
+                (media_id, media_kind),
+            )
+            for index, (location_id, availability) in enumerate(locations):
+                connection.execute(
+                    "INSERT INTO physical_media_locations ("
+                    "id, media_id, library_id, relative_path, availability, "
+                    "observed_size_bytes, observed_mtime_ns, created_at_ms, updated_at_ms"
+                    ") VALUES (?, ?, ?, ?, ?, 8, 8, 10, 10)",
+                    (
+                        location_id,
+                        media_id,
+                        _PREVIEW_LIBRARY_ID,
+                        f"{media_id}-{index}.mp4",
+                        availability,
+                    ),
+                )
+            connection.execute(
+                "INSERT INTO media_metadata ("
+                "media_id, display_title, description, content_category, acquisition_source, "
+                "created_at_ms, updated_at_ms"
+                ") VALUES (?, ?, 'Synthetic description', 'general', 'manual_upload', 10, 10)",
+                (media_id, title),
+            )
+            connection.execute(
+                "INSERT INTO media_canonical_tags (media_id, tag_key, position) "
+                "VALUES (?, ?, 0)",
+                (media_id, _PREVIEW_TAG_KEY),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _catalog_media(
+    settings: KronikaSettings,
+    *,
+    media_id: str,
+    media_kind: str,
+    locations: tuple[tuple[str, str], ...],
+    title: str,
+) -> None:
+    _catalog_many(settings, [(media_id, media_kind, locations, title)])
+
+
+def _insert_location(
+    settings: KronikaSettings,
+    *,
+    media_id: str,
+    location_id: str,
+    availability: str = "available",
+    index: int = 90,
+) -> None:
+    connection = sqlite3.connect(settings.database_path)
+    try:
+        connection.execute(
+            "INSERT INTO physical_media_locations ("
+            "id, media_id, library_id, relative_path, availability, "
+            "observed_size_bytes, observed_mtime_ns, created_at_ms, updated_at_ms"
+            ") VALUES (?, ?, ?, ?, ?, 8, 8, 10, 10)",
+            (
+                location_id,
+                media_id,
+                _PREVIEW_LIBRARY_ID,
+                f"{media_id}-{index}.mp4",
+                availability,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _bind_media_record(
+    engine,
+    repository: SqliteRecordRepository,
+    *,
+    record_id: str,
+    media_id: str,
+    owner_login_key: str = "alice",
+    created_at_ms: int = 10,
+) -> None:
+    def bind(connection) -> None:
+        repository.bind_media_record(
+            connection,
+            record_id=RecordId.from_string(record_id),
+            media_id=media_id,
+            owner_login_key=owner_login_key,
+            created_at_ms=created_at_ms,
+        )
+
+    run_in_immediate_transaction(engine, bind)
+
+
+def _insert_analysis_run(
+    settings: KronikaSettings,
+    *,
+    run_id: str,
+    media_id: str,
+    location_id: str,
+    title: str,
+) -> None:
+    connection = sqlite3.connect(settings.database_path)
+    try:
+        connection.execute(
+            "INSERT INTO media_analysis_runs ("
+            "id, media_id, media_location_id, analysis_definition, state, attempt_count, "
+            "provider_id, model_id, prompt_version, result_schema_version, result_json, "
+            "analysis_profile, created_at_ms, started_at_ms, completed_at_ms, version"
+            ") VALUES (?, ?, ?, 'automatic_post_catalog', 'analyzed', 1, "
+            "'synthetic', 'synthetic-model', 'suggestion-v1', "
+            "'framenest-media-suggestion-result-v1', ?, 'generic_media', 10, 10, 10, 1)",
+            (
+                run_id,
+                media_id,
+                location_id,
+                json.dumps(
+                    {
+                        "title": title,
+                        "description": "Synthetic description",
+                        "collection": "inbox",
+                        "tags": [_PREVIEW_TAG_KEY],
+                        "suggested_filename": "clip.mp4",
+                        "confidence": 0.5,
+                        "evidence": ["frame"],
+                        "uncertainties": ["none"],
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _insert_media_record_row(
+    settings: KronikaSettings,
+    *,
+    record_id: str,
+    media_id: str,
+    owner_login_key: str = "alice",
+    created_at_ms: int = 10,
+) -> None:
+    connection = sqlite3.connect(settings.database_path)
+    try:
+        connection.execute(
+            "INSERT INTO kronika_records ("
+            "id, kind, owner_login_key, visibility, media_id, created_at_ms, version"
+            ") VALUES (?, 'media', ?, 'private', ?, ?, 1)",
+            (record_id, owner_login_key, media_id, created_at_ms),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def test_history_preview_locator_selects_one_current_available_location(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    upgrade_database_to_head(settings)
+    engine = create_sqlite_engine(settings.database_path)
+    repository = SqliteRecordRepository(engine)
+    service = RecordService(repository)
+    alice = synthetic_identity("alice")
+    ada = synthetic_identity("ada", role=ROLE_ADMIN)
+    media_id = "61000000-0000-4000-8000-000000000001"
+    record_id = "62000000-0000-4000-8000-000000000001"
+    first_inserted = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    lexically_first = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    unavailable_earlier = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    try:
+        _catalog_media(
+            settings,
+            media_id=media_id,
+            media_kind="video",
+            locations=(
+                (first_inserted, "available"),
+                (lexically_first, "available"),
+                (unavailable_earlier, "missing"),
+            ),
+            title="Synthetic current title",
+        )
+        _insert_media_record_row(settings, record_id=record_id, media_id=media_id)
+        owned = service.list_own_history(alice)
+        assert owned.items[0].preview_location_id == lexically_first
+        detail = service.read_detail(alice, record_id)
+        assert detail.summary.preview_location_id is None
+        inventory = service.list_admin_inventory(ada)
+        assert inventory.items[0].preview_location_id is None
+    finally:
+        dispose_engine(engine)
+
+
+def test_timeline_preview_locator_uses_only_approved_locations_for_every_caller(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    upgrade_database_to_head(settings)
+    engine = create_sqlite_engine(settings.database_path)
+    repository = SqliteRecordRepository(engine)
+    service = RecordService(repository)
+    alice = synthetic_identity("alice")
+    bob = synthetic_identity("bob")
+    ada = synthetic_identity("ada", role=ROLE_ADMIN)
+    media_id = "61000000-0000-4000-8000-000000000002"
+    record_id = "62000000-0000-4000-8000-000000000002"
+    run_id = "63000000-0000-4000-8000-000000000002"
+    approved_location = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    working_only = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    try:
+        _catalog_media(
+            settings,
+            media_id=media_id,
+            media_kind="video",
+            locations=((approved_location, "available"),),
+            title="Synthetic approved title",
+        )
+        _bind_media_record(
+            engine,
+            repository,
+            record_id=record_id,
+            media_id=media_id,
+        )
+
+        def analyse(connection) -> None:
+            note_successful_analysis(connection, media_id, run_id)
+
+        _insert_analysis_run(
+            settings,
+            run_id=run_id,
+            media_id=media_id,
+            location_id=approved_location,
+            title="Synthetic approved title",
+        )
+        run_in_immediate_transaction(engine, analyse)
+        candidate = service.prepare_approval(ada, record_id)
+        service.approve(ada, candidate, approved_at_ms=20)
+        _insert_location(
+            settings,
+            media_id=media_id,
+            location_id=working_only,
+            availability="available",
+        )
+        for caller in (alice, bob, ada):
+            timeline = service.list_timeline(caller)
+            assert timeline.total == 1
+            assert timeline.items[0].preview_location_id == approved_location
+        current = service.list_own_history(alice)
+        assert current.items[0].preview_location_id == working_only
+    finally:
+        dispose_engine(engine)
+
+
+def test_preview_locators_are_null_for_nonmedia_still_images_and_unavailable_locations(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    upgrade_database_to_head(settings)
+    engine = create_sqlite_engine(settings.database_path)
+    repository = SqliteRecordRepository(engine)
+    service = RecordService(repository)
+    alice = synthetic_identity("alice")
+    still_media = "61000000-0000-4000-8000-000000000003"
+    still_record = "62000000-0000-4000-8000-000000000003"
+    unavailable_media = "61000000-0000-4000-8000-000000000004"
+    unavailable_record = "62000000-0000-4000-8000-000000000004"
+    try:
+        _catalog_media(
+            settings,
+            media_id=still_media,
+            media_kind="image",
+            locations=(("dddddddd-dddd-4ddd-8ddd-dddddddddddd", "available"),),
+            title="Synthetic still",
+        )
+        _insert_media_record_row(
+            settings,
+            record_id=still_record,
+            media_id=still_media,
+        )
+        _catalog_media(
+            settings,
+            media_id=unavailable_media,
+            media_kind="animated_image",
+            locations=(("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", "offline"),),
+            title="Synthetic offline",
+        )
+        _insert_media_record_row(
+            settings,
+            record_id=unavailable_record,
+            media_id=unavailable_media,
+        )
+        _save_document(
+            service,
+            alice,
+            operation_id="search-null-preview",
+            kind=RecordKind.SEARCH,
+            question="Synthetic question",
+            answer="Synthetic answer",
+            created_at_ms=5,
+            record_id="62000000-0000-4000-8000-000000000005",
+        )
+        history = service.list_own_history(alice)
+        by_record = {item.record_id: item for item in history.items}
+        assert by_record[still_record].preview_location_id is None
+        assert by_record[unavailable_record].preview_location_id is None
+        assert by_record["62000000-0000-4000-8000-000000000005"].kind is RecordKind.SEARCH
+        assert by_record["62000000-0000-4000-8000-000000000005"].preview_location_id is None
+        assert all(item.preview_location_id is None for item in history.items)
+    finally:
+        dispose_engine(engine)
+
+
+def test_record_preview_locator_queries_are_constant_per_page(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    upgrade_database_to_head(settings)
+    engine = create_sqlite_engine(settings.database_path)
+    repository = SqliteRecordRepository(engine)
+    service = RecordService(repository)
+    alice = synthetic_identity("alice")
+    entries = []
+    for index in range(100):
+        media_id = f"61000000-0000-4000-8000-{index:012d}"
+        location_id = f"63000000-0000-4000-8000-{index:012d}"
+        entries.append((media_id, "video", ((location_id, "available"),), f"Title {index:03d}"))
+    try:
+        _catalog_many(settings, entries)
+        for index in range(100):
+            media_id = f"61000000-0000-4000-8000-{index:012d}"
+            record_id = f"62000000-0000-4000-8000-{index:012d}"
+            _insert_media_record_row(
+                settings,
+                record_id=record_id,
+                media_id=media_id,
+                created_at_ms=1_000 + index,
+            )
+        _save_document(
+            service,
+            alice,
+            operation_id="search-query-count",
+            kind=RecordKind.SEARCH,
+            question="Synthetic question",
+            answer="Synthetic answer",
+            created_at_ms=5,
+            record_id="62000000-0000-4000-8000-000000000100",
+        )
+
+        def statements_for(call):
+            statements: list[str] = []
+
+            def before(conn, cursor, statement, parameters, context, executemany):
+                statements.append(statement)
+
+            event.listen(engine, "before_cursor_execute", before)
+            try:
+                page = call()
+            finally:
+                event.remove(engine, "before_cursor_execute", before)
+            return page, statements
+
+        baseline_page, baseline = statements_for(
+            lambda: service.list_own_history(alice, kind="search")
+        )
+        assert baseline_page.items[0].preview_location_id is None
+        one_page, one = statements_for(
+            lambda: service.list_own_history(alice, kind="media", limit=1)
+        )
+        page_24, page_24_statements = statements_for(
+            lambda: service.list_own_history(alice, kind="media", limit=24)
+        )
+        page_100, page_100_statements = statements_for(
+            lambda: service.list_own_history(alice, kind="media", limit=100)
+        )
+        assert len(one_page.items) == 1
+        assert len(page_24.items) == 24
+        assert len(page_100.items) == 100
+        assert all(item.preview_location_id for item in page_100.items)
+        assert len(one) == len(page_24_statements) == len(page_100_statements)
+        assert len(one) == len(baseline) + 1
     finally:
         dispose_engine(engine)

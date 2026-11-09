@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -9,7 +12,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from kronika.adapters.api.application import create_app
+from kronika.adapters.api.gallery_preview_api import GalleryPreviewApiDependencies
 from kronika.adapters.api.tailscale_ingress import SCOPE_AUDIT_EVENT_ID
+from kronika.application.content_publication import ContentAudiencePolicy
+from kronika.application.ports.gallery_preview import OpenedGalleryPreview
 from kronika.configuration import KronikaSettings
 from kronika.domain.identity_access import ROLE_ADMIN, ROLE_USER
 from kronika.domain.records import (
@@ -27,6 +33,7 @@ from kronika.infrastructure.persistence.engine import (
 from kronika.infrastructure.persistence.migrations import upgrade_database_to_head
 from kronika.infrastructure.persistence.record_repository import (
     SqliteRecordRepository,
+    note_successful_analysis,
 )
 from tests.support.record_access import install_synthetic_caller
 
@@ -265,3 +272,337 @@ def test_unready_media_cannot_be_approved(tmp_path: Path) -> None:
     )
     assert denied.status_code == 409
     assert denied.json()["error"]["code"] == "RECORD_CONFLICT"
+
+
+_MEDIA_ID = "66000000-0000-4000-8000-000000000001"
+_APPROVED_LOCATION_ID = "67000000-0000-4000-8000-000000000001"
+_WORKING_LOCATION_ID = "65000000-0000-4000-8000-000000000001"
+_RUN_ID = "68000000-0000-4000-8000-000000000001"
+_MEDIA_RECORD_ID = "69000000-0000-4000-8000-000000000001"
+_MEDIA_DEVICE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+_MEDIA_LIBRARY_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+_PREVIEW_PRIVATE_PATH = "/Users/example/private/cache"
+_PREVIEW_JPEG = b"\xff\xd8\xff\xd9"
+_PREVIEW_ETAG = '"round-trip"'
+_SUMMARY_KEYS = {
+    "record_id",
+    "kind",
+    "owner_login_key",
+    "visibility",
+    "created_at_ms",
+    "completed_at_ms",
+    "timeline_entered_at_ms",
+    "version",
+    "media_id",
+    "read_decision",
+    "display_title",
+    "content_category",
+}
+
+
+@dataclass
+class _RecordingPreviewService:
+    calls: list[tuple[str, str]] = field(default_factory=list)
+    error: Exception | None = None
+
+    def open_ready(self, media_id, location_id):
+        self.calls.append((str(media_id), str(location_id)))
+        if self.error is not None:
+            raise self.error
+        return OpenedGalleryPreview(
+            media_type="image/jpeg",
+            byte_size=len(_PREVIEW_JPEG),
+            etag=_PREVIEW_ETAG,
+            payload=_PREVIEW_JPEG,
+            close=lambda: None,
+        )
+
+
+class _UnboundMediaRepository:
+    """The bound-record decision runs before this fallback for synthetic media."""
+
+    def media_exists(self, media_id) -> bool:
+        return False
+
+    def is_published(self, media_id) -> bool:
+        return False
+
+
+def _suggestion_json(title: str) -> str:
+    return json.dumps(
+        {
+            "title": title,
+            "description": "Synthetic description",
+            "collection": "inbox",
+            "tags": ["clip"],
+            "suggested_filename": "clip.mp4",
+            "confidence": 0.5,
+            "evidence": ["frame"],
+            "uncertainties": ["none"],
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _seed_media_catalog(settings: KronikaSettings, engine) -> None:
+    repository = SqliteRecordRepository(engine)
+    connection = sqlite3.connect(settings.database_path)
+    try:
+        connection.execute(
+            "INSERT INTO devices (id, display_name) VALUES (?, 'Synthetic')",
+            (_MEDIA_DEVICE_ID,),
+        )
+        connection.execute(
+            "INSERT INTO libraries (id, device_id, display_name, path_flavor, root_path) "
+            "VALUES (?, ?, 'Synthetic', 'posix', ?)",
+            (_MEDIA_LIBRARY_ID, _MEDIA_DEVICE_ID, "/tmp/synthetic-library"),
+        )
+        connection.execute(
+            "INSERT INTO logical_media (id, media_kind, created_at_ms, updated_at_ms) "
+            "VALUES (?, 'video', 10, 10)",
+            (_MEDIA_ID,),
+        )
+        connection.execute(
+            "INSERT INTO physical_media_locations ("
+            "id, media_id, library_id, relative_path, availability, "
+            "observed_size_bytes, observed_mtime_ns, created_at_ms, updated_at_ms"
+            ") VALUES (?, ?, ?, 'approved.mp4', 'available', 8, 8, 10, 10)",
+            (_APPROVED_LOCATION_ID, _MEDIA_ID, _MEDIA_LIBRARY_ID),
+        )
+        connection.execute(
+            "INSERT INTO media_metadata ("
+            "media_id, display_title, description, content_category, acquisition_source, "
+            "created_at_ms, updated_at_ms"
+            ") VALUES (?, 'Synthetic title', 'Synthetic description', 'general', 'manual_upload', 10, 10)",
+            (_MEDIA_ID,),
+        )
+        connection.execute(
+            "INSERT INTO canonical_tags (key, display_name, created_at_ms, updated_at_ms) "
+            "VALUES ('clip', 'Clip', 10, 10)"
+        )
+        connection.execute(
+            "INSERT INTO media_canonical_tags (media_id, tag_key, position) "
+            "VALUES (?, 'clip', 0)",
+            (_MEDIA_ID,),
+        )
+        connection.execute(
+            "INSERT INTO media_analysis_runs ("
+            "id, media_id, media_location_id, analysis_definition, state, attempt_count, "
+            "provider_id, model_id, prompt_version, result_schema_version, result_json, "
+            "analysis_profile, created_at_ms, started_at_ms, completed_at_ms, version"
+            ") VALUES (?, ?, ?, 'automatic_post_catalog', 'analyzed', 1, "
+            "'synthetic', 'synthetic-model', 'suggestion-v1', "
+            "'framenest-media-suggestion-result-v1', ?, 'generic_media', 10, 10, 10, 1)",
+            (
+                _RUN_ID,
+                _MEDIA_ID,
+                _APPROVED_LOCATION_ID,
+                _suggestion_json("Synthetic title"),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    def bind(connection) -> None:
+        repository.bind_media_record(
+            connection,
+            record_id=RecordId.from_string(_MEDIA_RECORD_ID),
+            media_id=_MEDIA_ID,
+            owner_login_key=OWNER,
+            created_at_ms=10,
+        )
+        note_successful_analysis(connection, _MEDIA_ID, _RUN_ID)
+
+    run_in_immediate_transaction(engine, bind)
+
+
+@pytest.fixture()
+def media_records(tmp_path: Path):
+    settings = KronikaSettings(
+        database_path=tmp_path / "media-records-api.sqlite3",
+        identity_map={
+            OWNER: "user",
+            "bob@example.com": "user",
+            "ada@example.com": "admin",
+        },
+        _env_file=None,
+    )
+    upgrade_database_to_head(settings)
+    engine = create_sqlite_engine(settings.database_path)
+    _seed_media_catalog(settings, engine)
+    preview = _RecordingPreviewService()
+    policy = ContentAudiencePolicy(
+        _UnboundMediaRepository(),
+        record_bindings=SqliteRecordRepository(engine),
+    )
+
+    def build(login: str, role: str = ROLE_USER) -> TestClient:
+        dependencies = GalleryPreviewApiDependencies(
+            preview_service=preview,
+            catalog_available=lambda: True,
+            audience_policy=policy,
+        )
+        return _client(
+            create_app(
+                settings=settings,
+                gallery_preview_api_dependencies=dependencies,
+            ),
+            login,
+            role,
+        )
+
+    try:
+        yield {
+            "settings": settings,
+            "engine": engine,
+            "record_id": _MEDIA_RECORD_ID,
+            "preview": preview,
+            "alice": build(OWNER),
+            "bob": build("bob@example.com"),
+            "ada": build("ada@example.com", ROLE_ADMIN),
+        }
+    finally:
+        dispose_engine(engine)
+
+
+def _preview_url(location_id: str = _APPROVED_LOCATION_ID) -> str:
+    return f"/api/media/{_MEDIA_ID}/locations/{location_id}/gallery-preview"
+
+
+def _approve(client: TestClient, record_id: str) -> dict[str, object]:
+    version = client.get(f"/api/records/{record_id}").json()["version"]
+    response = client.post(
+        f"/api/admin/records/{record_id}/approval",
+        json={"action": "approve", "expected_version": version},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def _withdraw(client: TestClient, record_id: str) -> dict[str, object]:
+    version = client.get(f"/api/records/{record_id}").json()["version"]
+    response = client.post(
+        f"/api/admin/records/{record_id}/approval",
+        json={"action": "withdraw", "expected_version": version},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_media_list_preview_locator_is_additive_and_path_free(media_records) -> None:
+    page = media_records["alice"].get("/api/my/records")
+    assert page.status_code == 200
+    body = page.json()
+    item = body["items"][0]
+    assert item["preview_location_id"] == _APPROVED_LOCATION_ID
+    assert set(item) == _SUMMARY_KEYS | {"preview_location_id"}
+    assert "locations" not in item
+    assert "relative_path" not in page.text
+    assert _PREVIEW_PRIVATE_PATH not in page.text
+    assert "approved.mp4" not in page.text
+    timeline = media_records["alice"].get("/api/timeline").json()
+    assert timeline["items"] == []
+
+
+def test_preview_locator_does_not_change_admin_or_detail_response_shapes(
+    media_records,
+) -> None:
+    detail = media_records["alice"].get(f"/api/records/{_MEDIA_RECORD_ID}")
+    assert detail.status_code == 200
+    assert set(detail.json()["record"]) == _SUMMARY_KEYS
+    inventory = media_records["ada"].get("/api/admin/records")
+    assert inventory.status_code == 200
+    assert set(inventory.json()["items"][0]) == _SUMMARY_KEYS
+    personal = media_records["alice"].get("/api/my/records").json()["items"][0]
+    assert set(personal) == _SUMMARY_KEYS | {"preview_location_id"}
+
+
+def test_list_preview_locator_round_trip_preserves_record_audience(
+    media_records,
+) -> None:
+    preview = media_records["preview"]
+    alice = media_records["alice"]
+    bob = media_records["bob"]
+    ada = media_records["ada"]
+    locator = alice.get("/api/my/records").json()["items"][0]["preview_location_id"]
+    assert locator == _APPROVED_LOCATION_ID
+    owner_preview = alice.get(_preview_url(locator))
+    assert owner_preview.status_code == 200
+    assert owner_preview.content == _PREVIEW_JPEG
+    assert preview.calls == [(_MEDIA_ID, _APPROVED_LOCATION_ID)]
+    admin_preview = ada.get(_preview_url(locator))
+    assert admin_preview.status_code == 200
+    denied = bob.get(_preview_url(locator))
+    assert denied.status_code == 404
+    assert denied.json()["error"]["code"] == "GALLERY_PREVIEW_NOT_FOUND"
+    assert preview.calls == [
+        (_MEDIA_ID, _APPROVED_LOCATION_ID),
+        (_MEDIA_ID, _APPROVED_LOCATION_ID),
+    ]
+    _approve(ada, _MEDIA_RECORD_ID)
+    timeline = bob.get("/api/timeline").json()
+    assert timeline["total"] == 1
+    household_locator = timeline["items"][0]["preview_location_id"]
+    assert household_locator == _APPROVED_LOCATION_ID
+    household = bob.get(_preview_url(household_locator))
+    assert household.status_code == 200
+    _withdraw(ada, _MEDIA_RECORD_ID)
+    assert bob.get("/api/timeline").json()["total"] == 0
+    calls_before = len(preview.calls)
+    denied_after_withdrawal = bob.get(
+        _preview_url(household_locator),
+        headers={"If-None-Match": _PREVIEW_ETAG},
+    )
+    assert denied_after_withdrawal.status_code == 404
+    assert denied_after_withdrawal.headers["cache-control"] == "no-store"
+    assert len(preview.calls) == calls_before
+    assert alice.get("/api/my/records").json()["items"][0]["preview_location_id"] == _APPROVED_LOCATION_ID
+    assert alice.get(_preview_url(household_locator)).status_code == 200
+
+
+def test_working_only_preview_location_is_not_disclosed_on_timeline(
+    media_records,
+) -> None:
+    ada = media_records["ada"]
+    bob = media_records["bob"]
+    alice = media_records["alice"]
+    _approve(ada, _MEDIA_RECORD_ID)
+    connection = sqlite3.connect(media_records["settings"].database_path)
+    try:
+        connection.execute(
+            "INSERT INTO physical_media_locations ("
+            "id, media_id, library_id, relative_path, availability, "
+            "observed_size_bytes, observed_mtime_ns, created_at_ms, updated_at_ms"
+            ") VALUES (?, ?, ?, 'working.mp4', 'available', 9, 9, 30, 30)",
+            (_WORKING_LOCATION_ID, _MEDIA_ID, _MEDIA_LIBRARY_ID),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    timeline = bob.get("/api/timeline")
+    assert timeline.status_code == 200
+    assert timeline.json()["items"][0]["preview_location_id"] == _APPROVED_LOCATION_ID
+    assert _WORKING_LOCATION_ID not in timeline.text
+    assert alice.get("/api/my/records").json()["items"][0]["preview_location_id"] == _WORKING_LOCATION_ID
+
+
+def test_withdrawn_preview_is_denied_even_with_a_cached_etag(media_records) -> None:
+    preview = media_records["preview"]
+    bob = media_records["bob"]
+    ada = media_records["ada"]
+    _approve(ada, _MEDIA_RECORD_ID)
+    allowed = bob.get(_preview_url())
+    assert allowed.status_code == 200
+    assert allowed.headers["etag"] == _PREVIEW_ETAG
+    _withdraw(ada, _MEDIA_RECORD_ID)
+    calls_before = len(preview.calls)
+    denied = bob.get(
+        _preview_url(),
+        headers={"If-None-Match": _PREVIEW_ETAG},
+    )
+    assert denied.status_code == 404
+    assert denied.content != b""
+    assert denied.headers["cache-control"] == "no-store"
+    assert len(preview.calls) == calls_before

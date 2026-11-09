@@ -455,6 +455,23 @@ The accepted position is documenting this residual assumption rather than
 `openat`-style dirfd hardening; symlink and traversal protections for the
 final component remain enforced.
 
+### Timeline And History Preview Locators
+
+The Timeline and personal-record History list items MAY carry one opaque
+`preview_location_id`. It is selected only from rows the caller may already
+read: the approved media projection for the Timeline and current physical
+locations for personal-record History. It is not a path, URL, cache key,
+readiness guarantee, or authorization token, and the list response adds no
+location list, filesystem path, cache state, or answer text.
+
+The browser builds the existing gallery-preview URL from `media_id` and this
+identifier. Every preview GET still passes the shared content audience decision
+before any cache access, including conditional `If-None-Match` requests. A
+denied, withdrawn, missing, or not-ready preview returns a sanitized error and
+no `304`. Timeline selection uses approved locations for every caller,
+including owners and administrators. The unrelated public-published composition
+and its preview route remain unchanged.
+
 ### Durable Cover Endpoints
 
 The first durable manual cover workflow ([ADR-0050](docs/adr/0050-durable-manual-cover-foundation.md))

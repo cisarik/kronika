@@ -61,6 +61,7 @@ from kronika.infrastructure.persistence.catalog_schema import (
     kronika_approved_media_tags,
     kronika_documents,
     kronika_records,
+    logical_media,
     media_analysis_runs,
     media_canonical_tags,
     media_covers,
@@ -467,6 +468,19 @@ class SqliteRecordRepository:
                 .offset(query.offset)
             ).mappings().all()
             labels = _summary_labels(connection, rows, timeline_only=timeline_only)
+            preview_locations: dict[str, str] = {}
+            if timeline_only:
+                preview_locations = _summary_preview_locations(
+                    connection,
+                    labels,
+                    approved_snapshot=True,
+                )
+            elif owner_login_key is not None:
+                preview_locations = _summary_preview_locations(
+                    connection,
+                    labels,
+                    approved_snapshot=False,
+                )
             items = []
             for row in rows:
                 decision = (
@@ -474,13 +488,14 @@ class SqliteRecordRepository:
                     if timeline_only
                     else decide_bound_read(identity, _bound_view(row))
                 )
-                title, category = labels.get(str(row["id"]), (None, None))
+                title, category, _media_kind = labels.get(str(row["id"]), (None, None, None))
                 items.append(
                     _summary(
                         row,
                         decision,
                         display_title=title,
                         content_category=category,
+                        preview_location_id=preview_locations.get(str(row["id"])),
                     )
                 )
             return RecordPage(
@@ -574,6 +589,7 @@ def _bound_view(row: Mapping[str, object]) -> BoundRecordView:
 
 _TITLE_CODE_POINTS = 240
 _CONTENT_CATEGORIES = frozenset({"general", "meme", "movie", "youtube"})
+_PREVIEW_MEDIA_KINDS = ("video", "animated_image")
 
 
 def _question_display_title(question: object) -> str | None:
@@ -606,9 +622,13 @@ def _summary_labels(
     rows: list[Mapping[str, object]],
     *,
     timeline_only: bool,
-) -> dict[str, tuple[str | None, str | None]]:
-    """Title and category columns only. Answers and locations stay unloaded."""
-    labels: dict[str, tuple[str | None, str | None]] = {}
+) -> dict[str, tuple[str | None, str | None, str | None]]:
+    """Title, category and technical kind columns only.
+
+    Answers and locations stay unloaded. The technical kind lets the list path
+    decide whether one bounded preview-locator query is necessary.
+    """
+    labels: dict[str, tuple[str | None, str | None, str | None]] = {}
     if not rows:
         return labels
     ids = [str(row["id"]) for row in rows]
@@ -618,12 +638,21 @@ def _summary_labels(
                 kronika_approved_media.c.record_id,
                 kronika_approved_media.c.display_title,
                 kronika_approved_media.c.content_category,
-            ).where(kronika_approved_media.c.record_id.in_(ids))
+                logical_media.c.media_kind,
+            )
+            .select_from(
+                kronika_approved_media.join(
+                    logical_media,
+                    logical_media.c.id == kronika_approved_media.c.media_id,
+                )
+            )
+            .where(kronika_approved_media.c.record_id.in_(ids))
         ).mappings()
         for item in media_rows:
             labels[str(item["record_id"])] = (
                 _media_display_title(item["display_title"]),
                 _category_value(item["content_category"]),
+                _preview_media_kind(item["media_kind"]),
             )
     else:
         media_rows = connection.execute(
@@ -631,11 +660,15 @@ def _summary_labels(
                 kronika_records.c.id,
                 media_metadata.c.display_title,
                 media_metadata.c.content_category,
+                logical_media.c.media_kind,
             )
             .select_from(
                 kronika_records.outerjoin(
                     media_metadata,
                     media_metadata.c.media_id == kronika_records.c.media_id,
+                ).outerjoin(
+                    logical_media,
+                    logical_media.c.id == kronika_records.c.media_id,
                 )
             )
             .where(
@@ -647,6 +680,7 @@ def _summary_labels(
             labels[str(item["id"])] = (
                 _media_display_title(item["display_title"]),
                 _category_value(item["content_category"]),
+                _preview_media_kind(item["media_kind"]),
             )
     document_rows = connection.execute(
         select(
@@ -662,8 +696,86 @@ def _summary_labels(
         .where(kronika_records.c.id.in_(ids))
     ).mappings()
     for item in document_rows:
-        labels[str(item["id"])] = (_question_display_title(item["question_text"]), None)
+        labels[str(item["id"])] = (_question_display_title(item["question_text"]), None, None)
     return labels
+
+
+def _preview_media_kind(value: object) -> str | None:
+    """Return the technical kind only when the derivative pipeline supports it."""
+    if isinstance(value, str) and value in _PREVIEW_MEDIA_KINDS:
+        return value
+    return None
+
+
+def _summary_preview_locations(
+    connection: Connection,
+    labels: Mapping[str, tuple[str | None, str | None, str | None]],
+    *,
+    approved_snapshot: bool,
+) -> dict[str, str]:
+    """Return one deterministic eligible location per eligible record.
+
+    Timeline callers use only the approved snapshot. Personal History callers
+    use current physical locations. At most one page-bounded query runs, and
+    only when the page actually contains video or animated-image media.
+    """
+    record_ids = [
+        record_id
+        for record_id, (_title, _category, media_kind) in labels.items()
+        if media_kind is not None
+    ]
+    if not record_ids:
+        return {}
+    if approved_snapshot:
+        statement = (
+            select(
+                kronika_approved_media_locations.c.record_id,
+                func.min(kronika_approved_media_locations.c.location_id),
+            )
+            .select_from(
+                kronika_approved_media_locations.join(
+                    kronika_approved_media,
+                    kronika_approved_media.c.record_id
+                    == kronika_approved_media_locations.c.record_id,
+                ).join(
+                    logical_media,
+                    logical_media.c.id == kronika_approved_media.c.media_id,
+                )
+            )
+            .where(
+                kronika_approved_media_locations.c.record_id.in_(record_ids),
+                kronika_approved_media_locations.c.availability == "available",
+                logical_media.c.media_kind.in_(_PREVIEW_MEDIA_KINDS),
+            )
+            .group_by(kronika_approved_media_locations.c.record_id)
+        )
+    else:
+        statement = (
+            select(
+                kronika_records.c.id,
+                func.min(physical_media_locations.c.id),
+            )
+            .select_from(
+                physical_media_locations.join(
+                    logical_media,
+                    logical_media.c.id == physical_media_locations.c.media_id,
+                ).join(
+                    kronika_records,
+                    kronika_records.c.media_id == physical_media_locations.c.media_id,
+                )
+            )
+            .where(
+                kronika_records.c.id.in_(record_ids),
+                physical_media_locations.c.availability == "available",
+                logical_media.c.media_kind.in_(_PREVIEW_MEDIA_KINDS),
+            )
+            .group_by(kronika_records.c.id)
+        )
+    return {
+        str(item[0]): str(item[1])
+        for item in connection.execute(statement)
+        if item[1] is not None
+    }
 
 
 def _summary(
@@ -672,6 +784,7 @@ def _summary(
     *,
     display_title: str | None = None,
     content_category: str | None = None,
+    preview_location_id: str | None = None,
 ) -> RecordSummary:
     return RecordSummary(
         record_id=str(row["id"]),
@@ -690,6 +803,7 @@ def _summary(
         read_decision=decision,
         display_title=display_title,
         content_category=content_category,
+        preview_location_id=preview_location_id,
     )
 
 
