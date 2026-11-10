@@ -3144,6 +3144,51 @@ h2 {
   gap: 8px;
 }
 
+.metadata-dialog__footer .metadata-choose-cover-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(106, 122, 106, 0.72);
+  background: #c9d1c9;
+  color: #0c1a10;
+  text-shadow: none;
+  box-shadow: none;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.metadata-dialog__footer .metadata-choose-cover-button:hover,
+.metadata-dialog__footer .metadata-choose-cover-button:focus-visible {
+  border-color: rgba(90, 110, 90, 0.9);
+  background: #d7ded7;
+  color: #06140a;
+  outline: 2px solid #3d4a3d;
+  outline-offset: 2px;
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(106, 122, 106, 0.28);
+}
+
+.metadata-dialog__footer .metadata-choose-cover-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.metadata-dialog__footer .metadata-choose-cover-button:disabled {
+  border-color: rgba(106, 122, 106, 0.3);
+  background: rgba(18, 24, 18, 0.35);
+  color: var(--text-soft);
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 /* --- Metadata workspace (inside dialog) --- */
 
 .metadata-workspace {
@@ -5172,10 +5217,6 @@ h2 {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.cover-button--primary {
-  border-color: #3f5a78;
-  background: #20354d;
-}
 .cover-button--danger {
   border-color: #7a3b3b;
   background: #442525;
@@ -5344,7 +5385,7 @@ body[data-audience="public_published"] #youtube-request-open-button,
 body[data-audience="public_published"] #x-request-open-button,
 body[data-audience="public_published"] #x-admin-open-button,
 body[data-audience="public_published"] #media-details-edit,
-body[data-audience="public_published"] #media-details-choose-cover,
+body[data-audience="public_published"] #metadata-choose-cover,
 body[data-audience="public_published"] #workspace-media-browser,
 body[data-audience="public_published"] #analysis-proposals-browser,
 body[data-audience="public_published"] #admin-media-aliases-panel {

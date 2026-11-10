@@ -501,8 +501,8 @@ function applyIdentityCapabilities() {
   if (detailsEditButton) {
     detailsEditButton.hidden = !identityAllowsMetadataEdit();
   }
-  if (typeof detailsChooseCoverButton !== "undefined" && detailsChooseCoverButton) {
-    detailsChooseCoverButton.hidden = !identityAllowsCoverEditing();
+  if (typeof metadataChooseCoverButton !== "undefined" && metadataChooseCoverButton) {
+    metadataChooseCoverButton.hidden = !identityAllowsCoverEditing();
   }
   if (adminMediaOpenButton) {
     adminMediaOpenButton.hidden = !identityAllowsAdminWorkflow();
@@ -909,7 +909,7 @@ let detailsOpenerElement = null;
 let detailsCurrentItem = null;
 let detailsMetadataToken = 0;
 let detailsPlayRequested = false;
-const detailsChooseCoverButton = document.querySelector("#media-details-choose-cover");
+const metadataChooseCoverButton = document.querySelector("#metadata-choose-cover");
 const coverDialog = document.querySelector("#cover-dialog");
 const coverDialogCloseButton = document.querySelector("#cover-dialog-close");
 const coverDialogTitle = document.querySelector("#cover-dialog-title");
@@ -925,7 +925,6 @@ const coverTimestampReadout = document.querySelector("#cover-timestamp-readout")
 const coverDurationReadout = document.querySelector("#cover-duration-readout");
 const coverStepBackButton = document.querySelector("#cover-step-back");
 const coverStepForwardButton = document.querySelector("#cover-step-forward");
-const coverPreviewButton = document.querySelector("#cover-preview-button");
 const coverPreviewRegion = document.querySelector("#cover-preview-region");
 const coverPreviewContainer = document.querySelector("#cover-preview-container");
 const coverPreviewStatus = document.querySelector("#cover-preview-status");
@@ -10567,7 +10566,6 @@ function resetCoverDialogView() {
   hideCoverPreviewStatus();
   clearCoverStatus();
   if (coverSetButton) coverSetButton.disabled = true;
-  if (coverPreviewButton) coverPreviewButton.disabled = true;
   if (coverTimelineRange) coverTimelineRange.value = "0";
   if (coverTimestampReadout) coverTimestampReadout.textContent = "00:00:00.000";
   if (coverDurationReadout) coverDurationReadout.textContent = "";
@@ -10599,7 +10597,6 @@ function showCoverContent() {
   if (coverDialogLoading) coverDialogLoading.hidden = true;
   if (coverDialogError) coverDialogError.hidden = true;
   if (coverDialogContent) coverDialogContent.hidden = false;
-  if (coverPreviewButton) coverPreviewButton.disabled = false;
 }
 
 function showCoverError(message) {
@@ -10753,9 +10750,7 @@ async function loadCoverTimeline(token) {
     await loadCoverState(token);
     if (coverContextStillCurrent({ mediaId: item.media_id, token })) {
       showCoverContent();
-      if (coverDialogState.isImage) {
-        void requestCoverPreview();
-      }
+      void requestCoverPreview();
     }
   } catch {
     if (coverContextStillCurrent({ mediaId: item.media_id, token })) {
@@ -10852,6 +10847,7 @@ function handleCoverRangeInput() {
 function stepCoverTimestamp(deltaMs) {
   updateCoverTimestampReadout(coverDialogState.selectedTimestampMs + deltaMs);
   hideCoverReplaceConfirm();
+  void requestCoverPreview();
 }
 
 async function requestCoverPreview() {
@@ -10863,7 +10859,6 @@ async function requestCoverPreview() {
   if (coverPreviewAbortController) coverPreviewAbortController.abort();
   const controller = new AbortController();
   coverPreviewAbortController = controller;
-  if (coverPreviewButton) coverPreviewButton.disabled = true;
   showCoverPreviewStatus("Preparing preview…");
   const params = new URLSearchParams({
     timestamp_ms: String(coverDialogState.selectedTimestampMs),
@@ -10899,9 +10894,6 @@ async function requestCoverPreview() {
   } finally {
     if (coverPreviewAbortController === controller) {
       coverPreviewAbortController = null;
-    }
-    if (coverContextStillCurrent({ mediaId: item.media_id, token })) {
-      if (coverPreviewButton) coverPreviewButton.disabled = false;
     }
   }
 }
@@ -11047,10 +11039,10 @@ async function reloadCoverContext() {
   await loadCoverTimeline(token);
 }
 
-if (detailsChooseCoverButton) {
-  detailsChooseCoverButton.addEventListener("click", () => {
-    if (detailsCurrentItem) {
-      openCoverDialog(detailsCurrentItem, detailsChooseCoverButton);
+if (metadataChooseCoverButton) {
+  metadataChooseCoverButton.addEventListener("click", () => {
+    if (metadataWorkspace.openItem) {
+      openCoverDialog(metadataWorkspace.openItem, metadataChooseCoverButton);
     }
   });
 }
@@ -11083,6 +11075,9 @@ if (coverCancelButton) {
 
 if (coverTimelineRange) {
   coverTimelineRange.addEventListener("input", handleCoverRangeInput);
+  coverTimelineRange.addEventListener("change", () => {
+    void requestCoverPreview();
+  });
 }
 
 if (coverStepBackButton) {
@@ -11091,12 +11086,6 @@ if (coverStepBackButton) {
 
 if (coverStepForwardButton) {
   coverStepForwardButton.addEventListener("click", () => stepCoverTimestamp(250));
-}
-
-if (coverPreviewButton) {
-  coverPreviewButton.addEventListener("click", () => {
-    void requestCoverPreview();
-  });
 }
 
 if (coverSetButton) {
@@ -15730,7 +15719,7 @@ if (typeof document !== "undefined" && typeof window !== "undefined" && typeof H
 // visible and accessible text stays exactly as written.
 const KRONIKA_BUTTON_ICONS = Object.freeze({
   "Add model": "➕",
-  "Analyze by AI": "✨",
+  "Analyze by AI": "🧠",
   "Analyze selected": "✨",
   "Cancel": "✕",
   "Cancel upload": "✕",
@@ -15756,7 +15745,6 @@ const KRONIKA_BUTTON_ICONS = Object.freeze({
   "Open result": "📄",
   "Pause": "⏸️",
   "Ping": "📡",
-  "Preview frame": "👁️",
   "Propose analysis": "✨",
   "Publish selected": "🚀",
   "Reload": "↻",

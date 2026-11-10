@@ -2541,6 +2541,77 @@ def test_metadata_dialog_contains_single_form_ai_assistance(client: TestClient) 
     assert "Authorization" not in dialog_section
 
 
+def test_cover_choice_moves_to_metadata_footer_and_previews_automatically(client: TestClient) -> None:
+    html = client.get("/").text
+    script = client.get("/assets/app.js").text
+    css = client.get("/assets/styles.css").text
+    details_footer = html[
+        html.index('class="media-details-dialog__footer"') : html.index('id="cover-dialog"')
+    ]
+    metadata_footer = html[
+        html.index('class="metadata-dialog__footer"') : html.index(
+            "</div>",
+            html.index('class="metadata-dialog__footer"'),
+        )
+    ]
+    choose_rule = css[
+        css.index(".metadata-dialog__footer .metadata-choose-cover-button {") : css.index(
+            ".metadata-dialog__footer .metadata-choose-cover-button:hover"
+        )
+    ]
+    choose_hover = css[
+        css.index(".metadata-dialog__footer .metadata-choose-cover-button:hover") : css.index(
+            ".metadata-dialog__footer .metadata-choose-cover-button:active"
+        )
+    ]
+    choose_disabled = css[
+        css.index(".metadata-dialog__footer .metadata-choose-cover-button:disabled") : css.index(
+            "/* --- Metadata workspace (inside dialog) --- */"
+        )
+    ]
+    icons = script[script.index("const KRONIKA_BUTTON_ICONS") : script.index("function kronikaDecorateButton")]
+    load_body = script[
+        script.index("async function loadCoverTimeline") : script.index("async function loadCoverState")
+    ]
+    show_at = load_body.index("showCoverContent()")
+    preview_at = load_body.index("void requestCoverPreview()", show_at)
+    input_body = script[
+        script.index("function handleCoverRangeInput") : script.index("function stepCoverTimestamp")
+    ]
+    step_body = script[
+        script.index("function stepCoverTimestamp") : script.index("async function requestCoverPreview")
+    ]
+    change_at = script.index('coverTimelineRange.addEventListener("change"')
+    change_body = script[change_at : script.index("});", change_at)]
+
+    assert "media-details-edit" in details_footer
+    assert "media-details-choose-cover" not in details_footer
+    assert "Choose cover" not in details_footer
+    assert metadata_footer.index("metadata-ai-analyze-button") < metadata_footer.index("metadata-choose-cover")
+    assert metadata_footer.index("metadata-choose-cover") < metadata_footer.index("metadata-discard-button")
+    assert 'id="cover-preview-button"' not in html
+    assert "Preview frame" not in html
+    assert "display: inline-flex" in choose_rule
+    assert "background: #c9d1c9" in choose_rule
+    assert "#ffffff" not in choose_rule
+    assert "background: #d7ded7" in choose_hover
+    assert "color: var(--text-soft)" in choose_disabled
+    assert "#metadata-choose-cover" in css
+    assert "#media-details-choose-cover" not in css
+    assert ".cover-button--primary" not in css
+    assert '"Analyze by AI": "🧠"' in icons
+    assert '"Preview frame"' not in icons
+    assert '"Choose cover": "🖼️"' in icons
+    assert "coverPreviewButton" not in script
+    assert "detailsChooseCoverButton" not in script
+    assert "media-details-choose-cover" not in script
+    assert "openCoverDialog(metadataWorkspace.openItem, metadataChooseCoverButton)" in script
+    assert "isImage" not in load_body[show_at:preview_at]
+    assert "requestCoverPreview" not in input_body
+    assert "void requestCoverPreview()" in change_body
+    assert "void requestCoverPreview()" in step_body
+
+
 def test_browser_metadata_editor_exposes_durable_load_ai_suggestion(client: TestClient) -> None:
     html = client.get("/").text
     script = client.get("/assets/app.js").text

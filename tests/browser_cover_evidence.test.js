@@ -294,6 +294,25 @@ async function waitFor(cdp, expression, { timeout = 15000, label = "condition" }
   throw new Error(`timed out waiting for ${label}; last=${JSON.stringify(last)}`);
 }
 
+async function openCoverFromMetadataEditor(cdp) {
+  await evaluate(cdp, `document.querySelector("#media-details-edit").click()`);
+  await waitFor(
+    cdp,
+    `Boolean(document.querySelector("#metadata-dialog") && document.querySelector("#metadata-dialog").hasAttribute("open"))`,
+    { label: "metadata editor open" },
+  );
+  await evaluate(cdp, `document.querySelector("#metadata-choose-cover").click()`);
+}
+
+async function closeMetadataEditor(cdp) {
+  await evaluate(cdp, `(() => { const b = document.querySelector("#metadata-close-button"); if (b) b.click(); return true; })()`);
+  await waitFor(
+    cdp,
+    `!(document.querySelector("#metadata-dialog") && document.querySelector("#metadata-dialog").hasAttribute("open"))`,
+    { label: "metadata editor closed" },
+  );
+}
+
 test("real browser evidence: manual cover authoring flow", { skip: gated, timeout: 180000 }, async () => {
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), "framenest-browser-"));
   const mediaDir = path.join(workdir, "media");
@@ -370,7 +389,7 @@ test("real browser evidence: manual cover authoring flow", { skip: gated, timeou
     })()`);
     assert.ok(card, "a card for the mp4 clip is present");
 
-    // Open Details and the Choose cover dialog.
+    // Open Details, then Edit, then Choose cover.
     const titleButtonCount = await evaluate(cdp, `document.querySelectorAll(".catalog-card__title-button").length`);
     assert.equal(titleButtonCount, 3, "three title buttons exist");
     await evaluate(cdp, `(() => {
@@ -380,7 +399,7 @@ test("real browser evidence: manual cover authoring flow", { skip: gated, timeou
       return true;
     })()`);
     await waitFor(cdp, `Boolean(document.querySelector("#media-details-dialog") && document.querySelector("#media-details-dialog").hasAttribute("open"))`, { label: "details open" });
-    await evaluate(cdp, `(() => { const b = document.querySelector("#media-details-choose-cover"); if (b) b.click(); })()`);
+    await openCoverFromMetadataEditor(cdp);
     await waitFor(cdp, `Boolean(document.querySelector("#cover-dialog") && document.querySelector("#cover-dialog").hasAttribute("open"))`, { label: "cover dialog open" });
 
     // Server-authoritative timeline with an exact timestamp readout.
@@ -390,8 +409,7 @@ test("real browser evidence: manual cover authoring flow", { skip: gated, timeou
     const durationText = await evaluate(cdp, `document.querySelector("#cover-duration-readout").textContent`);
     assert.ok(durationText.includes("/ 00:00:0"), `duration readout present: ${durationText}`);
 
-    // Ephemeral preview loads without persisting.
-    await evaluate(cdp, `document.querySelector("#cover-preview-button").click()`);
+    // The first frame loads automatically, without persisting.
     await waitFor(cdp, `(() => { const img = document.querySelector("#cover-preview-container img"); return Boolean(img && img.complete && img.naturalWidth > 0); })()`, { label: "preview image" });
     const previewSrc = await evaluate(cdp, `document.querySelector("#cover-preview-container img").src`);
     assert.ok(previewSrc.startsWith("blob:") && previewSrc.includes("http://127.0.0.1"), `preview renders an in-memory blob from the loopback origin: ${previewSrc}`);
@@ -409,8 +427,8 @@ test("real browser evidence: manual cover authoring flow", { skip: gated, timeou
     await waitFor(cdp, `document.querySelector("#cover-dialog-status") ? document.querySelector("#cover-dialog-status").textContent.includes("Cover set") : false`, { label: "cover set status" });
     await waitFor(cdp, `!(document.querySelector("#cover-dialog") && document.querySelector("#cover-dialog").hasAttribute("open"))`, { label: "dialog closes after success" });
 
-    // Re-open: the current cover is shown and replacement wording appears.
-    await evaluate(cdp, `document.querySelector("#media-details-choose-cover").click()`);
+    // Re-open from the still-open metadata editor: the current cover is shown.
+    await evaluate(cdp, `document.querySelector("#metadata-choose-cover").click()`);
     await waitFor(cdp, `document.querySelector("#cover-current") && document.querySelector("#cover-current").hidden === false`, { label: "current cover shown" });
     const currentText = await evaluate(cdp, `document.querySelector("#cover-current-timestamp") ? document.querySelector("#cover-current-timestamp").textContent : ""`);
     assert.ok(currentText.includes("Set at"), `current cover timestamp text: ${currentText}`);
@@ -420,6 +438,7 @@ test("real browser evidence: manual cover authoring flow", { skip: gated, timeou
     // Escape cancels without replacing.
     await evaluate(cdp, `(() => { const ev = new KeyboardEvent("keydown", { key: "Escape", bubbles: true }); document.querySelector("#cover-dialog").dispatchEvent(ev); })()`);
     await waitFor(cdp, `!(document.querySelector("#cover-dialog") && document.querySelector("#cover-dialog").hasAttribute("open"))`, { label: "escape cancels dialog" });
+    await closeMetadataEditor(cdp);
 
     // Gallery cover priority: cover_ready becomes true and card uses cover-thumbnail.
     await evaluate(cdp, `window.location.reload()`);
@@ -482,7 +501,7 @@ test("real browser evidence: manual cover authoring flow", { skip: gated, timeou
       return true;
     })()`);
     await waitFor(cdp, `Boolean(document.querySelector("#media-details-dialog") && document.querySelector("#media-details-dialog").hasAttribute("open"))`, { label: "image details open" });
-    await evaluate(cdp, `(() => { const b = document.querySelector("#media-details-choose-cover"); if (b) b.click(); })()`);
+    await openCoverFromMetadataEditor(cdp);
     await waitFor(cdp, `Boolean(document.querySelector("#cover-dialog") && document.querySelector("#cover-dialog").hasAttribute("open"))`, { label: "image cover dialog open" });
 
     // Timeless still-image authoring state: the timeline is hidden and no

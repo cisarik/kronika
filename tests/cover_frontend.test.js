@@ -284,13 +284,12 @@ test("timeless image mode hides the timeline and never submits a nonzero timesta
 
 test("cover dialog markup and styles are present and accessible", () => {
   for (const id of [
-    "media-details-choose-cover",
+    "metadata-choose-cover",
     "cover-dialog",
     "cover-dialog-title",
     "cover-dialog-close",
     "cover-timeline-range",
     "cover-timestamp-readout",
-    "cover-preview-button",
     "cover-preview-container",
     "cover-set-button",
     "cover-cancel-button",
@@ -299,9 +298,56 @@ test("cover dialog markup and styles are present and accessible", () => {
   ]) {
     assert.ok(INDEX_SOURCE.includes(`id="${id}"`), `missing id ${id}`);
   }
+  assert.equal(INDEX_SOURCE.includes('id="cover-preview-button"'), false);
+  assert.equal(INDEX_SOURCE.includes('id="media-details-choose-cover"'), false);
+  const detailsFooter = INDEX_SOURCE.slice(
+    INDEX_SOURCE.indexOf('class="media-details-dialog__footer"'),
+    INDEX_SOURCE.indexOf('id="cover-dialog"'),
+  );
+  assert.equal(detailsFooter.includes("Choose cover"), false);
+  assert.ok(detailsFooter.includes('id="media-details-edit"'));
+  const metadataFooter = INDEX_SOURCE.slice(
+    INDEX_SOURCE.indexOf('class="metadata-dialog__footer"'),
+    INDEX_SOURCE.indexOf("</div>", INDEX_SOURCE.indexOf('class="metadata-dialog__footer"')),
+  );
+  const analyzeAt = metadataFooter.indexOf("metadata-ai-analyze-button");
+  const coverAt = metadataFooter.indexOf("metadata-choose-cover");
+  const cancelAt = metadataFooter.indexOf("metadata-discard-button");
+  assert.ok(analyzeAt >= 0 && coverAt > analyzeAt && cancelAt > coverAt);
+  const icons = APP_SOURCE.slice(
+    APP_SOURCE.indexOf("const KRONIKA_BUTTON_ICONS"),
+    APP_SOURCE.indexOf("function kronikaDecorateButton"),
+  );
+  assert.ok(icons.includes('"Analyze by AI": "🧠"'));
+  assert.equal(icons.includes('"Preview frame"'), false);
+  assert.ok(icons.includes('"Choose cover": "🖼️"'));
   assert.ok(INDEX_SOURCE.includes(`class="cover-timeline"`));
   assert.ok(INDEX_SOURCE.includes(`id="upload-file-hint"`));
   assert.ok(STYLES_SOURCE.includes(".cover-dialog"));
   assert.ok(STYLES_SOURCE.includes("prefers-reduced-motion"));
   assert.ok(INDEX_SOURCE.includes(`aria-live="polite"`));
+});
+
+test("cover dialog requests a frame preview on open, slider release and step", () => {
+  const loadBody = productionFunction("loadCoverTimeline");
+  const showAt = loadBody.indexOf("showCoverContent()");
+  const previewAt = loadBody.indexOf("void requestCoverPreview()", showAt);
+  assert.ok(showAt >= 0 && previewAt > showAt);
+  assert.equal(loadBody.slice(showAt, previewAt).includes("isImage"), false);
+  const inputBody = productionFunction("handleCoverRangeInput");
+  assert.equal(inputBody.includes("requestCoverPreview"), false);
+  assert.ok(inputBody.includes("updateCoverTimestampReadout"));
+  assert.ok(inputBody.includes("hideCoverReplaceConfirm()"));
+  assert.ok(APP_SOURCE.includes('coverTimelineRange.addEventListener("input", handleCoverRangeInput)'));
+  assert.ok(APP_SOURCE.includes('coverTimelineRange.addEventListener("change", () => {'));
+  const changeAt = APP_SOURCE.indexOf('coverTimelineRange.addEventListener("change", () => {');
+  const changeBody = APP_SOURCE.slice(changeAt, APP_SOURCE.indexOf("});", changeAt));
+  assert.ok(changeBody.includes("void requestCoverPreview()"));
+  const stepBody = productionFunction("stepCoverTimestamp");
+  assert.ok(stepBody.includes("updateCoverTimestampReadout"));
+  assert.ok(stepBody.includes("hideCoverReplaceConfirm()"));
+  assert.ok(stepBody.includes("void requestCoverPreview()"));
+  assert.equal(APP_SOURCE.includes("coverPreviewButton"), false);
+  assert.equal(APP_SOURCE.includes("detailsChooseCoverButton"), false);
+  assert.ok(APP_SOURCE.includes("openCoverDialog(metadataWorkspace.openItem, metadataChooseCoverButton)"));
 });

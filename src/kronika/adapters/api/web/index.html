@@ -678,14 +678,6 @@
       </div>
       <div class="media-details-dialog__footer">
         <button id="media-details-edit" class="media-details-dialog__edit" type="button">Edit</button>
-        <button
-          id="media-details-choose-cover"
-          class="media-details-dialog__choose-cover"
-          type="button"
-          hidden
-        >
-          Choose cover
-        </button>
       </div>
     </dialog>
 
@@ -719,7 +711,6 @@
           </div>
           <div class="cover-timeline__actions">
             <button id="cover-step-back" class="cover-button" type="button" aria-label="Step cover time back 250 milliseconds">−250 ms</button>
-            <button id="cover-preview-button" class="cover-button cover-button--primary" type="button">Preview frame</button>
             <button id="cover-step-forward" class="cover-button" type="button" aria-label="Step cover time forward 250 milliseconds">+250 ms</button>
           </div>
         </div>
@@ -848,6 +839,7 @@
       <div class="metadata-dialog__footer">
         <button id="metadata-save-button" type="button" disabled>Save</button>
         <button id="metadata-ai-analyze-button" class="metadata-ai-analyze-button" type="button" hidden disabled>Analyze by AI</button>
+        <button id="metadata-choose-cover" class="metadata-choose-cover-button" type="button" hidden>Choose cover</button>
         <button id="metadata-discard-button" type="button">Cancel</button>
       </div>
     </dialog>
