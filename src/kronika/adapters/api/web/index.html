@@ -32,7 +32,7 @@
             aria-controls="command-search-suggestions"
             aria-autocomplete="list"
           >
-          <button id="command-search-clear" class="header-search__clear" type="button" aria-label="Clear search" hidden>&times;</button>
+          <span class="header-search__clear-slot"><button id="command-search-clear" class="header-search__clear" type="button" aria-label="Clear search" hidden>&times;</button></span>
           <div id="catalog-tag-filters" class="catalog-tag-filters" role="group" aria-label="Active tag filters" hidden></div>
           <ul id="command-search-suggestions" class="command-search-suggestions" role="listbox" aria-label="Search suggestions" hidden></ul>
         </div>
@@ -204,6 +204,19 @@
         </button>
       </div>
     </header>
+
+    <nav class="kronika-nav" aria-label="Primary" hidden>
+      <div class="kronika-nav__browse" role="group" aria-label="Browse">
+        <a id="kronika-nav-timeline" href="#/timeline" data-kronika-nav="timeline"><span class="kronika-nav__icon" aria-hidden="true">🕰️</span><span class="kronika-nav__label">Timeline</span></a>
+        <a id="kronika-nav-gallery" href="#/gallery" data-kronika-nav="gallery"><span class="kronika-nav__icon" aria-hidden="true">🖼️</span><span class="kronika-nav__label">Gallery</span></a>
+        <a id="kronika-nav-history" href="#/history" data-kronika-nav="history"><span class="kronika-nav__icon" aria-hidden="true">📜</span><span class="kronika-nav__label">History</span></a>
+      </div>
+      <div class="kronika-nav__actions" role="group" aria-label="Actions">
+        <a id="kronika-nav-search" href="#/search" data-kronika-nav="search"><span class="kronika-nav__icon" aria-hidden="true">💬</span><span class="kronika-nav__label">Search</span></a>
+        <a id="kronika-nav-research" href="#/research" data-kronika-nav="research"><span class="kronika-nav__icon" aria-hidden="true">🔬</span><span class="kronika-nav__label">Research</span></a>
+        <a id="kronika-nav-review" href="#/review" data-kronika-nav="review" hidden><span class="kronika-nav__icon" aria-hidden="true">✅</span><span class="kronika-nav__label">Review</span></a>
+      </div>
+    </nav>
 
     <div id="server-status" class="status status--loading" hidden aria-live="polite" aria-atomic="true">
       <span class="status__dot" aria-hidden="true"></span>
@@ -834,15 +847,6 @@
     </dialog>
 
     <main id="main" class="app-shell" tabindex="-1">
-      <nav class="kronika-nav" aria-label="Primary" hidden>
-        <a id="kronika-nav-timeline" href="#/timeline" data-kronika-nav="timeline"><span class="kronika-nav__icon" aria-hidden="true">🕰️</span><span class="kronika-nav__label">Timeline</span></a>
-        <a id="kronika-nav-gallery" href="#/gallery" data-kronika-nav="gallery"><span class="kronika-nav__icon" aria-hidden="true">🖼️</span><span class="kronika-nav__label">Gallery</span></a>
-        <a id="kronika-nav-history" href="#/history" data-kronika-nav="history"><span class="kronika-nav__icon" aria-hidden="true">📜</span><span class="kronika-nav__label">History</span></a>
-        <a id="kronika-nav-search" href="#/search" data-kronika-nav="search"><span class="kronika-nav__icon" aria-hidden="true">💬</span><span class="kronika-nav__label">Search</span></a>
-        <a id="kronika-nav-research" href="#/research" data-kronika-nav="research"><span class="kronika-nav__icon" aria-hidden="true">🔬</span><span class="kronika-nav__label">Research</span></a>
-        <a id="kronika-nav-review" href="#/review" data-kronika-nav="review" hidden><span class="kronika-nav__icon" aria-hidden="true">✅</span><span class="kronika-nav__label">Review</span></a>
-      </nav>
-
       <section id="kronika-timeline" class="kronika-section" data-kronika-view="timeline" aria-labelledby="kronika-timeline-heading" hidden>
         <header class="kronika-hero">
           <span class="kronika-hero__icon" aria-hidden="true">🕰️</span>
@@ -853,6 +857,30 @@
         </header>
         <p class="kronika-note">Household sharing does not publish to the internet.</p>
         <form id="kronika-timeline-filters" class="kronika-chronicle-filters" aria-label="Timeline filters">
+          <div class="kronika-timeline-filters__primary">
+            <div class="kronika-menu" data-kronika-menu="publication">
+              <span class="kronika-menu__label" id="kronika-timeline-publication-label">Publication</span>
+              <button id="kronika-timeline-publication" class="kronika-menu__trigger" type="button" value="" aria-haspopup="listbox" aria-expanded="false" aria-controls="kronika-timeline-publication-list" aria-labelledby="kronika-timeline-publication-label kronika-timeline-publication">
+                <span class="kronika-menu__glyph" aria-hidden="true">✨</span>
+                <span class="kronika-menu__value">Any publication</span>
+              </button>
+              <ul id="kronika-timeline-publication-list" class="kronika-menu__panel" role="listbox" aria-labelledby="kronika-timeline-publication-label" hidden>
+                <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="" data-glyph="✨" data-label="Any publication" aria-selected="true">✨ Any publication</button></li>
+                <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="unpublished" data-glyph="🔒" data-label="Unpublished">🔒 Unpublished</button></li>
+                <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="approved" data-glyph="🏠" data-label="Approved">🏠 Approved</button></li>
+                <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="withdrawn" data-glyph="↩" data-label="Withdrawn">↩ Withdrawn</button></li>
+                <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="legacy_published" data-glyph="👁️" data-label="Legacy publication">👁️ Legacy publication</button></li>
+              </ul>
+            </div>
+            <div class="kronika-timeline-search" role="search" aria-label="Search timeline">
+              <label class="visually-hidden" for="kronika-timeline-search">Search timeline titles and questions</label>
+              <div class="header-search__control">
+                <button id="kronika-timeline-search-submit" class="header-search__prompt" type="submit" aria-label="Search timeline">🔎</button>
+                <input id="kronika-timeline-search" class="header-search__input" type="search" maxlength="240" autocomplete="off" placeholder="Search timeline" aria-label="Search timeline titles and questions">
+                <span class="header-search__clear-slot"><button id="kronika-timeline-search-clear" class="header-search__clear" type="button" aria-label="Clear search" hidden>&times;</button></span>
+              </div>
+            </div>
+          </div>
           <div class="kronika-menu" data-kronika-menu="kind">
             <span class="kronika-menu__label" id="kronika-timeline-kind-label">Kind</span>
             <button id="kronika-timeline-kind" class="kronika-menu__trigger" type="button" value="all" aria-haspopup="listbox" aria-expanded="false" aria-controls="kronika-timeline-kind-list" aria-labelledby="kronika-timeline-kind-label kronika-timeline-kind">
@@ -860,14 +888,14 @@
               <span class="kronika-menu__value">All</span>
             </button>
             <ul id="kronika-timeline-kind-list" class="kronika-menu__panel" role="listbox" aria-labelledby="kronika-timeline-kind-label" hidden>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="all" data-glyph="🌐" data-label="All" aria-selected="true">🌐 All</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="search" data-glyph="💬" data-label="Search">💬 Search</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="research" data-glyph="🔬" data-label="Research">🔬 Research</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="media" data-glyph="🎞️" data-label="Media">🎞️ Media</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="general" data-glyph="📁" data-label="General">📁 General</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="meme" data-glyph="😂" data-label="Memes">😂 Memes</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="movie" data-glyph="🎬" data-label="Movies">🎬 Movies</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="youtube" data-glyph="▶️" data-label="YouTube">▶️ YouTube</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="all" data-glyph="🌐" data-label="All" aria-selected="true">🌐 All</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="search" data-glyph="💬" data-label="Search">💬 Search</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="research" data-glyph="🔬" data-label="Research">🔬 Research</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="media" data-glyph="🎞️" data-label="Media">🎞️ Media</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="general" data-glyph="📁" data-label="General">📁 General</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="meme" data-glyph="😂" data-label="Memes">😂 Memes</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="movie" data-glyph="🎬" data-label="Movies">🎬 Movies</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="youtube" data-glyph="▶️" data-label="YouTube">▶️ YouTube</button></li>
             </ul>
           </div>
           <div class="kronika-menu" data-kronika-menu="status">
@@ -877,12 +905,12 @@
               <span class="kronika-menu__value">Any status</span>
             </button>
             <ul id="kronika-timeline-status-list" class="kronika-menu__panel" role="listbox" aria-labelledby="kronika-timeline-status-label" hidden>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="" data-glyph="✨" data-label="Any status" aria-selected="true">✨ Any status</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="unanalysed" data-glyph="💤" data-label="Unanalysed">💤 Unanalysed</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="in_progress" data-glyph="⏳" data-label="In progress">⏳ In progress</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="complete" data-glyph="✅" data-label="Complete">✅ Complete</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="failed" data-glyph="⚠️" data-label="Failed">⚠️ Failed</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="cancelled" data-glyph="🚫" data-label="Cancelled">🚫 Cancelled</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="" data-glyph="✨" data-label="Any status" aria-selected="true">✨ Any status</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="unanalysed" data-glyph="💤" data-label="Unanalysed">💤 Unanalysed</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="in_progress" data-glyph="⏳" data-label="In progress">⏳ In progress</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="complete" data-glyph="✅" data-label="Complete">✅ Complete</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="failed" data-glyph="⚠️" data-label="Failed">⚠️ Failed</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="cancelled" data-glyph="🚫" data-label="Cancelled">🚫 Cancelled</button></li>
             </ul>
           </div>
           <div class="kronika-menu" data-kronika-menu="visibility">
@@ -892,29 +920,11 @@
               <span class="kronika-menu__value">Any visibility</span>
             </button>
             <ul id="kronika-timeline-visibility-list" class="kronika-menu__panel" role="listbox" aria-labelledby="kronika-timeline-visibility-label" hidden>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="" data-glyph="✨" data-label="Any visibility" aria-selected="true">✨ Any visibility</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="private" data-glyph="🔒" data-label="Private">🔒 Private</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="family" data-glyph="🏠" data-label="Household">🏠 Household</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="" data-glyph="✨" data-label="Any visibility" aria-selected="true">✨ Any visibility</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="private" data-glyph="🔒" data-label="Private">🔒 Private</button></li>
+              <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="family" data-glyph="🏠" data-label="Household">🏠 Household</button></li>
             </ul>
           </div>
-          <div class="kronika-menu" data-kronika-menu="publication">
-            <span class="kronika-menu__label" id="kronika-timeline-publication-label">Publication</span>
-            <button id="kronika-timeline-publication" class="kronika-menu__trigger" type="button" value="" aria-haspopup="listbox" aria-expanded="false" aria-controls="kronika-timeline-publication-list" aria-labelledby="kronika-timeline-publication-label kronika-timeline-publication">
-              <span class="kronika-menu__glyph" aria-hidden="true">✨</span>
-              <span class="kronika-menu__value">Any publication</span>
-            </button>
-            <ul id="kronika-timeline-publication-list" class="kronika-menu__panel" role="listbox" aria-labelledby="kronika-timeline-publication-label" hidden>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="" data-glyph="✨" data-label="Any publication" aria-selected="true">✨ Any publication</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="unpublished" data-glyph="🔒" data-label="Unpublished">🔒 Unpublished</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="approved" data-glyph="🏠" data-label="Approved">🏠 Approved</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="withdrawn" data-glyph="↩" data-label="Withdrawn">↩ Withdrawn</button></li>
-              <li><button class="kronika-menu__option" type="button" role="option" data-value="legacy_published" data-glyph="🕰️" data-label="Legacy publication">🕰️ Legacy publication</button></li>
-            </ul>
-          </div>
-          <label for="kronika-timeline-search">Search</label>
-          <input id="kronika-timeline-search" type="search" maxlength="240" autocomplete="off">
-          <button id="kronika-timeline-search-submit" class="kronika-action" type="submit">Search</button>
-          <button id="kronika-timeline-search-clear" class="kronika-action" type="button">Clear</button>
         </form>
         <p id="kronika-timeline-status" class="kronika-status" role="status" aria-live="polite"></p>
         <div class="kronika-chronicle-header" aria-hidden="true">

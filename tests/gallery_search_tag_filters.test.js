@@ -521,16 +521,18 @@ test("Active filter chips share the unified Search control and use a bounded sin
   assert.doesNotMatch(railRule, /flex-wrap: wrap/);
 });
 
-test("Terminal Search prompt uses a stable reduced-motion fallback", () => {
-  const promptStart = STYLES_SOURCE.indexOf(".header-search__prompt {");
-  const promptEnd = STYLES_SOURCE.indexOf(".header-search__input {", promptStart);
-  const promptRule = STYLES_SOURCE.slice(promptStart, promptEnd);
-  const reducedStart = STYLES_SOURCE.lastIndexOf("@media (prefers-reduced-motion: reduce)");
-  const reducedRule = STYLES_SOURCE.slice(reducedStart);
+test("Terminal Search prompt stays static and keeps an explicit reduced-motion fallback", () => {
+  const promptStart = STYLES_SOURCE.lastIndexOf("\n.header-search__prompt {");
+  const promptRule = STYLES_SOURCE.slice(promptStart, STYLES_SOURCE.indexOf("}", promptStart));
+  const reducedStart = STYLES_SOURCE.indexOf("@media (prefers-reduced-motion: reduce)");
+  const reducedPrompt = STYLES_SOURCE.indexOf("\n  .header-search__prompt {", reducedStart);
+  const reducedRule = STYLES_SOURCE.slice(reducedPrompt, STYLES_SOURCE.indexOf("}", reducedPrompt));
 
-  assert.match(promptRule, /font-weight: 900/);
-  assert.match(promptRule, /header-search-prompt-pulse 1s ease-in-out infinite alternate/);
-  assert.match(reducedRule, /\.header-search__prompt\s*{[^}]*animation: none;[^}]*opacity: 0\.82;/s);
+  assert.match(promptRule, /animation:\s*none/);
+  assert.match(promptRule, /opacity:\s*0\.8;/);
+  assert.doesNotMatch(promptRule, /header-search-prompt-pulse/);
+  assert.match(reducedRule, /animation:\s*none/);
+  assert.match(reducedRule, /opacity:\s*0\.82/);
 });
 
 test("Canonical card tags compose with text as ordered AND query parameters without duplicates", () => {

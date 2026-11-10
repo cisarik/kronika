@@ -115,6 +115,8 @@ empty-alt and aria-hidden, MUST NOT add a focus target, and MUST be revealed
 only after a successful load. Question History, non-media rows, still images
 and surfaces without a locator MUST make no preview request.
 
+The application shell MUST separate Timeline, Gallery and History browsing links from right-aligned Search, Research and capability-gated Review action links below the header. Action links MUST use unrounded styling and preserve their existing routes. Timeline search MUST reuse Gallery’s icon-led green field treatment while retaining its Timeline-local query and explicit submit and clear behavior. Publication MUST be the first Timeline filter and use a green accent border; on wide layouts, Kind, Status and Visibility MUST align with their corresponding list columns. Timeline and History title links MUST have no underline and MUST retain visible keyboard focus. Legacy publication MUST use an eye glyph without changing visibility or publication labels. Changed shell controls MUST provide at least 44 px targets and remain usable at 320 px and 390 px. Timeline listbox keyboard activation MUST commit the focused option, including after Tab navigation.
+
 Lists MUST resolve locators with at most one additional page-bounded query and
 MUST NOT add per-record detail reads, location discovery, filesystem probes or
 cache reads. The client page size MUST remain 24. There is no automatic retry,

@@ -276,15 +276,13 @@ Load the unpacked companion by following
 the server fills missing gallery previews in-process. Set it to `false` to
 disable that coordinator. A gallery-preview GET never generates a preview.
 
-Timeline rows and personal-record History media cards reuse ready gallery
-previews, with the icon retained while loading and after every failure.
-History keeps its card layout. The focused validation route is:
+Timeline media rows reuse ready Gallery previews, with the kind icon retained while loading and after every failure. Personal History is the Questions-only chronicle and makes no media-preview requests. [SPEC.md](SPEC.md) owns these presentation requirements. The focused validation route is:
 
 ```text
 # [MacBook / fish]
 ./.ap/ap project check --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline>
-./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation test-focus -- tests/integration/persistence/test_kronika_record_repository.py tests/contract/test_records_api.py tests/contract/test_gallery_preview_api.py
-node --test tests/kronika_ui.test.js
+./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation test-focus -- tests/integration/persistence/test_kronika_record_repository.py tests/contract/test_records_api.py tests/contract/test_gallery_preview_api.py tests/contract/test_local_web_application.py
+node --test tests/kronika_ui.test.js tests/gallery_search_tag_filters.test.js
 #------------------------------------------------------
 ```
 

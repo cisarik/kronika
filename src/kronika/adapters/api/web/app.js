@@ -14383,7 +14383,7 @@ function kronikaStatusGlyph(status) {
 
 function kronikaShareGlyph(item) {
   if (item.publication_state === "withdrawn") return "↩";
-  if (item.publication_state === "legacy_published") return "🕰️";
+  if (item.publication_state === "legacy_published") return "👁️";
   if (item.publication_state === "approved" || item.visibility === "family") return "🏠";
   return "🔒";
 }
@@ -14462,6 +14462,13 @@ function kronikaApplyTimelineMenu(trigger, value) {
   });
 }
 
+function kronikaSyncTimelineSearchChrome() {
+  const search = document.getElementById("kronika-timeline-search");
+  const clear = document.getElementById("kronika-timeline-search-clear");
+  if (!clear) return;
+  clear.hidden = !search || String(search.value || "") === "";
+}
+
 function kronikaSyncTimelineControls(route) {
   kronikaApplyTimelineMenu(document.getElementById("kronika-timeline-kind"), route.filter || "all");
   kronikaApplyTimelineMenu(document.getElementById("kronika-timeline-status-filter"), route.status || "");
@@ -14469,6 +14476,7 @@ function kronikaSyncTimelineControls(route) {
   kronikaApplyTimelineMenu(document.getElementById("kronika-timeline-publication"), route.publication || "");
   const search = document.getElementById("kronika-timeline-search");
   if (search && document.activeElement !== search) search.value = route.q || "";
+  kronikaSyncTimelineSearchChrome();
 }
 
 function kronikaTimelineRouteFromControls(offset) {
@@ -15446,6 +15454,9 @@ function kronikaSetupTimelineMenus(doc) {
       }
     });
     menuOptions(panel).forEach((option, index) => {
+      option.addEventListener("focus", () => {
+        panel._kronikaIndex = index;
+      });
       option.addEventListener("click", () => {
         panel._kronikaIndex = index;
         chooseMenu(menu, option);
@@ -15478,12 +15489,22 @@ function kronikaBindShell() {
       kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
     });
     kronikaSetupTimelineMenus(document);
+    const searchInput = document.getElementById("kronika-timeline-search");
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        kronikaSyncTimelineSearchChrome();
+      });
+    }
     const clear = document.getElementById("kronika-timeline-search-clear");
     if (clear) {
       clear.addEventListener("click", () => {
         const search = document.getElementById("kronika-timeline-search");
-        if (search) search.value = "";
-        kronikaOpener = clear;
+        if (search) {
+          search.value = "";
+          kronikaOpener = search;
+          if (typeof search.focus === "function") search.focus();
+        }
+        kronikaSyncTimelineSearchChrome();
         kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
       });
     }

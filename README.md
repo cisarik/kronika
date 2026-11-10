@@ -38,9 +38,8 @@ Accepted target:
   The shared page is for verified household members only. Internet publication
   stays disabled.
 
-The Timeline and personal Records cards reuse ready media previews over their
-existing kind-icon slot, with the icon retained while loading and after every
-failure; [SPEC.md](SPEC.md) owns the bounded behavior.
+Timeline media rows reuse ready previews, retaining the kind icon while loading and after every failure. Personal History is a Questions-only chronicle without media previews; [SPEC.md](SPEC.md) owns the bounded behavior.
+The application shell separates Timeline, Gallery and History browsing links from right-aligned Search, Research and Review action links; [SPEC.md](SPEC.md) owns that presentation.
 
 Published on public `main`:
 

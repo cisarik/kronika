@@ -1332,8 +1332,10 @@ def test_active_tag_filters_are_an_inline_region_of_the_unified_search_control(c
     assert "max-width: 100%" in search_css
     assert "grid-area: search" in search_css
     assert "min-width: 0" in control_css
-    assert "height: 40px" in control_css
-    assert "min-width: 80px" in input_css
+    assert "height: auto" in control_css
+    assert "min-height: 44px" in control_css
+    assert "min-width: 0" in input_css
+    assert "min-height: 44px" in input_css
     assert "flex-wrap: nowrap" in filters_css
     assert "overflow-x: auto" in filters_css
     assert "max-width: 360px" in filters_css
@@ -1344,20 +1346,129 @@ def test_active_tag_filters_are_an_inline_region_of_the_unified_search_control(c
     assert "max-width: 100%" in compact_header_css
 
 
-def test_terminal_search_prompt_pulses_boldly_and_respects_reduced_motion(client: TestClient) -> None:
+def test_terminal_search_prompt_is_static_and_respects_reduced_motion(client: TestClient) -> None:
     css = client.get("/assets/styles.css").text
-    prompt_css = css[css.index(".header-search__prompt {") : css.index(".header-search__input {")]
-    keyframes = css[css.index("@keyframes header-search-prompt-pulse") : css.index(".command-search-suggestions")]
-    reduced_motion = css[css.rindex("@media (prefers-reduced-motion: reduce)") :]
+    prompt_start = css.rindex("\n.header-search__prompt {")
+    prompt_css = css[prompt_start : css.index("}", prompt_start)]
+    reduced_start = css.index("@media (prefers-reduced-motion: reduce)")
+    reduced_prompt = css.index("\n  .header-search__prompt {", reduced_start)
+    reduced_motion = css[reduced_prompt : css.index("}", reduced_prompt)]
 
-    assert "font-weight: 900" in prompt_css
-    assert "header-search-prompt-pulse 1s" in prompt_css
-    assert "infinite alternate" in prompt_css
-    assert "opacity: 0.62" in keyframes
-    assert "opacity: 0.92" in keyframes
-    assert ".header-search__prompt" in reduced_motion
+    assert "animation: none" in prompt_css
+    assert "opacity: 0.8;" in prompt_css
+    assert "header-search-prompt-pulse" not in prompt_css
     assert "animation: none" in reduced_motion
     assert "opacity: 0.82" in reduced_motion
+
+
+class _ShellStructureParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[dict[str, str]] = []
+        self.nav_count = 0
+        self.nav_in_header = False
+        self.nav_in_main = False
+        self.nav_after_header = False
+        self.header_closed = False
+        self.groups: list[str] = []
+        self.membership: dict[str, list[dict[str, str | None]]] = {"Browse": [], "Actions": []}
+        self.filter_ids: list[str] = []
+        self.in_filters = False
+        self.option_roles: list[str | None] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = {key: value for key, value in attrs}
+        classes = set((attributes.get("class") or "").split())
+        self.stack.append({"tag": tag, "class": attributes.get("class") or "", "id": attributes.get("id") or ""})
+        if tag == "nav" and "kronika-nav" in classes:
+            self.nav_count += 1
+            self.nav_in_header = any(item["tag"] == "header" and "app-header" in item["class"] for item in self.stack)
+            self.nav_in_main = any(item["tag"] == "main" for item in self.stack)
+            self.nav_after_header = self.header_closed
+        if tag == "div" and attributes.get("role") == "group" and self._inside("kronika-nav"):
+            label = attributes.get("aria-label") or ""
+            if label in self.membership:
+                self.groups.append(label)
+        if tag == "a" and attributes.get("data-kronika-nav") and self._inside("kronika-nav"):
+            group = self._current_group()
+            if group in self.membership:
+                self.membership[group].append(
+                    {
+                        "id": attributes.get("id"),
+                        "href": attributes.get("href"),
+                        "nav": attributes.get("data-kronika-nav"),
+                        "hidden": "hidden" if "hidden" in attributes else None,
+                    }
+                )
+        if tag == "form" and attributes.get("id") == "kronika-timeline-filters":
+            self.in_filters = True
+        if self.in_filters and attributes.get("id") in {
+            "kronika-timeline-publication",
+            "kronika-timeline-search",
+            "kronika-timeline-kind",
+            "kronika-timeline-status-filter",
+            "kronika-timeline-visibility",
+        }:
+            self.filter_ids.append(attributes["id"] or "")
+        if self.in_filters and tag == "li":
+            self.option_roles.append(attributes.get("role"))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "header" and any(item["tag"] == "header" and "app-header" in item["class"] for item in self.stack):
+            self.header_closed = True
+        if tag == "form" and self.in_filters:
+            self.in_filters = False
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index]["tag"] == tag:
+                del self.stack[index:]
+                break
+
+    def _inside(self, class_name: str) -> bool:
+        return any(class_name in item["class"].split() for item in self.stack)
+
+    def _current_group(self) -> str:
+        for item in reversed(self.stack):
+            if item["tag"] == "div" and "kronika-nav__browse" in item["class"].split():
+                return "Browse"
+            if item["tag"] == "div" and "kronika-nav__actions" in item["class"].split():
+                return "Actions"
+        return ""
+
+
+def test_served_shell_groups_navigation_and_timeline_controls(client: TestClient) -> None:
+    html = client.get("/").text
+    css = client.get("/assets/styles.css").text
+    parser = _ShellStructureParser()
+    parser.feed(html)
+
+    assert parser.nav_count == 1
+    assert parser.nav_after_header is True
+    assert parser.nav_in_header is False
+    assert parser.nav_in_main is False
+    assert parser.groups == ["Browse", "Actions"]
+    assert [item["nav"] for item in parser.membership["Browse"]] == ["timeline", "gallery", "history"]
+    assert [item["nav"] for item in parser.membership["Actions"]] == ["search", "research", "review"]
+    assert [item["href"] for item in parser.membership["Browse"]] == ["#/timeline", "#/gallery", "#/history"]
+    assert [item["href"] for item in parser.membership["Actions"]] == ["#/search", "#/research", "#/review"]
+    assert parser.membership["Actions"][-1]["hidden"] == "hidden"
+    assert parser.filter_ids == [
+        "kronika-timeline-publication",
+        "kronika-timeline-search",
+        "kronika-timeline-kind",
+        "kronika-timeline-status-filter",
+        "kronika-timeline-visibility",
+    ]
+    assert parser.option_roles
+    assert set(parser.option_roles) == {"presentation"}
+    assert 'placeholder="Search timeline"' in html
+    assert 'aria-label="Search timeline titles and questions"' in html
+    assert "header-search__clear-slot" in html
+    assert "min-height: 44px" in css
+    assert "grid-template-columns: 4.75rem minmax(0, 1fr) 9.5rem 9.5rem 10.5rem" in css
+    assert "max-height: min(22rem, 60vh)" in css
+    assert "@media (max-width: 720px)" in css
+    assert "#kronika-timeline {\n    overflow-x: hidden;" not in css
+    assert "text-decoration: none" in css[css.index(".kronika-chronicle__title,") : css.index(".kronika-chronicle__title {")]
 
 
 def test_javascript_tag_filters_use_active_chip_and_card_pressed_semantics(client: TestClient) -> None:
