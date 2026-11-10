@@ -13904,8 +13904,9 @@ function kronikaLeaveGallery() {
 
 function kronikaMarkCurrent(name) {
   const current = name === "details" ? "gallery"
-    : name === "review-shared" || name === "review-requests" ? "review"
-      : name;
+    : name === "request" || name === "record" ? "timeline"
+      : name === "review-shared" || name === "review-requests" ? "review"
+        : name;
   document.querySelectorAll(".kronika-nav a[data-kronika-nav]").forEach((link) => {
     if (link.getAttribute("data-kronika-nav") === current) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");

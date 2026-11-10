@@ -1469,6 +1469,42 @@ test("grouped navigation keeps routes, current state and capability hiding", asy
   assert.equal(publicHarness.byId["kronika-timeline"].hidden, true);
 });
 
+test("question detail routes keep Timeline current", async () => {
+  const harness = createHarness(async () => jsonResponse({ items: [], total: 0, limit: 24, offset: 0 }));
+  const current = (name) => harness.byId[`kronika-nav-${name}`].getAttribute("aria-current");
+  harness.kronikaStartNavigation();
+  await settle();
+  ["gallery", "search", "research", "review"].forEach((name) => {
+    harness.byId[`kronika-nav-${name}`].setAttribute("aria-current", "page");
+  });
+  harness.location.hash = "#/requests/op-1";
+  await settle();
+  assert.equal(current("timeline"), "page");
+  assert.equal(current("gallery"), null);
+  assert.equal(current("search"), null);
+  assert.equal(current("research"), null);
+  assert.equal(current("review"), null);
+  harness.location.hash = "#/records/11111111-1111-4111-8111-111111111111";
+  await settle();
+  assert.equal(current("timeline"), "page");
+  assert.equal(current("gallery"), null);
+  harness.location.hash = "#/details/media-1";
+  await settle();
+  assert.equal(current("gallery"), "page");
+  assert.equal(current("timeline"), null);
+  harness.location.hash = "#/review/shared";
+  await settle();
+  assert.equal(current("review"), "page");
+  assert.equal(current("timeline"), null);
+  assert.equal(current("gallery"), null);
+  assert.equal(harness.byId["kronika-nav-history"], undefined);
+  assert.doesNotMatch(INDEX_SOURCE, /data-kronika-nav="history"/);
+  assert.equal(
+    ["timeline", "gallery", "search", "research", "review"].some((name) => current(name) === "history"),
+    false,
+  );
+});
+
 test("Timeline search edits chrome only until an explicit submit or clear", async () => {
   const harness = createHarness(async () => jsonResponse({ items: [], total: 0, limit: 24, offset: 0 }));
   appendTimelineMenu(harness, "kronika-timeline-kind", "kronika-timeline-kind-list", [
