@@ -82,9 +82,10 @@ selection stays separate and is not replaced by the research provider.
 Only the submitted question text and fixed non-secret instructions may leave
 the host. Research accepts no attachment. The application does not fetch
 arbitrary result URLs. Generated output is untrusted. Complete question and
-answer text, including Research reports, is stored locally. The shared
-Timeline does not receive a card until an administrator approves the completed
-record.
+answer text, including Research reports, is stored locally. Another household
+member does not see the completed record in the shared Timeline until an
+administrator approves it; the owner and application administrators see their
+authorized work in the chronicle.
 
 ### Parked capture module
 
