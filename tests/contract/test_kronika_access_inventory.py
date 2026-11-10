@@ -151,10 +151,10 @@ def _family(path: str) -> tuple[str, str, str, str]:
         )
     if path.startswith("/api/timeline"):
         return (
-            "verified caller or administrator",
-            "records.approve for administrator routes",
-            "approved family records only; denial is the unknown-record body",
-            "approved projection for every caller, including owner and administrator",
+            "verified caller",
+            "none; verified identity only",
+            "authorized media, completed-question, and unfinished-request predicates; filters, search, counts and pagination cannot widen the set",
+            "current for owner and administrator; approved projection or legacy publication for other household members",
         )
     if (
         path.startswith("/api/my/records")
@@ -284,9 +284,8 @@ def test_inventory_matches_both_compositions_and_route_policies(tmp_path: Path) 
     labeled = {(method, path, "workspace") for method, path in workspace}
     labeled.update((method, path, "public") for method, path in public)
     rendered = _render(labeled)
-    if not INVENTORY.exists() or INVENTORY.read_text(encoding="utf-8") != rendered:
-        INVENTORY.write_text(rendered, encoding="utf-8")
     text = INVENTORY.read_text(encoding="utf-8")
+    assert text == rendered
     keys = set()
     for line in text.splitlines():
         if not line.startswith("| ") or line.startswith("| Method") or line.startswith("|---"):

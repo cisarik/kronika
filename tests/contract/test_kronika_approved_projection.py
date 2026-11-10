@@ -63,7 +63,8 @@ def test_withdrawal_keeps_timeline_position_and_snapshot(tmp_path: Path) -> None
         candidate = service.prepare_approval(admin, created.summary.record_id)
         approved = service.approve(admin, candidate, approved_at_ms=9)
         first_timeline = service.list_timeline(alice).items[0]
-        assert first_timeline.timeline_entered_at_ms == 9
+        assert first_timeline.created_at_ms == 5
+        assert service.read_detail(alice, created.summary.record_id).summary.timeline_entered_at_ms == 9
         withdrawn = service.withdraw(
             admin,
             record_id=created.summary.record_id,
@@ -72,7 +73,10 @@ def test_withdrawal_keeps_timeline_position_and_snapshot(tmp_path: Path) -> None
         assert withdrawn.changed is True
         history = service.list_own_history(alice)
         assert history.items[0].record_id == created.summary.record_id
-        assert service.list_timeline(alice).items == ()
+        withdrawn_timeline = service.list_timeline(alice)
+        assert withdrawn_timeline.total == 1
+        assert withdrawn_timeline.items[0].publication_state == "withdrawn"
+        assert withdrawn_timeline.items[0].created_at_ms == 5
         detail = service.read_detail(alice, created.summary.record_id)
         assert detail.summary.timeline_entered_at_ms == 9
         again = service.withdraw(
@@ -133,7 +137,10 @@ def test_household_keeps_approved_answer_until_reapproval(tmp_path: Path) -> Non
         frozen = service.read_detail(household, created.summary.record_id)
         assert frozen.document is not None
         assert frozen.document.answer_text == "Answer A"
-        assert service.list_timeline(household).items[0].timeline_entered_at_ms == 9
+        household_item = service.list_timeline(household).items[0]
+        assert household_item.created_at_ms == 5
+        assert household_item.display_title == "Approved question"
+        assert household_item.read_decision == "approved"
         current = service.read_detail(alice, created.summary.record_id)
         assert current.document is not None
         assert current.document.answer_text == "Answer B"
@@ -145,7 +152,8 @@ def test_household_keeps_approved_answer_until_reapproval(tmp_path: Path) -> Non
         assert updated.document is not None
         assert updated.document.answer_text == "Answer B"
         assert updated.summary.timeline_entered_at_ms == 9
-        assert service.list_timeline(household).items[0].timeline_entered_at_ms == 9
+        assert service.list_timeline(household).items[0].created_at_ms == 5
+        assert service.list_timeline(household).items[0].status == "saved"
     finally:
         dispose_engine(engine)
 

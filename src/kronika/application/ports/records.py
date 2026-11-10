@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from kronika.application.ports.timeline import TimelinePage, TimelinePageQuery
 from kronika.domain.identity_access import IdentityContext
 from kronika.domain.records import (
     ApprovalProjection,
@@ -109,9 +110,9 @@ class RecordRepository(Protocol):
         """Return every record for an application administrator."""
 
     def list_timeline(
-        self, identity: IdentityContext, query: RecordPageQuery
-    ) -> RecordPage:
-        """Return approved family records only."""
+        self, identity: IdentityContext, query: TimelinePageQuery
+    ) -> TimelinePage:
+        """Return the caller's authorized chronicle page."""
 
     def prepare_approval(
         self, identity: IdentityContext, record_id: str

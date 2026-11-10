@@ -18,6 +18,8 @@ from kronika.application.ports.records import (
     RecordPageQuery,
     RecordSummary,
 )
+from kronika.application.ports.timeline import TimelinePage, TimelinePageQuery
+from kronika.infrastructure.persistence.timeline_repository import SqliteTimelineReader
 from kronika.domain.content_publication import derive_content_publication_readiness
 from kronika.domain.identity_access import IdentityContext
 from kronika.domain.record_access import (
@@ -248,24 +250,19 @@ class SqliteRecordRepository:
             raise RecordRepositoryError() from exc
 
     def list_own_history(self, identity: IdentityContext, query: RecordPageQuery) -> RecordPage:
-        return self._list(
-            identity,
-            query,
-            owner_login_key=identity.login_key,
-            timeline_only=False,
-        )
+        return self._list(identity, query, owner_login_key=identity.login_key)
 
     def list_admin_inventory(
         self, identity: IdentityContext, query: RecordPageQuery
     ) -> RecordPage:
         if not may_approve(identity):
             raise RecordNotFoundError()
-        return self._list(identity, query, owner_login_key=None, timeline_only=False)
+        return self._list(identity, query, owner_login_key=None)
 
-    def list_timeline(self, identity: IdentityContext, query: RecordPageQuery) -> RecordPage:
-        if not isinstance(identity, IdentityContext) or not identity.login_key:
-            raise RecordNotFoundError()
-        return self._list(identity, query, owner_login_key=None, timeline_only=True)
+    def list_timeline(
+        self, identity: IdentityContext, query: TimelinePageQuery
+    ) -> TimelinePage:
+        return SqliteTimelineReader(self._engine).read_page(identity, query)
 
     def prepare_approval(self, identity: IdentityContext, record_id: str) -> ApprovalCandidate:
         if not may_approve(identity):
@@ -406,7 +403,6 @@ class SqliteRecordRepository:
         query: RecordPageQuery,
         *,
         owner_login_key: str | None,
-        timeline_only: bool,
     ) -> RecordPage:
         if not isinstance(identity, IdentityContext) or not identity.login_key:
             raise RecordNotFoundError()
@@ -417,45 +413,24 @@ class SqliteRecordRepository:
                 statement = statement.where(
                     kronika_records.c.owner_login_key == owner_login_key
                 )
-            if timeline_only:
+            order = (
+                kronika_records.c.created_at_ms.desc(),
+                kronika_records.c.id.asc(),
+            )
+            if owner_login_key is None and query.visibility is not None:
                 statement = statement.where(
-                    kronika_records.c.visibility == RecordVisibility.FAMILY.value,
-                    kronika_records.c.approved_projection_json.is_not(None),
-                    kronika_records.c.timeline_entered_at_ms.is_not(None),
+                    kronika_records.c.visibility == query.visibility.value
                 )
-                order = (
-                    kronika_records.c.timeline_entered_at_ms.desc(),
-                    kronika_records.c.id.asc(),
-                )
-            else:
-                order = (
-                    kronika_records.c.created_at_ms.desc(),
-                    kronika_records.c.id.asc(),
-                )
-                if owner_login_key is None and query.visibility is not None:
-                    statement = statement.where(
-                        kronika_records.c.visibility == query.visibility.value
-                    )
             if query.kind is not None:
                 statement = statement.where(kronika_records.c.kind == query.kind.value)
             if query.content_category is not None:
-                if timeline_only:
-                    statement = statement.where(
-                        kronika_records.c.id.in_(
-                            select(kronika_approved_media.c.record_id).where(
-                                kronika_approved_media.c.content_category
-                                == query.content_category
-                            )
+                statement = statement.where(
+                    kronika_records.c.media_id.in_(
+                        select(media_metadata.c.media_id).where(
+                            media_metadata.c.content_category == query.content_category
                         )
                     )
-                else:
-                    statement = statement.where(
-                        kronika_records.c.media_id.in_(
-                            select(media_metadata.c.media_id).where(
-                                media_metadata.c.content_category == query.content_category
-                            )
-                        )
-                    )
+                )
             filtered = statement.subquery()
             total = connection.execute(
                 select(func.count()).select_from(filtered)
@@ -467,27 +442,13 @@ class SqliteRecordRepository:
                 .limit(query.limit)
                 .offset(query.offset)
             ).mappings().all()
-            labels = _summary_labels(connection, rows, timeline_only=timeline_only)
+            labels = _summary_labels(connection, rows)
             preview_locations: dict[str, str] = {}
-            if timeline_only:
-                preview_locations = _summary_preview_locations(
-                    connection,
-                    labels,
-                    approved_snapshot=True,
-                )
-            elif owner_login_key is not None:
-                preview_locations = _summary_preview_locations(
-                    connection,
-                    labels,
-                    approved_snapshot=False,
-                )
+            if owner_login_key is not None:
+                preview_locations = _summary_preview_locations(connection, labels)
             items = []
             for row in rows:
-                decision = (
-                    READ_APPROVED
-                    if timeline_only
-                    else decide_bound_read(identity, _bound_view(row))
-                )
+                decision = decide_bound_read(identity, _bound_view(row))
                 title, category, _media_kind = labels.get(str(row["id"]), (None, None, None))
                 items.append(
                     _summary(
@@ -620,8 +581,6 @@ def _category_value(value: object) -> str | None:
 def _summary_labels(
     connection: Connection,
     rows: list[Mapping[str, object]],
-    *,
-    timeline_only: bool,
 ) -> dict[str, tuple[str | None, str | None, str | None]]:
     """Title, category and technical kind columns only.
 
@@ -632,56 +591,33 @@ def _summary_labels(
     if not rows:
         return labels
     ids = [str(row["id"]) for row in rows]
-    if timeline_only:
-        media_rows = connection.execute(
-            select(
-                kronika_approved_media.c.record_id,
-                kronika_approved_media.c.display_title,
-                kronika_approved_media.c.content_category,
-                logical_media.c.media_kind,
+    media_rows = connection.execute(
+        select(
+            kronika_records.c.id,
+            media_metadata.c.display_title,
+            media_metadata.c.content_category,
+            logical_media.c.media_kind,
+        )
+        .select_from(
+            kronika_records.outerjoin(
+                media_metadata,
+                media_metadata.c.media_id == kronika_records.c.media_id,
+            ).outerjoin(
+                logical_media,
+                logical_media.c.id == kronika_records.c.media_id,
             )
-            .select_from(
-                kronika_approved_media.join(
-                    logical_media,
-                    logical_media.c.id == kronika_approved_media.c.media_id,
-                )
-            )
-            .where(kronika_approved_media.c.record_id.in_(ids))
-        ).mappings()
-        for item in media_rows:
-            labels[str(item["record_id"])] = (
-                _media_display_title(item["display_title"]),
-                _category_value(item["content_category"]),
-                _preview_media_kind(item["media_kind"]),
-            )
-    else:
-        media_rows = connection.execute(
-            select(
-                kronika_records.c.id,
-                media_metadata.c.display_title,
-                media_metadata.c.content_category,
-                logical_media.c.media_kind,
-            )
-            .select_from(
-                kronika_records.outerjoin(
-                    media_metadata,
-                    media_metadata.c.media_id == kronika_records.c.media_id,
-                ).outerjoin(
-                    logical_media,
-                    logical_media.c.id == kronika_records.c.media_id,
-                )
-            )
-            .where(
-                kronika_records.c.id.in_(ids),
-                kronika_records.c.kind == RecordKind.MEDIA.value,
-            )
-        ).mappings()
-        for item in media_rows:
-            labels[str(item["id"])] = (
-                _media_display_title(item["display_title"]),
-                _category_value(item["content_category"]),
-                _preview_media_kind(item["media_kind"]),
-            )
+        )
+        .where(
+            kronika_records.c.id.in_(ids),
+            kronika_records.c.kind == RecordKind.MEDIA.value,
+        )
+    ).mappings()
+    for item in media_rows:
+        labels[str(item["id"])] = (
+            _media_display_title(item["display_title"]),
+            _category_value(item["content_category"]),
+            _preview_media_kind(item["media_kind"]),
+        )
     document_rows = connection.execute(
         select(
             kronika_records.c.id,
@@ -710,14 +646,11 @@ def _preview_media_kind(value: object) -> str | None:
 def _summary_preview_locations(
     connection: Connection,
     labels: Mapping[str, tuple[str | None, str | None, str | None]],
-    *,
-    approved_snapshot: bool,
 ) -> dict[str, str]:
-    """Return one deterministic eligible location per eligible record.
+    """Return one current eligible location per personal-history record.
 
-    Timeline callers use only the approved snapshot. Personal History callers
-    use current physical locations. At most one page-bounded query runs, and
-    only when the page actually contains video or animated-image media.
+    At most one page-bounded query runs, and only when the page contains
+    video or animated-image media.
     """
     record_ids = [
         record_id
@@ -726,51 +659,27 @@ def _summary_preview_locations(
     ]
     if not record_ids:
         return {}
-    if approved_snapshot:
-        statement = (
-            select(
-                kronika_approved_media_locations.c.record_id,
-                func.min(kronika_approved_media_locations.c.location_id),
-            )
-            .select_from(
-                kronika_approved_media_locations.join(
-                    kronika_approved_media,
-                    kronika_approved_media.c.record_id
-                    == kronika_approved_media_locations.c.record_id,
-                ).join(
-                    logical_media,
-                    logical_media.c.id == kronika_approved_media.c.media_id,
-                )
-            )
-            .where(
-                kronika_approved_media_locations.c.record_id.in_(record_ids),
-                kronika_approved_media_locations.c.availability == "available",
-                logical_media.c.media_kind.in_(_PREVIEW_MEDIA_KINDS),
-            )
-            .group_by(kronika_approved_media_locations.c.record_id)
+    statement = (
+        select(
+            kronika_records.c.id,
+            func.min(physical_media_locations.c.id),
         )
-    else:
-        statement = (
-            select(
-                kronika_records.c.id,
-                func.min(physical_media_locations.c.id),
+        .select_from(
+            physical_media_locations.join(
+                logical_media,
+                logical_media.c.id == physical_media_locations.c.media_id,
+            ).join(
+                kronika_records,
+                kronika_records.c.media_id == physical_media_locations.c.media_id,
             )
-            .select_from(
-                physical_media_locations.join(
-                    logical_media,
-                    logical_media.c.id == physical_media_locations.c.media_id,
-                ).join(
-                    kronika_records,
-                    kronika_records.c.media_id == physical_media_locations.c.media_id,
-                )
-            )
-            .where(
-                kronika_records.c.id.in_(record_ids),
-                physical_media_locations.c.availability == "available",
-                logical_media.c.media_kind.in_(_PREVIEW_MEDIA_KINDS),
-            )
-            .group_by(kronika_records.c.id)
         )
+        .where(
+            kronika_records.c.id.in_(record_ids),
+            physical_media_locations.c.availability == "available",
+            logical_media.c.media_kind.in_(_PREVIEW_MEDIA_KINDS),
+        )
+        .group_by(kronika_records.c.id)
+    )
     return {
         str(item[0]): str(item[1])
         for item in connection.execute(statement)

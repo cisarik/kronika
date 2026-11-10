@@ -16,8 +16,10 @@ and stays active.
 
 Accepted target:
 
-- The Timeline is the main page and contains only administrator-approved
-  records. Personal history is a separate view of questions and answers,
+- The Timeline is the main page and the complete chronological overview of
+  catalog media and Search/Research content the signed-in identity may read.
+  Another household member sees only approved projections or unbound legacy
+  publication. Personal history is a separate view of questions and answers,
   including complete Research reports and the caller's unfinished work.
   Gallery remains a separate working view.
 - Search and Research use a provider-neutral application boundary per

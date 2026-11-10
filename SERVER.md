@@ -112,10 +112,13 @@ and mutation protection remain the ingress. New records start private to the
 owner derived from verified identity or an explicitly configured local owner.
 An authenticated application administrator can read all product records,
 including private and unfinished work. That access is application content
-only. Household members see a record on the shared Timeline only after
-administrator approval. Owners do not publish directly to that page. Approval
-does not use the internet-publication APIs. The public composition stays off
-and excludes new records. Every content route and query must enforce these
+only. `GET /api/timeline` is the server-owned authorized union of catalog
+media and Search/Research content. It is a pure read: no per-item coordinator
+call, no derivative generation, and no schema change. Another household member
+sees only an approved projection or unbound legacy publication. Owners do not
+publish directly to the household. Approval does not use the internet-publication
+APIs. The public composition stays off, excludes new records, and does not
+install `/api/timeline`. Every content route and query must enforce these
 rules.
 
 Archived generated content preserves complete text and Markdown and uses

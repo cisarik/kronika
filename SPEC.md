@@ -61,63 +61,57 @@ records.
 
 ### Timeline, Personal History and Completion
 
-The Timeline MUST become the landing page using the existing shell, CSS and
-controls, and MUST contain only administrator-approved records, including when
-the viewer is an administrator. Personal history MUST be a separate view of
-the caller's questions and answers, including complete Research reports and
-unfinished work. Gallery MUST remain a separate working view with the existing
-Details and player behavior and authorized unanalyzed media. No new frontend
-framework or design system is introduced.
+The Timeline MUST be the landing page. It is the complete chronological read
+projection of existing catalog media and Search/Research content the signed-in
+identity may already read, including private, unanalysed, unfinished, failed
+and unpublished content for the owner or an application administrator. Another
+household member MUST see only an existing approved projection or existing
+unbound legacy-publication access. An unauthenticated caller MUST be denied.
+Personal history MUST remain a separate view of the caller's questions and
+answers. Gallery MUST remain a separate working view with the existing Details
+and player behavior. No new frontend framework or design system is introduced.
 
-Media ownership MUST exist at catalog insertion. A medium MUST NOT receive a
-shared timeline-entry time until successful validated analysis has been
-approved by an administrator. One medium MUST have at most one card.
-Reanalysis MUST keep the previous approved projection until the new successful
-result is approved. Failure MUST NOT create a card or erase an earlier
-successful result. Existing metadata-suggestion approval MUST remain required.
-Successful analysis MUST NOT bypass it.
+One logical medium MUST appear once, whether or not a common record is bound.
+One submitted question MUST appear once across its durable request and
+completed document. Locations, tags, analysis runs, approvals and acquisition
+claims MUST NOT multiply rows. Quarantine, incomplete uploads and acquisition
+jobs without a `logical_media` row MUST stay outside the Timeline. No synthetic
+record or schema migration is introduced.
 
-A complete Search or Research save MUST make the question and answer available
-in personal history and in the administrator review inventory. That completion
-MUST NOT by itself insert a shared Timeline card. Pending and failed work MUST
-remain outside the shared Timeline. Approval MUST recheck the exact record
-version. Withdrawal MUST remove the shared card and MUST retain personal
-history.
+The chronicle MUST order by original media creation or question admission,
+newest first, then stable item identity. Approval MUST NOT move an item.
+Existing `timeline_entered_at_ms` values keep their historical
+first-household-approval meaning and MUST NOT be rewritten. Owner and
+administrator reads use current authorized content. Household reads use the
+approved projection and MUST NOT fall back to current question text when that
+projection is invalid. Administrator approval remains required for household
+publication. Withdrawal removes the other member's row and keeps the item for
+its owner and an administrator.
 
-The shared Timeline MUST order newest entry first, then stable ID order, with
-default page size 24 and maximum 100. Filters MUST combine Search, Research
-and existing media categories. GIF MUST remain a technical format rather than
-replace Meme.
-
-The packaged shell implements this navigation as an S8 candidate: hash routes
-on the existing page, summary titles and list filters, and administrator
-review. Summary lists carry a bounded display title and category and do not
-carry answer text. Timeline titles for every caller come from the approved
-projection. S8 is on public main. Research configuration stays disabled by
-default. S9 live-provider acceptance and the empty-catalog reset are closed.
+The Timeline page size stays 24 by default and 100 at most. Filters MAY combine
+kind, media category, text, status, visibility and publication, and MUST NOT
+widen the authorized set. GIF MUST remain a technical format rather than
+replace Meme. Summary rows carry a bounded title and MUST NOT carry answer
+text, paths, filenames, owner identities or provider details. Responses use
+`Cache-Control: private, no-store` and no ETag.
 
 The Timeline and personal-record History list payloads MAY carry one nullable
-`preview_location_id` on media items. It MUST be an opaque catalog location
-identifier, never a path, URL, cache key, readiness guarantee, or
-authorization token. The Timeline identifier MUST come only from
-`kronika_approved_media_locations` joined through the approved medium and
-restricted to `availability = 'available'`. Personal-record History MUST use
-current `physical_media_locations` restricted to `availability = 'available'`.
-Both paths MUST restrict eligible media kinds to `video` and `animated_image`
-and MUST select one deterministic eligible location without probing readiness,
-retrying another location or reading the preview cache. The locator is a
-candidate: the existing gallery-preview route MUST re-authorize every request
-and MAY still return not-found or unavailable. Administrator inventory and
-record detail MUST NOT expose the field.
+`preview_location_id` on video and animated-image items. It MUST be an opaque
+catalog location identifier, never a path, URL, cache key, readiness guarantee
+or authorization token. An approved household Timeline read MUST use the
+minimum available approved location. A current or legacy Timeline read, and
+personal-record History, MUST use the minimum available current physical
+location. Both paths MUST select one location without probing readiness,
+retrying another location or reading the preview cache. The existing
+gallery-preview route MUST re-authorize every request. Administrator inventory
+and record detail MUST NOT expose the field.
 
-The browser MUST render at most one lazy decorative 36 px image over the
-existing kind-icon slot on Timeline media cards and personal-record History
-media cards, using the existing same-origin `gallery-preview` endpoint and the
-existing URL helper. The kind icon MUST remain visible while loading and after
-every load, network, authorization, readiness or decode failure. The image MUST
-be empty-alt and aria-hidden, MUST NOT add a focus target, and MUST be revealed
-only after a successful load. Question History, non-media records, still
-images and surfaces without a locator MUST make no preview request.
+The browser MUST render the Timeline as one compact semantic list with a 36 px
+preview slot, and personal-record History as the existing cards. The kind icon
+MUST remain visible while loading and after every failure. The image MUST be
+empty-alt and aria-hidden, MUST NOT add a focus target, and MUST be revealed
+only after a successful load. Question History, non-media rows, still images
+and surfaces without a locator MUST make no preview request.
 
 Lists MUST resolve locators with at most one additional page-bounded query and
 MUST NOT add per-record detail reads, location discovery, filesystem probes or
@@ -591,9 +585,13 @@ without the explicit administrator workflow-read capability.
 ADR-0083 replaces that audience rule for Kronika records. Gallery may include
 authorized unanalyzed media. An authenticated application administrator can
 read Kronika product records, including private and unfinished work; that
-privilege is application content only. The shared Timeline contains only
-administrator-approved records. Timeline eligibility is separate from Gallery
-visibility and from internet publication.
+privilege is application content only. Timeline membership follows the same
+read authorization as the direct record and media routes.
+[ADR-0087](docs/adr/0087-complete-visibility-aware-timeline-chronicle.md)
+supersedes only the approved-only Timeline membership in ADR-0083. Household
+visibility of another owner's work remains an administrator approval.
+Timeline eligibility is separate from Gallery visibility and from internet
+publication.
 
 Catalog membership, `Processed`, AI-analysis state, upload storage publication,
 and content publication MUST remain distinct. Content-publication readiness

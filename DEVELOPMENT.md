@@ -276,9 +276,9 @@ Load the unpacked companion by following
 the server fills missing gallery previews in-process. Set it to `false` to
 disable that coordinator. A gallery-preview GET never generates a preview.
 
-Timeline media cards and personal-record History media cards reuse ready
-gallery previews over their existing kind-icon slot, with the icon retained
-while loading and after every failure. The focused validation route is:
+Timeline rows and personal-record History media cards reuse ready gallery
+previews, with the icon retained while loading and after every failure.
+History keeps its card layout. The focused validation route is:
 
 ```text
 # [MacBook / fish]

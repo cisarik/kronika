@@ -13497,6 +13497,14 @@ let kronikaApplyingRoute = false;
 let kronikaClosingFromRoute = false;
 let kronikaCurrentHash = "";
 let kronikaDetailsReturn = "#/gallery";
+let kronikaTimelineReturnItem = "";
+const KRONIKA_TIMELINE_STATUSES = Object.freeze([
+  "unanalysed", "in_progress", "complete", "failed", "cancelled",
+]);
+const KRONIKA_TIMELINE_VISIBILITY = Object.freeze(["private", "family"]);
+const KRONIKA_TIMELINE_PUBLICATION = Object.freeze([
+  "unpublished", "approved", "withdrawn", "legacy_published",
+]);
 let kronikaOpener = null;
 
 function kronikaLogin() {
@@ -13593,6 +13601,28 @@ function kronikaParseFilter(value) {
   return KRONIKA_FILTERS.includes(value) ? value : null;
 }
 
+function kronikaParseChoice(value, allowed) {
+  if (value == null || value === "") return "";
+  return allowed.includes(value) ? value : null;
+}
+
+function kronikaParseTimelineQuery(value) {
+  if (value == null) return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  if ([...text].length > 240 || /[\u0000-\u001f\u007f]/.test(text)) return null;
+  return text;
+}
+
+function kronikaTimelineState(query) {
+  const status = kronikaParseChoice(query.get("status"), KRONIKA_TIMELINE_STATUSES);
+  const visibility = kronikaParseChoice(query.get("visibility"), KRONIKA_TIMELINE_VISIBILITY);
+  const publication = kronikaParseChoice(query.get("publication"), KRONIKA_TIMELINE_PUBLICATION);
+  const q = kronikaParseTimelineQuery(query.get("q"));
+  if (status === null || visibility === null || publication === null || q === null) return null;
+  return { status, visibility, publication, q };
+}
+
 function kronikaValidToken(value, maximum) {
   return typeof value === "string"
     && value.length > 0
@@ -13614,18 +13644,28 @@ function kronikaParseRoute(hash) {
     id: "",
     offset: 0,
     filter: "all",
+    status: "",
+    visibility: "",
+    publication: "",
+    q: "",
     headingId: "kronika-unknown-heading",
     view: "unknown",
   };
   if (offset === null || filter === null) return unavailable;
   const normalized = path === "" || path === "/" ? "/timeline" : path;
   if (normalized === "/timeline") {
+    const timeline = kronikaTimelineState(query);
+    if (timeline === null) return unavailable;
     return {
       name: "timeline",
       path: "/timeline",
       id: "",
       offset,
       filter,
+      status: timeline.status,
+      visibility: timeline.visibility,
+      publication: timeline.publication,
+      q: timeline.q,
       headingId: "kronika-timeline-heading",
       view: "timeline",
     };
@@ -13743,6 +13783,12 @@ function kronikaParseRoute(hash) {
 function kronikaHashForRoute(route) {
   const params = new URLSearchParams();
   if (route.filter && route.filter !== "all") params.set("filter", route.filter);
+  if (route.path === "/timeline") {
+    if (route.q) params.set("q", route.q);
+    if (route.status) params.set("status", route.status);
+    if (route.visibility) params.set("visibility", route.visibility);
+    if (route.publication) params.set("publication", route.publication);
+  }
   if (route.offset) params.set("offset", String(route.offset));
   const query = params.toString();
   return `#${route.path}${query ? `?${query}` : ""}`;
@@ -14019,6 +14065,25 @@ function kronikaFilterQuery(filter) {
   return {};
 }
 
+function kronikaTimelineExtra(route) {
+  const extra = kronikaFilterQuery(route.filter);
+  if (route.q) extra.q = route.q;
+  if (route.status) extra.status = route.status;
+  if (route.visibility) extra.visibility = route.visibility;
+  if (route.publication) extra.publication = route.publication;
+  return extra;
+}
+
+function kronikaTimelineFiltered(route) {
+  return Boolean(
+    (route.filter && route.filter !== "all")
+    || route.q
+    || route.status
+    || route.visibility
+    || route.publication
+  );
+}
+
 function kronikaListUrl(path, offset, extra) {
   const params = new URLSearchParams();
   params.set("limit", "24");
@@ -14262,21 +14327,144 @@ function kronikaPager(prevId, nextId, list) {
   if (next) next.disabled = list.offset + 24 >= list.total;
 }
 
+function kronikaStatusLabel(item) {
+  const labels = {
+    not_requested: "Unanalysed",
+    pending: "Analysis queued",
+    analyzing: "Analysing",
+    analyzed: "Analysed",
+    failed: item && item.kind === "media" ? "Analysis failed" : "Failed",
+    admitted: "Queued",
+    submitting: "Submitting",
+    running: "Working",
+    validating: "Validating",
+    saved: "Saved",
+    refused: "Refused",
+    incomplete: "Incomplete",
+    cancel_requested: "Cancellation requested",
+    cancelled: "Cancelled",
+    timeout: "Timed out",
+    submission_unknown: "Submission unknown",
+  };
+  return labels[item && item.status] || "Unknown";
+}
+
+function kronikaPublicationLabel(item) {
+  const visibility = item && item.visibility === "family" ? "Household" : "Private";
+  const publication = {
+    unpublished: "Unpublished",
+    withdrawn: "Withdrawn",
+    approved: "Approved",
+    legacy_published: "Legacy publication",
+  }[item && item.publication_state] || "Unpublished";
+  return `${visibility} · ${publication}`;
+}
+
+function kronikaUtcStamp(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return "";
+  return new Date(parsed).toISOString().replace(".000Z", "Z");
+}
+
+function kronikaChronicleHref(item) {
+  if (item.kind === "media" && item.media_id) {
+    return `#/details/${encodeURIComponent(item.media_id)}`;
+  }
+  if (item.record_id) return `#/records/${encodeURIComponent(item.record_id)}`;
+  if (item.operation_id) return `#/requests/${encodeURIComponent(item.operation_id)}`;
+  return "#/timeline";
+}
+
+function kronikaRenderChronicle(results, items) {
+  if (!results) return;
+  results.replaceChildren();
+  items.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = "kronika-chronicle__item";
+    if (item.item_id) row.setAttribute("data-kronika-item", String(item.item_id));
+    kronikaTagCardKind(row, item);
+    const preview = document.createElement("span");
+    preview.className = "kronika-chronicle__preview";
+    row.appendChild(preview);
+    const title = document.createElement("a");
+    title.className = "kronika-chronicle__title";
+    title.href = kronikaChronicleHref(item);
+    title.textContent = item.display_title || (item.kind === "media" ? "Untitled media" : "Untitled");
+    title.addEventListener("click", () => {
+      kronikaTimelineReturnItem = item.item_id ? String(item.item_id) : "";
+    });
+    row.appendChild(title);
+    const kind = document.createElement("span");
+    kind.className = "kronika-chronicle__kind";
+    kind.textContent = kronikaKindLabel(item);
+    row.appendChild(kind);
+    const added = document.createElement("time");
+    added.className = "kronika-chronicle__added";
+    const stamp = kronikaUtcStamp(item.created_at_ms);
+    if (stamp) added.setAttribute("datetime", stamp);
+    added.textContent = stamp || "";
+    row.appendChild(added);
+    const status = document.createElement("span");
+    status.className = "kronika-chronicle__status";
+    status.textContent = kronikaStatusLabel(item);
+    row.appendChild(status);
+    const visibility = document.createElement("span");
+    visibility.className = "kronika-chronicle__visibility";
+    visibility.textContent = kronikaPublicationLabel(item);
+    row.appendChild(visibility);
+    kronikaAttachCardPreview(preview, item, "timeline");
+    results.appendChild(row);
+  });
+}
+
+function kronikaSyncTimelineControls(route) {
+  const kind = document.getElementById("kronika-timeline-kind");
+  const status = document.getElementById("kronika-timeline-status-filter");
+  const visibility = document.getElementById("kronika-timeline-visibility");
+  const publication = document.getElementById("kronika-timeline-publication");
+  const search = document.getElementById("kronika-timeline-search");
+  if (kind) kind.value = route.filter || "all";
+  if (status) status.value = route.status || "";
+  if (visibility) visibility.value = route.visibility || "";
+  if (publication) publication.value = route.publication || "";
+  if (search && document.activeElement !== search) search.value = route.q || "";
+}
+
+function kronikaTimelineRouteFromControls(offset) {
+  const current = kronikaParseRoute(kronikaLocationHash() || "#/timeline");
+  const value = (id) => {
+    const node = document.getElementById(id);
+    return node ? String(node.value || "") : "";
+  };
+  return {
+    path: "/timeline",
+    filter: value("kronika-timeline-kind") || current.filter || "all",
+    status: value("kronika-timeline-status-filter"),
+    visibility: value("kronika-timeline-visibility"),
+    publication: value("kronika-timeline-publication"),
+    q: value("kronika-timeline-search").trim(),
+    offset,
+  };
+}
+
 async function kronikaLoadTimeline(route) {
   const status = document.getElementById("kronika-timeline-status");
   const results = document.getElementById("kronika-timeline-results");
   const section = document.getElementById("kronika-timeline");
+  const range = document.getElementById("kronika-timeline-range");
+  kronikaSyncTimelineControls(route);
   if (!kronikaVerified()) {
     kronikaRetirePreviews("timeline");
     kronikaCancelListRequest("timeline");
     kronikaSetText("kronika-timeline-status", kronikaErrorCopy("IDENTITY_REQUIRED"));
     if (results) results.replaceChildren();
+    if (range) range.textContent = "";
     return;
   }
   kronikaRetirePreviews("timeline");
   kronikaCancelListRequest("timeline");
   const controller = kronikaBeginListController("timeline");
-  const extra = kronikaFilterQuery(route.filter);
+  const extra = kronikaTimelineExtra(route);
   const queryKey = JSON.stringify({ offset: route.offset, extra, login: kronikaLogin() });
   const generation = kronikaIdentityGeneration;
   const requestGeneration = kronikaLists.timeline.generation;
@@ -14291,45 +14479,43 @@ async function kronikaLoadTimeline(route) {
   if (section) section.setAttribute("aria-busy", "false");
   if (!kronikaAcceptList(kronikaLists.timeline, queryKey, result)) return;
   const list = kronikaLists.timeline;
+  const retry = document.getElementById("kronika-timeline-retry");
   if (list.error) {
     kronikaSetText("kronika-timeline-status", list.error);
     if (results) results.replaceChildren();
-    const retry = document.getElementById("kronika-timeline-retry");
+    if (range) range.textContent = "";
     if (retry) retry.hidden = false;
     return;
   }
-  const retry = document.getElementById("kronika-timeline-retry");
   if (retry) retry.hidden = true;
   if (list.stale) {
     if (status) status.textContent = "Showing the last loaded page. It was not refreshed.";
+  } else if (!list.items.length && list.offset > 0) {
+    kronikaSetText("kronika-timeline-status", "This page is outside the current results.");
+    if (retry) retry.hidden = true;
   } else if (!list.total) {
     kronikaSetText(
       "kronika-timeline-status",
-      route.filter === "all"
-        ? "No records have been approved for the Timeline yet."
-        : "No approved records match this filter.",
+      kronikaTimelineFiltered(route)
+        ? "No items match these filters."
+        : "Nothing has been added that you can access yet.",
     );
   } else {
     kronikaSetText("kronika-timeline-status", "");
   }
-  kronikaRenderCards(results, list.items, (item) => (
-    item.kind === "media" && item.media_id
-      ? `#/details/${encodeURIComponent(item.media_id)}`
-      : `#/records/${encodeURIComponent(item.record_id)}`
-  ));
-  if (results) {
-    results.querySelectorAll(".kronika-card").forEach((card, index) => {
-      const item = list.items[index];
-      const meta = card.querySelector("small");
-      if (!meta || !item) return;
-      const when = kronikaFormatDay(item.timeline_entered_at_ms);
-      meta.textContent = when ? `${kronikaKindLabel(item)} · ${when}` : kronikaKindLabel(item);
-    });
+  kronikaRenderChronicle(results, list.items);
+  if (!list.items.length && list.offset > 0 && results) {
+    const back = document.createElement("li");
+    const link = document.createElement("a");
+    link.href = kronikaHashForRoute({ ...route, offset: 0 });
+    link.textContent = "Return to the first page";
+    back.appendChild(link);
+    results.appendChild(back);
   }
+  const start = list.total ? list.offset + 1 : 0;
+  const end = Math.min(list.offset + list.items.length, list.total);
+  if (range) range.textContent = list.total ? `${start}–${end} of ${list.total}` : "";
   kronikaPager("kronika-timeline-prev", "kronika-timeline-next", list);
-  document.querySelectorAll("#kronika-timeline-filters [data-kronika-filter]").forEach((button) => {
-    button.setAttribute("aria-pressed", button.getAttribute("data-kronika-filter") === route.filter ? "true" : "false");
-  });
 }
 
 async function kronikaLoadHistory(route) {
@@ -14989,7 +15175,7 @@ function kronikaSyncReviewActions() {
   const reload = document.getElementById("kronika-review-reload");
   const readiness = document.getElementById("kronika-review-readiness");
   if (approve) {
-    approve.textContent = kronikaReview.visibility === "family" ? "Approve current version" : "Approve for Timeline";
+    approve.textContent = kronikaReview.visibility === "family" ? "Approve current version" : "Approve for household";
     approve.disabled = kronikaReview.needsReload || !kronikaReview.completed || kronikaReview.expectedVersion == null;
   }
   if (withdraw) {
@@ -15101,16 +15287,39 @@ function kronikaRememberDetailsAddress(mediaId) {
   kronikaMarkCurrent("details");
 }
 
+function kronikaFocusTimelineReturn() {
+  const results = document.getElementById("kronika-timeline-results");
+  const itemId = kronikaTimelineReturnItem;
+  const row = itemId && results
+    ? results.querySelector(`[data-kronika-item="${CSS.escape(itemId)}"] .kronika-chronicle__title`)
+    : null;
+  if (row && typeof row.focus === "function") {
+    row.focus();
+    return;
+  }
+  const heading = document.getElementById("kronika-timeline-heading");
+  if (heading && typeof heading.focus === "function") heading.focus();
+}
+
 function kronikaReleaseDetailsAddress() {
   if (kronikaClosingFromRoute) return;
   if (!kronikaLocationHash().startsWith("#/details/")) return;
-  kronikaSetHashSuppressed(kronikaDetailsReturn || "#/gallery");
+  const next = kronikaDetailsReturn || "#/gallery";
+  const route = kronikaParseRoute(next);
+  kronikaSetHashSuppressed(next);
+  if (route.name === "timeline") {
+    kronikaRuntime.routeName = "timeline";
+    kronikaMarkCurrent("timeline");
+    kronikaShowShell("timeline");
+    void kronikaLoadTimeline(route).then(() => kronikaFocusTimelineReturn());
+    return;
+  }
   kronikaMarkCurrent("gallery");
 }
 
 function kronikaShiftOffset(route, delta) {
   const nextOffset = Math.max(0, (route.offset || 0) + delta);
-  kronikaAssignHash(kronikaHashForRoute({ path: route.path, filter: route.filter, offset: nextOffset }));
+  kronikaAssignHash(kronikaHashForRoute({ ...route, offset: nextOffset }));
 }
 
 function kronikaBindShell() {
@@ -15121,13 +15330,31 @@ function kronikaBindShell() {
       kronikaOpener = link;
     });
   });
-  document.querySelectorAll("#kronika-timeline-filters [data-kronika-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      kronikaOpener = button;
-      const filter = button.getAttribute("data-kronika-filter") || "all";
-      kronikaAssignHash(kronikaHashForRoute({ path: "/timeline", filter, offset: 0 }));
+  const timelineFilters = document.getElementById("kronika-timeline-filters");
+  if (timelineFilters) {
+    timelineFilters.addEventListener("submit", (event) => {
+      event.preventDefault();
+      kronikaOpener = document.getElementById("kronika-timeline-search-submit");
+      kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
     });
-  });
+    ["kronika-timeline-kind", "kronika-timeline-status-filter", "kronika-timeline-visibility", "kronika-timeline-publication"].forEach((id) => {
+      const control = document.getElementById(id);
+      if (!control) return;
+      control.addEventListener("change", () => {
+        kronikaOpener = control;
+        kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
+      });
+    });
+    const clear = document.getElementById("kronika-timeline-search-clear");
+    if (clear) {
+      clear.addEventListener("click", () => {
+        const search = document.getElementById("kronika-timeline-search");
+        if (search) search.value = "";
+        kronikaOpener = clear;
+        kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
+      });
+    }
+  }
   const form = document.getElementById("kronika-question-form");
   if (form) form.addEventListener("submit", (event) => { void kronikaSubmitQuestion(event); });
   const input = document.getElementById("kronika-question-input");
@@ -15174,7 +15401,16 @@ function kronikaBindShell() {
     button.addEventListener("click", () => {
       const route = kronikaParseRoute(kronikaLocationHash());
       const target = path || route.path;
-      kronikaShiftOffset({ path: target, filter: route.filter, offset: route.offset }, delta);
+      kronikaOpener = null;
+      kronikaShiftOffset({
+        path: target,
+        filter: route.filter,
+        offset: route.offset,
+        q: route.q,
+        status: route.status,
+        visibility: route.visibility,
+        publication: route.publication,
+      }, delta);
     });
   });
   const timelineRetry = document.getElementById("kronika-timeline-retry");

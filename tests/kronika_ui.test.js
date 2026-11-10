@@ -131,7 +131,11 @@ function matches(node, selector) {
   }
   if (selector === "img") return node.tag === "img";
   if (selector === "small") return node.tag === "small";
+  if (selector === "time") return node.tag === "time";
   if (selector.startsWith("#") && !selector.includes(" ")) return node.id === selector.slice(1);
+  if (selector.startsWith(".") && !selector.includes(" ")) {
+    return node.className.split(/\s+/).includes(selector.slice(1));
+  }
   return false;
 }
 
@@ -404,13 +408,13 @@ test("timeline requests only its endpoint, including for an administrator", asyn
     });
   });
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
-  const titles = harness.byId["kronika-timeline-results"].children.map((card) => card.textContent || card.children[0].textContent);
+  const titles = harness.byId["kronika-timeline-results"].querySelectorAll(".kronika-chronicle__title").map((link) => link.textContent);
   assert.deepEqual(titles, ["Approved title"]);
   assert.equal(harness.calls.every((call) => call.url.startsWith("/api/timeline")), true);
   assert.equal(harness.byId["kronika-timeline-status"].textContent.includes("Hidden"), false);
 });
 
-test("personal history keeps failed requests out of the timeline", async () => {
+test("personal history and the timeline use separate endpoints", async () => {
   const harness = createHarness(async (url) => {
     if (url.startsWith("/api/research-requests")) {
       return jsonResponse({
@@ -634,7 +638,10 @@ test("a failed refresh keeps only the previous authorized page", async () => {
   await harness.kronikaLoadTimeline(route);
   fail = true;
   await harness.kronikaLoadTimeline(route);
-  assert.equal(harness.byId["kronika-timeline-results"].children[0].children[0].textContent, "Kept title");
+  assert.equal(
+    harness.byId["kronika-timeline-results"].querySelector(".kronika-chronicle__title").textContent,
+    "Kept title",
+  );
   assert.match(harness.byId["kronika-timeline-status"].textContent, /not refreshed/);
 });
 
@@ -753,10 +760,11 @@ test("media cards use one lazy decorative preview and preserve their link names"
   });
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
   const card = harness.byId["kronika-timeline-results"].children[0];
-  assert.equal(card.href, "#/details/media-1");
-  assert.equal(card.children[0].textContent, "Media 1");
-  assert.match(card.children[1].textContent, /^General · \d{4}-\d{2}-\d{2}$/);
-  assert.equal(card.children.length, 3);
+  const title = card.children[1];
+  assert.equal(title.href, "#/details/media-1");
+  assert.equal(title.textContent, "Media 1");
+  assert.equal(card.children[2].textContent, "General");
+  assert.equal(card.tag, "li");
   const images = card.querySelectorAll(".kronika-card__preview");
   assert.equal(images.length, 1);
   const image = images[0];
@@ -856,7 +864,7 @@ test("preview load reveals the image and every error retains the kind icon", asy
   assert.equal(failed.src, "");
   assert.equal((failed.listeners.get("error") || []).length, 0);
   assert.equal(cards[1].getAttribute("data-kronika-kind"), "general");
-  assert.equal(cards[1].children[0].textContent, "Media 2");
+  assert.equal(cards[1].querySelector(".kronika-chronicle__title").textContent, "Media 2");
   assert.equal(cards[0].getAttribute("data-kronika-kind"), "general");
 });
 
@@ -1000,7 +1008,7 @@ test("cancelled dirty navigation preserves the current preview page", async () =
   await harness.kronikaFollowHash();
   assert.equal(harness.location.hash, "#/timeline");
   assert.equal(results.children.length, 1);
-  assert.equal(image.parentNode, results.children[0]);
+  assert.equal(image.parentNode, results.children[0].children[0]);
   assert.equal(image.getAttribute("data-kronika-preview"), "ready");
   assert.notEqual(image.src, "");
   assert.equal(harness.calls[0].init.signal.aborted, false);
@@ -1042,7 +1050,7 @@ test("visibility changes keep card previews and in-flight lists while pagehide r
   fireVisibility();
   assert.equal(image.getAttribute("data-kronika-preview"), "ready");
   assert.notEqual(image.src, "");
-  assert.equal(image.parentNode, results.children[0]);
+  assert.equal(image.parentNode, results.children[0].children[0]);
   assert.equal(firstCall.init.signal.aborted, false);
   harness.document.hidden = false;
   fireVisibility();
@@ -1095,4 +1103,89 @@ test("thumbnail CSS changes only the Timeline and History icon slots", () => {
   assert.match(STYLES_SOURCE, /\.kronika-card \{[^}]*padding: 16px 16px 14px 64px;/s);
   assert.match(STYLES_SOURCE, /\.kronika-card::before \{[^}]*width: 36px;[^}]*height: 36px;/s);
   assert.equal(STYLES_SOURCE.includes("#kronika-review-results .kronika-card__preview"), false);
+});
+
+test("Timeline renders a compact chronicle with distinct status and visibility", async () => {
+  const harness = createHarness(async () => jsonResponse({
+    items: [{
+      item_id: "question:op-1",
+      kind: "search",
+      display_title: "Saved question",
+      record_id: "record-1",
+      operation_id: "op-1",
+      created_at_ms: Date.UTC(2026, 0, 2, 3, 4, 5),
+      status: "saved",
+      visibility: "private",
+      publication_state: "unpublished",
+    }],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }));
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const row = harness.byId["kronika-timeline-results"].children[0];
+  assert.equal(row.tag, "li");
+  assert.equal(row.querySelector(".kronika-chronicle__status").textContent, "Saved");
+  assert.equal(row.querySelector(".kronika-chronicle__visibility").textContent, "Private · Unpublished");
+  assert.equal(row.querySelector("time").getAttribute("datetime"), "2026-01-02T03:04:05Z");
+});
+
+test("Timeline rows link media, saved records and unfinished requests", async () => {
+  const harness = createHarness(async () => jsonResponse({
+    items: [
+      { item_id: "media:m", kind: "media", media_id: "media-1", display_title: "Clip", content_category: "general", created_at_ms: 1, status: "not_requested", visibility: "private", publication_state: "unpublished" },
+      { item_id: "question:saved", kind: "search", record_id: "record-1", operation_id: "saved", display_title: "Saved", created_at_ms: 2, status: "saved", visibility: "family", publication_state: "approved" },
+      { item_id: "question:live", kind: "research", operation_id: "live", display_title: "Live", created_at_ms: 3, status: "running", visibility: "private", publication_state: "unpublished" },
+    ],
+    total: 3,
+    limit: 24,
+    offset: 0,
+  }));
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const links = harness.byId["kronika-timeline-results"].querySelectorAll(".kronika-chronicle__title");
+  assert.deepEqual(links.map((link) => link.href), [
+    "#/details/media-1",
+    "#/records/record-1",
+    "#/requests/live",
+  ]);
+});
+
+test("Timeline text stays inert and list loading performs no detail fan-out", async () => {
+  const harness = createHarness(async (url) => {
+    assert.equal(url.startsWith("/api/timeline"), true);
+    return jsonResponse({
+      items: [{
+        item_id: "question:op",
+        kind: "search",
+        display_title: "<script>alert(1)</script>",
+        record_id: "record-1",
+        operation_id: "op",
+        created_at_ms: 1,
+        status: "saved",
+        visibility: "private",
+        publication_state: "unpublished",
+      }],
+      total: 1,
+      limit: 24,
+      offset: 0,
+    });
+  });
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const title = harness.byId["kronika-timeline-results"].querySelector(".kronika-chronicle__title");
+  assert.equal(title.textContent, "<script>alert(1)</script>");
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/records/")), false);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/research-requests/")), false);
+});
+
+test("Timeline filters preserve route state and reset pagination", async () => {
+  const harness = createHarness(async () => jsonResponse({ items: [], total: 0, limit: 24, offset: 0 }));
+  const route = harness.kronikaParseRoute("#/timeline?filter=media&q=clip&status=failed&visibility=private&publication=unpublished&offset=24");
+  assert.equal(route.filter, "media");
+  assert.equal(route.q, "clip");
+  assert.equal(route.status, "failed");
+  assert.equal(route.visibility, "private");
+  assert.equal(route.publication, "unpublished");
+  assert.equal(route.offset, 24);
+  assert.equal(harness.kronikaParseRoute("#/timeline?status=nope").name, "unavailable");
 });

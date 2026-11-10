@@ -119,12 +119,3 @@ def may_approve(identity: object) -> bool:
         and identity.has_capability(CAPABILITY_MEDIA_WORKFLOW_READ)
         and bool(identity.login_key)
     )
-
-
-def timeline_includes(record: BoundRecordView) -> bool:
-    """The shared Timeline is approved-family only, including for administrators."""
-    return (
-        record.visibility is RecordVisibility.FAMILY
-        and record.approved
-        and record.completed
-    )

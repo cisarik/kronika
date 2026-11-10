@@ -27,15 +27,15 @@ direction.
 
 ### Accepted Kronika Experience
 
-- The Timeline is the landing page and contains only administrator-approved
-  records. The existing dark/green design, Gallery, Details and playback
-  remain. Gallery is a separate working view and can contain authorized media
-  awaiting analysis. Personal history is a separate view.
+- The Timeline is the landing page and the complete chronological overview of
+  catalog media and Search/Research content the signed-in identity may read,
+  newest added item first. The existing dark/green design, Gallery, Details and
+  playback remain. Gallery is a separate working view. Personal history is a
+  separate view.
 - Kronika stores questions and their answers, including complete Research
   reports. Personal history includes the caller's unfinished and failed work.
-  A complete save makes a question and answer available in personal history
-  and in the administrator review inventory. That completion does not insert
-  a shared Timeline card.
+  A complete save is visible to its owner and an administrator on the Timeline.
+  Household visibility still requires administrator approval.
 - One catalog contains Media, Search and Research records. A common record has
   stable identity, content reference, owner, visibility, creation time, first
   timeline-entry time and display name. Media keeps its existing tables; text
@@ -56,10 +56,11 @@ direction.
   parked and is not this provider. Research accepts no attachment.
 - Full text and Markdown are preserved. Rendering is sanitized, with no
   scripts and no external resources. Generated output is untrusted.
-- Shared Timeline order is newest approved entry first with stable ID
-  ordering, 24 items by default and a server maximum of 100. Filters combine
-  Search, Research and existing media categories. GIF is a format, not a
-  replacement for Meme.
+- Timeline order is original creation or admission time, newest first, then
+  stable item identity. Approval does not move an item. The page is 24 items
+  by default and 100 at most. Filters combine Search, Research, media
+  categories, status, visibility and publication inside the caller's authorized
+  set. GIF is a format, not a replacement for Meme.
 - Every new record starts private to its owner. Verified identity supplies
   that owner. An authenticated application administrator can read all product
   records, including private and unfinished work. That access is application

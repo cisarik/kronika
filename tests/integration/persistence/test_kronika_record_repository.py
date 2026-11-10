@@ -172,7 +172,11 @@ def test_stale_version_and_digest_leave_no_partial_approval(tmp_path: Path) -> N
                 record_id=created.summary.record_id,
                 expected_version=approved.version - 1,
             )
-        assert service.list_timeline(alice).items[0].timeline_entered_at_ms == 9
+        detail = service.read_detail(alice, created.summary.record_id)
+        assert detail.summary.timeline_entered_at_ms == 9
+        chronicle = service.list_timeline(alice).items[0]
+        assert chronicle.created_at_ms == 1
+        assert chronicle.item_id == "question:search-op-stale"
     finally:
         dispose_engine(engine)
 
@@ -338,8 +342,8 @@ def test_list_filters_apply_before_count_and_keep_order(tmp_path: Path) -> None:
         assert hostile.items[0].display_title == "hello <script>alert(1)</script>"
         assert service.list_own_history(ada).total == 1
         assert service.list_admin_inventory(ada, visibility="private").total == 27
-        assert service.list_timeline(alice).total == 0
-        assert service.list_timeline(ada).total == 0
+        assert service.list_timeline(alice).total == 26
+        assert service.list_timeline(ada).total == 27
     finally:
         dispose_engine(engine)
 
@@ -451,14 +455,21 @@ def test_timeline_titles_stay_on_the_approved_projection(tmp_path: Path) -> None
             connection.commit()
         finally:
             connection.close()
-        for caller in (alice, bob, ada):
+        for caller in (alice, ada):
             timeline = service.list_timeline(caller)
             assert timeline.total == 1
-            assert timeline.items[0].display_title == "TitleA"
-            assert timeline.items[0].content_category == "general"
-            assert timeline.items[0].read_decision == "approved"
-            assert service.list_timeline(caller, kind="media", content_category="general").total == 1
-            assert service.list_timeline(caller, kind="media", content_category="meme").total == 0
+            assert timeline.items[0].display_title == "TitleB"
+            assert timeline.items[0].content_category == "meme"
+            assert timeline.items[0].read_decision == "current"
+            assert service.list_timeline(caller, kind="media", content_category="meme").total == 1
+            assert service.list_timeline(caller, kind="media", content_category="general").total == 0
+        household = service.list_timeline(bob)
+        assert household.total == 1
+        assert household.items[0].display_title == "TitleA"
+        assert household.items[0].content_category == "general"
+        assert household.items[0].read_decision == "approved"
+        assert service.list_timeline(bob, kind="media", content_category="general").total == 1
+        assert service.list_timeline(bob, kind="media", content_category="meme").total == 0
         own = service.list_own_history(alice)
         assert own.items[0].display_title == "TitleB"
         assert own.items[0].content_category == "meme"
@@ -468,8 +479,13 @@ def test_timeline_titles_stay_on_the_approved_projection(tmp_path: Path) -> None
             expected_version=approved.version,
         )
         assert withdrawn.changed is True
-        for caller in (alice, bob, ada):
-            assert service.list_timeline(caller).total == 0
+        assert service.list_timeline(bob).total == 0
+        for caller in (alice, ada):
+            retained = service.list_timeline(caller)
+            assert retained.total == 1
+            assert retained.items[0].visibility == "private"
+            assert retained.items[0].publication_state == "withdrawn"
+            assert retained.items[0].display_title == "TitleB"
     finally:
         dispose_engine(engine)
 
@@ -750,10 +766,15 @@ def test_timeline_preview_locator_uses_only_approved_locations_for_every_caller(
             location_id=working_only,
             availability="available",
         )
-        for caller in (alice, bob, ada):
+        for caller in (alice, ada):
             timeline = service.list_timeline(caller)
             assert timeline.total == 1
-            assert timeline.items[0].preview_location_id == approved_location
+            assert timeline.items[0].preview_location_id == working_only
+            assert timeline.items[0].read_decision == "current"
+        household_timeline = service.list_timeline(bob)
+        assert household_timeline.total == 1
+        assert household_timeline.items[0].preview_location_id == approved_location
+        assert household_timeline.items[0].read_decision == "approved"
         current = service.list_own_history(alice)
         assert current.items[0].preview_location_id == working_only
     finally:

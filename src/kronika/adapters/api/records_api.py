@@ -21,6 +21,7 @@ from kronika.domain.identity_access import (
     CAPABILITY_RECORDS_APPROVE,
     IdentityContext,
 )
+from kronika.application.ports.timeline import TimelineUnavailableError
 from kronika.domain.records import (
     RecordConflictError,
     RecordNotFoundError,
@@ -49,6 +50,17 @@ class ApprovalRequest(BaseModel):
 def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code, content={"error": {"code": code, "message": message}}
+    )
+
+
+_TIMELINE_HEADERS = {"Cache-Control": "private, no-store"}
+
+
+def _timeline_response(status_code: int, content: dict[str, object]) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=content,
+        headers=_TIMELINE_HEADERS,
     )
 
 
@@ -157,6 +169,33 @@ def _detail_payload(detail: object) -> dict[str, object]:
     }
 
 
+def _timeline_payload(page: object) -> dict[str, object]:
+    return {
+        "items": [
+            {
+                "item_id": item.item_id,
+                "kind": item.kind,
+                "media_kind": item.media_kind,
+                "record_id": item.record_id,
+                "media_id": item.media_id,
+                "operation_id": item.operation_id,
+                "display_title": item.display_title,
+                "content_category": item.content_category,
+                "created_at_ms": item.created_at_ms,
+                "status": item.status,
+                "visibility": item.visibility,
+                "publication_state": item.publication_state,
+                "read_decision": item.read_decision,
+                "preview_location_id": item.preview_location_id,
+            }
+            for item in page.items
+        ],
+        "total": page.total,
+        "limit": page.limit,
+        "offset": page.offset,
+    }
+
+
 def _page_payload(
     page: object, *, include_preview_location: bool = False
 ) -> dict[str, object]:
@@ -203,26 +242,46 @@ def create_records_api_router(dependencies: RecordsApiDependencies) -> APIRouter
 
     @router.get("/api/timeline")
     def list_timeline(request: Request) -> JSONResponse:
-        identity, denial = _require_identity(request)
-        if denial is not None:
-            return denial
-        assert identity is not None
+        identity = _request_identity(request)
+        if identity is None or not identity.login_key:
+            return _timeline_response(
+                401,
+                {
+                    "error": {
+                        "code": "IDENTITY_REQUIRED",
+                        "message": "A verified identity is required.",
+                    }
+                },
+            )
         limit, offset = _page_params(request)
         try:
-            filters = _list_filters(request, administrator=False)
             page = service.list_timeline(
                 identity,
                 limit=limit,
                 offset=offset,
-                kind=filters["kind"],
-                content_category=filters["content_category"],
+                kind=_optional_query(request, "kind"),
+                content_category=_optional_query(request, "content_category"),
+                q=_optional_query(request, "q"),
+                status=_optional_query(request, "status"),
+                visibility=_optional_query(request, "visibility"),
+                publication=_optional_query(request, "publication"),
             )
         except RecordValueError:
-            return _error_response(422, "INVALID_REQUEST", "The list request is invalid.")
-        return JSONResponse(
-            status_code=200,
-            content=_page_payload(page, include_preview_location=True),
-        )
+            return _timeline_response(
+                422,
+                {"error": {"code": "INVALID_REQUEST", "message": "The list request is invalid."}},
+            )
+        except TimelineUnavailableError:
+            return _timeline_response(
+                500,
+                {
+                    "error": {
+                        "code": "TIMELINE_UNAVAILABLE",
+                        "message": "The Timeline is unavailable.",
+                    }
+                },
+            )
+        return _timeline_response(200, _timeline_payload(page))
 
     @router.get("/api/admin/records")
     def list_admin_records(request: Request) -> JSONResponse:

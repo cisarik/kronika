@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import unicodedata
+
 from kronika.application.ports.records import (
     ApprovalCandidate,
     ApprovalResult,
@@ -12,6 +14,7 @@ from kronika.application.ports.records import (
     RecordPageQuery,
     RecordRepository,
 )
+from kronika.application.ports.timeline import TimelinePage, TimelinePageQuery
 from kronika.domain.identity_access import IdentityContext
 from kronika.domain.record_access import may_approve
 from kronika.domain.records import (
@@ -106,16 +109,23 @@ class RecordService:
         offset: int = 0,
         kind: str | None = None,
         content_category: str | None = None,
-    ) -> RecordPage:
+        q: str | None = None,
+        status: str | None = None,
+        visibility: str | None = None,
+        publication: str | None = None,
+    ) -> TimelinePage:
         caller = _require_identity(identity)
         return self.repository.list_timeline(
             caller,
-            _query(
+            _timeline_query(
                 limit,
                 offset,
                 kind=kind,
                 content_category=content_category,
-                visibility=None,
+                q=q,
+                status=status,
+                visibility=visibility,
+                publication=publication,
             ),
         )
 
@@ -178,11 +188,20 @@ _KIND_FILTERS = {
     "search": RecordKind.SEARCH,
     "research": RecordKind.RESEARCH,
 }
+_TIMELINE_KINDS = frozenset(_KIND_FILTERS)
 _CATEGORY_FILTERS = frozenset({"general", "meme", "movie", "youtube"})
 _VISIBILITY_FILTERS = {
     "private": RecordVisibility.PRIVATE,
     "family": RecordVisibility.FAMILY,
 }
+_TIMELINE_VISIBILITY = frozenset(_VISIBILITY_FILTERS)
+_TIMELINE_STATUS = frozenset(
+    {"unanalysed", "in_progress", "complete", "failed", "cancelled"}
+)
+_TIMELINE_PUBLICATION = frozenset(
+    {"unpublished", "approved", "withdrawn", "legacy_published"}
+)
+_TIMELINE_QUERY_CODE_POINTS = 240
 
 
 def _page(limit: int, offset: int) -> RecordPageQuery:
@@ -233,4 +252,55 @@ def _query(
         kind=parsed_kind,
         content_category=parsed_category,
         visibility=parsed_visibility,
+    )
+
+
+def _optional_token(value: str | None, allowed: frozenset[str]) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or value not in allowed:
+        raise RecordValueError()
+    return value
+
+
+def _timeline_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise RecordValueError()
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if len(normalized) > _TIMELINE_QUERY_CODE_POINTS or any(
+        unicodedata.category(character) == "Cc" for character in normalized
+    ):
+        raise RecordValueError()
+    return normalized
+
+
+def _timeline_query(
+    limit: int,
+    offset: int,
+    *,
+    kind: str | None,
+    content_category: str | None,
+    q: str | None,
+    status: str | None,
+    visibility: str | None,
+    publication: str | None,
+) -> TimelinePageQuery:
+    page = _page(limit, offset)
+    parsed_kind = _optional_token(kind, _TIMELINE_KINDS)
+    parsed_category = _optional_token(content_category, _CATEGORY_FILTERS)
+    if parsed_category is not None and parsed_kind != "media":
+        raise RecordValueError()
+    return TimelinePageQuery(
+        limit=page.limit,
+        offset=page.offset,
+        kind=parsed_kind,
+        content_category=parsed_category,
+        q=_timeline_text(q),
+        status=_optional_token(status, _TIMELINE_STATUS),
+        visibility=_optional_token(visibility, _TIMELINE_VISIBILITY),
+        publication=_optional_token(publication, _TIMELINE_PUBLICATION),
     )

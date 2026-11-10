@@ -848,22 +848,54 @@
           <span class="kronika-hero__icon" aria-hidden="true">🕰️</span>
           <div>
             <h1 id="kronika-timeline-heading" tabindex="-1">Timeline</h1>
-            <p class="kronika-lede">Everything your household chose to keep — newest first.</p>
+            <p class="kronika-lede">Everything you can access in Kronika — newest first.</p>
           </div>
         </header>
-        <div id="kronika-timeline-filters" class="kronika-filters" role="group" aria-label="Timeline filters">
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="all"><span class="kronika-chip__icon" aria-hidden="true">🌐</span>All</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="search"><span class="kronika-chip__icon" aria-hidden="true">💬</span>Search</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="research"><span class="kronika-chip__icon" aria-hidden="true">🔬</span>Research</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="media"><span class="kronika-chip__icon" aria-hidden="true">🎞️</span>Media</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="general"><span class="kronika-chip__icon" aria-hidden="true">📁</span>General</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="meme"><span class="kronika-chip__icon" aria-hidden="true">😂</span>Memes</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="movie"><span class="kronika-chip__icon" aria-hidden="true">🎬</span>Movies</button>
-          <button type="button" class="kronika-action kronika-chip" data-kronika-filter="youtube"><span class="kronika-chip__icon" aria-hidden="true">▶️</span>YouTube</button>
-        </div>
+        <p class="kronika-note">Household sharing does not publish to the internet.</p>
+        <form id="kronika-timeline-filters" class="kronika-chronicle-filters" aria-label="Timeline filters">
+          <label for="kronika-timeline-kind">Kind</label>
+          <select id="kronika-timeline-kind">
+            <option value="all">All</option>
+            <option value="search">Search</option>
+            <option value="research">Research</option>
+            <option value="media">Media</option>
+            <option value="general">General</option>
+            <option value="meme">Memes</option>
+            <option value="movie">Movies</option>
+            <option value="youtube">YouTube</option>
+          </select>
+          <label for="kronika-timeline-status-filter">Status</label>
+          <select id="kronika-timeline-status-filter">
+            <option value="">Any status</option>
+            <option value="unanalysed">Unanalysed</option>
+            <option value="in_progress">In progress</option>
+            <option value="complete">Complete</option>
+            <option value="failed">Failed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <label for="kronika-timeline-visibility">Visibility</label>
+          <select id="kronika-timeline-visibility">
+            <option value="">Any visibility</option>
+            <option value="private">Private</option>
+            <option value="family">Household</option>
+          </select>
+          <label for="kronika-timeline-publication">Publication</label>
+          <select id="kronika-timeline-publication">
+            <option value="">Any publication</option>
+            <option value="unpublished">Unpublished</option>
+            <option value="approved">Approved</option>
+            <option value="withdrawn">Withdrawn</option>
+            <option value="legacy_published">Legacy publication</option>
+          </select>
+          <label for="kronika-timeline-search">Search</label>
+          <input id="kronika-timeline-search" type="search" maxlength="240" autocomplete="off">
+          <button id="kronika-timeline-search-submit" class="kronika-action" type="submit">Search</button>
+          <button id="kronika-timeline-search-clear" class="kronika-action" type="button">Clear</button>
+        </form>
         <p id="kronika-timeline-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <div id="kronika-timeline-results" class="kronika-grid" data-kronika-list="timeline"></div>
+        <ol id="kronika-timeline-results" class="kronika-chronicle" data-kronika-list="timeline"></ol>
         <div class="kronika-pager">
+          <p id="kronika-timeline-range" class="kronika-chronicle-range"></p>
           <button id="kronika-timeline-prev" class="kronika-action kronika-pager__button" type="button" aria-label="Previous page" title="Previous page"><span aria-hidden="true">←</span></button>
           <button id="kronika-timeline-next" class="kronika-action kronika-pager__button" type="button" aria-label="Next page" title="Next page"><span aria-hidden="true">→</span></button>
           <button id="kronika-timeline-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry</button>
@@ -954,8 +986,8 @@
           </div>
         </header>
         <div class="kronika-filters kronika-tabs" role="group" aria-label="Review">
-          <a id="kronika-review-private" class="kronika-action kronika-chip" href="#/review"><span class="kronika-chip__icon" aria-hidden="true">🔒</span>Not on Timeline</a>
-          <a id="kronika-review-shared" class="kronika-action kronika-chip" href="#/review/shared"><span class="kronika-chip__icon" aria-hidden="true">🕰️</span>On Timeline</a>
+          <a id="kronika-review-private" class="kronika-action kronika-chip" href="#/review"><span class="kronika-chip__icon" aria-hidden="true">🔒</span>Private</a>
+          <a id="kronika-review-shared" class="kronika-action kronika-chip" href="#/review/shared"><span class="kronika-chip__icon" aria-hidden="true">🕰️</span>Shared with household</a>
           <a id="kronika-review-requests" class="kronika-action kronika-chip" href="#/review/requests"><span class="kronika-chip__icon" aria-hidden="true">📨</span>Requests</a>
         </div>
         <p id="kronika-review-status" class="kronika-status" role="status" aria-live="polite"></p>
@@ -968,8 +1000,8 @@
         <div id="kronika-review-detail" hidden>
           <p id="kronika-review-version"></p>
           <p id="kronika-review-readiness" hidden>The server still checks successful analysis and saved metadata readiness.</p>
-          <button id="kronika-review-approve" class="kronika-action kronika-action--primary" type="button"><span aria-hidden="true">✓</span> Approve for Timeline</button>
-          <button id="kronika-review-withdraw" class="kronika-action kronika-action--danger" type="button" hidden><span aria-hidden="true">↩</span> Withdraw from Timeline</button>
+          <button id="kronika-review-approve" class="kronika-action kronika-action--primary" type="button"><span aria-hidden="true">✓</span> Approve for household</button>
+          <button id="kronika-review-withdraw" class="kronika-action kronika-action--danger" type="button" hidden><span aria-hidden="true">↩</span> Withdraw household sharing</button>
           <button id="kronika-review-reload" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Reload</button>
           <div id="kronika-review-media"></div>
         </div>

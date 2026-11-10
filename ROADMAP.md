@@ -61,7 +61,8 @@ Parked capture work has no authority on the active route:
 | S7-C | Capture application integration, including bridge submission and capture-specific media integration | A future explicit decision. S7-P does not switch media analysis to the research provider |
 
 Active proofs are administrator read of product records without secret or host
-access; ordinary cross-owner denial; shared Timeline exclusion until
+access; ordinary cross-owner denial; Timeline membership equal to existing
+direct-read authorization, with cross-owner household visibility only after
 administrator approval; personal history of questions and answers, including
 unfinished work; no automatic provider fallback or generation retry; complete
 safe Search and Research rendering; and research disabled by default. Parked

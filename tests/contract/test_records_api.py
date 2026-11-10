@@ -191,20 +191,27 @@ def test_summaries_keep_hostile_titles_and_omit_answers(records) -> None:
     assert records["bob"].get(f"/api/records/{records['record_id']}/render").status_code == 404
 
 
-def test_timeline_membership_is_approved_for_every_caller(records) -> None:
+def test_timeline_membership_follows_owner_admin_and_household_visibility(records) -> None:
     record_id = records["record_id"]
-    for client in (records["alice"], records["bob"], records["ada"]):
-        assert client.get("/api/timeline").json()["total"] == 0
+    assert records["bob"].get("/api/timeline").json()["total"] == 0
+    for name in ("alice", "ada"):
+        private = records[name].get("/api/timeline")
+        assert private.status_code == 200
+        assert private.headers["cache-control"] == "private, no-store"
+        assert private.json()["total"] == 1
+        assert private.json()["items"][0]["record_id"] == record_id
+        assert private.json()["items"][0]["read_decision"] == "current"
+        assert private.json()["items"][0]["visibility"] == "private"
     version = records["ada"].get(f"/api/records/{record_id}").json()["version"]
     approval = records["ada"].post(
         f"/api/admin/records/{record_id}/approval",
         json={"action": "approve", "expected_version": version},
     )
     assert approval.status_code == 200
-    for client in (records["alice"], records["bob"], records["ada"]):
-        timeline = client.get("/api/timeline").json()
+    for name, decision in (("alice", "current"), ("ada", "current"), ("bob", "approved")):
+        timeline = records[name].get("/api/timeline").json()
         assert timeline["total"] == 1
-        assert timeline["items"][0]["read_decision"] == "approved"
+        assert timeline["items"][0]["read_decision"] == decision
         assert timeline["items"][0]["display_title"]
     stale = records["ada"].post(
         f"/api/admin/records/{record_id}/approval",
@@ -217,13 +224,20 @@ def test_timeline_membership_is_approved_for_every_caller(records) -> None:
         json={"action": "withdraw", "expected_version": current},
     )
     assert withdrawn.status_code == 200
-    for client in (records["alice"], records["bob"], records["ada"]):
-        assert client.get("/api/timeline").json()["total"] == 0
+    assert records["bob"].get("/api/timeline").json()["total"] == 0
+    for name in ("alice", "ada"):
+        retained = records[name].get("/api/timeline").json()
+        assert retained["total"] == 1
+        assert retained["items"][0]["publication_state"] == "withdrawn"
     assert records["alice"].get("/api/my/records").json()["total"] == 1
 
 
 def test_record_list_filters_reject_invalid_combinations(records) -> None:
-    assert records["alice"].get("/api/timeline", params={"visibility": "family"}).status_code == 422
+    private = records["alice"].get("/api/timeline", params={"visibility": "private"})
+    assert private.status_code == 200
+    assert private.json()["total"] == 1
+    assert records["alice"].get("/api/timeline", params={"visibility": "nope"}).status_code == 422
+    assert records["alice"].get("/api/my/records", params={"visibility": "private"}).status_code == 422
     assert records["alice"].get(
         "/api/my/records",
         params={"content_category": "meme"},
@@ -502,8 +516,16 @@ def test_media_list_preview_locator_is_additive_and_path_free(media_records) -> 
     assert "relative_path" not in page.text
     assert _PREVIEW_PRIVATE_PATH not in page.text
     assert "approved.mp4" not in page.text
-    timeline = media_records["alice"].get("/api/timeline").json()
-    assert timeline["items"] == []
+    timeline = media_records["alice"].get("/api/timeline")
+    assert timeline.status_code == 200
+    assert "approved.mp4" not in timeline.text
+    assert _PREVIEW_PRIVATE_PATH not in timeline.text
+    body = timeline.json()
+    assert body["total"] == 1
+    assert body["items"][0]["preview_location_id"] == _APPROVED_LOCATION_ID
+    assert body["items"][0]["read_decision"] == "current"
+    assert "owner_login_key" not in body["items"][0]
+    assert media_records["bob"].get("/api/timeline").json()["total"] == 0
 
 
 def test_preview_locator_does_not_change_admin_or_detail_response_shapes(
@@ -585,6 +607,10 @@ def test_working_only_preview_location_is_not_disclosed_on_timeline(
     assert timeline.status_code == 200
     assert timeline.json()["items"][0]["preview_location_id"] == _APPROVED_LOCATION_ID
     assert _WORKING_LOCATION_ID not in timeline.text
+    for client in (alice, ada):
+        current = client.get("/api/timeline").json()["items"][0]
+        assert current["preview_location_id"] == _WORKING_LOCATION_ID
+        assert current["read_decision"] == "current"
     assert alice.get("/api/my/records").json()["items"][0]["preview_location_id"] == _WORKING_LOCATION_ID
 
 

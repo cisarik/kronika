@@ -301,14 +301,17 @@ catalog and server-owned state, but it may run locally and must not turn local
 ownership into public-cloud dependence. The premium gallery remains a flagship
 product invariant.
 
-Under ADR-0083, the Timeline is the main page and contains only
-administrator-approved records. Personal history is a separate view and stores
-questions and their answers, including complete Research reports and the
-caller's unfinished work. Gallery remains a separate working view using the
-existing design and player. Media enters the shared Timeline only after
-successful validated analysis and administrator approval. Search and Research
-become personal history when their complete results are saved; that completion
-does not by itself enter the Timeline. Preserve existing metadata-review
+Under [ADR-0087](docs/adr/0087-complete-visibility-aware-timeline-chronicle.md),
+the Timeline is the main page and the complete chronological overview of
+catalog media and Search/Research content the signed-in identity may already
+read, including private, unanalysed, unfinished, failed and unpublished
+content for its owner or an application administrator. Other household members
+see only existing approved projections or existing unbound legacy-publication
+access. Personal history remains a separate view of the caller's questions and
+answers. Gallery remains a separate working view using the existing design and
+player. Administrator approval still governs household sharing of completed
+records and successfully analyzed bound media; it does not decide whether the
+owner or an administrator sees an item. Preserve existing metadata-review
 approval. Personal photos and their future local AI analysis are outside this
 stage, as are internet publication and production hardening.
 

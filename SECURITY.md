@@ -65,10 +65,12 @@ are the pre-transition implementation, not exceptions to this record policy.
   metadata, previews, covers, playback, downloads and direct APIs.
 - Household publication is administrator approval of completed question and
   answer records and of successfully analyzed media. Owners do not publish
-  directly to the shared page. The shared Timeline contains only
-  administrator-approved records. Internet publication stays disabled. The
-  public composition remains off; even a direct public route must not expose
-  new Kronika records. Register new APIs in the exact permission table and
+  directly to the shared page. The Timeline lists every catalog medium and
+  Search/Research item the caller may already read; another household member
+  sees only an approved projection or unbound legacy publication. List, count
+  and search use those same predicates and cannot widen them. Internet
+  publication stays disabled. The public composition remains off and does not
+  install `/api/timeline`. Register new APIs in the exact permission table and
   existing Origin and mutation protection.
 - Permitted research egress is the expressly submitted question text plus
   fixed non-secret instructions, sent only to the fixed OpenAI Responses
@@ -459,18 +461,19 @@ final component remain enforced.
 
 The Timeline and personal-record History list items MAY carry one opaque
 `preview_location_id`. It is selected only from rows the caller may already
-read: the approved media projection for the Timeline and current physical
-locations for personal-record History. It is not a path, URL, cache key,
+read. An approved household Timeline read uses an available approved location.
+A current or legacy Timeline read, and personal-record History, use an
+available current physical location. It is not a path, URL, cache key,
 readiness guarantee, or authorization token, and the list response adds no
-location list, filesystem path, cache state, or answer text.
+location list, filesystem path, cache state, or answer text. Timeline responses
+use `Cache-Control: private, no-store` and no ETag.
 
 The browser builds the existing gallery-preview URL from `media_id` and this
 identifier. Every preview GET still passes the shared content audience decision
 before any cache access, including conditional `If-None-Match` requests. A
 denied, withdrawn, missing, or not-ready preview returns a sanitized error and
-no `304`. Timeline selection uses approved locations for every caller,
-including owners and administrators. The unrelated public-published composition
-and its preview route remain unchanged.
+no `304`. The unrelated public-published composition and its preview route
+remain unchanged.
 
 ### Durable Cover Endpoints
 

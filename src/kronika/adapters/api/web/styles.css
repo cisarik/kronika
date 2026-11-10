@@ -5989,8 +5989,7 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
 .kronika-card[data-kronika-kind="movie"]::before { content: "🎬"; }
 .kronika-card[data-kronika-kind="youtube"]::before { content: "▶️"; }
 
-/* Timeline and personal-record History previews occupy the existing icon slot. */
-#kronika-timeline-results .kronika-card__preview,
+/* Personal-record History previews occupy the existing icon slot. */
 #kronika-history-results .kronika-card__preview {
   position: absolute;
   top: 14px;
@@ -6006,19 +6005,92 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   pointer-events: none;
 }
 
-#kronika-timeline-results .kronika-card__preview[data-kronika-preview="ready"],
 #kronika-history-results .kronika-card__preview[data-kronika-preview="ready"] {
   opacity: 1;
 }
 
-#kronika-timeline-results .kronika-card__preview[data-kronika-preview="fallback"],
 #kronika-history-results .kronika-card__preview[data-kronika-preview="fallback"] {
   display: none;
 }
 
-#kronika-timeline-results .kronika-card:has(> .kronika-card__preview[data-kronika-preview="ready"])::before,
 #kronika-history-results .kronika-card:has(> .kronika-card__preview[data-kronika-preview="ready"])::before {
   visibility: hidden;
+}
+
+.kronika-chronicle-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: end;
+  margin: 0 0 12px;
+}
+
+.kronika-chronicle-filters label,
+.kronika-chronicle-filters select,
+.kronika-chronicle-filters input,
+.kronika-chronicle-filters button {
+  min-height: 44px;
+}
+
+.kronika-chronicle {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kronika-chronicle__item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto auto auto auto;
+  gap: 8px 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#kronika-timeline-results .kronika-chronicle__preview {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+#kronika-timeline-results .kronika-card__preview {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#kronika-timeline-results .kronika-card__preview[data-kronika-preview="ready"] {
+  opacity: 1;
+}
+
+#kronika-timeline-results .kronika-card__preview[data-kronika-preview="fallback"] {
+  display: none;
+}
+
+.kronika-chronicle__title {
+  min-height: 44px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@media (max-width: 720px) {
+  .kronika-chronicle__item {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .kronika-chronicle__kind,
+  .kronika-chronicle__added,
+  .kronika-chronicle__status,
+  .kronika-chronicle__visibility {
+    grid-column: 2;
+  }
 }
 
 .kronika-card:hover {
