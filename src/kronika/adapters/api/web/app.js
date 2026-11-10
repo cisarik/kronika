@@ -188,7 +188,6 @@ let uploadState = {
   message: "",
   failureMessage: "",
 };
-let uploadAutoStart = false;
 let metadataWorkspace = {
   openMediaId: null,
   openItem: null,
@@ -730,7 +729,6 @@ const researchSettingsConfirmButton = document.querySelector("#research-settings
 const uploadDialog = document.querySelector("#upload-dialog");
 const uploadDialogTitle = document.querySelector("#upload-dialog-title");
 const uploadCloseButton = document.querySelector("#upload-close-button");
-const uploadAutoStartInput = document.querySelector("#upload-auto-start-input");
 const uploadFileInput = document.querySelector("#upload-file-input");
 const uploadRow = document.querySelector("#upload-row");
 const uploadFileName = document.querySelector("#upload-file-name");
@@ -740,7 +738,6 @@ const uploadByteCount = document.querySelector("#upload-byte-count");
 const uploadPercent = document.querySelector("#upload-percent");
 const uploadMessage = document.querySelector("#upload-message");
 const uploadFailure = document.querySelector("#upload-failure");
-const uploadStartButton = document.querySelector("#upload-start-button");
 const uploadPauseButton = document.querySelector("#upload-pause-button");
 const uploadResumeButton = document.querySelector("#upload-resume-button");
 const uploadDuplicateKeepButton = document.querySelector("#upload-duplicate-keep-button");
@@ -3286,28 +3283,9 @@ function uploadUnresolvedWorkOwnsDialog() {
   return true;
 }
 
-function syncUploadAutoStartControl() {
-  if (uploadAutoStartInput) {
-    uploadAutoStartInput.checked = uploadAutoStart;
-  }
-}
-
 function updateUploadActions() {
   const snapshot = activeUploadSnapshot();
   const hasFile = Boolean(uploadState.file);
-  const hasActiveSession = Boolean(snapshot);
-  const fileWithinLimit = hasFile
-    && uploadCapability.max_total_size_bytes > 0
-    && uploadState.file.size > 0
-    && uploadState.file.size <= uploadCapability.max_total_size_bytes;
-  const startVisible = uploadCapability.uploads_enabled
-    && hasFile
-    && !hasActiveSession
-    && fileWithinLimit
-    && !uploadState.actionOwner
-    && !uploadState.preparing
-    && !uploadState.running
-    && !uploadState.completing;
   const pauseVisible = uploadState.running
     && !uploadState.paused
     && uploadIsByteReceiving(snapshot);
@@ -3336,17 +3314,12 @@ function updateUploadActions() {
     || Boolean(uploadState.actionOwner)
     || uploadState.completing;
   const focusedAction = [
-    uploadStartButton,
     uploadPauseButton,
     uploadResumeButton,
     uploadDuplicateKeepButton,
     uploadDuplicateDiscardButton,
     uploadCancelButton,
   ].find((button) => button && document.activeElement === button);
-  if (uploadStartButton) {
-    uploadStartButton.hidden = !startVisible;
-    uploadStartButton.disabled = !startVisible;
-  }
   if (uploadPauseButton) {
     uploadPauseButton.hidden = !pauseVisible;
     uploadPauseButton.disabled = !pauseVisible;
@@ -3370,9 +3343,6 @@ function updateUploadActions() {
   const replacementLocked = uploadUnresolvedWorkOwnsDialog();
   if (uploadFileInput) {
     uploadFileInput.disabled = replacementLocked;
-  }
-  if (uploadAutoStartInput) {
-    uploadAutoStartInput.disabled = replacementLocked;
   }
   if (focusedAction && focusedAction.hidden && uploadMessage) {
     uploadMessage.focus();
@@ -4115,10 +4085,7 @@ function handleUploadFileSelection() {
   const snapshot = activeUploadSnapshot();
   if (!snapshot || uploadTerminalSelectionPermitted(snapshot)) {
     resetUploadForFile(file);
-    if (uploadAutoStart) {
-      return handleStartUpload();
-    }
-    return;
+    return handleStartUpload();
   }
   if (uploadIsByteReceiving(snapshot)) {
     invalidateUploadOwnership();
@@ -4168,8 +4135,6 @@ function handleUploadFileSelection() {
 function openUploadDialog() {
   if (!uploadDialog) return;
   if (uploadDialogIsOpen()) return;
-  uploadAutoStart = false;
-  syncUploadAutoStartControl();
   uploadOpenerElement = document.activeElement;
   if (typeof uploadDialog.showModal === "function") {
     uploadDialog.showModal();
@@ -10496,22 +10461,8 @@ if (uploadDialog) {
   });
 }
 
-if (uploadAutoStartInput) {
-  uploadAutoStartInput.addEventListener("change", () => {
-    if (uploadAutoStartInput.disabled) {
-      uploadAutoStartInput.checked = uploadAutoStart;
-      return;
-    }
-    uploadAutoStart = Boolean(uploadAutoStartInput.checked);
-  });
-}
-
 if (uploadFileInput) {
   uploadFileInput.addEventListener("change", handleUploadFileSelection);
-}
-
-if (uploadStartButton) {
-  uploadStartButton.addEventListener("click", handleStartUpload);
 }
 
 if (uploadPauseButton) {
@@ -15823,7 +15774,6 @@ const KRONIKA_BUTTON_ICONS = Object.freeze({
   "Save research settings": "💾",
   "Send the color test": "🎨",
   "Set as cover": "🖼️",
-  "Start upload": "⬆️",
   "Test vision": "🎨",
   "Use for analysis": "⭐",
   "AI": "🧠",

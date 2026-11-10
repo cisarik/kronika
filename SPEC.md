@@ -795,20 +795,17 @@ re-uploads, and MUST NOT implement Trash, soft-delete tombstones, batch
 removal, or physical purge. See
 [ADR-0051](docs/adr/0051-administrator-catalog-removal.md).
 
-The upload dialog MAY offer one transient choice, “Start automatically after
-choosing a file,” off by default. That choice lives only for the current
-closed-to-open lifetime of the dialog. It MUST reset when the dialog opens
-from a closed state, MUST NOT reset or create work when the dialog is already
-open, and MUST NOT be stored in local storage, session storage, server
-settings, or the upload recovery record. Toggling the choice MUST NOT start an
-already selected file. With the choice on, one permitted new file selection or
-drop MUST invoke the existing capability-gated start path once. The client
-MUST claim that start before awaiting capability discovery or session
-creation. The start MUST require current `upload.submit`, configured upload
-capability, a positive file size, and the current server size limit. A failed
-gate MUST create no session and send no bytes, and MUST NOT schedule an
-automatic retry. Manual Start or Resume remains the retry where that action is
-still eligible.
+One permitted new file selection or drop MUST start one upload automatically.
+The upload dialog MUST NOT offer an auto-start checkbox or a Start control.
+The header Upload control and a companion `open_upload` message remain the ways
+to open the dialog. The client MUST claim that start synchronously before awaiting
+capability discovery or session creation. The start MUST require current
+`upload.submit`, configured upload capability, a positive file size, and the
+current server size limit. A failed gate MUST create no session, send no bytes,
+and schedule no automatic retry; another file selection is the retry. The
+dialog MUST NOT store an auto-start choice in local storage, session storage,
+server settings, or the upload recovery record. Opening an already open dialog
+MUST NOT reset state or create work.
 
 Automatic start MUST NOT replace an in-flight create, an active transfer,
 unresolved recovery, validation, duplicate review, or finalization. Selection

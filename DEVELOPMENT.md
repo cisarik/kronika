@@ -300,7 +300,7 @@ It is not task authority.
 
 ## Upload Flow
 
-Normative upload behavior, including the transient per-dialog auto-start choice, explicit Resume, and truthful progress, is [SPEC.md](SPEC.md) §18. Companion `open_upload` only opens that hosted dialog; progress and results stay inside it.
+Normative upload behavior, including automatic start after a permitted selection or drop, explicit Resume, and truthful progress, is [SPEC.md](SPEC.md) §18. Companion `open_upload` only opens that hosted dialog; progress and results stay inside it.
 
 Focused checks for this slice:
 
@@ -316,7 +316,7 @@ Synthetic-fixture checklist:
 
 - Use harmless fixture bytes, temporary catalogs, and synthetic identities.
 - Exercise an empty file, a file over the server limit, capability failure, and one normal GIF, MP4, JPEG, or PNG selection.
-- Confirm auto-start stays off until opted in, resets only when the dialog opens again, and does not resume a recovered upload.
+- Confirm selecting or dropping a file starts automatically, no Start control exists, a failed gate allows another selection, and automatic start does not resume a recovered upload.
 - Confirm an in-flight or recovering upload rejects a replacement file, administrator duplicate review still waits for keep or discard, and an ordinary completion shows review wording without duplicate evidence.
 - Confirm a full server offset can Resume through completion without sending another chunk, and a partial recovery still waits for explicit Resume.
 - Do not use provider credentials, private media, or a live automatic-analysis call.

@@ -242,11 +242,6 @@
         <button id="upload-close-button" class="upload-dialog__close" type="button" aria-label="Close upload cockpit">✕</button>
       </div>
       <div class="upload-dialog__body">
-        <div class="upload-auto-start">
-          <input id="upload-auto-start-input" class="upload-auto-start__input" type="checkbox" aria-describedby="upload-auto-start-hint">
-          <label id="upload-auto-start-label" class="upload-auto-start__label" for="upload-auto-start-input">Start automatically after choosing a file</label>
-        </div>
-        <p id="upload-auto-start-hint" class="upload-auto-start__hint">For this open dialog only. Recovered uploads still need Resume.</p>
         <div class="upload-file-field">
           <span id="upload-file-field-label" class="visually-hidden">Source file</span>
           <input id="upload-file-input" class="upload-file-input visually-hidden" type="file" accept=".gif,.mp4,.jpg,.jpeg,.png,image/gif,video/mp4,image/jpeg,image/png" aria-labelledby="upload-file-field-label upload-file-trigger" aria-describedby="upload-file-name upload-file-hint">
@@ -269,7 +264,6 @@
         <p class="upload-boundary-note">Uploads enter server quarantine for validation. Validated uploads await publication and are not yet available in Gallery.</p>
       </div>
       <div class="upload-dialog__footer">
-        <button id="upload-start-button" type="button" hidden disabled>Start upload</button>
         <button id="upload-pause-button" type="button" hidden disabled>Pause</button>
         <button id="upload-resume-button" type="button" hidden disabled>Resume</button>
         <button id="upload-duplicate-keep-button" type="button" hidden disabled>Keep as separate item</button>

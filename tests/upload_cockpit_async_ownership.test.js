@@ -380,7 +380,6 @@ function createDocument() {
     ["#upload-close-button", "#upload-dialog"],
     ["#upload-file-input", "#upload-dialog"],
     ["#upload-message", "#upload-dialog"],
-    ["#upload-start-button", "#upload-dialog"],
     ["#upload-pause-button", "#upload-dialog"],
     ["#upload-resume-button", "#upload-dialog"],
     ["#upload-duplicate-keep-button", "#upload-dialog"],
@@ -614,13 +613,11 @@ function stateOf(harness) {
     visibleMessage: document.querySelector("#upload-message").textContent,
     byteCount: document.querySelector("#upload-byte-count").textContent,
     fileName: document.querySelector("#upload-file-name").textContent,
-    startHidden: document.querySelector("#upload-start-button").hidden,
     pauseHidden: document.querySelector("#upload-pause-button").hidden,
     resumeHidden: document.querySelector("#upload-resume-button").hidden,
     duplicateKeepHidden: document.querySelector("#upload-duplicate-keep-button").hidden,
     duplicateDiscardHidden: document.querySelector("#upload-duplicate-discard-button").hidden,
     cancelHidden: document.querySelector("#upload-cancel-button").hidden,
-    startDisabled: document.querySelector("#upload-start-button").disabled,
     pauseDisabled: document.querySelector("#upload-pause-button").disabled,
     resumeDisabled: document.querySelector("#upload-resume-button").disabled,
     duplicateKeepDisabled: document.querySelector("#upload-duplicate-keep-button").disabled,
@@ -1118,7 +1115,6 @@ function assertExactUploadActions(harness, scenarioName, expectedActions) {
   const state = stateOf(harness);
   const expected = new Set(expectedActions);
   for (const action of [
-    "start",
     "pause",
     "resume",
     "duplicateKeep",
@@ -1177,7 +1173,7 @@ test("Upload controls expose the exact action set for every accepted lifecycle s
   const h = await createHarness();
   const scenarios = [
     { name: "No file", hasFile: false, stateLabel: "No file selected", actions: [] },
-    { name: "Valid selected file", stateLabel: "Ready", actions: ["start"] },
+    { name: "Valid selected file", stateLabel: "Ready", actions: [] },
     { name: "Preparing before session creation", preparing: true, actionKind: "start", stateLabel: "Preparing", actions: [] },
     { name: "Preparing after session creation", snapshotState: "created", received: 0, preparing: true, actionKind: "start", stateLabel: "Preparing", actions: ["cancel"] },
     { name: "Uploading", snapshotState: "receiving", received: 4, running: true, stateLabel: "Uploading", actions: ["pause", "cancel"] },
@@ -3863,19 +3859,8 @@ function capabilityResponse(overrides = {}) {
   });
 }
 
-function setUploadAutoStart(harness, enabled) {
-  harness.run(`(() => {
-    const input = document.querySelector("#upload-auto-start-input");
-    input.checked = ${enabled ? "true" : "false"};
-    input.dispatchEvent({ type: "change", bubbles: true });
-  })()`);
-}
-
-function autoStartState(harness) {
+function uploadSurface(harness) {
   return harness.run(`({
-    checked: document.querySelector("#upload-auto-start-input").checked,
-    disabled: document.querySelector("#upload-auto-start-input").disabled,
-    choice: uploadAutoStart,
     fileDisabled: document.querySelector("#upload-file-input").disabled,
     dialogOpen: document.querySelector("#upload-dialog").hasAttribute("open"),
     percent: document.querySelector("#upload-percent").textContent,
@@ -3949,54 +3934,35 @@ function enqueueStartedTransfer(harness, fileName, completePayload) {
   enqueue(harness, "POST", `/api/uploads/${UPLOAD_A}/complete`, response(completePayload));
 }
 
-test("Auto-start defaults off, survives file reset, and resets only on dialog reopen.", async () => {
-  const h = await createHarness();
-  h.run("openUploadDialog()");
-  await h.flush();
-  let choice = autoStartState(h);
-  assert.equal(choice.dialogOpen, true);
-  assert.equal(choice.checked, false);
-  assert.equal(choice.choice, false);
-
-  setUploadAutoStart(h, true);
-  h.context.__file = makeFile("kept.gif", 8);
-  h.run("resetUploadForFile(__file)");
-  choice = autoStartState(h);
-  assert.equal(choice.checked, true);
-  assert.equal(choice.choice, true);
-  assert.equal(stateOf(h).fileName, "kept.gif");
-  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
-
-  setUploadAutoStart(h, false);
-  setUploadAutoStart(h, true);
-  await h.flush();
-  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
-  assert.equal(stateOf(h).startHidden, false);
-  assert.equal(h.context.localStorage.getItem(RECOVERY_KEY_CURRENT), null);
-  assert.equal(h.context.localStorage.getItem(RECOVERY_KEY), null);
-
-  h.run("openUploadDialog()");
-  choice = autoStartState(h);
-  assert.equal(choice.dialogOpen, true);
-  assert.equal(choice.checked, true);
-  assert.equal(choice.choice, true);
-
-  h.run("closeUploadDialog()");
-  h.run("openUploadDialog()");
-  await h.flush();
-  choice = autoStartState(h);
-  assert.equal(choice.dialogOpen, true);
-  assert.equal(choice.checked, false);
-  assert.equal(choice.choice, false);
-  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+test("The upload dialog renders no auto-start choice and no Start control.", () => {
+  const start = INDEX_SOURCE.indexOf('<dialog id="upload-dialog"');
+  const dialog = INDEX_SOURCE.slice(start, INDEX_SOURCE.indexOf("</dialog>", start));
+  assert.equal(dialog.includes("upload-auto-start"), false);
+  assert.equal(dialog.includes("upload-start-button"), false);
+  assert.equal(dialog.includes('type="checkbox"'), false);
+  assert.equal(dialog.includes("Start automatically after choosing a file"), false);
+  assert.equal(dialog.includes("For this open dialog only"), false);
+  assert.equal(dialog.includes(">Start upload</button>"), false);
+  assert.ok(dialog.includes('id="upload-close-button"'));
+  assert.ok(dialog.includes('id="upload-file-input"'));
+  assert.ok(dialog.includes('id="upload-progress"'));
+  assert.ok(dialog.includes('id="upload-resume-button"'));
+  assert.ok(dialog.includes('id="upload-duplicate-keep-button"'));
+  assert.ok(dialog.includes('id="upload-duplicate-discard-button"'));
+  assert.ok(dialog.includes('id="upload-cancel-button"'));
+  assert.equal(APP_SOURCE.includes("uploadAutoStart"), false);
+  assert.equal(APP_SOURCE.includes("syncUploadAutoStartControl"), false);
+  assert.equal(APP_SOURCE.includes("uploadStartButton"), false);
+  assert.equal(APP_SOURCE.includes("if (uploadAutoStart)"), false);
+  assert.ok(APP_SOURCE.includes("function uploadDialogIsOpen("));
+  assert.ok(INDEX_SOURCE.includes('id="upload-open-button"'));
 });
 
-test("Opted-in picker and drop selection start one upload with the existing payload.", async () => {
+test("A permitted picker or drop selection starts one upload with the existing payload.", async () => {
   const picker = await createHarness();
   picker.run("openUploadDialog()");
   await picker.flush();
   picker.fetchController.clearCalls();
-  setUploadAutoStart(picker, true);
   const capability = deferred();
   const created = deferred();
   enqueue(picker, "GET", "/api/uploads/capability", capability.promise);
@@ -4025,7 +3991,6 @@ test("Opted-in picker and drop selection start one upload with the existing payl
   dropped.run("openUploadDialog()");
   await dropped.flush();
   dropped.fetchController.clearCalls();
-  setUploadAutoStart(dropped, true);
   enqueue(dropped, "GET", "/api/uploads/capability", capabilityResponse());
   const dropCreated = deferred();
   enqueue(dropped, "POST", "/api/uploads", dropCreated.promise);
@@ -4045,11 +4010,10 @@ test("Opted-in picker and drop selection start one upload with the existing payl
   await dropped.flush();
 });
 
-test("Auto-start fails closed for capability, empty-file and size failures without delayed retry.", async () => {
+test("Selection fails closed for capability, empty-file and size failures without delayed retry.", async () => {
   const missingCapability = await createHarness();
   missingCapability.fetchController.clearCalls();
   missingCapability.run(`identityState.capabilities = new Set(["gallery.read"]);`);
-  setUploadAutoStart(missingCapability, true);
   const missingStart = beginChosenUpload(missingCapability, makeFile("needs-submit.gif", 8));
   await missingStart;
   await missingCapability.flush();
@@ -4061,7 +4025,6 @@ test("Auto-start fails closed for capability, empty-file and size failures witho
   disabled.run("openUploadDialog()");
   await disabled.flush();
   disabled.fetchController.clearCalls();
-  setUploadAutoStart(disabled, true);
   enqueue(disabled, "GET", "/api/uploads/capability", capabilityResponse({ uploads_enabled: false }));
   await beginChosenUpload(disabled, makeFile("disabled.gif", 8));
   await disabled.flush();
@@ -4072,7 +4035,6 @@ test("Auto-start fails closed for capability, empty-file and size failures witho
   empty.run("openUploadDialog()");
   await empty.flush();
   empty.fetchController.clearCalls();
-  setUploadAutoStart(empty, true);
   await beginChosenUpload(empty, makeFile("empty.gif", 0));
   await empty.flush();
   assert.equal(empty.fetchController.matching("POST", "/api/uploads").length, 0);
@@ -4082,7 +4044,6 @@ test("Auto-start fails closed for capability, empty-file and size failures witho
   oversize.run("openUploadDialog()");
   await oversize.flush();
   oversize.fetchController.clearCalls();
-  setUploadAutoStart(oversize, true);
   enqueue(oversize, "GET", "/api/uploads/capability", capabilityResponse({ max_total_size_bytes: 1024 }));
   await beginChosenUpload(oversize, makeFile("big.gif", 2048));
   await oversize.flush();
@@ -4093,7 +4054,6 @@ test("Auto-start fails closed for capability, empty-file and size failures witho
   offline.run("openUploadDialog()");
   await offline.flush();
   offline.fetchController.clearCalls();
-  setUploadAutoStart(offline, true);
   enqueue(offline, "GET", "/api/uploads/capability", Promise.reject(new Error("offline")));
   await beginChosenUpload(offline, makeFile("offline.gif", 8));
   await offline.flush();
@@ -4119,15 +4079,13 @@ test("Active or recovering uploads reject replacement selection and repeated ope
   active.run("openUploadDialog()");
   await active.flush();
   active.fetchController.clearCalls();
-  setUploadAutoStart(active, true);
   const capability = deferred();
   enqueue(active, "GET", "/api/uploads/capability", capability.promise);
   const started = beginChosenUpload(active, makeFile("first.gif", 8, 1111));
   await active.flush();
   assert.equal(stateOf(active).actionKind, "start");
   assert.equal(stateOf(active).fileName, "first.gif");
-  assert.equal(autoStartState(active).fileDisabled, true);
-  assert.equal(autoStartState(active).disabled, true);
+  assert.equal(uploadSurface(active).fileDisabled, true);
   beginChosenUpload(active, makeFile("second.gif", 8, 2222));
   await active.flush();
   assert.equal(stateOf(active).fileName, "first.gif");
@@ -4149,7 +4107,7 @@ test("Active or recovering uploads reject replacement selection and repeated ope
   assert.equal(stateOf(active).fileName, "first.gif");
   const callsBeforeRepeat = active.fetchController.calls.length;
   active.run("openUploadDialog()");
-  assert.equal(autoStartState(active).checked, true);
+  assert.equal(uploadSurface(active).dialogOpen, true);
   assert.equal(active.fetchController.calls.length, callsBeforeRepeat);
   assert.equal(active.fetchController.matching("POST", "/api/uploads").length, 0);
   enqueue(active, "POST", "/api/uploads", response(snapshot(UPLOAD_A, "created", 0, 8, "first.gif")));
@@ -4161,7 +4119,6 @@ test("Active or recovering uploads reject replacement selection and repeated ope
   assert.equal(JSON.parse(createdPosts[0].options.body).display_filename, "first.gif");
 
   const recovering = await createHarness();
-  setUploadAutoStart(recovering, true);
   recovering.context.localStorage.setItem(RECOVERY_KEY, JSON.stringify({
     upload_id: UPLOAD_A,
     file_name_hint: "saved.gif",
@@ -4178,7 +4135,7 @@ test("Active or recovering uploads reject replacement selection and repeated ope
   const callsDuringRecovery = recovering.fetchController.calls.length;
   recovering.run("openUploadDialog()");
   assert.equal(recovering.fetchController.calls.length, callsDuringRecovery);
-  assert.equal(autoStartState(recovering).checked, true);
+  assert.equal(uploadSurface(recovering).dialogOpen, true);
   beginChosenUpload(recovering, makeFile("replacement.gif", 8, 9999));
   await recovering.flush();
   assert.equal(stateOf(recovering).uploadId, UPLOAD_A);
@@ -4192,12 +4149,11 @@ test("Active or recovering uploads reject replacement selection and repeated ope
   assert.equal(recovering.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 0);
 });
 
-test("Auto-start preserves administrator duplicate review and ordinary duplicate privacy.", async () => {
+test("Automatic start preserves administrator duplicate review and ordinary duplicate privacy.", async () => {
   const admin = await createHarness();
   admin.run("openUploadDialog()");
   await admin.flush();
   admin.fetchController.clearCalls();
-  setUploadAutoStart(admin, true);
   enqueueStartedTransfer(
     admin,
     "duplicate.gif",
@@ -4223,7 +4179,6 @@ test("Auto-start preserves administrator duplicate review and ordinary duplicate
   ordinary.run("openUploadDialog()");
   await ordinary.flush();
   ordinary.fetchController.clearCalls();
-  setUploadAutoStart(ordinary, true);
   enqueueStartedTransfer(
     ordinary,
     "ordinary.gif",
@@ -4245,7 +4200,6 @@ test("Auto-start preserves administrator duplicate review and ordinary duplicate
 test("Full-offset Resume completes without PATCH, while recovered byte transfer still requires explicit Resume.", async () => {
   const full = await createHarness();
   setActiveUpload(full, { id: UPLOAD_A, state: "receiving", received: 8, size: 8 });
-  setUploadAutoStart(full, true);
   assert.equal(stateOf(full).resumeHidden, false);
   assert.equal(stateOf(full).resumeDisabled, false);
   enqueueStatus(full, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 8)));
@@ -4256,7 +4210,7 @@ test("Full-offset Resume completes without PATCH, while recovered byte transfer 
   assert.equal(full.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 0);
   assert.equal(full.fetchController.matching("POST", `/api/uploads/${UPLOAD_A}/complete`).length, 1);
   assert.equal(stateOf(full).snapshotState, "received");
-  assert.equal(autoStartState(full).percent, "100%");
+  assert.equal(uploadSurface(full).percent, "100%");
 
   const needsFile = await createHarness();
   setActiveUpload(needsFile, { id: UPLOAD_A, state: "receiving", received: 8, size: 8 });
@@ -4283,7 +4237,6 @@ test("Full-offset Resume completes without PATCH, while recovered byte transfer 
   enqueueStatus(recovered, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4)));
   await recovered.run("restoreUploadRecovery()");
   await recovered.flush();
-  setUploadAutoStart(recovered, true);
   recovered.context.__file = makeFile("sample.gif", 8, 1234);
   await recovered.run(`(() => {
     const input = document.querySelector("#upload-file-input");
@@ -4312,7 +4265,7 @@ test("Hosted open_upload opens the same dialog without starting a transfer and r
   `);
   h.dispatchCompanionMessage({ v: "kronika.companion.web.v1", type: "open_upload" });
   await h.flush();
-  assert.equal(autoStartState(h).dialogOpen, false);
+  assert.equal(uploadSurface(h).dialogOpen, false);
 
   h.run(`
     identityState.capabilities.add("upload.submit");
@@ -4323,16 +4276,14 @@ test("Hosted open_upload opens the same dialog without starting a transfer and r
     { origin: "https://evil.example" },
   );
   await h.flush();
-  assert.equal(autoStartState(h).dialogOpen, false);
+  assert.equal(uploadSurface(h).dialogOpen, false);
   assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
 
   h.dispatchCompanionMessage({ v: "kronika.companion.web.v1", type: "open_upload" });
   await h.flush();
-  assert.equal(autoStartState(h).dialogOpen, true);
-  assert.equal(autoStartState(h).checked, false);
+  assert.equal(uploadSurface(h).dialogOpen, true);
   assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
 
-  setUploadAutoStart(h, true);
   const callsWhileOpen = h.fetchController.calls.length;
   h.dispatchCompanionMessage({
     v: "kronika.companion.web.v1",
@@ -4340,10 +4291,9 @@ test("Hosted open_upload opens the same dialog without starting a transfer and r
     payload: { percent: 100, received_size_bytes: 8 },
   });
   await h.flush();
-  assert.equal(autoStartState(h).checked, true);
+  assert.equal(uploadSurface(h).dialogOpen, true);
   assert.equal(h.fetchController.calls.length, callsWhileOpen);
   assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
-  setUploadAutoStart(h, false);
 
   h.fetchController.clearCalls();
   const completion = deferred();
@@ -4354,11 +4304,10 @@ test("Hosted open_upload opens the same dialog without starting a transfer and r
   enqueueStatus(h, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4, 8, "hosted.gif")));
   enqueue(h, "PATCH", `/api/uploads/${UPLOAD_A}`, response(snapshot(UPLOAD_A, "receiving", 8, 8, "hosted.gif")));
   enqueue(h, "POST", `/api/uploads/${UPLOAD_A}/complete`, completion.promise);
-  beginChosenUpload(h, makeFile("hosted.gif", 8));
-  const started = h.run("handleStartUpload()");
+  const started = beginChosenUpload(h, makeFile("hosted.gif", 8));
   await flushUntil(h, () => stateOf(h).visibleMessage.includes("Completing byte reception"));
-  assert.equal(autoStartState(h).percent, "100%");
-  assert.equal(autoStartState(h).dialogOpen, true);
+  assert.equal(uploadSurface(h).percent, "100%");
+  assert.equal(uploadSurface(h).dialogOpen, true);
   assert.notEqual(stateOf(h).stateLabel, "Completed");
   assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 1);
   completion.resolve(response(snapshot(UPLOAD_A, "cataloged", 8, 8, "hosted.gif")));
@@ -4368,6 +4317,6 @@ test("Hosted open_upload opens the same dialog without starting a transfer and r
   assert.equal(finished.snapshotState, "cataloged");
   assert.equal(finished.stateLabel, "Completed");
   assert.match(finished.visibleMessage, /Cataloged/);
-  assert.equal(autoStartState(h).dialogOpen, true);
+  assert.equal(uploadSurface(h).dialogOpen, true);
   assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 1);
 });

@@ -2743,7 +2743,7 @@ def test_web_shell_contains_local_upload_cockpit_without_gallery_publication_cla
     assert '>No file selected</span>' in upload_dialog
     assert ">Preparing</span>" not in upload_dialog
     assert "upload-progress" in upload_dialog
-    assert 'id="upload-start-button" type="button" hidden disabled>Start upload</button>' in upload_dialog
+    assert "upload-start-button" not in upload_dialog
     assert 'id="upload-pause-button" type="button" hidden disabled>Pause</button>' in upload_dialog
     assert 'id="upload-resume-button" type="button" hidden disabled>Resume</button>' in upload_dialog
     assert 'id="upload-cancel-button" class="danger-button" type="button" hidden disabled>Cancel</button>' in upload_dialog
@@ -3086,37 +3086,39 @@ def test_served_shell_persisted_keys_read_the_retired_spelling_and_write_the_cur
         )
 
 
-def test_upload_dialog_auto_start_is_opt_in_and_scoped(client: TestClient) -> None:
+def test_upload_dialog_has_no_auto_start_choice_or_start_control(client: TestClient) -> None:
     html = client.get("/").text
     css = client.get("/assets/styles.css").text
     script = client.get("/assets/app.js").text
     upload_dialog = html[html.index('id="upload-dialog"') : html.index('id="status-dialog"')]
-    auto_start = upload_dialog.index('id="upload-auto-start-input"')
-    file_input = upload_dialog.index('id="upload-file-input"')
 
-    assert auto_start < file_input
-    checkbox = upload_dialog[auto_start:file_input]
-    assert 'type="checkbox"' in checkbox
-    assert " checked" not in checkbox
-    assert ">Start automatically after choosing a file</label>" in upload_dialog
-    assert (
-        ">For this open dialog only. Recovered uploads still need Resume.</p>"
-        in upload_dialog
-    )
-    assert 'aria-describedby="upload-auto-start-hint"' in upload_dialog
+    assert "upload-auto-start-input" not in upload_dialog
+    assert "upload-auto-start" not in upload_dialog
+    assert "upload-start-button" not in upload_dialog
+    assert 'type="checkbox"' not in upload_dialog
+    assert "Start automatically after choosing a file" not in upload_dialog
+    assert "For this open dialog only. Recovered uploads still need Resume." not in upload_dialog
+    assert ">Start upload</button>" not in upload_dialog
+    assert "upload-file-input" in upload_dialog
+    assert "upload-progress" in upload_dialog
+    assert 'id="upload-duplicate-keep-button"' in upload_dialog
+    assert 'id="upload-duplicate-discard-button"' in upload_dialog
+    assert 'id="upload-cancel-button"' in upload_dialog
     assert "published" not in upload_dialog.lower()
 
     open_rule = css[css.index("#upload-dialog[open]") : css.index("#upload-dialog[open]") + 80]
     assert "display: flex" in open_rule
     assert "flex-direction: column" in open_rule
-    assert "#upload-dialog .upload-auto-start__label" in css
-    assert "overflow-wrap: anywhere" in css
+    assert ".upload-auto-start" not in css
     assert ".youtube-claim-dialog" in css
     assert "width: min(620px, calc(100% - 40px));" in css
 
-    assert "let uploadAutoStart = false;" in script
+    assert "uploadAutoStart" not in script
     assert "function uploadUnresolvedWorkOwnsDialog(" in script
     assert "function uploadReadyForCompleteOnly(" in script
+    assert "function uploadDialogIsOpen(" in script
     storage_writes = re.findall(r"\.setItem\(([^)]*)\)", script)
     assert storage_writes
     assert all("uploadAutoStart" not in write for write in storage_writes)
+    assert all("auto-start" not in write for write in storage_writes)
+    assert all("Start automatically" not in write for write in storage_writes)
