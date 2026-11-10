@@ -1404,7 +1404,6 @@ class _ShellStructureParser(HTMLParser):
             self.in_filters = True
         if self.in_filters and attributes.get("id") in {
             "kronika-timeline-publication",
-            "kronika-timeline-search",
             "kronika-timeline-kind",
             "kronika-timeline-status-filter",
             "kronika-timeline-visibility",
@@ -1446,20 +1445,23 @@ def test_served_shell_groups_navigation_and_timeline_controls(client: TestClient
     assert parser.nav_in_header is False
     assert parser.nav_in_main is False
     assert parser.groups == ["Browse", "Actions"]
-    assert [item["nav"] for item in parser.membership["Browse"]] == ["timeline", "gallery", "history"]
+    assert [item["nav"] for item in parser.membership["Browse"]] == ["timeline", "gallery"]
     assert [item["nav"] for item in parser.membership["Actions"]] == ["search", "research", "review"]
-    assert [item["href"] for item in parser.membership["Browse"]] == ["#/timeline", "#/gallery", "#/history"]
+    assert [item["href"] for item in parser.membership["Browse"]] == ["#/timeline", "#/gallery"]
     assert [item["href"] for item in parser.membership["Actions"]] == ["#/search", "#/research", "#/review"]
     assert parser.membership["Actions"][-1]["hidden"] == "hidden"
     assert parser.filter_ids == [
         "kronika-timeline-publication",
-        "kronika-timeline-search",
         "kronika-timeline-kind",
         "kronika-timeline-status-filter",
         "kronika-timeline-visibility",
     ]
     assert parser.option_roles
     assert set(parser.option_roles) == {"presentation"}
+    assert 'id="kronika-history"' not in html
+    assert 'href="#/history"' not in html
+    assert 'id="kronika-timeline-heading" class="visually-hidden"' in html
+    assert html.index('id="kronika-timeline-search-form"') < html.index("</header>")
     assert 'placeholder="Search timeline"' in html
     assert 'aria-label="Search timeline titles and questions"' in html
     assert "header-search__clear-slot" in html

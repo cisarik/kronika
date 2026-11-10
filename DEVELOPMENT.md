@@ -276,7 +276,7 @@ Load the unpacked companion by following
 the server fills missing gallery previews in-process. Set it to `false` to
 disable that coordinator. A gallery-preview GET never generates a preview.
 
-Timeline media rows reuse ready Gallery previews, with the kind icon retained while loading and after every failure. Personal History is the Questions-only chronicle and makes no media-preview requests. [SPEC.md](SPEC.md) owns these presentation requirements. The focused validation route is:
+Timeline media rows reuse ready Gallery previews, with the kind icon retained while loading and after every failure. Question rows appear on the Timeline and make no media-preview requests. There is no separate History view. [SPEC.md](SPEC.md) owns these presentation requirements. The focused validation route is:
 
 ```text
 # [MacBook / fish]
@@ -289,7 +289,7 @@ node --test tests/kronika_ui.test.js tests/gallery_search_tag_filters.test.js
 Use only synthetic records, temporary catalogs and harmless fixture bytes for
 manual checks. A video or animated-image card with an authorized ready
 derivative should reveal the JPEG; still images, non-media records, question
-History and every missing, unavailable, denied or failed derivative should keep
+rows and every missing, unavailable, denied or failed derivative should keep
 the kind icon with no broken-image chrome and no automatic retry. Rendered
 acceptance requires the exact accepted commit to be published on public `main`
 and refreshed onto the NUC first; do not request visual acceptance against a

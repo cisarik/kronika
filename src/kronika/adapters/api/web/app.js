@@ -13436,21 +13436,16 @@ function kronikaBlankList() {
 
 const kronikaLists = {
   timeline: kronikaBlankList(),
-  questions: kronikaBlankList(),
-  records: kronikaBlankList(),
   adminRecords: kronikaBlankList(),
   adminRequests: kronikaBlankList(),
 };
 
 const kronikaListControllers = {
   timeline: null,
-  questions: null,
-  records: null,
 };
 
 const kronikaPreviewRuntime = {
   timeline: { generation: 0, entries: new Set() },
-  records: { generation: 0, entries: new Set() },
 };
 
 const kronikaAttempt = {
@@ -13475,7 +13470,6 @@ const kronikaReview = {
 const kronikaRuntime = {
   bound: false,
   routeName: "timeline",
-  historyMode: "questions",
   reviewMode: "private",
   questionKind: "search",
   activeOperationId: "",
@@ -13543,13 +13537,13 @@ function kronikaCanApprove() {
 function kronikaErrorCopy(code) {
   switch (code) {
     case "E_DISABLED":
-      return "Search and Research are turned off. Your history is still available.";
+      return "Search and Research are turned off. Your questions remain on the Timeline.";
     case "E_NOT_CONFIGURED":
       return "Search and Research are not ready. An administrator needs to finish setup.";
     case "E_BUSY":
       return "Another request is running. Try again when it finishes.";
     case "E_IDEMPOTENCY_CONFLICT":
-      return "This submission ID belongs to different content. Check your history before starting a new request.";
+      return "This submission ID belongs to different content. Check the Timeline before starting a new request.";
     case "E_BUDGET_EXCEEDED":
       return "The research budget has been reached. Try again after it resets.";
     case "IDENTITY_REQUIRED":
@@ -13681,26 +13675,19 @@ function kronikaParseRoute(hash) {
       view: "gallery",
     };
   }
-  if (normalized === "/history") {
+  if (normalized === "/history" || normalized === "/history/records") {
     return {
-      name: "history",
-      path: "/history",
+      name: "timeline",
+      path: "/timeline",
       id: "",
-      offset,
+      offset: 0,
       filter: "all",
-      headingId: "kronika-history-heading",
-      view: "history",
-    };
-  }
-  if (normalized === "/history/records") {
-    return {
-      name: "history",
-      path: "/history",
-      id: "",
-      offset,
-      filter: "all",
-      headingId: "kronika-history-heading",
-      view: "history",
+      status: "",
+      visibility: "",
+      publication: "",
+      q: "",
+      headingId: "kronika-timeline-heading",
+      view: "timeline",
     };
   }
   if (normalized === "/search" || normalized === "/research") {
@@ -13843,7 +13830,7 @@ function kronikaDocumentReady() {
 
 function kronikaClearPrivate() {
   kronikaRetirePreviews();
-  ["timeline", "questions", "records"].forEach((key) => kronikaCancelListRequest(key));
+  kronikaCancelListRequest("timeline");
   Object.keys(kronikaLists).forEach((key) => {
     kronikaLists[key] = kronikaBlankList();
   });
@@ -13856,13 +13843,12 @@ function kronikaClearPrivate() {
   kronikaReview.needsReload = false;
   kronikaReview.pending = false;
   if (!kronikaDocumentReady()) return;
-  ["kronika-timeline-results", "kronika-history-results", "kronika-review-results", "kronika-record-citations", "kronika-review-media"].forEach((id) => {
+  ["kronika-timeline-results", "kronika-review-results", "kronika-record-citations", "kronika-review-media"].forEach((id) => {
     const node = document.getElementById(id);
     if (node) node.replaceChildren();
   });
   kronikaSetText("kronika-record-question", "");
   kronikaSetText("kronika-timeline-status", "");
-  kronikaSetText("kronika-history-status", "");
   kronikaSetText("kronika-review-status", "");
   kronikaSetText("kronika-request-status", "");
   const frame = document.getElementById("kronika-document-frame");
@@ -13918,9 +13904,8 @@ function kronikaLeaveGallery() {
 
 function kronikaMarkCurrent(name) {
   const current = name === "details" ? "gallery"
-    : name === "request" || name === "record" ? "history"
-      : name === "review-shared" || name === "review-requests" ? "review"
-        : name;
+    : name === "review-shared" || name === "review-requests" ? "review"
+      : name;
   document.querySelectorAll(".kronika-nav a[data-kronika-nav]").forEach((link) => {
     if (link.getAttribute("data-kronika-nav") === current) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
@@ -13940,7 +13925,7 @@ function kronikaSyncReviewNav() {
   if (review) review.hidden = !kronikaCanApprove();
 }
 
-function kronikaShowShell(view) {
+function kronikaShowShell(view, routeName) {
   document.querySelectorAll("[data-kronika-view]").forEach((node) => {
     node.hidden = node.getAttribute("data-kronika-view") !== view;
   });
@@ -13948,17 +13933,17 @@ function kronikaShowShell(view) {
     kronikaRetirePreviews("timeline");
     kronikaCancelListRequest("timeline");
   }
-  if (view !== "history") {
-    kronikaRetirePreviews("records");
-    kronikaCancelListRequest("questions");
-    kronikaCancelListRequest("records");
-  }
   const catalog = document.getElementById("catalog-browser");
-  const search = document.querySelector(".header-search");
+  const shownRoute = routeName || view;
   const gallery = view === "gallery";
   if (!gallery) kronikaLeaveGallery();
   if (catalog) catalog.hidden = !gallery;
-  if (search) search.hidden = !gallery;
+  document.querySelectorAll(".header-search").forEach((node) => {
+    const names = node.className ? String(node.className).split(/\s+/) : [];
+    const timelineSearch = names.includes("kronika-timeline-search");
+    if (timelineSearch) node.hidden = view !== "timeline";
+    else node.hidden = !(gallery && shownRoute !== "details");
+  });
   if (gallery) kronikaHideLegacyBrowsers();
 }
 
@@ -14027,19 +14012,17 @@ async function kronikaFollowHash() {
     }
     kronikaRuntime.routeName = route.name;
     kronikaMarkCurrent(route.name);
-    kronikaShowShell(route.view);
-    if (route.name === "timeline") await kronikaLoadTimeline(route);
+    kronikaShowShell(route.view, route.name);
+    if (route.name === "timeline") {
+      if (kronikaLocationHash().startsWith("#/history")) kronikaSetHashSuppressed("#/timeline");
+      await kronikaLoadTimeline(route);
+    }
     else if (route.name === "gallery") kronikaEnsureGalleryLoaded();
     else if (route.name === "details") {
       kronikaEnsureGalleryLoaded();
       if (typeof openDetailsDialog === "function") {
         openDetailsDialog({ media_id: route.id }, kronikaOpener || document.getElementById("catalog-browser"));
       }
-    } else if (route.name === "history") {
-      if (kronikaLocationHash().startsWith("#/history/records")) {
-        kronikaSetHashSuppressed(kronikaHashForRoute(route));
-      }
-      await kronikaLoadHistory(route);
     } else if (route.name === "search" || route.name === "research") {
       await kronikaShowQuestion(route);
     } else if (route.name === "request") {
@@ -14204,7 +14187,7 @@ function kronikaRetirePreviewEntry(entry) {
 }
 
 function kronikaRetirePreviews(surface) {
-  const keys = surface ? [surface] : ["timeline", "records"];
+  const keys = surface ? [surface] : ["timeline"];
   keys.forEach((key) => {
     const bucket = kronikaPreviewRuntime[key];
     if (!bucket) return;
@@ -14567,80 +14550,6 @@ async function kronikaLoadTimeline(route) {
   kronikaPager("kronika-timeline-prev", "kronika-timeline-next", list);
 }
 
-function kronikaQuestionShare(item) {
-  if (item && (item.visibility || item.publication_state)) {
-    return { glyph: kronikaShareGlyph(item), text: kronikaPublicationLabel(item) };
-  }
-  return { glyph: "🔒", text: "Private" };
-}
-
-function kronikaRenderQuestionChronicle(results, items) {
-  if (!results) return;
-  results.replaceChildren();
-  items.forEach((item) => {
-    const row = document.createElement("li");
-    row.className = "kronika-chronicle__item";
-    kronikaTagCardKind(row, item);
-    const title = document.createElement("a");
-    title.className = "kronika-chronicle__title";
-    title.href = item.record_id
-      ? `#/records/${encodeURIComponent(item.record_id)}`
-      : `#/requests/${encodeURIComponent(item.operation_id)}`;
-    title.textContent = kronikaCardTitle(item);
-    row.appendChild(title);
-    row.appendChild(kronikaChronicleLabeled("kronika-chronicle__kind", "Kind", kronikaKindLabel(item)));
-    const statusItem = { status: item.state || item.status || "", kind: item.kind };
-    row.appendChild(kronikaChronicleSignal(
-      "kronika-chronicle__status",
-      kronikaStatusGlyph(statusItem.status),
-      kronikaStatusLabel(statusItem),
-    ));
-    const share = kronikaQuestionShare(item);
-    row.appendChild(kronikaChronicleSignal("kronika-chronicle__visibility", share.glyph, share.text));
-    results.appendChild(row);
-  });
-}
-
-async function kronikaLoadHistory(route) {
-  kronikaRuntime.historyMode = "questions";
-  kronikaRetirePreviews("records");
-  kronikaCancelListRequest("questions");
-  kronikaCancelListRequest("records");
-  if (!kronikaVerified()) {
-    kronikaSetText("kronika-history-status", kronikaErrorCopy("IDENTITY_REQUIRED"));
-    return;
-  }
-  if (!kronikaCanResearch()) {
-    kronikaSetText("kronika-history-status", kronikaErrorCopy("CAPABILITY_DENIED"));
-    return;
-  }
-  const list = kronikaLists.questions;
-  const controller = kronikaBeginListController("questions");
-  const queryKey = JSON.stringify({ mode: "questions", offset: route.offset, login: kronikaLogin() });
-  const generation = kronikaIdentityGeneration;
-  const requestGeneration = list.generation;
-  const result = await kronikaReadJson(
-    kronikaListUrl("/api/research-requests", route.offset, {}),
-    generation,
-    controller ? controller.signal : undefined,
-  );
-  if (requestGeneration !== list.generation || generation !== kronikaIdentityGeneration) return;
-  if (!kronikaAcceptList(list, queryKey, result)) return;
-  const results = document.getElementById("kronika-history-results");
-  const retry = document.getElementById("kronika-history-retry");
-  if (list.error) {
-    kronikaSetText("kronika-history-status", list.error);
-    if (results) results.replaceChildren();
-    if (retry) retry.hidden = false;
-    return;
-  }
-  if (retry) retry.hidden = true;
-  if (list.stale) kronikaSetText("kronika-history-status", "Showing the last loaded page. It was not refreshed.");
-  else kronikaSetText("kronika-history-status", "");
-  kronikaRenderQuestionChronicle(results, list.items);
-  kronikaPager("kronika-history-prev", "kronika-history-next", list);
-}
-
 function kronikaUsdFromMicros(micros) {
   const dollars = micros / 1000000;
   const digits = dollars > 0 && dollars < 0.01 ? 6 : 2;
@@ -14728,12 +14637,12 @@ async function kronikaOfferRecovery() {
   }
   if (!stored || typeof stored !== "object" || typeof stored.id !== "string") return;
   if (stored.operationId) {
-    kronikaSetText("kronika-question-status", "A previous request can be opened from History.");
+    kronikaSetText("kronika-question-status", "A previous request can be opened from the Timeline.");
     return;
   }
   kronikaAttempt.id = stored.id;
   kronikaAttempt.kind = kronikaRuntime.questionKind;
-  kronikaSetText("kronika-question-status", "Re-enter the same question before retrying this submission, or check History.");
+  kronikaSetText("kronika-question-status", "Re-enter the same question before retrying this submission, or check the Timeline.");
 }
 
 function kronikaNewRequestId() {
@@ -14932,7 +14841,6 @@ function kronikaApplyRequestPayload(payload) {
   if (cancel) cancel.hidden = !active || state === "cancel_requested";
   if (resume) resume.hidden = !kronikaRuntime.pollPaused;
   if (state === "saved" && payload.record_id) {
-    kronikaLists.records = kronikaBlankList();
     if (open) {
       open.hidden = false;
       open.href = `#/records/${encodeURIComponent(payload.record_id)}`;
@@ -15049,7 +14957,7 @@ function kronikaPauseForHide() {
 
 function kronikaRetireListsForPageHide() {
   kronikaRetirePreviews();
-  ["timeline", "questions", "records"].forEach((key) => kronikaCancelListRequest(key));
+  kronikaCancelListRequest("timeline");
 }
 
 function kronikaOnVisibility() {
@@ -15308,7 +15216,6 @@ async function kronikaSubmitApproval(action) {
     );
     kronikaLists.timeline = kronikaBlankList();
     kronikaLists.adminRecords = kronikaBlankList();
-    kronikaLists.records = kronikaBlankList();
     await kronikaReloadReview();
   } catch {
     if (generation !== kronikaIdentityGeneration) return;
@@ -15482,32 +15389,33 @@ function kronikaBindShell() {
     });
   });
   const timelineFilters = document.getElementById("kronika-timeline-filters");
-  if (timelineFilters) {
-    timelineFilters.addEventListener("submit", (event) => {
+  if (timelineFilters) kronikaSetupTimelineMenus(document);
+  const timelineSearchForm = document.getElementById("kronika-timeline-search-form");
+  if (timelineSearchForm) {
+    timelineSearchForm.addEventListener("submit", (event) => {
       event.preventDefault();
       kronikaOpener = document.getElementById("kronika-timeline-search-submit");
       kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
     });
-    kronikaSetupTimelineMenus(document);
-    const searchInput = document.getElementById("kronika-timeline-search");
-    if (searchInput) {
-      searchInput.addEventListener("input", () => {
-        kronikaSyncTimelineSearchChrome();
-      });
-    }
-    const clear = document.getElementById("kronika-timeline-search-clear");
-    if (clear) {
-      clear.addEventListener("click", () => {
-        const search = document.getElementById("kronika-timeline-search");
-        if (search) {
-          search.value = "";
-          kronikaOpener = search;
-          if (typeof search.focus === "function") search.focus();
-        }
-        kronikaSyncTimelineSearchChrome();
-        kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
-      });
-    }
+  }
+  const searchInput = document.getElementById("kronika-timeline-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      kronikaSyncTimelineSearchChrome();
+    });
+  }
+  const clear = document.getElementById("kronika-timeline-search-clear");
+  if (clear) {
+    clear.addEventListener("click", () => {
+      const search = document.getElementById("kronika-timeline-search");
+      if (search) {
+        search.value = "";
+        kronikaOpener = search;
+        if (typeof search.focus === "function") search.focus();
+      }
+      kronikaSyncTimelineSearchChrome();
+      kronikaAssignHash(kronikaHashForRoute(kronikaTimelineRouteFromControls(0)));
+    });
   }
   const form = document.getElementById("kronika-question-form");
   if (form) form.addEventListener("submit", (event) => { void kronikaSubmitQuestion(event); });
@@ -15545,8 +15453,6 @@ function kronikaBindShell() {
   [
     ["kronika-timeline-prev", "/timeline", -24],
     ["kronika-timeline-next", "/timeline", 24],
-    ["kronika-history-prev", "", -24],
-    ["kronika-history-next", "", 24],
     ["kronika-review-prev", "", -24],
     ["kronika-review-next", "", 24],
   ].forEach(([id, path, delta]) => {
@@ -15571,12 +15477,6 @@ function kronikaBindShell() {
   if (timelineRetry) {
     timelineRetry.addEventListener("click", () => {
       void kronikaLoadTimeline(kronikaParseRoute(kronikaLocationHash() || "#/timeline"));
-    });
-  }
-  const historyRetry = document.getElementById("kronika-history-retry");
-  if (historyRetry) {
-    historyRetry.addEventListener("click", () => {
-      void kronikaLoadHistory(kronikaParseRoute(kronikaLocationHash() || "#/history"));
     });
   }
 }

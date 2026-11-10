@@ -29,6 +29,10 @@ the viewer is an administrator. Items are ordered by original creation or
 admission time; approval no longer moves an item, and existing
 `timeline_entered_at_ms` values keep their historical first-household-approval
 meaning. The rest of ADR-0083 remains accepted.
+[ADR-0088](0088-timeline-as-single-overview.md) removes the separate History
+view. The Timeline is the single overview; Search and Research remain actions;
+question and answer records and APIs remain; Gallery remains separate. This
+supersedes only the removed-view statements in ADR-0083 and ADR-0087.
 [ADR-0085](0085-kronika-sole-identity.md) partially supersedes ADR-0082 by
 citation, not by patch: the internal `framenest` package, migration history,
 compatible HTTP headers and deployment identifiers staying, and the exclusion of
@@ -136,8 +140,9 @@ An accepted ADR may only be changed by a later ADR that supersedes it. Editing a
 | 0080 | Immediate Editor Suggestion Reveal and In-Modal Analysis | Accepted | 2026-08-29 | [0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md](0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md) |
 | 0081 | Declarative OpenAI-Compatible Provider Registry and Administrator Vision Probe | Accepted | 2026-09-16 | [0081-declarative-openai-compatible-provider-registry-and-administrator-vision-probe.md](0081-declarative-openai-compatible-provider-registry-and-administrator-vision-probe.md) |
 | 0082 | Kronika One Product and Private Records | Accepted; capture-only research, owner-only private reading, direct owner sharing and completion-triggered Timeline entry partially superseded by [ADR-0083](0083-modular-research-providers-and-administrator-curated-timeline.md) | 2026-09-23 | [0082-kronika-one-product-and-private-records.md](0082-kronika-one-product-and-private-records.md) |
-| 0083 | Modular Research Providers and Administrator-Curated Timeline | Accepted; fixed-model decision partially superseded by [ADR-0084](0084-administrator-managed-research-settings-and-versioned-pricing.md); approved-only Timeline membership partially superseded by [ADR-0087](0087-complete-visibility-aware-timeline-chronicle.md) | 2026-09-26 | [0083-modular-research-providers-and-administrator-curated-timeline.md](0083-modular-research-providers-and-administrator-curated-timeline.md) |
+| 0083 | Modular Research Providers and Administrator-Curated Timeline | Accepted; fixed-model decision partially superseded by [ADR-0084](0084-administrator-managed-research-settings-and-versioned-pricing.md); approved-only Timeline membership partially superseded by [ADR-0087](0087-complete-visibility-aware-timeline-chronicle.md); separate History view superseded by [ADR-0088](0088-timeline-as-single-overview.md) | 2026-09-26 | [0083-modular-research-providers-and-administrator-curated-timeline.md](0083-modular-research-providers-and-administrator-curated-timeline.md) |
 | 0084 | Administrator-Managed Research Settings and Versioned Pricing | Accepted | 2026-09-30 | [0084-administrator-managed-research-settings-and-versioned-pricing.md](0084-administrator-managed-research-settings-and-versioned-pricing.md) |
 | 0085 | Kronika Sole Identity | Accepted; ADR-0082 staged hold of the `framenest` package, migration history, HTTP headers and deployment identifiers, and the no-mass-rename exclusion, partially superseded by this ADR | 2026-10-02 | [0085-kronika-sole-identity.md](0085-kronika-sole-identity.md) |
 | 0086 | Companion YouTube Save, Upload Message, and Preview Backfill | Accepted | 2026-11-08 | [0086-companion-youtube-save-upload-message-and-preview-backfill.md](0086-companion-youtube-save-upload-message-and-preview-backfill.md) |
-| 0087 | Complete Visibility-Aware Timeline Chronicle | Accepted; supersedes only ADR-0083's approved-only Timeline membership | 2026-11-09 | [0087-complete-visibility-aware-timeline-chronicle.md](0087-complete-visibility-aware-timeline-chronicle.md) |
+| 0087 | Complete Visibility-Aware Timeline Chronicle | Accepted; supersedes only ADR-0083's approved-only Timeline membership; separate History view superseded by [ADR-0088](0088-timeline-as-single-overview.md) | 2026-11-09 | [0087-complete-visibility-aware-timeline-chronicle.md](0087-complete-visibility-aware-timeline-chronicle.md) |
+| 0088 | Timeline as the Single Overview | Accepted; supersedes the separate History view in ADR-0083 and ADR-0087 | 2026-11-10 | [0088-timeline-as-single-overview.md](0088-timeline-as-single-overview.md) |

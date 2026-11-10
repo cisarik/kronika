@@ -67,9 +67,11 @@ identity may already read, including private, unanalysed, unfinished, failed
 and unpublished content for the owner or an application administrator. Another
 household member MUST see only an existing approved projection or existing
 unbound legacy-publication access. An unauthenticated caller MUST be denied.
-Personal history MUST remain a separate view of the caller's questions and
-answers. Gallery MUST remain a separate working view with the existing Details
-and player behavior. No new frontend framework or design system is introduced.
+There MUST NOT be a separate History view. Saved and unfinished questions
+remain on the Timeline, and `#/history` and `#/history/records` MUST resolve
+to the Timeline. Question and answer records and their APIs remain. Gallery
+MUST remain a separate working view with the existing Details and player
+behavior. No new frontend framework or design system is introduced.
 
 One logical medium MUST appear once, whether or not a common record is bound.
 One submitted question MUST appear once across its durable request and
@@ -107,15 +109,13 @@ gallery-preview route MUST re-authorize every request. Administrator inventory
 and record detail MUST NOT expose the field.
 
 The browser MUST render the Timeline as one compact semantic list with a 36 px
-preview slot. Personal History MUST render the caller's questions as one
-compact semantic list with kind, status and visibility, and without a preview
-column or a visible Added date. The kind icon
+preview slot. The kind icon
 MUST remain visible while loading and after every failure. The image MUST be
 empty-alt and aria-hidden, MUST NOT add a focus target, and MUST be revealed
-only after a successful load. Question History, non-media rows, still images
+only after a successful load. Question rows, non-media rows, still images
 and surfaces without a locator MUST make no preview request.
 
-The application shell MUST separate Timeline, Gallery and History browsing links from right-aligned Search, Research and capability-gated Review action links below the header. Action links MUST use unrounded styling and preserve their existing routes. Timeline search MUST reuse Gallery’s icon-led green field treatment while retaining its Timeline-local query and explicit submit and clear behavior. Publication MUST be the first Timeline filter and use a green accent border; on wide layouts, Kind, Status and Visibility MUST align with their corresponding list columns. Timeline and History title links MUST have no underline and MUST retain visible keyboard focus. Legacy publication MUST use an eye glyph without changing visibility or publication labels. Changed shell controls MUST provide at least 44 px targets and remain usable at 320 px and 390 px. Timeline listbox keyboard activation MUST commit the focused option, including after Tab navigation.
+The application shell MUST separate Timeline and Gallery browsing links from right-aligned Search, Research and capability-gated Review action links below the header. There is no History browsing link or History page. Action links MUST use unrounded styling and preserve their existing routes. Timeline search MUST occupy the same header slot and icon-led green field treatment as Gallery search, showing only the active view's field, while retaining its Timeline-local query and explicit submit and clear behavior. Views without search MUST hide that header field. Publication MUST be the first Timeline filter and use a green accent border; on wide layouts, Kind, Status and Visibility MUST align with their corresponding list columns. The Timeline heading MUST remain available for route focus without a visible hero, lede or household-sharing note. Timeline title links MUST have no underline and MUST retain visible keyboard focus. Legacy publication MUST use an eye glyph without changing visibility or publication labels. Changed shell controls MUST provide at least 44 px targets and remain usable at 320 px and 390 px. Timeline listbox keyboard activation MUST commit the focused option, including after Tab navigation.
 
 Lists MUST resolve locators with at most one additional page-bounded query and
 MUST NOT add per-record detail reads, location discovery, filesystem probes or

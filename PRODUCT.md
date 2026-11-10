@@ -30,10 +30,10 @@ direction.
 - The Timeline is the landing page and the complete chronological overview of
   catalog media and Search/Research content the signed-in identity may read,
   newest added item first. The existing dark/green design, Gallery, Details and
-  playback remain. Gallery is a separate working view. Personal history is a
-  separate view.
+  playback remain. Gallery is a separate working view. There is no separate
+  History view; the caller's questions and answers appear on the Timeline.
 - Kronika stores questions and their answers, including complete Research
-  reports. Personal history includes the caller's unfinished and failed work.
+  reports. The Timeline includes the caller's unfinished and failed work.
   A complete save is visible to its owner and an administrator on the Timeline.
   Household visibility still requires administrator approval.
 - One catalog contains Media, Search and Research records. A common record has
@@ -94,8 +94,9 @@ This section describes the implemented pre-transition foundation. In
 particular, published-only Gallery and administrator-wide review are current
 code behaviors for legacy media; they do not override the accepted privacy
 rules above. S6, S4-B and S7-P record, research and rendering foundations are
-implemented. The S8 shell on public main adds the Timeline, personal history,
-Search and Research forms and administrator review in the existing page.
+implemented. The S8 shell on public main adds the Timeline, Search and
+Research forms and administrator review in the existing page. The separate
+History view is removed; question and answer APIs remain.
 S9 integrated acceptance, the empty-catalog reset and live-provider acceptance
 are closed. S9-R is published. Research remains disabled by default. S10 is
 complete: the public repository is `cisarik/kronika`, and `cisarik/cli_chatgpt`

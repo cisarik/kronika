@@ -19,8 +19,10 @@ Accepted target:
 - The Timeline is the main page and the complete chronological overview of
   catalog media and Search/Research content the signed-in identity may read.
   Another household member sees only approved projections or unbound legacy
-  publication. Personal history is a separate view of questions and answers,
-  including complete Research reports and the caller's unfinished work.
+  publication. Question and answer records, including complete Research
+  reports and the caller's unfinished work, remain and appear on the Timeline.
+  There is no separate History view
+  ([ADR-0088](docs/adr/0088-timeline-as-single-overview.md)).
   Gallery remains a separate working view.
 - Search and Research use a provider-neutral application boundary per
   [ADR-0083](docs/adr/0083-modular-research-providers-and-administrator-curated-timeline.md),
@@ -38,8 +40,8 @@ Accepted target:
   The shared page is for verified household members only. Internet publication
   stays disabled.
 
-Timeline media rows reuse ready previews, retaining the kind icon while loading and after every failure. Personal History is a Questions-only chronicle without media previews; [SPEC.md](SPEC.md) owns the bounded behavior.
-The application shell separates Timeline, Gallery and History browsing links from right-aligned Search, Research and Review action links; [SPEC.md](SPEC.md) owns that presentation.
+Timeline media rows reuse ready previews, retaining the kind icon while loading and after every failure. Question rows on the Timeline make no media-preview requests; [SPEC.md](SPEC.md) owns the bounded behavior.
+The application shell separates Timeline and Gallery browsing links from right-aligned Search, Research and Review action links. Timeline and Gallery search share one header slot; [SPEC.md](SPEC.md) owns that presentation.
 
 Published on public `main`:
 
@@ -50,8 +52,9 @@ Published on public `main`:
 - S6 records and approval, S4-B research runtime, S7-P personal-history and
   rendering APIs, and S9-R administrator-managed research settings and
   versioned pricing are published. Research stays disabled by default.
-- S8 is on public main: Timeline landing, separate personal history, Search
-  and Research forms, completed-document viewing and administrator review.
+- S8 is on public main: Timeline landing, Search and Research forms,
+  completed-document viewing and administrator review. The separate History
+  view is removed; the Timeline is the single overview.
   S9 integrated acceptance, the empty-catalog reset and live-provider
   acceptance are closed.
 - The code and status descriptions below remain the pre-transition baseline

@@ -37,14 +37,15 @@ S4-D -> S4-A -> S6 -> S4-B -> S7-P -> S8 -> S9 -> S10
 | S6 | Common records, owner, administrator and household policy, and the approval service. No S3 or S5 dependency | Migration and all-route authorization tests, approval conflicts and public exclusion; fresh authorization review; E3 |
 | S4-B | Native OpenAI adapter, durable jobs, budgets, cancellation, cleanup and credential-deployment source. No live key or host mutation | Crash and idempotency, egress, secret handling, budget arithmetic and cleanup against a fake transport; fresh provider-boundary review; E3 |
 | S7-P | Atomic question and answer save, personal-history APIs, media-success integration and safe document rendering | Duplicate completion, full output, preserved media review, approved revisions and safe rendering; E3 |
-| S8 | Shared Timeline landing, personal history, Search and Research forms, administrator review and Kronika presentation. Gallery retained | Node behavior tests, safe rendering, Gallery, image, GIF and playback regressions; E2 |
+| S8 | Shared Timeline landing, Search and Research forms, administrator review and Kronika presentation. Gallery retained. The separate History view is later removed by ADR-0088 | Node behavior tests, safe rendering, Gallery, image, GIF and playback regressions; E2 |
 | S9 | Integrated acceptance on the new empty catalog, then a separately provisioned provider and household UX acceptance. Parked capture completion is not a gate | Fresh integrated review; separate publication, read-only host preflight, exact reset and live-call grants; Cooperator acceptance on the exact public-main NUC release; E3 |
 | S9-R | Administrator-managed research settings and versioned pricing: a bounded four-model catalog, immutable request pricing, shared configuration compare-and-set, atomic submission claims and fail-closed accounting | Focused catalog, arithmetic, refresh, replay, concurrency, preservation and authorization regressions; fresh independent audit, publication, NUC refresh and rendered acceptance |
 | S10 | Rename old Kronika to `cli_chatgpt`, FrameNest to `kronika`, update source references; the former repository remains active for continued development (Cooperator decision, no archive) | Explicit rename and publication authority, exact refs, history and release verification; no force or history rewrite |
 
 S6, S4-B and S7-P have implementation foundations in this repository. S8 is
-on public main with the Timeline, personal history, Search and Research forms
-and administrator review. Gallery remains a separate view. S9 integrated
+on public main with the Timeline, Search and Research forms
+and administrator review. The separate History view is removed; question and
+answer APIs remain. Gallery remains a separate view. S9 integrated
 acceptance, the empty-catalog reset and live-provider acceptance are closed.
 S9-R administrator research settings and versioned pricing are published.
 Research remains disabled by default. S10 is complete: this repository is
@@ -63,8 +64,9 @@ Parked capture work has no authority on the active route:
 Active proofs are administrator read of product records without secret or host
 access; ordinary cross-owner denial; Timeline membership equal to existing
 direct-read authorization, with cross-owner household visibility only after
-administrator approval; personal history of questions and answers, including
-unfinished work; no automatic provider fallback or generation retry; complete
+administrator approval; Timeline inclusion of the caller's questions and
+answers, including unfinished work, without a separate History view; no
+automatic provider fallback or generation retry; complete
 safe Search and Research rendering; and research disabled by default. Parked
 capture proofs remain requirements of those parked rows: no automatic resend,
 browser continuity, ZIP rejection before ChatGPT contact, and one packaged

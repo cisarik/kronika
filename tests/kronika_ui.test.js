@@ -238,6 +238,10 @@ function createHarness(fetchImpl, options = {}) {
   });
   byId["kronika-nav"].className = "kronika-nav";
   byId["header-search"].className = "header-search";
+  const timelineSearch = new El("form", "kronika-timeline-search-form");
+  timelineSearch.className = "header-search kronika-timeline-search";
+  timelineSearch.hidden = true;
+  byId["kronika-timeline-search-form"] = timelineSearch;
   const browse = new El("div");
   browse.className = "kronika-nav__browse";
   const actions = new El("div");
@@ -247,12 +251,11 @@ function createHarness(fetchImpl, options = {}) {
   const navGroups = {
     timeline: browse,
     gallery: browse,
-    history: browse,
     search: actions,
     research: actions,
     review: actions,
   };
-  ["timeline", "gallery", "history", "search", "research", "review"].forEach((name) => {
+  ["timeline", "gallery", "search", "research", "review"].forEach((name) => {
     const link = new El("a", `kronika-nav-${name}`);
     link.setAttribute("data-kronika-nav", name);
     navGroups[name].appendChild(link);
@@ -449,32 +452,33 @@ test("timeline requests only its endpoint, including for an administrator", asyn
   assert.equal(harness.byId["kronika-timeline-status"].textContent.includes("Hidden"), false);
 });
 
-test("personal history and the timeline use separate endpoints", async () => {
+test("removed History addresses fold to the Timeline and do not fetch the old list", async () => {
   const harness = createHarness(async (url) => {
-    if (url.startsWith("/api/research-requests")) {
-      return jsonResponse({
-        items: [
-          { operation_id: "op-failed", kind: "search", state: "failed", prompt: "Broken question", record_id: null },
-          { operation_id: "op-cancelled", kind: "research", state: "cancelled", prompt: "Stopped question", record_id: null },
-          { operation_id: "op-running", kind: "search", state: "running", prompt: "Live question", record_id: null },
-        ],
-        total: 3,
-        limit: 24,
-        offset: 0,
-      });
-    }
-    return jsonResponse({ items: [], total: 0, limit: 24, offset: 0 });
+    assert.equal(url.startsWith("/api/timeline"), true);
+    return jsonResponse({
+      items: [
+        { item_id: "question:op-failed", kind: "search", display_title: "Broken question", status: "failed", visibility: "private", publication_state: "unpublished" },
+        { item_id: "question:op-live", kind: "research", display_title: "Live question", status: "running", visibility: "private", publication_state: "unpublished" },
+      ],
+      total: 2,
+      limit: 24,
+      offset: 0,
+    });
   });
   harness.kronikaStartNavigation();
   await settle();
-  harness.location.hash = "#/history";
+  harness.location.hash = "#/history/records?offset=24";
   await settle();
-  const text = harness.byId["kronika-history-results"].children.map((row) => (
-    row.querySelector(".kronika-chronicle__status").children[1].textContent
-  ));
-  assert.equal(text.includes("Failed"), true);
-  assert.equal(text.includes("Cancelled"), true);
-  assert.equal(harness.byId["kronika-timeline-results"].children.length, 0);
+  assert.equal(harness.location.hash, "#/timeline");
+  assert.equal(harness.kronikaParseRoute("#/history").name, "timeline");
+  assert.equal(harness.kronikaParseRoute("#/history").path, "/timeline");
+  assert.equal(harness.kronikaParseRoute("#/history/records?offset=24").offset, 0);
+  assert.equal(harness.byId["kronika-timeline"].hidden, false);
+  assert.equal(harness.byId["header-search"].hidden, true);
+  assert.equal(harness.byId["kronika-timeline-search-form"].hidden, false);
+  const titles = harness.byId["kronika-timeline-results"].children.map((row) => row.querySelector(".kronika-chronicle__title").textContent);
+  assert.deepEqual(titles, ["Broken question", "Live question"]);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/research-requests")), false);
 });
 
 test("capabilities distinguish disabled, unavailable, and enabled states", async () => {
@@ -947,55 +951,26 @@ test("media cards use one lazy decorative preview and preserve their link names"
   assert.equal(harness.calls.length, 1);
 });
 
-test("question history and non-media cards never request previews", async () => {
+test("Timeline question rows never request previews", async () => {
   const harness = createHarness(async (url) => {
-    if (url.startsWith("/api/research-requests")) {
-      return jsonResponse({
-        items: [{
-          operation_id: "op-1",
-          kind: "search",
-          state: "saved",
-          prompt: "Saved question",
-          record_id: "record-q",
-        }],
-        total: 1,
-        limit: 24,
-        offset: 0,
-      });
-    }
-    if (url.startsWith("/api/my/records")) {
-      return jsonResponse({
-        items: [{
-          record_id: "record-s",
-          kind: "search",
-          display_title: "Saved question",
-          visibility: "private",
-        }],
-        total: 1,
-        limit: 24,
-        offset: 0,
-      });
-    }
+    assert.equal(url.startsWith("/api/timeline"), true);
     return jsonResponse({
       items: [{
+        item_id: "question:op-1",
         record_id: "record-s",
         kind: "search",
         display_title: "Timeline question",
         timeline_entered_at_ms: 1_700_000_000_000,
         content_category: null,
+        status: "saved",
+        visibility: "private",
+        publication_state: "unpublished",
       }],
       total: 1,
       limit: 24,
       offset: 0,
     });
   });
-  await harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history"));
-  const historyResults = harness.byId["kronika-history-results"];
-  assert.equal(historyResults.children.length, 1);
-  assert.equal(historyResults.querySelectorAll(".kronika-card__preview").length, 0);
-  await harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history/records"));
-  assert.equal(historyResults.children.length, 1);
-  assert.equal(historyResults.querySelectorAll(".kronika-card__preview").length, 0);
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
   assert.equal(
     harness.byId["kronika-timeline-results"].querySelectorAll(".kronika-card__preview").length,
@@ -1003,10 +978,7 @@ test("question history and non-media cards never request previews", async () => 
   );
   assert.equal(harness.calls.some((call) => call.url.includes("gallery-preview")), false);
   assert.equal(harness.calls.some((call) => call.url.includes("/api/my/records")), false);
-  assert.equal(harness.calls.every((call) => (
-    call.url.startsWith("/api/research-requests")
-    || call.url.startsWith("/api/timeline")
-  )), true);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/research-requests")), false);
 });
 
 test("preview load reveals the image and every error retains the kind icon", async () => {
@@ -1092,22 +1064,12 @@ test("navigation and identity changes retire previews and ignore late events", a
   assert.notEqual(identityImage.getAttribute("data-kronika-preview"), "ready");
 });
 
-test("superseded Timeline and History requests cannot repaint a departed view", async () => {
+test("superseded Timeline requests cannot repaint a departed view", async () => {
   let timelineResolve = null;
-  let questionCalls = 0;
-  let firstQuestionResolve = null;
-  let secondQuestionResolve = null;
   const harness = createHarness(async (url) => {
     if (url.startsWith("/api/timeline")) {
       return new Promise((resolve) => {
         timelineResolve = resolve;
-      });
-    }
-    if (url.startsWith("/api/research-requests")) {
-      questionCalls += 1;
-      return new Promise((resolve) => {
-        if (questionCalls === 1) firstQuestionResolve = resolve;
-        else secondQuestionResolve = resolve;
       });
     }
     return jsonResponse({ items: [], total: 0, limit: 24, offset: 0 });
@@ -1126,42 +1088,7 @@ test("superseded Timeline and History requests cannot repaint a departed view", 
   }));
   await pendingTimeline;
   assert.equal(harness.byId["kronika-timeline-results"].children.length, 0);
-
-  const pendingQuestions = harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history"));
-  await settle();
-  const questionCall = harness.calls.find((call) => call.url.startsWith("/api/research-requests"));
-  const pendingFolded = harness.kronikaLoadHistory(harness.kronikaParseRoute("#/history/records"));
-  assert.equal(questionCall.init.signal.aborted, true);
-  firstQuestionResolve(jsonResponse({
-    items: [{
-      operation_id: "op-late",
-      kind: "search",
-      state: "saved",
-      prompt: "Late question",
-      record_id: "record-late",
-    }],
-    total: 1,
-    limit: 24,
-    offset: 0,
-  }));
-  await pendingQuestions;
-  secondQuestionResolve(jsonResponse({
-    items: [{
-      operation_id: "op-current",
-      kind: "search",
-      state: "saved",
-      prompt: "Current question",
-      record_id: "record-current",
-    }],
-    total: 1,
-    limit: 24,
-    offset: 0,
-  }));
-  await pendingFolded;
-  const historyResults = harness.byId["kronika-history-results"];
-  assert.equal(historyResults.children.length, 1);
-  assert.equal(historyResults.querySelector(".kronika-chronicle__title").textContent, "Current question");
-  assert.equal(harness.calls.some((call) => call.url.includes("/api/my/records")), false);
+  assert.equal(harness.calls.some((call) => call.url.includes("/api/research-requests")), false);
 });
 
 test("cancelled dirty navigation preserves the current preview page", async () => {
@@ -1259,17 +1186,17 @@ test("visibility changes keep card previews and in-flight lists while pagehide r
   assert.equal(secondCall.init.signal.aborted, true);
 });
 
-test("thumbnail CSS changes only the Timeline and History icon slots", () => {
+test("thumbnail CSS changes only the Timeline icon slot", () => {
   const selectorLines = STYLES_SOURCE.split("\n").filter((line) => (
     line.includes(".kronika-card__preview") || line.includes("data-kronika-preview")
   ));
-  assert.equal(selectorLines.length >= 4, true);
+  assert.equal(selectorLines.length, 3);
   selectorLines.forEach((line) => {
     const selectors = line.replace(/\s*\{\s*$/, "").split(",");
     selectors.forEach((selector) => {
       const trimmed = selector.trim();
       if (!trimmed || trimmed.startsWith("/*")) return;
-      assert.match(trimmed, /^#kronika-(timeline|history)-results /);
+      assert.match(trimmed, /^#kronika-timeline-results /);
     });
   });
   assert.match(STYLES_SOURCE, /\.kronika-card \{[^}]*padding: 16px 16px 14px 64px;/s);
@@ -1509,7 +1436,7 @@ test("grouped navigation keeps routes, current state and capability hiding", asy
   assert.equal(nav.children[1].className, "kronika-nav__actions");
   assert.deepEqual(
     nav.children[0].children.map((link) => link.getAttribute("data-kronika-nav")),
-    ["timeline", "gallery", "history"],
+    ["timeline", "gallery"],
   );
   assert.deepEqual(
     nav.children[1].children.map((link) => link.getAttribute("data-kronika-nav")),
@@ -1578,7 +1505,7 @@ test("Timeline search edits chrome only until an explicit submit or clear", asyn
   assert.equal(clear.hidden, false);
   assert.equal(harness.calls.length, afterLoad);
   assert.equal(harness.catalogLoads.length, 0);
-  harness.byId["kronika-timeline-filters"].listeners.get("submit")[0]({ preventDefault() {} });
+  harness.byId["kronika-timeline-search-form"].listeners.get("submit")[0]({ preventDefault() {} });
   await settle();
   assert.equal(
     harness.location.hash,
@@ -1587,7 +1514,7 @@ test("Timeline search edits chrome only until an explicit submit or clear", asyn
   assert.equal(submit.focused, true);
   assert.equal(harness.catalogLoads.length, 0);
   const sameHashCalls = harness.calls.length;
-  harness.byId["kronika-timeline-filters"].listeners.get("submit")[0]({ preventDefault() {} });
+  harness.byId["kronika-timeline-search-form"].listeners.get("submit")[0]({ preventDefault() {} });
   await settle();
   assert.equal(harness.calls.length > sameHashCalls, true);
   clear.listeners.get("click")[0]();
@@ -1614,34 +1541,40 @@ test("shell source separates browsing links, timeline search and column alignmen
   assert.ok(headerEnd < navStart && navStart < mainStart);
   assert.match(INDEX_SOURCE, /class="kronika-nav__browse" role="group" aria-label="Browse"/);
   assert.match(INDEX_SOURCE, /class="kronika-nav__actions" role="group" aria-label="Actions"/);
+  const header = INDEX_SOURCE.slice(0, headerEnd);
   const filters = INDEX_SOURCE.slice(
     INDEX_SOURCE.indexOf('id="kronika-timeline-filters"'),
     INDEX_SOURCE.indexOf('id="kronika-timeline-status"'),
   );
   const order = [
     'id="kronika-timeline-publication"',
-    'id="kronika-timeline-search"',
     'id="kronika-timeline-kind"',
     'id="kronika-timeline-status-filter"',
     'id="kronika-timeline-visibility"',
   ].map((id) => filters.indexOf(id));
   assert.deepEqual(order, [...order].sort((left, right) => left - right));
   assert.ok(order.every((index) => index >= 0));
-  assert.match(filters, /role="search" aria-label="Search timeline"/);
-  assert.match(filters, /placeholder="Search timeline"/);
-  assert.match(filters, /aria-label="Search timeline titles and questions"/);
-  assert.match(filters, /id="kronika-timeline-search-submit"[^>]*type="submit"[^>]*aria-label="Search timeline"/);
-  assert.match(filters, /class="header-search__clear-slot"/);
+  assert.equal(filters.includes('id="kronika-timeline-search"'), false);
+  assert.match(header, /id="kronika-timeline-search-form"[^>]*class="header-search kronika-timeline-search"/);
+  assert.match(header, /placeholder="Search timeline"/);
+  assert.match(header, /aria-label="Search timeline titles and questions"/);
+  assert.ok(header.indexOf('class="header-search"') < header.indexOf('id="kronika-timeline-search-form"'));
+  assert.ok(header.indexOf('id="kronika-timeline-search-form"') < header.indexOf("header-status-group"));
+  assert.match(INDEX_SOURCE, /id="kronika-timeline-heading" class="visually-hidden"/);
+  assert.doesNotMatch(INDEX_SOURCE, /Everything you can access in Kronika/);
+  assert.doesNotMatch(INDEX_SOURCE, /Household sharing does not publish to the internet/);
+  assert.doesNotMatch(INDEX_SOURCE, /id="kronika-history"|href="#\/history"/);
   assert.equal(filters.match(/<li role="presentation"><button class="kronika-menu__option"/g).length, 22);
   assert.match(filters, /data-value="legacy_published" data-glyph="👁️"/);
   assert.doesNotMatch(filters, /data-glyph="🕰️"/);
   assert.match(INDEX_SOURCE, /id="kronika-nav-timeline"[^>]*>[\s\S]*?🕰️/);
-  assert.match(INDEX_SOURCE, /class="kronika-hero__icon" aria-hidden="true">🕰️/);
+  assert.doesNotMatch(INDEX_SOURCE, /class="kronika-hero__icon" aria-hidden="true">🕰️/);
   assert.match(APP_SOURCE, /publication_state === "legacy_published"\) return "👁️"/);
   assert.match(STYLES_SOURCE, /\.kronika-chronicle__title,\s*\.kronika-chronicle__title:hover,\s*\.kronika-chronicle__title:focus,\s*\.kronika-chronicle__title:focus-visible \{\s*text-decoration: none;/);
   assert.match(STYLES_SOURCE, /\.kronika-chronicle__title:focus-visible \{\s*outline: 2px solid var\(--accent\);/);
   assert.match(STYLES_SOURCE, /@media \(min-width: 1100px\) \{\s*#kronika-timeline \.kronika-chronicle-filters,\s*#kronika-timeline \.kronika-chronicle-header,\s*#kronika-timeline \.kronika-chronicle__item \{\s*grid-template-columns: 4\.75rem minmax\(0, 1fr\) 9\.5rem 9\.5rem 10\.5rem;/);
   assert.match(STYLES_SOURCE, /#kronika-timeline-publication\.kronika-menu__trigger \{\s*border-color: var\(--accent-border\);/);
+  assert.match(STYLES_SOURCE, /#kronika-timeline \.kronika-menu\[data-kronika-menu="publication"\] \{\s*grid-column: 1 \/ 3;/);
   assert.match(STYLES_SOURCE, /\.header-search__clear-slot \{\s*display: flex;\s*flex: 0 0 44px;/);
   assert.match(STYLES_SOURCE, /\.kronika-nav__actions a \{\s*[^}]*border-radius: 0;/);
   assert.doesNotMatch(STYLES_SOURCE, /#kronika-timeline \{\s*overflow-x: hidden;/);
@@ -1695,98 +1628,23 @@ test("Timeline chronicle uses glyphs with accessible text and a quiet hover", as
   });
 });
 
-test("History is one Questions chronicle and the records address folds back", async () => {
-  assert.doesNotMatch(INDEX_SOURCE, /id="kronika-history-records-tab"|href="#\/history\/records"/);
-  assert.match(INDEX_SOURCE, /kronika-history-header" aria-hidden="true"/);
-  assert.match(INDEX_SOURCE, /<ol id="kronika-history-results" class="kronika-chronicle"/);
-  assert.match(INDEX_SOURCE, /Your own questions, answers and saved records/);
-  const header = INDEX_SOURCE.slice(
-    INDEX_SOURCE.indexOf("kronika-history-header"),
-    INDEX_SOURCE.indexOf('id="kronika-history-results"'),
-  );
-  assert.equal(header.includes("Added"), false);
-  assert.match(header, /Question[\s\S]*Kind[\s\S]*Status[\s\S]*Visibility/);
-  assert.match(
-    STYLES_SOURCE,
-    /#kronika-history \.kronika-history-header,\s*#kronika-history \.kronika-chronicle__item \{\s*grid-template-columns: minmax\(0, 1fr\) 5\.5rem 4\.5rem 6\.25rem;/,
-  );
-  assert.match(
-    STYLES_SOURCE,
-    /@media \(max-width: 720px\) \{\s*#kronika-history \.kronika-history-header \{\s*display: none;[\s\S]*#kronika-history \.kronika-chronicle__item \{\s*grid-template-columns: minmax\(0, 1fr\);/,
-  );
-  assert.match(STYLES_SOURCE, /#kronika-history \{\s*overflow-x: hidden;/);
-  assert.match(
-    STYLES_SOURCE,
-    /\.kronika-chronicle__item \{\s*[^}]*transition: background-color 160ms ease, box-shadow 160ms ease;/,
-  );
-  assert.match(
-    STYLES_SOURCE,
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.kronika-chronicle__item,\s*\.kronika-menu__panel \{\s*animation: none;\s*transition: none;/,
-  );
-  const route = harnessRoute("#/history/records?offset=24");
-  assert.equal(route.name, "history");
-  assert.equal(route.path, "/history");
-  assert.equal(route.offset, 24);
-});
-
-function harnessRoute(hash) {
+test("header search occupies one slot and only the active view is visible", async () => {
   const harness = createHarness(async () => jsonResponse({ items: [], total: 0, limit: 24, offset: 0 }));
-  return harness.kronikaParseRoute(hash);
-}
-
-test("History question rows keep links, glyphs and private text", async () => {
-  const harness = createHarness(async (url) => {
-    assert.equal(url.startsWith("/api/research-requests"), true);
-    assert.equal(url.includes("/api/my/records"), false);
-    return jsonResponse({
-      items: [
-        { operation_id: "op-saved", kind: "search", state: "saved", prompt: "Saved question", record_id: "record-saved" },
-        { operation_id: "op-live", kind: "research", state: "running", prompt: "Live question", record_id: null },
-        {
-          operation_id: "op-shared",
-          kind: "search",
-          state: "saved",
-          prompt: "Shared question",
-          record_id: "record-shared",
-          visibility: "family",
-          publication_state: "approved",
-        },
-      ],
-      total: 3,
-      limit: 24,
-      offset: 0,
-    });
-  });
-  harness.location._hash = "#/history/records?offset=24";
-  await harness.kronikaFollowHash();
-  assert.equal(harness.location.hash, "#/history?offset=24");
-  assert.equal(harness.byId["kronika-history-heading"].focused, true);
-  assert.equal(harness.calls.length, 1);
-  assert.match(harness.calls[0].url, /\/api\/research-requests\?/);
-  assert.match(harness.calls[0].url, /offset=24/);
-  const rows = harness.byId["kronika-history-results"].children;
-  assert.equal(rows.length, 3);
-  rows.forEach((row) => {
-    assert.equal(row.tag, "li");
-    assert.equal(row.className.includes("kronika-chronicle__item"), true);
-    assert.equal(row.children.length, 4);
-    assert.equal(row.querySelector("time"), null);
-    assert.equal(row.querySelector(".kronika-chronicle__kind").children[0].textContent, "Kind");
-    assert.equal(row.querySelector(".kronika-chronicle__kind").children[0].className.includes("visually-hidden"), true);
-    assert.equal(row.querySelector(".kronika-chronicle__status").children[0].getAttribute("aria-hidden"), "true");
-    assert.equal(row.querySelector(".kronika-chronicle__visibility").children[1].className.includes("visually-hidden"), true);
-  });
-  assert.equal(rows[0].querySelector(".kronika-chronicle__title").textContent, "Saved question");
-  assert.equal(rows[0].querySelector(".kronika-chronicle__title").href, "#/records/record-saved");
-  assert.equal(rows[0].querySelector(".kronika-chronicle__kind").children[1].textContent, "Search");
-  assert.equal(rows[0].querySelector(".kronika-chronicle__status").children[0].textContent, "✅");
-  assert.equal(rows[0].querySelector(".kronika-chronicle__status").children[1].textContent, "Saved");
-  assert.equal(rows[0].querySelector(".kronika-chronicle__visibility").children[0].textContent, "🔒");
-  assert.equal(rows[0].querySelector(".kronika-chronicle__visibility").children[1].textContent, "Private");
-  assert.equal(rows[1].querySelector(".kronika-chronicle__title").href, "#/requests/op-live");
-  assert.equal(rows[1].querySelector(".kronika-chronicle__kind").children[1].textContent, "Research");
-  assert.equal(rows[1].querySelector(".kronika-chronicle__status").children[0].textContent, "⏳");
-  assert.equal(rows[1].querySelector(".kronika-chronicle__status").children[1].textContent, "Working");
-  assert.equal(rows[2].querySelector(".kronika-chronicle__visibility").children[0].textContent, "🏠");
-  assert.equal(rows[2].querySelector(".kronika-chronicle__visibility").children[1].textContent, "Household · Approved");
+  harness.kronikaStartNavigation();
+  await settle();
+  assert.equal(harness.byId["header-search"].hidden, true);
+  assert.equal(harness.byId["kronika-timeline-search-form"].hidden, false);
+  harness.location.hash = "#/gallery";
+  await settle();
+  assert.equal(harness.byId["header-search"].hidden, false);
+  assert.equal(harness.byId["kronika-timeline-search-form"].hidden, true);
+  harness.location.hash = "#/search";
+  await settle();
+  assert.equal(harness.byId["header-search"].hidden, true);
+  assert.equal(harness.byId["kronika-timeline-search-form"].hidden, true);
+  harness.location.hash = "#/details/media-1";
+  await settle();
+  assert.equal(harness.byId["catalog-browser"].hidden, false);
+  assert.equal(harness.byId["header-search"].hidden, true);
+  assert.equal(harness.byId["kronika-timeline-search-form"].hidden, true);
 });

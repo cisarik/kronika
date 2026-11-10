@@ -307,8 +307,10 @@ catalog media and Search/Research content the signed-in identity may already
 read, including private, unanalysed, unfinished, failed and unpublished
 content for its owner or an application administrator. Other household members
 see only existing approved projections or existing unbound legacy-publication
-access. Personal history remains a separate view of the caller's questions and
-answers. Gallery remains a separate working view using the existing design and
+access. The Timeline is the single overview; question and answer records
+remain, and there is no separate History view
+([ADR-0088](docs/adr/0088-timeline-as-single-overview.md)). Gallery remains a
+separate working view using the existing design and
 player. Administrator approval still governs household sharing of completed
 records and successfully analyzed bound media; it does not decide whether the
 owner or an administrator sees an item. Preserve existing metadata-review

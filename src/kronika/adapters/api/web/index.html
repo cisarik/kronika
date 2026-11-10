@@ -37,6 +37,14 @@
           <ul id="command-search-suggestions" class="command-search-suggestions" role="listbox" aria-label="Search suggestions" hidden></ul>
         </div>
       </div>
+      <form id="kronika-timeline-search-form" class="header-search kronika-timeline-search" role="search" aria-label="Search timeline" hidden>
+        <label class="visually-hidden" for="kronika-timeline-search">Search timeline titles and questions</label>
+        <div class="header-search__control">
+          <button id="kronika-timeline-search-submit" class="header-search__prompt" type="submit" aria-label="Search timeline">🔎</button>
+          <input id="kronika-timeline-search" class="header-search__input" type="search" maxlength="240" autocomplete="off" placeholder="Search timeline" aria-label="Search timeline titles and questions">
+          <span class="header-search__clear-slot"><button id="kronika-timeline-search-clear" class="header-search__clear" type="button" aria-label="Clear search" hidden>&times;</button></span>
+        </div>
+      </form>
       <div class="header-status-group">
         <div class="header-menu" data-header-menu="add">
           <button
@@ -209,7 +217,6 @@
       <div class="kronika-nav__browse" role="group" aria-label="Browse">
         <a id="kronika-nav-timeline" href="#/timeline" data-kronika-nav="timeline"><span class="kronika-nav__icon" aria-hidden="true">🕰️</span><span class="kronika-nav__label">Timeline</span></a>
         <a id="kronika-nav-gallery" href="#/gallery" data-kronika-nav="gallery"><span class="kronika-nav__icon" aria-hidden="true">🖼️</span><span class="kronika-nav__label">Gallery</span></a>
-        <a id="kronika-nav-history" href="#/history" data-kronika-nav="history"><span class="kronika-nav__icon" aria-hidden="true">📜</span><span class="kronika-nav__label">History</span></a>
       </div>
       <div class="kronika-nav__actions" role="group" aria-label="Actions">
         <a id="kronika-nav-search" href="#/search" data-kronika-nav="search"><span class="kronika-nav__icon" aria-hidden="true">💬</span><span class="kronika-nav__label">Search</span></a>
@@ -848,17 +855,9 @@
 
     <main id="main" class="app-shell" tabindex="-1">
       <section id="kronika-timeline" class="kronika-section" data-kronika-view="timeline" aria-labelledby="kronika-timeline-heading" hidden>
-        <header class="kronika-hero">
-          <span class="kronika-hero__icon" aria-hidden="true">🕰️</span>
-          <div>
-            <h1 id="kronika-timeline-heading" tabindex="-1">Timeline</h1>
-            <p class="kronika-lede">Everything you can access in Kronika — newest first.</p>
-          </div>
-        </header>
-        <p class="kronika-note">Household sharing does not publish to the internet.</p>
+        <h1 id="kronika-timeline-heading" class="visually-hidden" tabindex="-1">Timeline</h1>
         <form id="kronika-timeline-filters" class="kronika-chronicle-filters" aria-label="Timeline filters">
-          <div class="kronika-timeline-filters__primary">
-            <div class="kronika-menu" data-kronika-menu="publication">
+          <div class="kronika-menu" data-kronika-menu="publication">
               <span class="kronika-menu__label" id="kronika-timeline-publication-label">Publication</span>
               <button id="kronika-timeline-publication" class="kronika-menu__trigger" type="button" value="" aria-haspopup="listbox" aria-expanded="false" aria-controls="kronika-timeline-publication-list" aria-labelledby="kronika-timeline-publication-label kronika-timeline-publication">
                 <span class="kronika-menu__glyph" aria-hidden="true">✨</span>
@@ -871,15 +870,6 @@
                 <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="withdrawn" data-glyph="↩" data-label="Withdrawn">↩ Withdrawn</button></li>
                 <li role="presentation"><button class="kronika-menu__option" type="button" role="option" data-value="legacy_published" data-glyph="👁️" data-label="Legacy publication">👁️ Legacy publication</button></li>
               </ul>
-            </div>
-            <div class="kronika-timeline-search" role="search" aria-label="Search timeline">
-              <label class="visually-hidden" for="kronika-timeline-search">Search timeline titles and questions</label>
-              <div class="header-search__control">
-                <button id="kronika-timeline-search-submit" class="header-search__prompt" type="submit" aria-label="Search timeline">🔎</button>
-                <input id="kronika-timeline-search" class="header-search__input" type="search" maxlength="240" autocomplete="off" placeholder="Search timeline" aria-label="Search timeline titles and questions">
-                <span class="header-search__clear-slot"><button id="kronika-timeline-search-clear" class="header-search__clear" type="button" aria-label="Clear search" hidden>&times;</button></span>
-              </div>
-            </div>
           </div>
           <div class="kronika-menu" data-kronika-menu="kind">
             <span class="kronika-menu__label" id="kronika-timeline-kind-label">Kind</span>
@@ -943,29 +933,6 @@
         </div>
       </section>
 
-      <section id="kronika-history" class="kronika-section" data-kronika-view="history" aria-labelledby="kronika-history-heading" hidden>
-        <header class="kronika-hero">
-          <span class="kronika-hero__icon" aria-hidden="true">📜</span>
-          <div>
-            <h1 id="kronika-history-heading" tabindex="-1">History</h1>
-            <p class="kronika-lede">Your own questions, answers and saved records. Private until an administrator shares them.</p>
-          </div>
-        </header>
-        <p id="kronika-history-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <div class="kronika-chronicle-header kronika-history-header" aria-hidden="true">
-          <span>Question</span>
-          <span>Kind</span>
-          <span>Status</span>
-          <span>Visibility</span>
-        </div>
-        <ol id="kronika-history-results" class="kronika-chronicle" data-kronika-list="history"></ol>
-        <div class="kronika-pager">
-          <button id="kronika-history-prev" class="kronika-action kronika-pager__button" type="button" aria-label="Previous page" title="Previous page"><span aria-hidden="true">←</span></button>
-          <button id="kronika-history-next" class="kronika-action kronika-pager__button" type="button" aria-label="Next page" title="Next page"><span aria-hidden="true">→</span></button>
-          <button id="kronika-history-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry</button>
-        </div>
-      </section>
-
       <section id="kronika-question" class="kronika-section" data-kronika-view="question" aria-labelledby="kronika-question-heading" hidden>
         <header class="kronika-hero">
           <span id="kronika-question-icon" class="kronika-hero__icon" aria-hidden="true">💬</span>
@@ -985,7 +952,7 @@
           <div class="kronika-composer__actions">
             <button id="kronika-question-submit" class="kronika-action kronika-action--primary" type="submit"><span aria-hidden="true">➤</span> Ask</button>
             <button id="kronika-question-retry" class="kronika-action" type="button" hidden><span aria-hidden="true">↻</span> Retry the same submission</button>
-            <a class="kronika-composer__link" href="#/history"><span aria-hidden="true">📜</span> Past answers</a>
+            <a class="kronika-composer__link" href="#/timeline"><span aria-hidden="true">🕰️</span> Timeline</a>
           </div>
         </form>
         <details class="kronika-fineprint">

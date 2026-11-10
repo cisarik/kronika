@@ -6088,65 +6088,6 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
 .kronika-card[data-kronika-kind="movie"]::before { content: "🎬"; }
 .kronika-card[data-kronika-kind="youtube"]::before { content: "▶️"; }
 
-/* Personal-record History previews occupy the existing icon slot. */
-#kronika-history-results .kronika-card__preview {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  display: block;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  object-fit: cover;
-  opacity: 0;
-  pointer-events: none;
-}
-
-#kronika-history-results .kronika-card__preview[data-kronika-preview="ready"] {
-  opacity: 1;
-}
-
-#kronika-history-results .kronika-card__preview[data-kronika-preview="fallback"] {
-  display: none;
-}
-
-#kronika-history-results .kronika-card:has(> .kronika-card__preview[data-kronika-preview="ready"])::before {
-  visibility: hidden;
-}
-
-#kronika-history .kronika-history-header,
-#kronika-history .kronika-chronicle__item {
-  grid-template-columns: minmax(0, 1fr) 5.5rem 4.5rem 6.25rem;
-}
-
-#kronika-history .kronika-chronicle__kind {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-}
-
-@media (max-width: 720px) {
-  #kronika-history .kronika-history-header {
-    display: none;
-  }
-
-  #kronika-history .kronika-chronicle__item {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  #kronika-history .kronika-chronicle__kind,
-  #kronika-history .kronika-chronicle__status,
-  #kronika-history .kronika-chronicle__visibility {
-    grid-column: 1;
-  }
-
-  #kronika-history {
-    overflow-x: hidden;
-  }
-}
-
 .kronika-chronicle-filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -6161,15 +6102,9 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   overflow: visible;
 }
 
-.kronika-timeline-filters__primary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  min-width: 0;
-}
-
 .kronika-timeline-search {
   min-width: 0;
+  margin: 0;
 }
 
 .kronika-timeline-search .header-search__control {
@@ -6420,10 +6355,8 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
     column-gap: 20px;
   }
 
-  .kronika-timeline-filters__primary {
+  #kronika-timeline .kronika-menu[data-kronika-menu="publication"] {
     grid-column: 1 / -1;
-    grid-template-columns: 11.5rem minmax(0, 1fr);
-    column-gap: 20px;
   }
 
   .kronika-menu[data-kronika-menu="status"] .kronika-menu__panel,
@@ -6441,9 +6374,8 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
     column-gap: 20px;
   }
 
-  #kronika-timeline .kronika-timeline-filters__primary {
+  #kronika-timeline .kronika-menu[data-kronika-menu="publication"] {
     grid-column: 1 / 3;
-    grid-template-columns: 11.5rem minmax(0, 1fr);
   }
 }
 
