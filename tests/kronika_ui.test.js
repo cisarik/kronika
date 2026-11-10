@@ -643,6 +643,122 @@ test("a failed refresh keeps only the previous authorized page", async () => {
     "Kept title",
   );
   assert.match(harness.byId["kronika-timeline-status"].textContent, /not refreshed/);
+  assert.equal(harness.byId["kronika-timeline-retry"].hidden, false);
+});
+
+test("a same-query Timeline refresh failure keeps Retry without stealing focus", async () => {
+  let fail = false;
+  const harness = createHarness(async (url) => {
+    if (fail) throw new Error("offline");
+    return jsonResponse({
+      items: [{
+        item_id: "media:kept",
+        record_id: "11111111-1111-4111-8111-111111111111",
+        kind: "media",
+        display_title: "Kept title",
+        media_id: "media-kept",
+        content_category: "general",
+        created_at_ms: 20,
+        status: "analyzed",
+        visibility: "private",
+        publication_state: "unpublished",
+      }],
+      total: 1,
+      limit: 24,
+      offset: 0,
+    });
+  });
+  harness.location._hash = "#/timeline?filter=media&q=kept&offset=24";
+  const route = harness.kronikaParseRoute(harness.location.hash);
+  await harness.kronikaStartNavigation();
+  await settle();
+  await harness.kronikaLoadTimeline(route);
+  const firstUrl = harness.calls.at(-1).url;
+  fail = true;
+  const focus = new El("button");
+  focus.focused = true;
+  harness.document.activeElement = focus;
+  await harness.kronikaLoadTimeline(route);
+  assert.equal(
+    harness.byId["kronika-timeline-results"].querySelector(".kronika-chronicle__title").textContent,
+    "Kept title",
+  );
+  const retry = harness.byId["kronika-timeline-retry"];
+  assert.equal(retry.hidden, false);
+  const before = harness.calls.length;
+  retry.listeners.get("click")[0]();
+  await settle();
+  assert.equal(harness.calls.length, before + 1);
+  assert.equal(harness.calls.at(-1).url, firstUrl);
+  assert.equal(harness.document.activeElement, focus);
+  assert.equal(focus.focused, true);
+  assert.equal(retry.focused, false);
+});
+
+test("a changed-query Timeline failure does not retain another query's rows", async () => {
+  let fail = false;
+  const harness = createHarness(async (url) => {
+    if (fail) throw new Error("offline");
+    return jsonResponse({
+      items: [{
+        item_id: "question:kept",
+        kind: "search",
+        display_title: "Kept title",
+        record_id: "record-kept",
+        operation_id: "kept",
+        created_at_ms: 20,
+        status: "saved",
+        visibility: "private",
+        publication_state: "unpublished",
+      }],
+      total: 1,
+      limit: 24,
+      offset: 0,
+    });
+  });
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  fail = true;
+  harness.location._hash = "#/timeline?filter=search";
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline?filter=search"));
+  assert.equal(harness.byId["kronika-timeline-results"].children.length, 0);
+  assert.equal(harness.byId["kronika-timeline-results"].textContent.includes("Kept title"), false);
+  assert.equal(harness.byId["kronika-timeline-retry"].hidden, false);
+  assert.doesNotMatch(harness.byId["kronika-timeline-status"].textContent, /not refreshed/);
+});
+
+test("Timeline chronicle header is hidden from assistive tech and rows label their fields", async () => {
+  assert.match(INDEX_SOURCE, /class="kronika-chronicle-header" aria-hidden="true"/);
+  assert.match(INDEX_SOURCE, /kronika-chronicle-header[\s\S]*<ol id="kronika-timeline-results"/);
+  assert.match(STYLES_SOURCE, /@media \(max-width: 720px\)[\s\S]*\.kronika-chronicle-header \{\s*display: none;/);
+  assert.match(
+    STYLES_SOURCE,
+    /@media \(max-width: 720px\)[\s\S]*#kronika-timeline \.kronika-chronicle__label \{[\s\S]*position: static !important;/,
+  );
+  const harness = createHarness(async () => jsonResponse({
+    items: [{
+      item_id: "question:op-1",
+      kind: "search",
+      display_title: "Saved question",
+      record_id: "record-1",
+      operation_id: "op-1",
+      created_at_ms: Date.UTC(2026, 0, 2, 3, 4, 5),
+      status: "saved",
+      visibility: "private",
+      publication_state: "unpublished",
+    }],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }));
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const row = harness.byId["kronika-timeline-results"].children[0];
+  const labels = row.querySelectorAll(".kronika-chronicle__label").map((node) => node.textContent);
+  assert.deepEqual(labels, ["Kind", "Added", "Status", "Visibility"]);
+  labels.forEach((label) => {
+    const node = row.querySelectorAll(".kronika-chronicle__label").find((item) => item.textContent === label);
+    assert.equal(node.className.includes("visually-hidden"), true);
+  });
+  assert.equal(row.querySelector(".kronika-chronicle__title").textContent, "Saved question");
 });
 
 test("identity loss clears private content and dirty navigation can be cancelled", async () => {
@@ -763,7 +879,8 @@ test("media cards use one lazy decorative preview and preserve their link names"
   const title = card.children[1];
   assert.equal(title.href, "#/details/media-1");
   assert.equal(title.textContent, "Media 1");
-  assert.equal(card.children[2].textContent, "General");
+  assert.equal(card.children[2].children[0].textContent, "Kind");
+  assert.equal(card.children[2].children[1].textContent, "General");
   assert.equal(card.tag, "li");
   const images = card.querySelectorAll(".kronika-card__preview");
   assert.equal(images.length, 1);
@@ -1125,8 +1242,8 @@ test("Timeline renders a compact chronicle with distinct status and visibility",
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
   const row = harness.byId["kronika-timeline-results"].children[0];
   assert.equal(row.tag, "li");
-  assert.equal(row.querySelector(".kronika-chronicle__status").textContent, "Saved");
-  assert.equal(row.querySelector(".kronika-chronicle__visibility").textContent, "Private · Unpublished");
+  assert.equal(row.querySelector(".kronika-chronicle__status").children[1].textContent, "Saved");
+  assert.equal(row.querySelector(".kronika-chronicle__visibility").children[1].textContent, "Private · Unpublished");
   assert.equal(row.querySelector("time").getAttribute("datetime"), "2026-01-02T03:04:05Z");
 });
 

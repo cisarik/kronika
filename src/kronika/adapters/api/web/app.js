@@ -14375,6 +14375,19 @@ function kronikaChronicleHref(item) {
   return "#/timeline";
 }
 
+function kronikaChronicleLabeled(className, label, value) {
+  const field = document.createElement("span");
+  field.className = className;
+  const caption = document.createElement("span");
+  caption.className = "visually-hidden kronika-chronicle__label";
+  caption.textContent = label;
+  const valueNode = document.createElement("span");
+  valueNode.textContent = value;
+  field.appendChild(caption);
+  field.appendChild(valueNode);
+  return field;
+}
+
 function kronikaRenderChronicle(results, items) {
   if (!results) return;
   results.replaceChildren();
@@ -14394,24 +14407,21 @@ function kronikaRenderChronicle(results, items) {
       kronikaTimelineReturnItem = item.item_id ? String(item.item_id) : "";
     });
     row.appendChild(title);
-    const kind = document.createElement("span");
-    kind.className = "kronika-chronicle__kind";
-    kind.textContent = kronikaKindLabel(item);
-    row.appendChild(kind);
+    row.appendChild(kronikaChronicleLabeled("kronika-chronicle__kind", "Kind", kronikaKindLabel(item)));
     const added = document.createElement("time");
     added.className = "kronika-chronicle__added";
     const stamp = kronikaUtcStamp(item.created_at_ms);
     if (stamp) added.setAttribute("datetime", stamp);
-    added.textContent = stamp || "";
+    const addedLabel = document.createElement("span");
+    addedLabel.className = "visually-hidden kronika-chronicle__label";
+    addedLabel.textContent = "Added";
+    const stampText = document.createElement("span");
+    stampText.textContent = stamp || "";
+    added.appendChild(addedLabel);
+    added.appendChild(stampText);
     row.appendChild(added);
-    const status = document.createElement("span");
-    status.className = "kronika-chronicle__status";
-    status.textContent = kronikaStatusLabel(item);
-    row.appendChild(status);
-    const visibility = document.createElement("span");
-    visibility.className = "kronika-chronicle__visibility";
-    visibility.textContent = kronikaPublicationLabel(item);
-    row.appendChild(visibility);
+    row.appendChild(kronikaChronicleLabeled("kronika-chronicle__status", "Status", kronikaStatusLabel(item)));
+    row.appendChild(kronikaChronicleLabeled("kronika-chronicle__visibility", "Visibility", kronikaPublicationLabel(item)));
     kronikaAttachCardPreview(preview, item, "timeline");
     results.appendChild(row);
   });
@@ -14487,7 +14497,7 @@ async function kronikaLoadTimeline(route) {
     if (retry) retry.hidden = false;
     return;
   }
-  if (retry) retry.hidden = true;
+  if (retry) retry.hidden = !list.stale;
   if (list.stale) {
     if (status) status.textContent = "Showing the last loaded page. It was not refreshed.";
   } else if (!list.items.length && list.offset > 0) {
