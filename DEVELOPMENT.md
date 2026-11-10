@@ -298,6 +298,31 @@ local or unpublished checkout.
 [docs/UX_AUDIT.md](docs/UX_AUDIT.md) is the historical record of one UX round.
 It is not task authority.
 
+## Upload Flow
+
+Normative upload behavior, including the transient per-dialog auto-start choice, explicit Resume, and truthful progress, is [SPEC.md](SPEC.md) §18. Companion `open_upload` only opens that hosted dialog; progress and results stay inside it.
+
+Focused checks for this slice:
+
+```text
+# [MacBook / fish]
+./.ap/ap project check --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline>
+./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation test-focus -- tests/contract/test_local_web_application.py tests/contract/test_upload_api.py tests/contract/test_ordinary_upload_ownership_boundary.py tests/contract/test_upload_session_architecture.py tests/contract/test_atomic_upload_publication_contract.py tests/integration/test_local_web_upload_cockpit.py tests/integration/test_atomic_upload_publication.py -q -p no:cacheprovider
+node --test tests/upload_cockpit_async_ownership.test.js tests/companion_web_bridge.test.js tests/x_companion_extension.test.js tests/youtube_acquisition_cockpit.test.js tests/x_acquisition_cockpit.test.js tests/kronika_ui.test.js tests/gallery_search_tag_filters.test.js tests/automatic_analysis_lifecycle.test.js tests/cover_frontend.test.js
+#------------------------------------------------------
+```
+
+Synthetic-fixture checklist:
+
+- Use harmless fixture bytes, temporary catalogs, and synthetic identities.
+- Exercise an empty file, a file over the server limit, capability failure, and one normal GIF, MP4, JPEG, or PNG selection.
+- Confirm auto-start stays off until opted in, resets only when the dialog opens again, and does not resume a recovered upload.
+- Confirm an in-flight or recovering upload rejects a replacement file, administrator duplicate review still waits for keep or discard, and an ordinary completion shows review wording without duplicate evidence.
+- Confirm a full server offset can Resume through completion without sending another chunk, and a partial recovery still waits for explicit Resume.
+- Do not use provider credentials, private media, or a live automatic-analysis call.
+
+Rendered geometry, the native file picker, scrolling, clipping, focus, contrast, and actual upload timing are not established by these commands. They require the accepted commit on public `main`, refreshed onto the NUC, before Cooperator acceptance.
+
 ## Manual No-Browser Run
 
 For disposable validation:

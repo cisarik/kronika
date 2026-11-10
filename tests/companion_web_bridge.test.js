@@ -667,3 +667,42 @@ test("hosted Details hide Analyze by AI and keep suggestion chrome; standalone A
   const analyze = appSource.slice(analyzeStart, analyzeStart + 400);
   assert.match(analyze, /companionWebHosted\(\)/);
 });
+
+test("open_upload carries no progress and a progress type does not open upload", () => {
+  const opened = [];
+  const parentWindow = { postMessage() {} };
+  const iframeWindow = {
+    parent: parentWindow,
+    addEventListener() {},
+  };
+  const host = webHost.createHost({
+    window: iframeWindow,
+    parent: parentWindow,
+  });
+  host.onOpenUpload((...args) => {
+    opened.push(args);
+  });
+  host.handleMessage({
+    origin: PIN,
+    source: parentWindow,
+    data: { v: webHost.PROTOCOL, type: "upload_progress", payload: { percent: 100 } },
+  });
+  assert.deepEqual(opened, []);
+  host.handleMessage({
+    origin: PIN,
+    source: parentWindow,
+    data: {
+      v: webHost.PROTOCOL,
+      type: webHost.TYPES.OPEN_UPLOAD,
+      payload: { percent: 100, received_size_bytes: 8 },
+    },
+  });
+  assert.deepEqual(opened, [[]]);
+  assert.equal(webHost.TYPES.UPLOAD_PROGRESS, undefined);
+  assert.match(
+    sidebarSource,
+    /postToFrame\(\{ v: WEB_PROTOCOL, type: WEB_TYPES\.OPEN_UPLOAD \}, storedOrigin\)/,
+  );
+  assert.doesNotMatch(sidebarSource, /upload_progress/);
+  assert.match(appSource, /onOpenUpload\(\(\) => \{/);
+});

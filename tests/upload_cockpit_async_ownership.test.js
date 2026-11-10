@@ -6,8 +6,11 @@ const vm = require("node:vm");
 
 const APP_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/app.js");
 const INDEX_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/index.html");
+const COMPANION_HOST_PATH = path.resolve(__dirname, "../src/kronika/adapters/api/web/companion_host.js");
 const APP_SOURCE = fs.readFileSync(APP_PATH, "utf8");
 const INDEX_SOURCE = fs.readFileSync(INDEX_PATH, "utf8");
+const COMPANION_HOST_SOURCE = fs.readFileSync(COMPANION_HOST_PATH, "utf8");
+const PINNED_EXTENSION_ORIGIN = "chrome-extension://omiihmnlkmieaafaphohakcgmbggppap";
 const RECOVERY_KEY = "framenest.upload.recovery.v1";
 const RECOVERY_KEY_CURRENT = "kronika.upload.recovery.v1";
 
@@ -483,11 +486,12 @@ function createLocalStorage() {
   };
 }
 
-async function createHarness() {
+async function createHarness({ hosted = false } = {}) {
   const fetchController = createFetchController();
   const document = createDocument();
   const timers = [];
   const windowListeners = new Map();
+  const parentWindow = hosted ? { postMessage() {} } : null;
   const context = {
     console,
     document,
@@ -548,7 +552,11 @@ async function createHarness() {
   context.window = context;
   context.self = context;
   context.globalThis = context;
+  if (hosted) context.parent = parentWindow;
   vm.createContext(context);
+  if (hosted) {
+    vm.runInContext(COMPANION_HOST_SOURCE, context, { filename: COMPANION_HOST_PATH });
+  }
   vm.runInContext(APP_SOURCE, context, { filename: APP_PATH });
   await flushAll();
   const harness = {
@@ -568,6 +576,15 @@ async function createHarness() {
       timer.active = false;
       timer.callback();
       return timer.delay;
+    },
+    parentWindow,
+    dispatchCompanionMessage(data, overrides = {}) {
+      const event = {
+        origin: overrides.origin || PINNED_EXTENSION_ORIGIN,
+        source: Object.prototype.hasOwnProperty.call(overrides, "source") ? overrides.source : parentWindow,
+        data,
+      };
+      for (const listener of [...(context.__listeners.get("message") || [])]) listener(event);
     },
   };
   seedAdminMetadataIdentity(harness);
@@ -3834,4 +3851,523 @@ test("Class 4: upload recovery writes the current key and leaves the retired key
     JSON.parse(h.context.localStorage.getItem(RECOVERY_KEY_CURRENT)).upload_id,
     UPLOAD_B
   );
+});
+
+function capabilityResponse(overrides = {}) {
+  return response({
+    uploads_enabled: true,
+    max_total_size_bytes: 1024,
+    max_chunk_size_bytes: 4,
+    session_ttl_seconds: 60,
+    ...overrides,
+  });
+}
+
+function setUploadAutoStart(harness, enabled) {
+  harness.run(`(() => {
+    const input = document.querySelector("#upload-auto-start-input");
+    input.checked = ${enabled ? "true" : "false"};
+    input.dispatchEvent({ type: "change", bubbles: true });
+  })()`);
+}
+
+function autoStartState(harness) {
+  return harness.run(`({
+    checked: document.querySelector("#upload-auto-start-input").checked,
+    disabled: document.querySelector("#upload-auto-start-input").disabled,
+    choice: uploadAutoStart,
+    fileDisabled: document.querySelector("#upload-file-input").disabled,
+    dialogOpen: document.querySelector("#upload-dialog").hasAttribute("open"),
+    percent: document.querySelector("#upload-percent").textContent,
+  })`);
+}
+
+function beginChosenUpload(harness, file) {
+  harness.context.__file = file;
+  return harness.run(`(() => {
+    const input = document.querySelector("#upload-file-input");
+    input.files = [__file];
+    return handleUploadFileSelection();
+  })()`);
+}
+
+function installUploadDropZone(harness) {
+  harness.document.getElementById = (id) => harness.document.querySelector(`#${id}`);
+  function DataTransfer() {
+    const files = [];
+    this.files = files;
+    this.items = {
+      add(file) {
+        files.push(file);
+      },
+    };
+  }
+  function Event(type, init = {}) {
+    this.type = type;
+    this.bubbles = Boolean(init && init.bubbles);
+    this.defaultPrevented = false;
+  }
+  Event.prototype.preventDefault = function preventDefault() {
+    this.defaultPrevented = true;
+  };
+  harness.context.DataTransfer = DataTransfer;
+  harness.context.Event = Event;
+  harness.run("setupUploadDropZone(document)");
+}
+
+function dispatchUploadDrop(harness, file) {
+  harness.context.__file = file;
+  return harness.run(`(() => {
+    const dialog = document.querySelector("#upload-dialog");
+    const event = {
+      type: "drop",
+      bubbles: true,
+      defaultPrevented: false,
+      preventDefault() { this.defaultPrevented = true; },
+      dataTransfer: { types: ["Files"], files: [__file], dropEffect: "copy" },
+    };
+    dialog.dispatchEvent(event);
+    return event.defaultPrevented;
+  })()`);
+}
+
+async function flushUntil(harness, predicate, limit = 25) {
+  for (let index = 0; index < limit; index += 1) {
+    if (predicate()) return;
+    await harness.flush();
+  }
+  assert.equal(predicate(), true);
+}
+
+function enqueueStartedTransfer(harness, fileName, completePayload) {
+  enqueue(harness, "GET", "/api/uploads/capability", capabilityResponse());
+  enqueue(harness, "POST", "/api/uploads", response(snapshot(UPLOAD_A, "created", 0, 8, fileName)));
+  enqueueStatus(harness, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 0, 8, fileName)));
+  enqueue(harness, "PATCH", `/api/uploads/${UPLOAD_A}`, response(snapshot(UPLOAD_A, "receiving", 4, 8, fileName)));
+  enqueueStatus(harness, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4, 8, fileName)));
+  enqueue(harness, "PATCH", `/api/uploads/${UPLOAD_A}`, response(snapshot(UPLOAD_A, "receiving", 8, 8, fileName)));
+  enqueue(harness, "POST", `/api/uploads/${UPLOAD_A}/complete`, response(completePayload));
+}
+
+test("Auto-start defaults off, survives file reset, and resets only on dialog reopen.", async () => {
+  const h = await createHarness();
+  h.run("openUploadDialog()");
+  await h.flush();
+  let choice = autoStartState(h);
+  assert.equal(choice.dialogOpen, true);
+  assert.equal(choice.checked, false);
+  assert.equal(choice.choice, false);
+
+  setUploadAutoStart(h, true);
+  h.context.__file = makeFile("kept.gif", 8);
+  h.run("resetUploadForFile(__file)");
+  choice = autoStartState(h);
+  assert.equal(choice.checked, true);
+  assert.equal(choice.choice, true);
+  assert.equal(stateOf(h).fileName, "kept.gif");
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+
+  setUploadAutoStart(h, false);
+  setUploadAutoStart(h, true);
+  await h.flush();
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.equal(stateOf(h).startHidden, false);
+  assert.equal(h.context.localStorage.getItem(RECOVERY_KEY_CURRENT), null);
+  assert.equal(h.context.localStorage.getItem(RECOVERY_KEY), null);
+
+  h.run("openUploadDialog()");
+  choice = autoStartState(h);
+  assert.equal(choice.dialogOpen, true);
+  assert.equal(choice.checked, true);
+  assert.equal(choice.choice, true);
+
+  h.run("closeUploadDialog()");
+  h.run("openUploadDialog()");
+  await h.flush();
+  choice = autoStartState(h);
+  assert.equal(choice.dialogOpen, true);
+  assert.equal(choice.checked, false);
+  assert.equal(choice.choice, false);
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+});
+
+test("Opted-in picker and drop selection start one upload with the existing payload.", async () => {
+  const picker = await createHarness();
+  picker.run("openUploadDialog()");
+  await picker.flush();
+  picker.fetchController.clearCalls();
+  setUploadAutoStart(picker, true);
+  const capability = deferred();
+  const created = deferred();
+  enqueue(picker, "GET", "/api/uploads/capability", capability.promise);
+  enqueue(picker, "POST", "/api/uploads", created.promise);
+  const started = beginChosenUpload(picker, makeFile("picked.gif", 8, 1234));
+  await picker.flush();
+  assert.equal(stateOf(picker).actionKind, "start");
+  assert.equal(picker.fetchController.matching("POST", "/api/uploads").length, 0);
+  capability.resolve(capabilityResponse());
+  await flushUntil(picker, () => picker.fetchController.matching("POST", "/api/uploads").length === 1);
+  const posts = picker.fetchController.matching("POST", "/api/uploads");
+  assert.equal(posts.length, 1);
+  assert.deepEqual(JSON.parse(posts[0].options.body), {
+    display_filename: "picked.gif",
+    declared_size_bytes: 8,
+  });
+  assert.equal(posts[0].options.headers["Content-Type"], "application/json");
+  assert.equal(posts[0].options.headers["X-Kronika-Request"], "1");
+  created.resolve(response({ error: { code: "UPLOAD_CAPABILITY_NOT_CONFIGURED" } }, 409));
+  await started;
+  await picker.flush();
+  assert.equal(picker.fetchController.matching("POST", "/api/uploads").length, 1);
+
+  const dropped = await createHarness();
+  installUploadDropZone(dropped);
+  dropped.run("openUploadDialog()");
+  await dropped.flush();
+  dropped.fetchController.clearCalls();
+  setUploadAutoStart(dropped, true);
+  enqueue(dropped, "GET", "/api/uploads/capability", capabilityResponse());
+  const dropCreated = deferred();
+  enqueue(dropped, "POST", "/api/uploads", dropCreated.promise);
+  assert.equal(dispatchUploadDrop(dropped, makeFile("dropped.gif", 8, 2222)), true);
+  await flushUntil(dropped, () => dropped.fetchController.matching("POST", "/api/uploads").length === 1);
+  const dropPosts = dropped.fetchController.matching("POST", "/api/uploads");
+  assert.equal(dropPosts.length, 1);
+  assert.deepEqual(JSON.parse(dropPosts[0].options.body), {
+    display_filename: "dropped.gif",
+    declared_size_bytes: 8,
+  });
+  assert.equal(dispatchUploadDrop(dropped, makeFile("other.gif", 8, 3333)), true);
+  await dropped.flush();
+  assert.equal(dropped.fetchController.matching("POST", "/api/uploads").length, 1);
+  assert.equal(stateOf(dropped).fileName, "dropped.gif");
+  dropCreated.resolve(response({ error: { code: "UPLOAD_CAPABILITY_NOT_CONFIGURED" } }, 409));
+  await dropped.flush();
+});
+
+test("Auto-start fails closed for capability, empty-file and size failures without delayed retry.", async () => {
+  const missingCapability = await createHarness();
+  missingCapability.fetchController.clearCalls();
+  missingCapability.run(`identityState.capabilities = new Set(["gallery.read"]);`);
+  setUploadAutoStart(missingCapability, true);
+  const missingStart = beginChosenUpload(missingCapability, makeFile("needs-submit.gif", 8));
+  await missingStart;
+  await missingCapability.flush();
+  assert.equal(missingCapability.fetchController.matching("GET", "/api/uploads/capability").length, 0);
+  assert.equal(missingCapability.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.match(stateOf(missingCapability).message, /not available/i);
+
+  const disabled = await createHarness();
+  disabled.run("openUploadDialog()");
+  await disabled.flush();
+  disabled.fetchController.clearCalls();
+  setUploadAutoStart(disabled, true);
+  enqueue(disabled, "GET", "/api/uploads/capability", capabilityResponse({ uploads_enabled: false }));
+  await beginChosenUpload(disabled, makeFile("disabled.gif", 8));
+  await disabled.flush();
+  assert.equal(disabled.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.match(stateOf(disabled).message, /not configured/i);
+
+  const empty = await createHarness();
+  empty.run("openUploadDialog()");
+  await empty.flush();
+  empty.fetchController.clearCalls();
+  setUploadAutoStart(empty, true);
+  await beginChosenUpload(empty, makeFile("empty.gif", 0));
+  await empty.flush();
+  assert.equal(empty.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.match(stateOf(empty).message, /non-empty/i);
+
+  const oversize = await createHarness();
+  oversize.run("openUploadDialog()");
+  await oversize.flush();
+  oversize.fetchController.clearCalls();
+  setUploadAutoStart(oversize, true);
+  enqueue(oversize, "GET", "/api/uploads/capability", capabilityResponse({ max_total_size_bytes: 1024 }));
+  await beginChosenUpload(oversize, makeFile("big.gif", 2048));
+  await oversize.flush();
+  assert.equal(oversize.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.match(stateOf(oversize).message, /too large/i);
+
+  const offline = await createHarness();
+  offline.run("openUploadDialog()");
+  await offline.flush();
+  offline.fetchController.clearCalls();
+  setUploadAutoStart(offline, true);
+  enqueue(offline, "GET", "/api/uploads/capability", Promise.reject(new Error("offline")));
+  await beginChosenUpload(offline, makeFile("offline.gif", 8));
+  await offline.flush();
+  assert.equal(offline.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.match(stateOf(offline).message, /could not be loaded/i);
+
+  for (const harness of [missingCapability, disabled, empty, oversize, offline]) {
+    const posts = harness.fetchController.matching("POST", "/api/uploads").length;
+    for (let index = 0; index < 4; index += 1) {
+      const timer = harness.timers.find((candidate) => candidate.active);
+      if (!timer) break;
+      timer.active = false;
+      timer.callback();
+      await harness.flush();
+    }
+    assert.equal(harness.fetchController.matching("POST", "/api/uploads").length, posts);
+  }
+});
+
+test("Active or recovering uploads reject replacement selection and repeated open requests.", async () => {
+  const active = await createHarness();
+  installUploadDropZone(active);
+  active.run("openUploadDialog()");
+  await active.flush();
+  active.fetchController.clearCalls();
+  setUploadAutoStart(active, true);
+  const capability = deferred();
+  enqueue(active, "GET", "/api/uploads/capability", capability.promise);
+  const started = beginChosenUpload(active, makeFile("first.gif", 8, 1111));
+  await active.flush();
+  assert.equal(stateOf(active).actionKind, "start");
+  assert.equal(stateOf(active).fileName, "first.gif");
+  assert.equal(autoStartState(active).fileDisabled, true);
+  assert.equal(autoStartState(active).disabled, true);
+  beginChosenUpload(active, makeFile("second.gif", 8, 2222));
+  await active.flush();
+  assert.equal(stateOf(active).fileName, "first.gif");
+  assert.equal(stateOf(active).actionKind, "start");
+  assert.equal(dispatchUploadDrop(active, makeFile("third.gif", 8, 3333)), true);
+  const dragoverConsumed = active.run(`(() => {
+    const dialog = document.querySelector("#upload-dialog");
+    const event = {
+      type: "dragover",
+      bubbles: true,
+      defaultPrevented: false,
+      preventDefault() { this.defaultPrevented = true; },
+      dataTransfer: { types: ["Files"], dropEffect: "copy" },
+    };
+    dialog.dispatchEvent(event);
+    return event.defaultPrevented;
+  })()`);
+  assert.equal(dragoverConsumed, true);
+  assert.equal(stateOf(active).fileName, "first.gif");
+  const callsBeforeRepeat = active.fetchController.calls.length;
+  active.run("openUploadDialog()");
+  assert.equal(autoStartState(active).checked, true);
+  assert.equal(active.fetchController.calls.length, callsBeforeRepeat);
+  assert.equal(active.fetchController.matching("POST", "/api/uploads").length, 0);
+  enqueue(active, "POST", "/api/uploads", response(snapshot(UPLOAD_A, "created", 0, 8, "first.gif")));
+  capability.resolve(capabilityResponse());
+  await started;
+  await active.flush();
+  const createdPosts = active.fetchController.matching("POST", "/api/uploads");
+  assert.equal(createdPosts.length, 1);
+  assert.equal(JSON.parse(createdPosts[0].options.body).display_filename, "first.gif");
+
+  const recovering = await createHarness();
+  setUploadAutoStart(recovering, true);
+  recovering.context.localStorage.setItem(RECOVERY_KEY, JSON.stringify({
+    upload_id: UPLOAD_A,
+    file_name_hint: "saved.gif",
+    expected_size_bytes: 8,
+    last_modified_hint: 1234,
+    last_known_state: "receiving",
+  }));
+  const status = deferred();
+  enqueueStatus(recovering, UPLOAD_A, status.promise);
+  const restored = recovering.run("restoreUploadRecovery()");
+  await recovering.flush();
+  assert.equal(stateOf(recovering).uploadId, UPLOAD_A);
+  recovering.run('document.querySelector("#upload-dialog").setAttribute("open", "")');
+  const callsDuringRecovery = recovering.fetchController.calls.length;
+  recovering.run("openUploadDialog()");
+  assert.equal(recovering.fetchController.calls.length, callsDuringRecovery);
+  assert.equal(autoStartState(recovering).checked, true);
+  beginChosenUpload(recovering, makeFile("replacement.gif", 8, 9999));
+  await recovering.flush();
+  assert.equal(stateOf(recovering).uploadId, UPLOAD_A);
+  assert.equal(recovering.fetchController.matching("POST", "/api/uploads").length, 0);
+  status.resolve(response(snapshot(UPLOAD_A, "receiving", 4, 8, "saved.gif")));
+  await restored;
+  await recovering.flush();
+  assert.equal(stateOf(recovering).uploadId, UPLOAD_A);
+  assert.equal(stateOf(recovering).received, 4);
+  assert.equal(recovering.fetchController.matching("POST", "/api/uploads").length, 0);
+  assert.equal(recovering.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 0);
+});
+
+test("Auto-start preserves administrator duplicate review and ordinary duplicate privacy.", async () => {
+  const admin = await createHarness();
+  admin.run("openUploadDialog()");
+  await admin.flush();
+  admin.fetchController.clearCalls();
+  setUploadAutoStart(admin, true);
+  enqueueStartedTransfer(
+    admin,
+    "duplicate.gif",
+    snapshot(UPLOAD_A, "duplicate_pending", 8, 8, "duplicate.gif"),
+  );
+  await beginChosenUpload(admin, makeFile("duplicate.gif", 8));
+  await admin.flush();
+  const adminState = stateOf(admin);
+  assert.equal(adminState.snapshotState, "duplicate_pending");
+  assert.equal(adminState.stateLabel, "Duplicate found");
+  assert.equal(adminState.duplicateKeepHidden, false);
+  assert.equal(adminState.duplicateDiscardHidden, false);
+  assert.equal(adminState.visibleMessage, "Exact duplicate found.");
+  assert.equal(admin.fetchController.matching("POST", `/api/uploads/${UPLOAD_A}/duplicate-resolution`).length, 0);
+  assert.equal(admin.fetchController.matching("POST", "/api/uploads").length, 1);
+
+  const ordinary = await createHarness();
+  ordinary.run(`
+    identityState.resolved = true;
+    identityState.available = true;
+    identityState.capabilities = new Set(["gallery.read", "upload.submit"]);
+  `);
+  ordinary.run("openUploadDialog()");
+  await ordinary.flush();
+  ordinary.fetchController.clearCalls();
+  setUploadAutoStart(ordinary, true);
+  enqueueStartedTransfer(
+    ordinary,
+    "ordinary.gif",
+    snapshot(UPLOAD_A, "cataloged", 8, 8, "ordinary.gif"),
+  );
+  await beginChosenUpload(ordinary, makeFile("ordinary.gif", 8));
+  await ordinary.flush();
+  const ordinaryState = stateOf(ordinary);
+  assert.equal(ordinaryState.snapshotState, "cataloged");
+  assert.match(ordinaryState.visibleMessage, /awaits administrator review/i);
+  assert.match(ordinaryState.visibleMessage, /not public/i);
+  assert.equal(ordinaryState.visibleMessage.includes("Exact duplicate"), false);
+  assert.equal(ordinaryState.visibleMessage.includes("duplicate"), false);
+  assert.equal(ordinaryState.duplicateKeepHidden, true);
+  assert.equal(ordinaryState.duplicateDiscardHidden, true);
+  assert.equal(ordinary.fetchController.matching("POST", `/api/uploads/${UPLOAD_A}/duplicate-resolution`).length, 0);
+});
+
+test("Full-offset Resume completes without PATCH, while recovered byte transfer still requires explicit Resume.", async () => {
+  const full = await createHarness();
+  setActiveUpload(full, { id: UPLOAD_A, state: "receiving", received: 8, size: 8 });
+  setUploadAutoStart(full, true);
+  assert.equal(stateOf(full).resumeHidden, false);
+  assert.equal(stateOf(full).resumeDisabled, false);
+  enqueueStatus(full, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 8)));
+  enqueueStatus(full, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 8)));
+  enqueue(full, "POST", `/api/uploads/${UPLOAD_A}/complete`, response(snapshot(UPLOAD_A, "received", 8)));
+  await full.run("handleResumeUpload()");
+  await full.flush();
+  assert.equal(full.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 0);
+  assert.equal(full.fetchController.matching("POST", `/api/uploads/${UPLOAD_A}/complete`).length, 1);
+  assert.equal(stateOf(full).snapshotState, "received");
+  assert.equal(autoStartState(full).percent, "100%");
+
+  const needsFile = await createHarness();
+  setActiveUpload(needsFile, { id: UPLOAD_A, state: "receiving", received: 8, size: 8 });
+  needsFile.run(`
+    uploadState.file = null;
+    renderUploadCockpit();
+  `);
+  assert.equal(stateOf(needsFile).resumeHidden, false);
+  enqueueStatus(needsFile, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4)));
+  await needsFile.run("handleResumeUpload()");
+  await needsFile.flush();
+  assert.equal(stateOf(needsFile).stateLabel, "Reselect file to resume");
+  assert.equal(needsFile.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 0);
+  assert.equal(needsFile.fetchController.matching("POST", `/api/uploads/${UPLOAD_A}/complete`).length, 0);
+
+  const recovered = await createHarness();
+  recovered.context.localStorage.setItem(RECOVERY_KEY, JSON.stringify({
+    upload_id: UPLOAD_A,
+    file_name_hint: "sample.gif",
+    expected_size_bytes: 8,
+    last_modified_hint: 1234,
+    last_known_state: "receiving",
+  }));
+  enqueueStatus(recovered, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4)));
+  await recovered.run("restoreUploadRecovery()");
+  await recovered.flush();
+  setUploadAutoStart(recovered, true);
+  recovered.context.__file = makeFile("sample.gif", 8, 1234);
+  await recovered.run(`(() => {
+    const input = document.querySelector("#upload-file-input");
+    input.files = [__file];
+    return handleUploadFileSelection();
+  })()`);
+  await recovered.flush();
+  const reselected = stateOf(recovered);
+  assert.equal(reselected.stateLabel, "Ready to resume");
+  assert.equal(reselected.resumeHidden, false);
+  assert.equal(recovered.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 0);
+  assert.equal(recovered.fetchController.matching("POST", "/api/uploads").length, 0);
+  enqueueStatus(recovered, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4)));
+  enqueueStatus(recovered, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4)));
+  enqueue(recovered, "PATCH", `/api/uploads/${UPLOAD_A}`, response(snapshot(UPLOAD_A, "receiving", 8)));
+  await recovered.run("handleResumeUpload()");
+  await recovered.flush();
+  assert.equal(recovered.fetchController.matching("PATCH", `/api/uploads/${UPLOAD_A}`).length, 1);
+});
+
+test("Hosted open_upload opens the same dialog without starting a transfer and renders its progress and result.", async () => {
+  const h = await createHarness({ hosted: true });
+  h.run(`
+    identityState.capabilities.delete("upload.submit");
+    applyIdentityCapabilities();
+  `);
+  h.dispatchCompanionMessage({ v: "kronika.companion.web.v1", type: "open_upload" });
+  await h.flush();
+  assert.equal(autoStartState(h).dialogOpen, false);
+
+  h.run(`
+    identityState.capabilities.add("upload.submit");
+    applyIdentityCapabilities();
+  `);
+  h.dispatchCompanionMessage(
+    { v: "kronika.companion.web.v1", type: "open_upload" },
+    { origin: "https://evil.example" },
+  );
+  await h.flush();
+  assert.equal(autoStartState(h).dialogOpen, false);
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+
+  h.dispatchCompanionMessage({ v: "kronika.companion.web.v1", type: "open_upload" });
+  await h.flush();
+  assert.equal(autoStartState(h).dialogOpen, true);
+  assert.equal(autoStartState(h).checked, false);
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+
+  setUploadAutoStart(h, true);
+  const callsWhileOpen = h.fetchController.calls.length;
+  h.dispatchCompanionMessage({
+    v: "kronika.companion.web.v1",
+    type: "open_upload",
+    payload: { percent: 100, received_size_bytes: 8 },
+  });
+  await h.flush();
+  assert.equal(autoStartState(h).checked, true);
+  assert.equal(h.fetchController.calls.length, callsWhileOpen);
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 0);
+  setUploadAutoStart(h, false);
+
+  h.fetchController.clearCalls();
+  const completion = deferred();
+  enqueue(h, "GET", "/api/uploads/capability", capabilityResponse());
+  enqueue(h, "POST", "/api/uploads", response(snapshot(UPLOAD_A, "created", 0, 8, "hosted.gif")));
+  enqueueStatus(h, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 0, 8, "hosted.gif")));
+  enqueue(h, "PATCH", `/api/uploads/${UPLOAD_A}`, response(snapshot(UPLOAD_A, "receiving", 4, 8, "hosted.gif")));
+  enqueueStatus(h, UPLOAD_A, response(snapshot(UPLOAD_A, "receiving", 4, 8, "hosted.gif")));
+  enqueue(h, "PATCH", `/api/uploads/${UPLOAD_A}`, response(snapshot(UPLOAD_A, "receiving", 8, 8, "hosted.gif")));
+  enqueue(h, "POST", `/api/uploads/${UPLOAD_A}/complete`, completion.promise);
+  beginChosenUpload(h, makeFile("hosted.gif", 8));
+  const started = h.run("handleStartUpload()");
+  await flushUntil(h, () => stateOf(h).visibleMessage.includes("Completing byte reception"));
+  assert.equal(autoStartState(h).percent, "100%");
+  assert.equal(autoStartState(h).dialogOpen, true);
+  assert.notEqual(stateOf(h).stateLabel, "Completed");
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 1);
+  completion.resolve(response(snapshot(UPLOAD_A, "cataloged", 8, 8, "hosted.gif")));
+  await started;
+  await h.flush();
+  const finished = stateOf(h);
+  assert.equal(finished.snapshotState, "cataloged");
+  assert.equal(finished.stateLabel, "Completed");
+  assert.match(finished.visibleMessage, /Cataloged/);
+  assert.equal(autoStartState(h).dialogOpen, true);
+  assert.equal(h.fetchController.matching("POST", "/api/uploads").length, 1);
 });

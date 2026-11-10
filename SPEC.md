@@ -795,6 +795,46 @@ re-uploads, and MUST NOT implement Trash, soft-delete tombstones, batch
 removal, or physical purge. See
 [ADR-0051](docs/adr/0051-administrator-catalog-removal.md).
 
+The upload dialog MAY offer one transient choice, “Start automatically after
+choosing a file,” off by default. That choice lives only for the current
+closed-to-open lifetime of the dialog. It MUST reset when the dialog opens
+from a closed state, MUST NOT reset or create work when the dialog is already
+open, and MUST NOT be stored in local storage, session storage, server
+settings, or the upload recovery record. Toggling the choice MUST NOT start an
+already selected file. With the choice on, one permitted new file selection or
+drop MUST invoke the existing capability-gated start path once. The client
+MUST claim that start before awaiting capability discovery or session
+creation. The start MUST require current `upload.submit`, configured upload
+capability, a positive file size, and the current server size limit. A failed
+gate MUST create no session and send no bytes, and MUST NOT schedule an
+automatic retry. Manual Start or Resume remains the retry where that action is
+still eligible.
+
+Automatic start MUST NOT replace an in-flight create, an active transfer,
+unresolved recovery, validation, duplicate review, or finalization. Selection
+handlers MUST apply the same exclusion, and a blocked file drop MUST be
+consumed without navigation or state replacement. A settled incomplete session
+MAY accept a compatible reselected file, but automatic start MUST NOT resume
+recovered or paused work; Resume stays explicit. When server-confirmed state
+is still `receiving` and the offset already contains every declared byte,
+Resume MUST be offered and MUST finish through the existing complete request
+without another PATCH. If refreshed server truth still needs bytes and no
+local file is available, the client MUST require reselection.
+
+Displayed transfer progress MUST follow the server-confirmed byte offset. One
+hundred percent means the declared bytes were transferred, not that
+validation, publication, or cataloging succeeded. Administrator duplicate
+review MUST keep the existing keep and discard actions, and automatic start
+MUST NOT choose a disposition. Ordinary duplicate handling MUST remain the
+privacy-safe `silent_keep_separate` outcome with no duplicate indication or
+matching evidence. Publication-pending, published, and cataloged feedback,
+including ordinary administrator-review wording, MUST remain visible in the
+dialog until another permitted selection or dialog closure. Closing the dialog
+MUST NOT create an upload or cancel an existing transfer. Reopening MUST
+refresh the existing session and eligible status polling, and MUST NOT create
+a new upload. `open_upload` only opens this same dialog; upload progress and
+terminal results stay there.
+
 The synchronization protocol remains unresolved.
 
 ## 19. Network Boundary

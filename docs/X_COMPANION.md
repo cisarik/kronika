@@ -136,8 +136,10 @@ After connect, the in-page picker has no Settings sheet; an empty origin tells
 the user to connect Kronika in the side panel. Settings persists the origin
 with Save under the origin field. Connected administrators also see
 Administration with **Automatic media analysis**. The title bar has history,
-Settings, and, once connected, Upload. Upload posts `open_upload` only after
-the sidebar handshake. Disconnect stays in Settings: that button reads Connect
+Settings, and, once connected, Upload (📤). Upload posts `open_upload` only after
+the sidebar handshake. That message opens the hosted Kronika upload dialog;
+progress and terminal results stay in that dialog rather than in the side
+panel. See [SPEC.md](../SPEC.md) §18. Disconnect stays in Settings: that button reads Connect
 when disconnected and Disconnect when connected. Save writes settings and
 connects. Disconnect clears the session. The toolbar opens
 that shell, which iframes Kronika only after the stored origin is granted.
@@ -199,8 +201,9 @@ Rollback: remove the key or set it to `[]` and restart. No CORS is enabled.
    Settings closes, the success status stays blank, and the shell iframes
    that origin. Save stays disabled until the origin
    differs from the stored value. Connect and Disconnect live in Settings.
-   The title bar shows Upload once connected; that control posts `open_upload`
-   only after the sidebar handshake.
+   The title bar shows Upload (📤) once connected; that control posts `open_upload`
+   only after the sidebar handshake and opens the hosted upload dialog. Progress
+   and results stay in that dialog. See [SPEC.md](../SPEC.md) §18.
    The in-page Search memes picker has no Settings sheet.
 6. Use Disconnect in Settings to clear stored origin, in-flight
    claim ids, and the granted host permission. Settings then opens so reconnect

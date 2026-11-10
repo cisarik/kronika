@@ -188,6 +188,7 @@ let uploadState = {
   message: "",
   failureMessage: "",
 };
+let uploadAutoStart = false;
 let metadataWorkspace = {
   openMediaId: null,
   openItem: null,
@@ -729,6 +730,7 @@ const researchSettingsConfirmButton = document.querySelector("#research-settings
 const uploadDialog = document.querySelector("#upload-dialog");
 const uploadDialogTitle = document.querySelector("#upload-dialog-title");
 const uploadCloseButton = document.querySelector("#upload-close-button");
+const uploadAutoStartInput = document.querySelector("#upload-auto-start-input");
 const uploadFileInput = document.querySelector("#upload-file-input");
 const uploadRow = document.querySelector("#upload-row");
 const uploadFileName = document.querySelector("#upload-file-name");
@@ -3236,12 +3238,67 @@ function renderUploadCockpit() {
   updateUploadActions();
 }
 
+function uploadDialogIsOpen() {
+  return Boolean(
+    uploadDialog
+    && (
+      (typeof uploadDialog.hasAttribute === "function" && uploadDialog.hasAttribute("open"))
+      || uploadDialog.open === true
+    ),
+  );
+}
+
+function uploadReadyForCompleteOnly(snapshot) {
+  return Boolean(
+    snapshot
+    && snapshot.state === "receiving"
+    && snapshot.declared_size_bytes > 0
+    && snapshot.received_size_bytes === snapshot.declared_size_bytes,
+  );
+}
+
+function uploadTerminalSelectionPermitted(snapshot) {
+  return Boolean(
+    snapshot
+    && ["cataloged", "rejected", "failed", "cancelled", "expired"].includes(snapshot.state),
+  );
+}
+
+function uploadUnresolvedWorkOwnsDialog() {
+  if (
+    uploadState.actionOwner
+    || uploadState.preparing
+    || uploadState.running
+    || uploadState.completing
+  ) {
+    return true;
+  }
+  const snapshot = activeUploadSnapshot();
+  if (!snapshot) {
+    return Boolean(uploadState.uploadId);
+  }
+  if (uploadIsByteReceiving(snapshot)) {
+    return false;
+  }
+  if (uploadTerminalSelectionPermitted(snapshot)) {
+    return false;
+  }
+  return true;
+}
+
+function syncUploadAutoStartControl() {
+  if (uploadAutoStartInput) {
+    uploadAutoStartInput.checked = uploadAutoStart;
+  }
+}
+
 function updateUploadActions() {
   const snapshot = activeUploadSnapshot();
   const hasFile = Boolean(uploadState.file);
   const hasActiveSession = Boolean(snapshot);
   const fileWithinLimit = hasFile
     && uploadCapability.max_total_size_bytes > 0
+    && uploadState.file.size > 0
     && uploadState.file.size <= uploadCapability.max_total_size_bytes;
   const startVisible = uploadCapability.uploads_enabled
     && hasFile
@@ -3259,9 +3316,14 @@ function updateUploadActions() {
     && !uploadState.preparing
     && !uploadState.running
     && !uploadState.completing
-    && uploadIsByteReceiving(snapshot)
-    && hasFile
-    && !uploadState.needsReselection;
+    && (
+      (
+        uploadIsByteReceiving(snapshot)
+        && hasFile
+        && !uploadState.needsReselection
+      )
+      || uploadReadyForCompleteOnly(snapshot)
+    );
   const cancelVisible = uploadCancelPermitted(snapshot)
     && !uploadState.completing
     && (!uploadState.actionOwner || uploadState.actionOwner.kind !== "cancel");
@@ -3304,6 +3366,13 @@ function updateUploadActions() {
   if (uploadCancelButton) {
     uploadCancelButton.hidden = !cancelVisible;
     uploadCancelButton.disabled = !cancelVisible;
+  }
+  const replacementLocked = uploadUnresolvedWorkOwnsDialog();
+  if (uploadFileInput) {
+    uploadFileInput.disabled = replacementLocked;
+  }
+  if (uploadAutoStartInput) {
+    uploadAutoStartInput.disabled = replacementLocked;
   }
   if (focusedAction && focusedAction.hidden && uploadMessage) {
     uploadMessage.focus();
@@ -3749,11 +3818,16 @@ async function handleStartUpload() {
   uploadState.message = "Preparing upload session.";
   renderUploadCockpit();
   try {
+    if (!identityHasCapability("upload.submit")) {
+      uploadState.message = "Upload submission is not available for this identity.";
+      renderUploadCockpit();
+      return;
+    }
     const capabilityLoaded = await loadUploadCapability(owner);
     if (!uploadContextStillCurrent(owner, { allowMissingUploadId: true })) return;
-    if (capabilityLoaded === null) return;
-    if (!uploadCapability.uploads_enabled) {
-      uploadState.message = "Uploads are not configured on this local server.";
+    if (capabilityLoaded !== true) return;
+    if (!Number.isFinite(file.size) || file.size <= 0) {
+      uploadState.message = "Select a non-empty file.";
       renderUploadCockpit();
       return;
     }
@@ -3809,14 +3883,17 @@ function handlePauseUpload() {
 
 async function handleResumeUpload() {
   const snapshot = activeUploadSnapshot();
+  const bytesOutstanding = uploadIsByteReceiving(snapshot);
+  const completeOnly = uploadReadyForCompleteOnly(snapshot);
   if (
     !snapshot
     || uploadState.actionOwner
     || uploadState.preparing
     || uploadState.running
     || uploadState.completing
+    || (!bytesOutstanding && !completeOnly)
   ) return;
-  if (!uploadState.file) {
+  if (bytesOutstanding && !uploadState.file) {
     uploadState.needsReselection = true;
     uploadState.message = "Reselect the original local file before resuming.";
     renderUploadCockpit();
@@ -3831,10 +3908,7 @@ async function handleResumeUpload() {
     const refreshed = await refreshUploadStatus(snapshot.id, owner);
     if (!uploadContextStillCurrent(owner) || !refreshed) return;
     if (!uploadIsByteReceiving(refreshed)) {
-      if (
-        refreshed.state === "receiving"
-        && refreshed.received_size_bytes === refreshed.declared_size_bytes
-      ) {
+      if (uploadReadyForCompleteOnly(refreshed)) {
         uploadState.paused = false;
         uploadState.needsReselection = false;
         uploadState.preparing = false;
@@ -3845,6 +3919,13 @@ async function handleResumeUpload() {
         uploadState.preparing = false;
         scheduleUploadPolling(currentUploadContext({ uploadId: refreshed.id }));
       }
+      return;
+    }
+    if (!uploadState.file) {
+      uploadState.preparing = false;
+      uploadState.needsReselection = true;
+      uploadState.message = "Reselect the original local file before resuming.";
+      renderUploadCockpit();
       return;
     }
     uploadState.paused = false;
@@ -4015,6 +4096,9 @@ async function handleDiscardDuplicate() {
 }
 
 function handleUploadFileSelection() {
+  if (uploadUnresolvedWorkOwnsDialog()) {
+    return;
+  }
   const file = uploadFileInput && uploadFileInput.files && uploadFileInput.files[0]
     ? uploadFileInput.files[0]
     : null;
@@ -4029,8 +4113,11 @@ function handleUploadFileSelection() {
     return;
   }
   const snapshot = activeUploadSnapshot();
-  if (!snapshot || uploadIsPollingStopState(snapshot)) {
+  if (!snapshot || uploadTerminalSelectionPermitted(snapshot)) {
     resetUploadForFile(file);
+    if (uploadAutoStart) {
+      return handleStartUpload();
+    }
     return;
   }
   if (uploadIsByteReceiving(snapshot)) {
@@ -4080,6 +4167,9 @@ function handleUploadFileSelection() {
 
 function openUploadDialog() {
   if (!uploadDialog) return;
+  if (uploadDialogIsOpen()) return;
+  uploadAutoStart = false;
+  syncUploadAutoStartControl();
   uploadOpenerElement = document.activeElement;
   if (typeof uploadDialog.showModal === "function") {
     uploadDialog.showModal();
@@ -10406,6 +10496,16 @@ if (uploadDialog) {
   });
 }
 
+if (uploadAutoStartInput) {
+  uploadAutoStartInput.addEventListener("change", () => {
+    if (uploadAutoStartInput.disabled) {
+      uploadAutoStartInput.checked = uploadAutoStart;
+      return;
+    }
+    uploadAutoStart = Boolean(uploadAutoStartInput.checked);
+  });
+}
+
 if (uploadFileInput) {
   uploadFileInput.addEventListener("change", handleUploadFileSelection);
 }
@@ -15644,15 +15744,17 @@ function setupUploadDropZone(doc) {
     if (!depth) dialog.classList.remove("upload-dialog--dragging");
   });
   dialog.addEventListener("dragover", (event) => {
-    if (!hasFiles(event) || input.disabled) return;
+    if (!hasFiles(event)) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
+    if (!event.dataTransfer) return;
+    event.dataTransfer.dropEffect = input.disabled ? "none" : "copy";
   });
   dialog.addEventListener("drop", (event) => {
     depth = 0;
     dialog.classList.remove("upload-dialog--dragging");
-    if (!hasFiles(event) || input.disabled) return;
+    if (!hasFiles(event)) return;
     event.preventDefault();
+    if (input.disabled || !event.dataTransfer) return;
     const file = event.dataTransfer.files && event.dataTransfer.files[0];
     if (!file) return;
     const transfer = new DataTransfer();

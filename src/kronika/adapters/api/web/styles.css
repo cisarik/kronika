@@ -1057,6 +1057,51 @@ button {
   color: var(--warning);
 }
 
+#upload-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+#upload-dialog .upload-auto-start {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+#upload-dialog .upload-auto-start__input {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+}
+
+#upload-dialog .upload-auto-start__label {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+#upload-dialog .upload-auto-start__hint {
+  margin: -8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+#upload-dialog .upload-file-input:disabled + .upload-file-trigger,
+#upload-dialog .upload-auto-start__input:disabled + .upload-auto-start__label {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .upload-file-field {
   display: grid;
   gap: 6px;
@@ -4986,6 +5031,12 @@ h2 {
 
   .upload-dialog {
     width: calc(100% - 20px);
+  }
+
+  #upload-dialog .upload-auto-start__label,
+  #upload-dialog .upload-auto-start__hint {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .youtube-claim-dialog {

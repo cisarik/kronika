@@ -3084,3 +3084,39 @@ def test_served_shell_persisted_keys_read_the_retired_spelling_and_write_the_cur
         assert retired_constant not in writes, (
             f"{retired_constant} must never be a write target again"
         )
+
+
+def test_upload_dialog_auto_start_is_opt_in_and_scoped(client: TestClient) -> None:
+    html = client.get("/").text
+    css = client.get("/assets/styles.css").text
+    script = client.get("/assets/app.js").text
+    upload_dialog = html[html.index('id="upload-dialog"') : html.index('id="status-dialog"')]
+    auto_start = upload_dialog.index('id="upload-auto-start-input"')
+    file_input = upload_dialog.index('id="upload-file-input"')
+
+    assert auto_start < file_input
+    checkbox = upload_dialog[auto_start:file_input]
+    assert 'type="checkbox"' in checkbox
+    assert " checked" not in checkbox
+    assert ">Start automatically after choosing a file</label>" in upload_dialog
+    assert (
+        ">For this open dialog only. Recovered uploads still need Resume.</p>"
+        in upload_dialog
+    )
+    assert 'aria-describedby="upload-auto-start-hint"' in upload_dialog
+    assert "published" not in upload_dialog.lower()
+
+    open_rule = css[css.index("#upload-dialog[open]") : css.index("#upload-dialog[open]") + 80]
+    assert "display: flex" in open_rule
+    assert "flex-direction: column" in open_rule
+    assert "#upload-dialog .upload-auto-start__label" in css
+    assert "overflow-wrap: anywhere" in css
+    assert ".youtube-claim-dialog" in css
+    assert "width: min(620px, calc(100% - 40px));" in css
+
+    assert "let uploadAutoStart = false;" in script
+    assert "function uploadUnresolvedWorkOwnsDialog(" in script
+    assert "function uploadReadyForCompleteOnly(" in script
+    storage_writes = re.findall(r"\.setItem\(([^)]*)\)", script)
+    assert storage_writes
+    assert all("uploadAutoStart" not in write for write in storage_writes)
