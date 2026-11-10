@@ -107,7 +107,9 @@ gallery-preview route MUST re-authorize every request. Administrator inventory
 and record detail MUST NOT expose the field.
 
 The browser MUST render the Timeline as one compact semantic list with a 36 px
-preview slot, and personal-record History as the existing cards. The kind icon
+preview slot. Personal History MUST render the caller's questions as one
+compact semantic list with kind, status and visibility, and without a preview
+column or a visible Added date. The kind icon
 MUST remain visible while loading and after every failure. The image MUST be
 empty-alt and aria-hidden, MUST NOT add a focus target, and MUST be revealed
 only after a successful load. Question History, non-media rows, still images

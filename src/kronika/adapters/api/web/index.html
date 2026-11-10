@@ -941,12 +941,14 @@
             <p class="kronika-lede">Your own questions, answers and saved records. Private until an administrator shares them.</p>
           </div>
         </header>
-        <div class="kronika-filters kronika-tabs" role="group" aria-label="History">
-          <a id="kronika-history-questions" class="kronika-action kronika-chip" href="#/history"><span class="kronika-chip__icon" aria-hidden="true">💬</span>Questions</a>
-          <a id="kronika-history-records-tab" class="kronika-action kronika-chip" href="#/history/records"><span class="kronika-chip__icon" aria-hidden="true">🗂️</span>Records</a>
-        </div>
         <p id="kronika-history-status" class="kronika-status" role="status" aria-live="polite"></p>
-        <div id="kronika-history-results" class="kronika-grid" data-kronika-list="history"></div>
+        <div class="kronika-chronicle-header kronika-history-header" aria-hidden="true">
+          <span>Question</span>
+          <span>Kind</span>
+          <span>Status</span>
+          <span>Visibility</span>
+        </div>
+        <ol id="kronika-history-results" class="kronika-chronicle" data-kronika-list="history"></ol>
         <div class="kronika-pager">
           <button id="kronika-history-prev" class="kronika-action kronika-pager__button" type="button" aria-label="Previous page" title="Previous page"><span aria-hidden="true">←</span></button>
           <button id="kronika-history-next" class="kronika-action kronika-pager__button" type="button" aria-label="Next page" title="Next page"><span aria-hidden="true">→</span></button>

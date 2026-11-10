@@ -13694,8 +13694,8 @@ function kronikaParseRoute(hash) {
   }
   if (normalized === "/history/records") {
     return {
-      name: "history-records",
-      path: "/history/records",
+      name: "history",
+      path: "/history",
       id: "",
       offset,
       filter: "all",
@@ -13918,7 +13918,7 @@ function kronikaLeaveGallery() {
 
 function kronikaMarkCurrent(name) {
   const current = name === "details" ? "gallery"
-    : name === "history-records" || name === "request" || name === "record" ? "history"
+    : name === "request" || name === "record" ? "history"
       : name === "review-shared" || name === "review-requests" ? "review"
         : name;
   document.querySelectorAll(".kronika-nav a[data-kronika-nav]").forEach((link) => {
@@ -14035,7 +14035,10 @@ async function kronikaFollowHash() {
       if (typeof openDetailsDialog === "function") {
         openDetailsDialog({ media_id: route.id }, kronikaOpener || document.getElementById("catalog-browser"));
       }
-    } else if (route.name === "history" || route.name === "history-records") {
+    } else if (route.name === "history") {
+      if (kronikaLocationHash().startsWith("#/history/records")) {
+        kronikaSetHashSuppressed(kronikaHashForRoute(route));
+      }
       await kronikaLoadHistory(route);
     } else if (route.name === "search" || route.name === "research") {
       await kronikaShowQuestion(route);
@@ -14556,38 +14559,60 @@ async function kronikaLoadTimeline(route) {
   kronikaPager("kronika-timeline-prev", "kronika-timeline-next", list);
 }
 
+function kronikaQuestionShare(item) {
+  if (item && (item.visibility || item.publication_state)) {
+    return { glyph: kronikaShareGlyph(item), text: kronikaPublicationLabel(item) };
+  }
+  return { glyph: "🔒", text: "Private" };
+}
+
+function kronikaRenderQuestionChronicle(results, items) {
+  if (!results) return;
+  results.replaceChildren();
+  items.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = "kronika-chronicle__item";
+    kronikaTagCardKind(row, item);
+    const title = document.createElement("a");
+    title.className = "kronika-chronicle__title";
+    title.href = item.record_id
+      ? `#/records/${encodeURIComponent(item.record_id)}`
+      : `#/requests/${encodeURIComponent(item.operation_id)}`;
+    title.textContent = kronikaCardTitle(item);
+    row.appendChild(title);
+    row.appendChild(kronikaChronicleLabeled("kronika-chronicle__kind", "Kind", kronikaKindLabel(item)));
+    const statusItem = { status: item.state || item.status || "", kind: item.kind };
+    row.appendChild(kronikaChronicleSignal(
+      "kronika-chronicle__status",
+      kronikaStatusGlyph(statusItem.status),
+      kronikaStatusLabel(statusItem),
+    ));
+    const share = kronikaQuestionShare(item);
+    row.appendChild(kronikaChronicleSignal("kronika-chronicle__visibility", share.glyph, share.text));
+    results.appendChild(row);
+  });
+}
+
 async function kronikaLoadHistory(route) {
-  kronikaRuntime.historyMode = route.name === "history-records" ? "records" : "questions";
+  kronikaRuntime.historyMode = "questions";
   kronikaRetirePreviews("records");
   kronikaCancelListRequest("questions");
   kronikaCancelListRequest("records");
-  const questions = document.getElementById("kronika-history-questions");
-  const recordsTab = document.getElementById("kronika-history-records-tab");
-  if (questions) {
-    if (kronikaRuntime.historyMode === "questions") questions.setAttribute("aria-current", "page");
-    else questions.removeAttribute("aria-current");
-  }
-  if (recordsTab) {
-    if (kronikaRuntime.historyMode === "records") recordsTab.setAttribute("aria-current", "page");
-    else recordsTab.removeAttribute("aria-current");
-  }
   if (!kronikaVerified()) {
     kronikaSetText("kronika-history-status", kronikaErrorCopy("IDENTITY_REQUIRED"));
     return;
   }
-  if (kronikaRuntime.historyMode === "questions" && !kronikaCanResearch()) {
+  if (!kronikaCanResearch()) {
     kronikaSetText("kronika-history-status", kronikaErrorCopy("CAPABILITY_DENIED"));
     return;
   }
-  const list = kronikaRuntime.historyMode === "records" ? kronikaLists.records : kronikaLists.questions;
-  const listKey = kronikaRuntime.historyMode === "records" ? "records" : "questions";
-  const controller = kronikaBeginListController(listKey);
-  const path = kronikaRuntime.historyMode === "records" ? "/api/my/records" : "/api/research-requests";
-  const queryKey = JSON.stringify({ mode: kronikaRuntime.historyMode, offset: route.offset, login: kronikaLogin() });
+  const list = kronikaLists.questions;
+  const controller = kronikaBeginListController("questions");
+  const queryKey = JSON.stringify({ mode: "questions", offset: route.offset, login: kronikaLogin() });
   const generation = kronikaIdentityGeneration;
   const requestGeneration = list.generation;
   const result = await kronikaReadJson(
-    kronikaListUrl(path, route.offset, {}),
+    kronikaListUrl("/api/research-requests", route.offset, {}),
     generation,
     controller ? controller.signal : undefined,
   );
@@ -14604,36 +14629,7 @@ async function kronikaLoadHistory(route) {
   if (retry) retry.hidden = true;
   if (list.stale) kronikaSetText("kronika-history-status", "Showing the last loaded page. It was not refreshed.");
   else kronikaSetText("kronika-history-status", "");
-  if (!results) return;
-  results.replaceChildren();
-  list.items.forEach((item) => {
-    const link = document.createElement("a");
-    link.className = "kronika-card";
-    kronikaTagCardKind(link, item);
-    if (kronikaRuntime.historyMode === "records") {
-      link.href = item.kind === "media" && item.media_id
-        ? `#/details/${encodeURIComponent(item.media_id)}`
-        : `#/records/${encodeURIComponent(item.record_id)}`;
-      const title = document.createElement("strong");
-      title.textContent = kronikaCardTitle(item);
-      const meta = document.createElement("small");
-      meta.textContent = `${kronikaKindLabel(item)} · ${kronikaVisibilityLabel(item.visibility)}`;
-      link.appendChild(title);
-      link.appendChild(meta);
-      kronikaAttachCardPreview(link, item, "records");
-    } else {
-      link.href = item.record_id
-        ? `#/records/${encodeURIComponent(item.record_id)}`
-        : `#/requests/${encodeURIComponent(item.operation_id)}`;
-      const title = document.createElement("strong");
-      title.textContent = kronikaCardTitle(item);
-      const meta = document.createElement("small");
-      meta.textContent = `${kronikaKindLabel(item)} · ${item.state || "unknown"}`;
-      link.appendChild(title);
-      link.appendChild(meta);
-    }
-    results.appendChild(link);
-  });
+  kronikaRenderQuestionChronicle(results, list.items);
   kronikaPager("kronika-history-prev", "kronika-history-next", list);
 }
 

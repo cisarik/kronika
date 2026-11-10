@@ -6017,6 +6017,37 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   visibility: hidden;
 }
 
+#kronika-history .kronika-history-header,
+#kronika-history .kronika-chronicle__item {
+  grid-template-columns: minmax(0, 1fr) 5.5rem 4.5rem 6.25rem;
+}
+
+#kronika-history .kronika-chronicle__kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  #kronika-history .kronika-history-header {
+    display: none;
+  }
+
+  #kronika-history .kronika-chronicle__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #kronika-history .kronika-chronicle__kind,
+  #kronika-history .kronika-chronicle__status,
+  #kronika-history .kronika-chronicle__visibility {
+    grid-column: 1;
+  }
+
+  #kronika-history {
+    overflow-x: hidden;
+  }
+}
+
 .kronika-chronicle-filters {
   display: flex;
   flex-wrap: wrap;
