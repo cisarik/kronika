@@ -6020,16 +6020,96 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
 .kronika-chronicle-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 12px 14px;
   align-items: end;
-  margin: 0 0 12px;
+  margin: 4px 0 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: rgba(0, 255, 65, 0.03);
 }
 
 .kronika-chronicle-filters label,
-.kronika-chronicle-filters select,
 .kronika-chronicle-filters input,
 .kronika-chronicle-filters button {
   min-height: 44px;
+}
+
+.kronika-menu {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.kronika-menu__label {
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kronika-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 9.5rem;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kronika-menu__trigger[aria-expanded="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.kronika-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 70;
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  min-width: 220px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  box-shadow: 0 18px 60px var(--shadow-deep), 0 0 0 1px rgba(0, 255, 65, 0.04);
+  animation: header-menu-in 140ms ease-out;
+}
+
+.kronika-menu__option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kronika-menu__option:hover,
+.kronika-menu__option:focus-visible,
+.kronika-menu__option[aria-selected="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  outline: none;
 }
 
 .kronika-chronicle-header,
@@ -6039,24 +6119,50 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   padding: 0;
 }
 
-.kronika-chronicle-header {
+.kronika-chronicle-header,
+.kronika-chronicle__item {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto auto auto auto;
-  gap: 8px 12px;
+  grid-template-columns: 4.75rem minmax(0, 1fr) 5.5rem 4.5rem 6.25rem;
+  column-gap: 20px;
   align-items: center;
+}
+
+.kronika-chronicle-header {
   min-height: 44px;
-  color: var(--muted, inherit);
-  font-size: 0.85rem;
+  padding: 0 8px 8px;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.kronika-chronicle-header > span {
+  white-space: nowrap;
 }
 
 .kronika-chronicle__item {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto auto auto auto;
-  gap: 8px 12px;
-  align-items: center;
   min-height: 44px;
-  padding: 8px 0;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--line);
+  border-radius: 10px;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.kronika-chronicle__item:hover,
+.kronika-chronicle__item:focus-within {
+  background: rgba(0, 255, 65, 0.07);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.kronika-chronicle__status,
+.kronika-chronicle__visibility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  font-size: 1.15rem;
 }
 
 #kronika-timeline-results .kronika-chronicle__preview {
@@ -6111,7 +6217,6 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   }
 
   .kronika-chronicle__kind,
-  .kronika-chronicle__added,
   .kronika-chronicle__status,
   .kronika-chronicle__visibility {
     grid-column: 2;
@@ -6119,6 +6224,14 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
 
   #kronika-timeline {
     overflow-x: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kronika-chronicle__item,
+  .kronika-menu__panel {
+    animation: none;
+    transition: none;
   }
 }
 

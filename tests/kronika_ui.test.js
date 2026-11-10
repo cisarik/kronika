@@ -753,12 +753,24 @@ test("Timeline chronicle header is hidden from assistive tech and rows label the
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
   const row = harness.byId["kronika-timeline-results"].children[0];
   const labels = row.querySelectorAll(".kronika-chronicle__label").map((node) => node.textContent);
-  assert.deepEqual(labels, ["Kind", "Added", "Status", "Visibility"]);
+  assert.deepEqual(labels, ["Kind"]);
   labels.forEach((label) => {
     const node = row.querySelectorAll(".kronika-chronicle__label").find((item) => item.textContent === label);
     assert.equal(node.className.includes("visually-hidden"), true);
   });
   assert.equal(row.querySelector(".kronika-chronicle__title").textContent, "Saved question");
+  assert.equal(row.querySelector("time"), null);
+  assert.equal(row.querySelector(".kronika-chronicle__added"), null);
+  const header = INDEX_SOURCE.slice(
+    INDEX_SOURCE.indexOf('class="kronika-chronicle-header"'),
+    INDEX_SOURCE.indexOf('id="kronika-timeline-results"'),
+  );
+  assert.equal(header.includes("Added"), false);
+  assert.match(header, /Preview[\s\S]*Item[\s\S]*Kind[\s\S]*Status[\s\S]*Visibility/);
+  assert.doesNotMatch(INDEX_SOURCE, /<select id="kronika-timeline-(kind|status-filter|visibility|publication)"/);
+  assert.match(INDEX_SOURCE, /id="kronika-timeline-kind"[\s\S]*aria-haspopup="listbox"/);
+  assert.match(INDEX_SOURCE, /id="kronika-timeline-search"/);
+  assert.match(INDEX_SOURCE, /id="kronika-timeline-search-clear"/);
 });
 
 test("identity loss clears private content and dirty navigation can be cancelled", async () => {
@@ -1242,9 +1254,15 @@ test("Timeline renders a compact chronicle with distinct status and visibility",
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
   const row = harness.byId["kronika-timeline-results"].children[0];
   assert.equal(row.tag, "li");
+  assert.equal(row.querySelector(".kronika-chronicle__status").children[0].textContent, "✅");
+  assert.equal(row.querySelector(".kronika-chronicle__status").children[0].getAttribute("aria-hidden"), "true");
   assert.equal(row.querySelector(".kronika-chronicle__status").children[1].textContent, "Saved");
+  assert.equal(row.querySelector(".kronika-chronicle__status").children[1].className.includes("visually-hidden"), true);
+  assert.equal(row.querySelector(".kronika-chronicle__visibility").children[0].textContent, "🔒");
   assert.equal(row.querySelector(".kronika-chronicle__visibility").children[1].textContent, "Private · Unpublished");
-  assert.equal(row.querySelector("time").getAttribute("datetime"), "2026-01-02T03:04:05Z");
+  assert.equal(row.querySelector(".kronika-chronicle__visibility").children[1].className.includes("visually-hidden"), true);
+  assert.equal(row.querySelector("time"), null);
+  assert.equal(row.children.length, 5);
 });
 
 test("Timeline rows link media, saved records and unfinished requests", async () => {
@@ -1305,4 +1323,138 @@ test("Timeline filters preserve route state and reset pagination", async () => {
   assert.equal(route.publication, "unpublished");
   assert.equal(route.offset, 24);
   assert.equal(harness.kronikaParseRoute("#/timeline?status=nope").name, "unavailable");
+});
+
+function appendTimelineMenu(harness, id, panelId, options) {
+  const menu = new El("div");
+  menu.className = "kronika-menu";
+  const trigger = new El("button", id);
+  trigger.className = "kronika-menu__trigger";
+  trigger.value = options[0].value;
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.setAttribute("aria-controls", panelId);
+  const glyph = new El("span");
+  glyph.className = "kronika-menu__glyph";
+  glyph.textContent = options[0].glyph;
+  const value = new El("span");
+  value.className = "kronika-menu__value";
+  value.textContent = options[0].label;
+  trigger.appendChild(glyph);
+  trigger.appendChild(value);
+  const panel = new El("ul", panelId);
+  panel.className = "kronika-menu__panel";
+  panel.hidden = true;
+  options.forEach((option, index) => {
+    const button = new El("button");
+    button.className = "kronika-menu__option";
+    button.setAttribute("data-value", option.value);
+    button.setAttribute("data-glyph", option.glyph);
+    button.setAttribute("data-label", option.label);
+    button.setAttribute("aria-selected", index === 0 ? "true" : "false");
+    panel.appendChild(button);
+  });
+  menu.appendChild(trigger);
+  menu.appendChild(panel);
+  harness.byId["kronika-timeline-filters"].appendChild(menu);
+  harness.byId[id] = trigger;
+  harness.byId[panelId] = panel;
+  return { trigger, panel };
+}
+
+function keyEvent(key) {
+  return { key, preventDefault() {} };
+}
+
+test("Timeline filters use a keyboard listbox and reset the page", async () => {
+  const harness = createHarness(async () => jsonResponse({ items: [], total: 0, limit: 24, offset: 0 }));
+  const kind = appendTimelineMenu(harness, "kronika-timeline-kind", "kronika-timeline-kind-list", [
+    { value: "all", glyph: "🌐", label: "All" },
+    { value: "search", glyph: "💬", label: "Search" },
+  ]);
+  const search = new El("input", "kronika-timeline-search");
+  search.value = "clip";
+  harness.byId["kronika-timeline-search"] = search;
+  const clear = new El("button", "kronika-timeline-search-clear");
+  harness.byId["kronika-timeline-search-clear"] = clear;
+  harness.byId["kronika-timeline-filters"].appendChild(search);
+  harness.byId["kronika-timeline-filters"].appendChild(clear);
+  harness.location._hash = "#/timeline?offset=24";
+  harness.kronikaStartNavigation();
+  await settle();
+  search.value = "clip";
+  kind.trigger.listeners.get("click")[0]();
+  assert.equal(kind.panel.hidden, false);
+  assert.equal(kind.trigger.getAttribute("aria-expanded"), "true");
+  assert.equal(kind.panel.children[0].focused, true);
+  kind.panel.listeners.get("keydown")[0](keyEvent("ArrowDown"));
+  assert.equal(kind.panel.children[1].focused, true);
+  assert.equal(kind.panel._kronikaIndex, 1);
+  kind.panel.listeners.get("keydown")[0](keyEvent("Enter"));
+  await settle();
+  assert.equal(kind.trigger.value, "search");
+  assert.equal(kind.trigger.querySelector(".kronika-menu__value").textContent, "Search");
+  assert.equal(kind.panel.hidden, true);
+  assert.equal(kind.trigger.focused, true);
+  assert.equal(harness.location.hash, "#/timeline?filter=search&q=clip");
+  kind.trigger.listeners.get("keydown")[0](keyEvent("ArrowDown"));
+  assert.equal(kind.panel.hidden, false);
+  kind.panel.listeners.get("keydown")[0](keyEvent("Escape"));
+  assert.equal(kind.panel.hidden, true);
+  assert.equal(kind.trigger.focused, true);
+  kind.trigger.listeners.get("click")[0]();
+  const outside = new El("div");
+  harness.documentListeners.find((entry) => entry.type === "click").listener({ target: outside });
+  assert.equal(kind.panel.hidden, true);
+  clear.listeners.get("click")[0]();
+  await settle();
+  assert.equal(search.value, "");
+  assert.equal(harness.location.hash, "#/timeline?filter=search");
+});
+
+test("Timeline chronicle uses glyphs with accessible text and a quiet hover", async () => {
+  assert.match(
+    STYLES_SOURCE,
+    /\.kronika-chronicle-header,\s*\.kronika-chronicle__item \{\s*display: grid;\s*grid-template-columns: 4\.75rem minmax\(0, 1fr\) 5\.5rem 4\.5rem 6\.25rem;\s*column-gap: 20px;/,
+  );
+  assert.match(STYLES_SOURCE, /\.kronika-chronicle-header > span \{\s*white-space: nowrap;/);
+  assert.match(STYLES_SOURCE, /\.kronika-chronicle__item \{\s*[^}]*transition: background-color 160ms ease, box-shadow 160ms ease;/);
+  assert.match(
+    STYLES_SOURCE,
+    /@media \(prefers-reduced-motion: reduce\) \{\s*\.kronika-chronicle__item,\s*\.kronika-menu__panel \{\s*animation: none;\s*transition: none;/,
+  );
+  assert.match(
+    STYLES_SOURCE,
+    /@media \(max-width: 720px\) \{[\s\S]*\.kronika-chronicle__item \{\s*grid-template-columns: 36px minmax\(0, 1fr\);[\s\S]*\.kronika-chronicle__kind,\s*\.kronika-chronicle__status,\s*\.kronika-chronicle__visibility \{\s*grid-column: 2;/,
+  );
+  assert.equal(STYLES_SOURCE.includes(".kronika-chronicle__added"), false);
+  const harness = createHarness(async () => jsonResponse({
+    items: [
+      { item_id: "media:1", kind: "media", media_id: "1", display_title: "Quiet", created_at_ms: 1, status: "not_requested", visibility: "private", publication_state: "unpublished" },
+      { item_id: "media:2", kind: "media", media_id: "2", display_title: "Working", created_at_ms: 2, status: "analyzing", visibility: "private", publication_state: "unpublished" },
+      { item_id: "media:3", kind: "media", media_id: "3", display_title: "Done", created_at_ms: 3, status: "analyzed", visibility: "family", publication_state: "approved" },
+      { item_id: "media:4", kind: "media", media_id: "4", display_title: "Broken", created_at_ms: 4, status: "failed", visibility: "private", publication_state: "withdrawn" },
+      { item_id: "question:5", kind: "search", display_title: "Stopped", created_at_ms: 5, status: "cancelled", visibility: "family", publication_state: "legacy_published" },
+    ],
+    total: 5,
+    limit: 24,
+    offset: 0,
+  }));
+  await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
+  const rows = harness.byId["kronika-timeline-results"].children;
+  const signal = (row) => [
+    row.querySelector(".kronika-chronicle__status").children[0].textContent,
+    row.querySelector(".kronika-chronicle__status").children[1].textContent,
+    row.querySelector(".kronika-chronicle__visibility").children[0].textContent,
+    row.querySelector(".kronika-chronicle__visibility").children[1].textContent,
+  ];
+  assert.deepEqual(signal(rows[0]), ["💤", "Unanalysed", "🔒", "Private · Unpublished"]);
+  assert.deepEqual(signal(rows[1]), ["⏳", "Analysing", "🔒", "Private · Unpublished"]);
+  assert.deepEqual(signal(rows[2]), ["✅", "Analysed", "🏠", "Household · Approved"]);
+  assert.deepEqual(signal(rows[3]), ["⚠️", "Analysis failed", "↩", "Private · Withdrawn"]);
+  assert.deepEqual(signal(rows[4]), ["🚫", "Cancelled", "🕰️", "Household · Legacy publication"]);
+  rows.forEach((row) => {
+    assert.equal(row.querySelector("time"), null);
+    assert.equal(row.querySelector(".kronika-chronicle__status").children[0].getAttribute("aria-hidden"), "true");
+    assert.equal(row.querySelector(".kronika-chronicle__visibility").children[1].className.includes("visually-hidden"), true);
+  });
 });
