@@ -487,3 +487,84 @@ def test_racing_active_claim_is_returned_by_transactional_authority() -> None:
     assert response.status_code == 200
     assert response.json()["request_id"] == winner.id.to_string()
     assert repository.created_rows == 0
+
+
+_YOUTUBE_ITEM_FIELDS = {
+    "request_id",
+    "phase",
+    "submitted_url",
+    "canonical_url",
+    "media_id",
+    "failure_category",
+    "failure_code",
+    "retry_of_request_id",
+    "created_at_ms",
+    "updated_at_ms",
+}
+_MISSING_YOUTUBE_ID = "22222222-2222-4222-8222-222222222222"
+
+
+class _OwnedYouTubeService:
+    def __init__(self) -> None:
+        self.owner = "alice@example.com"
+        self.list_calls: list[tuple[str, int, str | None]] = []
+        self.detail_calls: list[tuple[str, str]] = []
+
+    def list_owned(self, *, created_by_login_key: str, limit: int = 20, cursor: str | None = None):
+        self.list_calls.append((created_by_login_key, limit, cursor))
+        if created_by_login_key != self.owner:
+            return YouTubeRequestPage(items=(), next_cursor=None)
+        return YouTubeRequestPage(items=(_snapshot(),), next_cursor=None)
+
+    def get_owned(self, claim_id: object, *, created_by_login_key: str):
+        identity = str(getattr(claim_id, "to_string", lambda: claim_id)())
+        self.detail_calls.append((identity, created_by_login_key))
+        if created_by_login_key != self.owner or identity != REQUEST_ID:
+            raise YouTubeAcquisitionNotFoundError("hidden")
+        return _snapshot()
+
+
+def _named_identity(login: str, role: str) -> IdentityContext:
+    return IdentityContext(
+        login=login,
+        login_key=login,
+        display_name=login,
+        role=role,
+        capabilities=CAPABILITIES_BY_ROLE[role],
+        provenance="tailscale-serve",
+    )
+
+
+@pytest.mark.parametrize(
+    ("login", "role"),
+    [
+        ("alice@example.com", ROLE_USER),
+        ("bob@example.com", ROLE_USER),
+        ("ada@example.com", ROLE_ADMIN),
+    ],
+)
+def test_owned_youtube_list_and_detail_follow_the_caller(login: str, role: str) -> None:
+    service = _OwnedYouTubeService()
+    client = _client(service, identity=_named_identity(login, role))
+    listed = client.get("/api/youtube/requests", params={"limit": 5})
+    foreign = client.get(f"/api/youtube/requests/{REQUEST_ID}")
+    missing = client.get(f"/api/youtube/requests/{_MISSING_YOUTUBE_ID}")
+    assert listed.status_code == 200
+    assert listed.headers["cache-control"] == "no-store"
+    assert service.list_calls == [(login, 5, None)]
+    assert [call[1] for call in service.detail_calls] == [login, login]
+    assert "created_by_login_key" not in listed.text
+    assert "requester_login_key" not in listed.text
+    if login == service.owner:
+        assert set(listed.json()["items"][0]) == _YOUTUBE_ITEM_FIELDS
+        assert foreign.status_code == 200
+        assert foreign.headers["cache-control"] == "no-store"
+        assert set(foreign.json()) == _YOUTUBE_ITEM_FIELDS
+    else:
+        assert listed.json()["items"] == []
+        assert foreign.status_code == missing.status_code == 404
+        assert foreign.json() == missing.json()
+        assert foreign.headers["cache-control"] == "no-store"
+        assert missing.headers["cache-control"] == "no-store"
+        assert "hidden" not in foreign.text
+        assert REQUEST_ID not in foreign.text

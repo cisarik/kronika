@@ -1317,16 +1317,26 @@ only that actor’s cataloged X Saves. Inbox items MUST include `created_at_ms` 
 `completed_at_ms` MUST be null only when `analyzed` is false. History MUST start
 collapsed without a persisted preference, preserve server order across every
 cursor page, and fail the complete list rather than expose partial titles on a
-later-page error or repeated cursor. Empty history MUST consume no height.
-Clicking a row MUST NOT remove it. Every history row MUST post hosted
-`open_details` without gating the iframe on opened HTTP. Pending rows MUST NOT
+later-page error or repeated cursor. Complete review pagination remains
+fail-closed. Empty history MUST consume no height.
+Clicking a review row MUST NOT remove it. Every review row MUST post hosted
+`open_details` without gating the iframe on opened HTTP. Download rows MUST NOT
+post `open_details`. Pending rows MUST NOT
 send an opened mutation. The hosted iframe MUST
 remain mounted. A row MUST mark opened only after durable opened success and
 refresh; Review Save MUST ensure opened before Apply and MUST retain selections
 and block Apply when that opened retry fails. Successful connection MUST render
 no status line; failure guidance, `Cleared`, and `Attached` remain visible. The
-toolbar badge MUST derive only from server `unopened_count`; pending rows MUST
-NOT increment it. Ordinary identities MUST receive own-history rather than inbox
+toolbar badge MUST derive only from server `unopened_count`; pending rows and
+download rows MUST NOT increment it. The history sheet MUST also show a separate
+read-only Recent downloads block of at most five own X and YouTube request
+states, newest creation first, for each present `x.request` or `youtube.request`
+capability
+([ADR-0089](docs/adr/0089-companion-own-download-status-history.md)).
+Download rows are inert. Failure of either capability-enabled
+download read MUST hide the entire Downloads block while retaining a
+successfully loaded review list and its server badge count. Server own-history
+remains the actor’s cataloged X Saves only. Ordinary identities MUST receive own-history rather than inbox
 list/detail/apply. Exactly six `companion_mutation` routes exist: X submit, X
 retry, review opened, review apply,
 `PUT /api/admin/settings/automatic-analysis`, and `POST /api/youtube/requests`.

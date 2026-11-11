@@ -143,8 +143,9 @@ function createChromeFake(options) {
 
   const chrome = {
     runtime: {
+      id: "kronika-extension-test",
       getURL(rel) {
-        return rel;
+        return "chrome-extension://kronika-extension-test/" + rel;
       },
       lastError: null,
       onInstalled: {
@@ -251,6 +252,16 @@ function createChromeFake(options) {
       },
     },
   };
+  state.tabMessages = [];
+  chrome.tabs.sendMessage = function recordTabMessage() {
+    state.tabMessages.push(Array.from(arguments));
+    return Promise.resolve({ ok: true });
+  };
+  state.xRequestsStatus = (options && options.xRequestsStatus) || 200;
+  state.xRequestsBody = (options && options.xRequestsBody) || { items: [], next_cursor: null };
+  state.youtubeRequestsStatus = (options && options.youtubeRequestsStatus) || 200;
+  state.youtubeRequestsBody =
+    (options && options.youtubeRequestsBody) || { items: [], next_cursor: null };
 
   function mediaResponse() {
     const status = state.mediaStatus;
@@ -303,8 +314,14 @@ function createChromeFake(options) {
     if (href.indexOf("/api/identity/me") !== -1) {
       return jsonResponse(state.identityStatus, state.identityBody);
     }
+    if (/\/api\/x\/requests(?:\?|$)/.test(href)) {
+      return jsonResponse(state.xRequestsStatus, state.xRequestsBody);
+    }
     if (href.indexOf("/api/x/requests/") !== -1) {
       return jsonResponse(200, state.claimBody);
+    }
+    if (/\/api\/youtube\/requests(?:\?|$)/.test(href)) {
+      return jsonResponse(state.youtubeRequestsStatus, state.youtubeRequestsBody);
     }
     if (/\/api\/companion\/review-inbox\/[^/?]+\/apply(?:\?|$)/.test(href)) {
       return jsonResponse(state.applyStatus, state.applyBody);
@@ -516,7 +533,7 @@ function fakeReviewChromeNodes() {
   const attributes = { "aria-expanded": "false" };
   const allAttributes = {
     "aria-expanded": "false",
-    "aria-label": "Show full companion history",
+    "aria-label": "Show full review history",
   };
   return {
     toggle: {
@@ -1029,19 +1046,26 @@ test("REVIEW_INBOX hides titles on 403 and does not fetch caller URLs", async ()
     unopened_count: 3,
     next_cursor: null,
   };
-  const listed = await worker.context.handle({
-    v: companion.PROTOCOL,
-    type: companion.TYPES.REVIEW_INBOX,
-    payload: { url: "https://evil.example/steal" },
-  });
+  const listed = await worker.context.handle(
+    {
+      v: companion.PROTOCOL,
+      type: companion.TYPES.REVIEW_INBOX,
+      payload: { url: "https://evil.example/steal", cursor: "caller-cursor" },
+    },
+    sidebarSenderFor(worker.chrome)
+  );
   assert.equal(listed.ok, true);
   assert.equal(listed.forbidden, false);
   assert.equal(listed.unopened_count, 3);
   assert.equal(listed.items.length, 1);
   assert.equal(listed.items[0].title, "Admin title");
-  const listCall = worker.state.fetchCalls[worker.state.fetchCalls.length - 1];
+  const listCall = worker.state.fetchCalls.find(
+    (call) => call.url.indexOf("/api/companion/review-inbox?") !== -1
+  );
+  assert.ok(listCall);
   assert.equal(listCall.url, ORIGIN + "/api/companion/review-inbox?limit=100");
   assert.equal(listCall.url.indexOf("evil.example"), -1);
+  assert.equal(listCall.url.indexOf("caller-cursor"), -1);
 
   worker.state.inboxStatus = 403;
   worker.state.inboxBody = {
@@ -1185,6 +1209,648 @@ test("REVIEW_INBOX rejects cursor cycles and later-page failures without partial
   assert.equal(failedWorker.state.badgeText, "");
 });
 
+const X_REQUEST = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const YT_REQUEST = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const VIDEO_ID = "AbCdEf123_-";
+
+function sidebarSenderFor(chromeApi) {
+  const url = chromeApi.runtime.getURL("ui/sidebar.html");
+  let origin = "";
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    origin = "";
+  }
+  return { id: chromeApi.runtime.id, url: url, origin: origin };
+}
+
+function dispatchWorkerMessage(worker, message, sender) {
+  return new Promise((resolve) => {
+    const listener = worker.state.messageListeners[0];
+    assert.equal(typeof listener, "function");
+    const keep = listener(message, sender, resolve);
+    assert.equal(keep, true);
+  });
+}
+
+test("history shows own terminal X and YouTube request states without source tabs or catalog history", async () => {
+  const worker = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: {
+      capabilities: ["media.workflow.read", "x.request", "youtube.request"],
+    },
+    inboxBody: { items: [], unopened_count: 0, next_cursor: null },
+    xRequestsBody: {
+      items: [
+        {
+          request_id: X_REQUEST,
+          state: "completed",
+          phase: "completed",
+          x_post_id: "1234567890123",
+          title: "Evening claim",
+          created_at_ms: 50,
+          canonical_url: "https://x.com/alice/status/1234567890123",
+          submitted_url: "https://evil.example/secret",
+          failure_code: "SECRET",
+          assets: [{ media_id: MEDIA_A, failure_code: "SECRET" }],
+        },
+      ],
+      next_cursor: "do-not-follow",
+    },
+    youtubeRequestsBody: {
+      items: [
+        {
+          request_id: YT_REQUEST,
+          phase: "completed_private",
+          canonical_url: "https://www.youtube.com/watch?v=" + VIDEO_ID,
+          submitted_url: "https://youtu.be/" + VIDEO_ID,
+          created_at_ms: 40,
+          media_id: MEDIA_B,
+          failure_code: "SECRET",
+        },
+      ],
+      next_cursor: "do-not-follow",
+    },
+  });
+  const response = await dispatchWorkerMessage(
+    worker,
+    {
+      v: companion.PROTOCOL,
+      type: companion.TYPES.REVIEW_INBOX,
+      payload: {
+        url: "https://evil.example/steal",
+        cursor: "caller-cursor",
+        limit: 1,
+        path: "/api/media/" + MEDIA_A,
+      },
+    },
+    sidebarSenderFor(worker.chrome)
+  );
+  assert.equal(response.ok, true);
+  assert.equal(response.downloads && response.downloads.ok, true);
+  assert.equal(response.items.length, 0);
+  assert.equal(response.unopened_count, 0);
+  assert.equal(worker.state.badgeText, "");
+  assert.deepEqual(
+    response.downloads.items.map((item) => [item.source, item.status, item.label]),
+    [
+      ["x", "saved", "Evening claim"],
+      ["youtube", "saved_private", "YouTube video " + VIDEO_ID],
+    ]
+  );
+  const projected = JSON.stringify(response.downloads);
+  assert.equal(projected.indexOf("evil.example"), -1);
+  assert.equal(projected.indexOf("SECRET"), -1);
+  assert.equal(projected.indexOf("assets"), -1);
+  assert.equal(projected.indexOf(MEDIA_A), -1);
+  worker.state.fetchCalls.forEach((call) => {
+    assert.equal(call.init.method || "GET", "GET");
+    assert.equal(call.url.indexOf("evil.example"), -1);
+    assert.equal(call.url.indexOf("caller-cursor"), -1);
+    assert.equal(call.url.indexOf("/api/media/"), -1);
+    assert.equal(call.url.indexOf("gallery-preview"), -1);
+  });
+  assert.equal(
+    worker.state.fetchCalls.some((call) => call.url.indexOf("/api/x/requests?limit=5") !== -1),
+    true
+  );
+  assert.equal(
+    worker.state.fetchCalls.some((call) => call.url.indexOf("/api/youtube/requests?limit=5") !== -1),
+    true
+  );
+  assert.equal(worker.state.fetchCalls.some((call) => call.url.indexOf("cursor=") !== -1), false);
+  assert.equal(worker.state.tabMessages.length, 0);
+
+  const inbox = loadReviewInbox();
+  const nodes = fakeReviewChromeNodes();
+  nodes.downloadSection = { hidden: true };
+  nodes.downloadList = fakeListNode();
+  const presented = inbox.presentHistory(nodes, response);
+  assert.equal(presented.ok, true);
+  assert.equal(presented.historyItems.length, 0);
+  assert.equal(nodes.historyList.childNodes.length, 0);
+  assert.equal(nodes.downloadList.childNodes.length, 2);
+  assert.equal(nodes.downloadSection.hidden, false);
+  assert.equal(nodes.toggle.disabled, false);
+  assert.equal(nodes.toggle.getAttribute("aria-expanded"), "false");
+  assert.match(nodes.downloadList.childNodes[0].textContent, /Saved/);
+  assert.match(nodes.downloadList.childNodes[1].textContent, /Saved privately/);
+  assert.equal(nodes.downloadList.childNodes.some((node) => node.tagName === "BUTTON"), false);
+  assert.equal(nodes.allButton.hidden, true);
+  assert.equal(worker.state.badgeText, "");
+});
+
+function analyzedReviewItem(mediaId, title) {
+  return {
+    media_id: mediaId,
+    title: title,
+    created_at_ms: 5,
+    analyzed: true,
+    analysis_run_id: RUN_NEW,
+    completed_at_ms: 6,
+    unopened: true,
+  };
+}
+
+function xDownloadRow(overrides) {
+  return Object.assign(
+    {
+      request_id: X_REQUEST,
+      state: "completed",
+      x_post_id: "99",
+      title: "Claim",
+      created_at_ms: 10,
+      canonical_url: "https://x.com/alice/status/99",
+      submitted_url: "https://evil.example/x",
+      failure_code: "SECRET",
+      assets: [{ filename: "secret.mp4" }],
+    },
+    overrides || {}
+  );
+}
+
+function youtubeDownloadRow(overrides) {
+  return Object.assign(
+    {
+      request_id: YT_REQUEST,
+      phase: "completed",
+      canonical_url: "https://www.youtube.com/watch?v=" + VIDEO_ID,
+      submitted_url: "https://youtu.be/" + VIDEO_ID,
+      created_at_ms: 9,
+      media_id: MEDIA_A,
+      failure_code: "SECRET",
+    },
+    overrides || {}
+  );
+}
+
+test("download rows map every accepted state and reject unknown or unsafe fields", () => {
+  const xCases = [
+    ["submitted", "saving", "Saving…"],
+    ["queued", "saving", "Saving…"],
+    ["extracting", "saving", "Saving…"],
+    ["acquiring", "saving", "Saving…"],
+    ["handing_off", "saving", "Saving…"],
+    ["completed", "saved", "Saved"],
+    ["completed_partial", "partial", "Partly saved"],
+    ["duplicate_resolved", "already_saved", "Already saved"],
+    ["failed", "failed", "Download failed"],
+    ["catalog_removed", "unavailable", "Unavailable"],
+  ];
+  xCases.forEach((entry) => {
+    const item = companion.downloadItemFromXRequest(
+      xDownloadRow({ state: entry[0], title: null, x_post_id: "100" })
+    );
+    assert.equal(item.status, entry[1], entry[0]);
+    assert.equal(item.label, "X post 100");
+    assert.equal(companion.downloadStatusText(item.status), entry[2]);
+    assert.deepEqual(Object.keys(item).sort(), [
+      "created_at_ms",
+      "label",
+      "request_id",
+      "source",
+      "status",
+    ]);
+  });
+  const youtubeCases = [
+    ["queued", "saving", "Saving…"],
+    ["processing", "saving", "Saving…"],
+    ["downloading", "saving", "Saving…"],
+    ["completed", "saved", "Saved"],
+    ["completed_private", "saved_private", "Saved privately"],
+    ["failed", "failed", "Download failed"],
+    ["unavailable", "unavailable", "Unavailable"],
+  ];
+  youtubeCases.forEach((entry) => {
+    const item = companion.downloadItemFromYouTubeRequest(
+      youtubeDownloadRow({ phase: entry[0], state: "cataloged" })
+    );
+    assert.equal(item.status, entry[1], entry[0]);
+    assert.equal(item.label, "YouTube video " + VIDEO_ID);
+    assert.equal(companion.downloadStatusText(item.status), entry[2]);
+  });
+  assert.equal(companion.downloadItemFromXRequest(xDownloadRow({ state: "mystery" })), null);
+  assert.equal(companion.downloadItemFromXRequest(xDownloadRow({ state: "completed_private" })), null);
+  assert.equal(companion.downloadItemFromXRequest(xDownloadRow({ created_at_ms: -1 })), null);
+  assert.equal(companion.downloadItemFromXRequest(xDownloadRow({ created_at_ms: 1.5 })), null);
+  assert.equal(companion.downloadItemFromXRequest(xDownloadRow({ title: "  ", x_post_id: "nope" })), null);
+  assert.equal(
+    companion.downloadItemFromYouTubeRequest(youtubeDownloadRow({ phase: "cataloged" })),
+    null
+  );
+  assert.equal(
+    companion.downloadItemFromYouTubeRequest(
+      youtubeDownloadRow({ canonical_url: "https://evil.example/watch?v=" + VIDEO_ID })
+    ),
+    null
+  );
+  const clipped = companion.downloadItemFromXRequest(
+    xDownloadRow({ title: "é".repeat(241), state: "completed" })
+  );
+  assert.equal(Array.from(clipped.label).length, 240);
+  const unsafe = companion.downloadItemFromXRequest(
+    xDownloadRow({ title: "<img src=x onerror=alert(1)>", state: "failed" })
+  );
+  assert.equal(unsafe.label, "<img src=x onerror=alert(1)>");
+  assert.equal(JSON.stringify(unsafe).indexOf("SECRET"), -1);
+});
+
+test("download merge keeps five rows, first duplicate, and deterministic ties", () => {
+  const ids = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333",
+    "44444444-4444-4444-8444-444444444444",
+    "55555555-5555-4555-8555-555555555555",
+    "66666666-6666-4666-8666-666666666666",
+  ];
+  const rows = ids.map((id, index) =>
+    companion.downloadItemFromXRequest(
+      xDownloadRow({
+        request_id: id,
+        state: "queued",
+        title: "Row " + String(index),
+        created_at_ms: index + 1,
+      })
+    )
+  );
+  const merged = companion.mergeDownloadHistoryItems(rows);
+  assert.deepEqual(
+    merged.map((item) => item.label),
+    ["Row 5", "Row 4", "Row 3", "Row 2", "Row 1"]
+  );
+  const tiedX = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Older X",
+      created_at_ms: 7,
+      state: "failed",
+    })
+  );
+  const tiedXLater = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "Newer id",
+      created_at_ms: 7,
+      state: "completed",
+    })
+  );
+  const tiedYouTube = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({ created_at_ms: 7, phase: "queued" })
+  );
+  const first = companion.downloadItemFromXRequest(
+    xDownloadRow({ state: "failed", title: "First sight" })
+  );
+  const duplicate = companion.downloadItemFromXRequest(
+    xDownloadRow({ state: "completed", title: "Second sight" })
+  );
+  const ordered = companion.mergeDownloadHistoryItems([
+    tiedYouTube,
+    tiedX,
+    first,
+    duplicate,
+    tiedXLater,
+  ]);
+  assert.deepEqual(
+    ordered.map((item) => item.label),
+    ["First sight", "Newer id", "Older X", "YouTube video " + VIDEO_ID]
+  );
+  assert.equal(ordered[0].status, "failed");
+});
+
+test("downloads follow caller capabilities and never trust the review message payload", async () => {
+  const withCaps = async (capabilities) => {
+    const loaded = loadWorker({
+      storage: { kronikaOrigin: ORIGIN },
+      identityBody: { capabilities: capabilities },
+      inboxBody: { items: [], unopened_count: 0, next_cursor: null },
+      xRequestsBody: { items: [xDownloadRow()], next_cursor: "ignore-me" },
+      youtubeRequestsBody: { items: [youtubeDownloadRow({ phase: "downloading" })], next_cursor: "ignore-me" },
+    });
+    const result = await loaded.context.handle(
+      {
+        v: companion.PROTOCOL,
+        type: companion.TYPES.REVIEW_INBOX,
+        payload: { url: "https://evil.example/steal", cursor: "caller", limit: 50, path: "/api/media/" + MEDIA_A },
+      },
+      sidebarSenderFor(loaded.chrome)
+    );
+    return { result: result, urls: loaded.state.fetchCalls.map((call) => call.url) };
+  };
+  const workflowOnly = await withCaps(["media.workflow.read"]);
+  assert.equal(workflowOnly.result.ok, true);
+  assert.equal(workflowOnly.result.downloads.ok, true);
+  assert.deepEqual(workflowOnly.result.downloads.items, []);
+  assert.equal(workflowOnly.urls.some((url) => url.indexOf("/api/x/requests") !== -1), false);
+  assert.equal(workflowOnly.urls.some((url) => url.indexOf("/api/youtube/requests") !== -1), false);
+
+  const xOnly = await withCaps(["x.request", "youtube.request"]);
+  assert.equal(xOnly.result.history_source, "own-history");
+  assert.equal(xOnly.result.downloads.items.length, 2);
+  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/companion/own-history?limit=100") !== -1), true);
+  assert.equal(xOnly.urls.some((url) => /\/api\/companion\/review-inbox(?:\?|$)/.test(url)), false);
+  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/x/requests?limit=5") !== -1), true);
+  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/youtube/requests?limit=5") !== -1), true);
+  assert.equal(xOnly.urls.some((url) => url.indexOf("cursor=") !== -1 || url.indexOf("evil.example") !== -1), false);
+
+  const youtubeOnly = await withCaps(["youtube.request"]);
+  assert.equal(youtubeOnly.result.ok, false);
+  assert.equal(youtubeOnly.urls.some((url) => url.indexOf("/api/x/requests") !== -1), false);
+  assert.equal(youtubeOnly.urls.some((url) => url.indexOf("/api/youtube/requests") !== -1), false);
+});
+
+test("spoofed review_inbox senders fetch nothing and keep the badge", async () => {
+  const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
+  worker.state.badgeText = "4";
+  const valid = sidebarSenderFor(worker.chrome);
+  const senders = [
+    undefined,
+    null,
+    {},
+    { id: "other-extension", url: valid.url, origin: valid.origin },
+    { id: valid.id, url: "https://evil.example/ui/sidebar.html", origin: valid.origin },
+    { id: valid.id, url: valid.url, origin: "https://evil.example" },
+    { id: valid.id, url: valid.url },
+  ];
+  for (const sender of senders) {
+    const before = worker.state.fetchCalls.length;
+    const response = await dispatchWorkerMessage(
+      worker,
+      { v: companion.PROTOCOL, type: companion.TYPES.REVIEW_INBOX, payload: { cursor: "x" } },
+      sender
+    );
+    assert.equal(response.ok, false);
+    assert.equal(response.error, "invalid_sender");
+    assert.equal(response.items.length, 0);
+    assert.equal(response.downloads.items.length, 0);
+    assert.equal(worker.state.fetchCalls.length, before);
+    assert.equal(worker.state.badgeText, "4");
+  }
+});
+
+test("one failed download source hides every download row and keeps review and badge", async () => {
+  const worker = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { capabilities: ["media.workflow.read", "x.request", "youtube.request"] },
+    inboxBody: {
+      items: [analyzedReviewItem(MEDIA_A, "Bob analyzed")],
+      unopened_count: 2,
+      next_cursor: null,
+    },
+    xRequestsBody: { items: [xDownloadRow({ title: "Mine only" })], next_cursor: null },
+    youtubeRequestsStatus: 503,
+    youtubeRequestsBody: { error: { code: "unavailable" } },
+  });
+  const result = await worker.context.reviewInbox();
+  assert.equal(result.ok, true);
+  assert.equal(result.history_source, "review-inbox");
+  assert.equal(result.items[0].title, "Bob analyzed");
+  assert.equal(result.unopened_count, 2);
+  assert.equal(worker.state.badgeText, "2");
+  assert.equal(result.downloads.ok, false);
+  assert.deepEqual(result.downloads.items, []);
+  assert.equal(JSON.stringify(result.downloads).indexOf("Mine only"), -1);
+  assert.equal(JSON.stringify(result.downloads).indexOf("Bob analyzed"), -1);
+});
+
+test("ordinary own-history and administrator inbox both keep separate own downloads", async () => {
+  const ordinary = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { capabilities: ["x.request", "youtube.request"] },
+    inboxBody: {
+      items: [analyzedReviewItem(MEDIA_A, "My save")],
+      unopened_count: 1,
+      next_cursor: null,
+    },
+    xRequestsBody: { items: [xDownloadRow({ title: "My request", state: "duplicate_resolved" })] },
+    youtubeRequestsBody: { items: [] },
+  });
+  const own = await ordinary.context.reviewInbox();
+  assert.equal(own.history_source, "own-history");
+  assert.equal(own.items[0].title, "My save");
+  assert.equal(own.downloads.items[0].status, "already_saved");
+  assert.equal(own.downloads.items[0].label, "My request");
+  assert.equal(
+    ordinary.state.fetchCalls.some((call) => /\/api\/companion\/review-inbox(?:\?|$)/.test(call.url)),
+    false
+  );
+
+  const administrator = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { capabilities: ["media.workflow.read", "x.request", "youtube.request"] },
+    inboxBody: {
+      items: [analyzedReviewItem(MEDIA_B, "Bob analyzed")],
+      unopened_count: 1,
+      next_cursor: null,
+    },
+    xRequestsBody: { items: [xDownloadRow({ title: "Admin own request" })] },
+    youtubeRequestsBody: { items: [] },
+  });
+  const inbox = await administrator.context.reviewInbox();
+  assert.equal(inbox.history_source, "review-inbox");
+  assert.equal(inbox.items[0].title, "Bob analyzed");
+  assert.equal(inbox.downloads.items[0].label, "Admin own request");
+  assert.equal(JSON.stringify(inbox.downloads).indexOf("Bob analyzed"), -1);
+});
+
+test("changed identity discards the in-flight history result without clearing the badge", async () => {
+  const worker = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { capabilities: ["media.workflow.read", "x.request", "youtube.request"] },
+    inboxBody: { items: [], unopened_count: 4, next_cursor: null },
+    xRequestsBody: { items: [xDownloadRow()] },
+    youtubeRequestsBody: { items: [youtubeDownloadRow()] },
+  });
+  worker.state.badgeText = "9";
+  const original = worker.context.fetch;
+  let identitySeen = 0;
+  worker.context.fetch = async (url, init) => {
+    if (String(url).indexOf("/api/identity/me") !== -1) {
+      identitySeen += 1;
+      if (identitySeen >= 2) {
+        worker.state.identityBody = { capabilities: [] };
+      }
+    }
+    return original(url, init);
+  };
+  const result = await worker.context.reviewInbox();
+  assert.equal(identitySeen >= 2, true);
+  assert.equal(result.stale, true);
+  assert.equal(result.ok, false);
+  assert.equal(result.items.length, 0);
+  assert.equal(result.downloads.items.length, 0);
+  assert.equal(worker.state.badgeText, "9");
+});
+
+test("badge alarm refresh does not call download lists", async () => {
+  const worker = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { capabilities: ["media.workflow.read", "x.request", "youtube.request"] },
+    inboxBody: { items: [], unopened_count: 3, next_cursor: null },
+  });
+  await worker.context.refreshReviewInboxBadge();
+  worker.state.alarmListeners[0]({ name: ALARM });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(worker.state.badgeText, "3");
+  assert.equal(
+    worker.state.fetchCalls.some((call) => /\/api\/(?:x|youtube)\/requests(?:\?|$)/.test(call.url)),
+    false
+  );
+  assert.deepEqual(manifest.permissions, ["alarms", "sidePanel", "storage"]);
+});
+
+test("sidebar download rows are inert and isolated from review failure modes", () => {
+  const inbox = loadReviewInbox();
+  const nodes = fakeReviewChromeNodes();
+  nodes.downloadSection = { hidden: true };
+  nodes.downloadList = fakeListNode();
+  const download = companion.downloadItemFromXRequest(
+    xDownloadRow({ title: "<img src=x>", state: "completed_partial" })
+  );
+  const downloadOnly = inbox.presentHistory(nodes, {
+    ok: true,
+    items: [],
+    history_source: "review-inbox",
+    downloads: { ok: true, items: [download] },
+  });
+  assert.equal(downloadOnly.ok, true);
+  assert.equal(nodes.toggle.disabled, false);
+  assert.equal(nodes.allButton.hidden, true);
+  assert.equal(nodes.downloadSection.hidden, false);
+  assert.equal(nodes.downloadList.childNodes.length, 1);
+  assert.equal(nodes.downloadList.childNodes[0].textContent.indexOf("<img src=x>") > 0, true);
+  assert.equal(nodes.downloadList.childNodes[0].textContent.indexOf("Partly saved") > 0, true);
+  assert.equal(
+    nodes.downloadList.childNodes.some((node) => node.tagName === "BUTTON" || node.tagName === "A"),
+    false
+  );
+
+  inbox.presentHistory(nodes, {
+    ok: true,
+    items: [],
+    history_source: "review-inbox",
+    downloads: { ok: true, items: [download, download] },
+  });
+  assert.equal(nodes.downloadList.childNodes.length, 1);
+
+  const reviewOnly = inbox.presentHistory(nodes, {
+    ok: true,
+    items: [analyzedReviewItem(MEDIA_A, "Reviewed")],
+    history_source: "review-inbox",
+    downloads: { ok: true, items: [] },
+  });
+  assert.equal(reviewOnly.historyItems.length, 1);
+  assert.equal(nodes.downloadSection.hidden, true);
+  assert.equal(nodes.toggle.disabled, false);
+  assert.equal(nodes.historyList.childNodes.length, 1);
+
+  const missing = inbox.presentHistory(nodes, {
+    ok: true,
+    items: [analyzedReviewItem(MEDIA_A, "Reviewed")],
+    history_source: "review-inbox",
+  });
+  assert.equal(missing.ok, true);
+  assert.equal(missing.historyItems.length, 1);
+  assert.equal(nodes.downloadSection.hidden, true);
+
+  const poisoned = inbox.presentHistory(nodes, {
+    ok: true,
+    items: [analyzedReviewItem(MEDIA_A, "Reviewed")],
+    history_source: "review-inbox",
+    downloads: { ok: false, items: [download] },
+  });
+  assert.equal(poisoned.downloads.length, 0);
+  assert.equal(nodes.downloadList.childNodes.length, 0);
+  assert.equal(nodes.historyList.childNodes[0].textContent.indexOf("Reviewed"), 0);
+
+  inbox.presentHistory(nodes, { ok: false, error: "cursor_cycle", items: [], unopened_count: 0 });
+  assert.equal(nodes.toggle.disabled, true);
+  assert.equal(nodes.historyList.childNodes.length, 0);
+  assert.equal(nodes.downloadSection.hidden, true);
+  assert.doesNotMatch(extractNamedFunction(sidebarSource, "renderDownloadHistory"), /open_details|innerHTML|aria-live/);
+  assert.doesNotMatch(sidebarHtml.slice(sidebarHtml.indexOf('id="download-history"'), sidebarHtml.indexOf('id="review-history-list"')), /aria-live|<button|<a /);
+});
+
+test("same X request updates in place and a new YouTube request stays distinct", () => {
+  const inbox = loadReviewInbox();
+  const nodes = fakeReviewChromeNodes();
+  nodes.downloadSection = { hidden: true };
+  nodes.downloadList = fakeListNode();
+  const failed = companion.downloadItemFromXRequest(xDownloadRow({ state: "failed", title: "Retry me" }));
+  inbox.presentHistory(nodes, {
+    ok: true,
+    items: [],
+    history_source: "own-history",
+    downloads: { ok: true, items: [failed] },
+  });
+  assert.match(nodes.downloadList.childNodes[0].textContent, /Download failed/);
+  const saving = companion.downloadItemFromXRequest(xDownloadRow({ state: "submitted", title: "Retry me" }));
+  const youtube = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({
+      request_id: "99999999-9999-4999-8999-999999999999",
+      phase: "downloading",
+      created_at_ms: 11,
+    })
+  );
+  inbox.presentHistory(nodes, {
+    ok: true,
+    items: [],
+    history_source: "own-history",
+    downloads: { ok: true, items: [saving, youtube] },
+  });
+  assert.equal(nodes.downloadList.childNodes.length, 2);
+  const texts = nodes.downloadList.childNodes.map((node) => node.textContent);
+  assert.equal(texts.some((text) => text.indexOf("Retry me") !== -1 && text.indexOf("Saving…") !== -1), true);
+  assert.equal(texts.some((text) => text.indexOf("YouTube video " + VIDEO_ID) !== -1), true);
+});
+
+test("sidebar skips overlapping refreshes, stops hidden polling, and drops late results", async () => {
+  const pending = [];
+  let reviewCalls = 0;
+  const shell = loadSidebarShell({
+    storedOrigin: ORIGIN,
+    withDownloads: true,
+    sendMessageResponse(message, callback) {
+      if (message.type === companion.TYPES.RESET || message.type === companion.TYPES.CONFIGURE_ORIGIN) {
+        callback({ ok: true, origin: ORIGIN });
+        return;
+      }
+      if (message.type !== companion.TYPES.REVIEW_INBOX) {
+        callback({ ok: true });
+        return;
+      }
+      reviewCalls += 1;
+      pending.push(callback);
+    },
+  });
+  assert.equal(reviewCalls, 1);
+  const ticks = Object.values(shell.intervals);
+  assert.equal(ticks.length, 1);
+  ticks[0]();
+  assert.equal(reviewCalls, 1);
+
+  shell.document.hidden = true;
+  shell.documentListeners.visibilitychange.forEach((fn) => fn());
+  assert.deepEqual(shell.intervals, {});
+
+  shell.nodes["chrome-action"].dispatchClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  const download = companion.downloadItemFromXRequest(xDownloadRow({ title: "Late row" }));
+  pending.forEach((callback) => {
+    callback({
+      ok: true,
+      items: [analyzedReviewItem(MEDIA_A, "Late review")],
+      unopened_count: 1,
+      history_source: "review-inbox",
+      downloads: { ok: true, items: [download] },
+    });
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(shell.downloadList.childNodes.length, 0);
+  assert.equal(shell.nodes["review-history-list"].childNodes.length, 0);
+  assert.equal(shell.nodes["download-history"].hidden, true);
+});
+
 test("awaiting-analysis stores media UUIDs for 30 minutes and does not change badge math", async () => {
   const worker = loadWorker({ storage: { kronikaOrigin: ORIGIN } });
   const now = Date.now();
@@ -1255,13 +1921,18 @@ test("title-bar merged history has the accepted DOM, ARIA, and status contract",
     sidebarHtml,
     /id="review-history-toggle"[\s\S]*?type="button"[\s\S]*?aria-label="Toggle companion history"[\s\S]*?aria-expanded="false"[\s\S]*?aria-controls="review-history"[\s\S]*?disabled/
   );
-  assert.match(sidebarHtml, /id="review-history-list"[^>]+aria-label="Companion history"/);
+  assert.match(sidebarHtml, /id="review-history-list"[^>]+aria-label="Recent review history"/);
+  assert.match(sidebarHtml, /id="download-history"/);
+  assert.match(sidebarHtml, /id="download-history-list"[^>]+aria-label="Your latest five download requests"/);
+  assert.match(sidebarHtml, />\s*Recent downloads\s*</);
+  assert.match(sidebarCss, /#review-history::before\s*\{[\s\S]*?content:\s*"Companion history"/);
+  assert.doesNotMatch(sidebarCss, /Recently saved & analyzed/);
   assert.match(sidebarHtml, /<ul id="review-history-list"/);
   assert.match(
     sidebarHtml,
-    /id="review-history-all"[\s\S]*?aria-label="Show full companion history"[\s\S]*?>\s*All\s*</
+    /id="review-history-all"[\s\S]*?aria-label="Show full review history"[\s\S]*?>\s*All\s*</
   );
-  assert.match(sidebarHtml, /id="review-history-expanded"[^>]+aria-label="Full companion history"/);
+  assert.match(sidebarHtml, /id="review-history-expanded"[^>]+aria-label="Full review history"/);
   assert.doesNotMatch(sidebarHtml, /<ol\b/);
   assert.doesNotMatch(sidebarHtml, /id="review-inbox(?:-list)?"/);
   assert.doesNotMatch(sidebarHtml, />\s*Review inbox\s*</);
@@ -1489,6 +2160,10 @@ function loadSidebarShell(options) {
   historyList.addEventListener = function addTestListener() {};
   const expandedList = fakeListNode();
   expandedList.addEventListener = function addTestListener() {};
+  const downloadList = fakeListNode();
+  const documentListeners = {};
+  const intervals = {};
+  let intervalSerial = 0;
   const framePosts = [];
   const frameWindow = {
     postMessage(message, targetOrigin) {
@@ -1529,6 +2204,10 @@ function loadSidebarShell(options) {
     "review-dialog": sidebarShellNode("review-dialog"),
     "review-frame": sidebarShellNode("review-frame"),
   };
+  if (settings.withDownloads === true) {
+    nodes["download-history"] = sidebarShellNode("download-history", { hidden: true });
+    nodes["download-history-list"] = downloadList;
+  }
   const context = {
     KronikaCompanion: companion,
     document: {
@@ -1536,7 +2215,10 @@ function loadSidebarShell(options) {
       getElementById(id) {
         return nodes[id] || null;
       },
-      addEventListener() {},
+      addEventListener(type, fn) {
+        documentListeners[type] = documentListeners[type] || [];
+        documentListeners[type].push(fn);
+      },
     },
     chrome: {
       runtime: {
@@ -1574,10 +2256,14 @@ function loadSidebarShell(options) {
     Promise,
     setTimeout,
     clearTimeout,
-    setInterval() {
-      return 0;
+    setInterval(fn) {
+      intervalSerial += 1;
+      intervals[intervalSerial] = fn;
+      return intervalSerial;
     },
-    clearInterval() {},
+    clearInterval(id) {
+      delete intervals[id];
+    },
   };
   context.globalThis = context;
   vm.createContext(context);
@@ -1589,6 +2275,10 @@ function loadSidebarShell(options) {
     frameWindow: frameWindow,
     storedOrigin: settings.storedOrigin,
     windowListeners: windowListeners,
+    document: context.document,
+    documentListeners: documentListeners,
+    intervals: intervals,
+    downloadList: downloadList,
     // Deliver one synthetic postMessage from the framed web host to the live
     // window listener the sidebar registered, and report what it posted back.
     deliverWebMessage(value, type, payload, origin) {
@@ -1722,7 +2412,7 @@ test("compact analyzed history is newest-first, capped at five, then All", () =>
   assert.equal(nodes.allButton.hidden, false);
   assert.equal(nodes.allButton.disabled, false);
   assert.equal(nodes.allButton.textContent, "All");
-  assert.equal(nodes.allButton.getAttribute("aria-label"), "Show full companion history");
+  assert.equal(nodes.allButton.getAttribute("aria-label"), "Show full review history");
   assert.equal(inbox.setAllExpanded(nodes, true), true);
   assert.equal(nodes.allButton.getAttribute("aria-expanded"), "true");
   assert.equal(nodes.expandedList.hidden, false);

@@ -37,8 +37,9 @@ An authenticated Kronika user can:
   (`#review-history-toggle`, `#review-history`, `#review-history-list`) above
   the surviving hosted Kronika iframe. Administrators see newest analyzed
   titles first; ordinary requesters see their newest own Saves of any state.
-  Every history row opens hosted
-  media-details via `open_details`. In that hosted
+  Every review row opens hosted
+  media-details via `open_details`. Separate Recent downloads rows are inert.
+  In that hosted
   Gallery, open-original stays bottom-right and Attach sits top-left on the card
   image. Ordinary browser tabs keep open-original only. Gallery 📎 attaches
   after the reply composer is focused, and the shell reports Attached only when
@@ -57,8 +58,10 @@ title bar. Administrator compact rows are newest analyzed items
 (`completed_at_ms`); **All** reveals remaining analyzed items. Ordinary compact
 rows are newest own cataloged X Saves of any state (analyzed `completed_at_ms`,
 pending `created_at_ms`) so a fresh Save sits immediately under the title bar;
-**All** reveals the remainder. History starts collapsed only when empty, is not
-persisted, and expands directly under the title bar. Title bar, compact rows,
+**All** reveals the remainder and controls review rows only. The sheet starts
+closed on every panel load, does not persist that choice, and keeps the user's
+current expanded or collapsed choice across refreshes while the panel stays
+open. It expands directly under the title bar. Title bar, compact rows,
 pending rows, and **All** use dark surface plus accent outline, not solid neon
 fills. Analyzed rows use `review-history-button--analyzed`; unopened analyzed
 rows also use `review-history-button--unopened`. Pending rows use
@@ -70,8 +73,9 @@ successes join; movies stay excluded). Ordinary own-history is requester-private
 cataloged X Saves, all analysis states, movies excluded; Alice never sees Bob’s
 saves. Suggestion-ready unpublished items can appear in administrator history
 and the toolbar badge; they do not appear in the ordinary gallery. Clicking a
-row never removes it. Every history row posts hosted Kronika media-details via
-the web-bridge type `open_details` (`storedOrigin`, never `*`). Analyzed clicks
+review row never removes it. Every review row posts hosted Kronika media-details via
+the web-bridge type `open_details` (`storedOrigin`, never `*`). Download rows
+do not. Analyzed clicks
 also POST opened for that actor with the row’s `analysis_run_id` without gating
 the iframe; pending clicks never POST opened. Hosted Details hide Analyze by AI
 and keep the suggestions dropdown and strips for workspace actors with
@@ -86,6 +90,22 @@ Review Save retries opened before Apply when an earlier opened
 request failed, retains selections and blocks Apply if that retry fails, and
 does not issue a second opened mutation after success. Hover and keyboard focus
 alone do not mark a row opened.
+
+Recent downloads is a separate block inside the same sheet
+(`#download-history`, `#download-history-list`). It shows at most five of the
+signed-in requester's own X and YouTube request states, newest creation first,
+from the first page of `GET /api/x/requests?limit=5` and
+`GET /api/youtube/requests?limit=5`. X uses the claim title, or `X post <id>`
+when that title is empty. YouTube uses `YouTube video <id>`. Status text is
+Saving…, Saved, Saved privately, Partly saved, Already saved, Download failed,
+or Unavailable. Saved reports the terminal Save result and does not claim that
+new bytes were transferred. The rows are inert: no click, Details, retry, or
+opened action. The block refreshes with the visible side panel, including
+after the source tab has closed, and produces no alert while the panel is
+closed. The toolbar badge stays review-only. If either enabled download read
+fails, the whole Downloads block disappears and the loaded review history
+remains. Rows leave the block when they fall outside the latest five
+([ADR-0089](adr/0089-companion-own-download-status-history.md)).
 
 Save from X best-effort seeds `GET /api/canonical-tags?surface=x-companion-save`
 with the fixed `x` / `𝕏` pair and prepends that exact pair once when the list

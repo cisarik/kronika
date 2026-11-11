@@ -36,19 +36,23 @@
         >📤</button>
       </div>
       <section id="review-history" hidden>
-        <ul id="review-history-list" class="review-list review-list--compact" aria-label="Companion history"></ul>
+        <section id="download-history" hidden>
+          <h2 class="download-history__heading">Recent downloads</h2>
+          <ul id="download-history-list" class="download-history-list" aria-label="Your latest five download requests"></ul>
+        </section>
+        <ul id="review-history-list" class="review-list review-list--compact" aria-label="Recent review history"></ul>
         <button
           id="review-history-all"
           class="review-history-all"
           type="button"
           hidden
-          aria-label="Show full companion history"
+          aria-label="Show full review history"
           aria-expanded="false"
           aria-controls="review-history-expanded"
         >
           All
         </button>
-        <ul id="review-history-expanded" class="review-list review-list--expanded" hidden aria-label="Full companion history"></ul>
+        <ul id="review-history-expanded" class="review-list review-list--expanded" hidden aria-label="Full review history"></ul>
       </section>
       <dialog id="settings-dialog" class="settings-dialog" aria-label="Settings">
         <div class="settings-dialog__sheet">

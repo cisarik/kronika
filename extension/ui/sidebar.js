@@ -219,21 +219,58 @@
     return next;
   }
 
-  function renderReviewCollections(nodes, rawItems, compactMode) {
+  function renderDownloadHistory(listNode, items) {
+    if (!listNode || typeof listNode.appendChild !== "function" || typeof listNode.removeChild !== "function") {
+      return 0;
+    }
+    while (listNode.firstChild) {
+      listNode.removeChild(listNode.firstChild);
+    }
+    const doc = listNode.ownerDocument || globalThis.document;
+    const rows = Array.isArray(items) ? items : [];
+    if (!doc || typeof doc.createElement !== "function") {
+      return 0;
+    }
+    rows.forEach((item) => {
+      const li = doc.createElement("li");
+      const source = doc.createElement("span");
+      const label = doc.createElement("span");
+      const status = doc.createElement("span");
+      source.className = "download-history-source";
+      label.className = "download-history-label";
+      status.className = "download-history-status";
+      source.textContent = item.source === "youtube" ? "YouTube" : "X";
+      label.textContent = item.label;
+      status.textContent = companion.downloadStatusText(item.status);
+      li.className = "download-history-row";
+      li.appendChild(source);
+      li.appendChild(label);
+      li.appendChild(status);
+      listNode.appendChild(li);
+    });
+    return rows.length;
+  }
+
+  function renderReviewCollections(nodes, rawItems, compactMode, downloadCount) {
     const partitioned = partitionHistoryItems(rawItems, compactMode);
     renderReviewInboxList(nodes.historyList, partitioned.compact);
     if (nodes.expandedList) {
       renderReviewInboxList(nodes.expandedList, partitioned.expanded);
     }
     const hasHistory = partitioned.items.length > 0;
-    nodes.toggle.disabled = !hasHistory;
+    const hasDownloads = typeof downloadCount === "number" && downloadCount > 0;
+    const hasRows = hasHistory || hasDownloads;
+    nodes.toggle.disabled = !hasRows;
     if (nodes.allButton) {
       nodes.allButton.hidden = !hasHistory;
       nodes.allButton.disabled = !hasHistory;
     }
-    if (!hasHistory) {
+    if (!hasRows) {
       historyUserExpanded = false;
       setReviewHistoryExpanded(nodes.toggle, nodes.history, false);
+      setAllExpanded(nodes, false);
+    } else if (!hasHistory) {
+      setReviewHistoryExpanded(nodes.toggle, nodes.history, historyUserExpanded);
       setAllExpanded(nodes, false);
     } else {
       setReviewHistoryExpanded(nodes.toggle, nodes.history, historyUserExpanded);
@@ -250,6 +287,10 @@
     if (nodes.expandedList) {
       renderReviewInboxList(nodes.expandedList, []);
     }
+    renderDownloadHistory(nodes.downloadList, []);
+    if (nodes.downloadSection) {
+      nodes.downloadSection.hidden = true;
+    }
     nodes.toggle.disabled = disableToggle === true;
     historyUserExpanded = false;
     setReviewHistoryExpanded(nodes.toggle, nodes.history, false);
@@ -258,6 +299,38 @@
       nodes.allButton.disabled = true;
     }
     setAllExpanded(nodes, false);
+  }
+
+  function presentHistory(nodes, result) {
+    if (
+      !result ||
+      result.ok !== true ||
+      result.forbidden === true ||
+      result.status === 403 ||
+      result.stale === true
+    ) {
+      hideReviewCollections(nodes, true);
+      return { ok: false, historyItems: [], downloads: [], rendered: null };
+    }
+    const projection = companion.sanitizeDownloadProjection(result.downloads);
+    const downloadItems = projection.ok ? projection.items : [];
+    const downloadCount = renderDownloadHistory(nodes.downloadList, downloadItems);
+    if (nodes.downloadSection) {
+      nodes.downloadSection.hidden = !(projection.ok && downloadCount > 0);
+    }
+    const compactMode = result.history_source === "own-history" ? "own_activity" : "analyzed";
+    const rendered = renderReviewCollections(
+      nodes,
+      result.items,
+      compactMode,
+      projection.ok ? downloadCount : 0
+    );
+    return {
+      ok: true,
+      historyItems: rendered.historyItems,
+      downloads: downloadItems,
+      rendered: rendered,
+    };
   }
 
   function markRuntimeStale(error) {
@@ -368,6 +441,8 @@
     COMPACT_ANALYZED_LIMIT: COMPACT_ANALYZED_LIMIT,
     renderList: renderReviewInboxList,
     renderCollections: renderReviewCollections,
+    renderDownloadHistory: renderDownloadHistory,
+    presentHistory: presentHistory,
     hideCollections: hideReviewCollections,
     setHistoryExpanded: setReviewHistoryExpanded,
     setAllExpanded: setAllExpanded,
@@ -401,6 +476,8 @@
   const reviewHistoryList = document.getElementById("review-history-list");
   const reviewHistoryAll = document.getElementById("review-history-all");
   const reviewHistoryExpanded = document.getElementById("review-history-expanded");
+  const downloadHistory = document.getElementById("download-history");
+  const downloadHistoryList = document.getElementById("download-history-list");
   const reviewDialog = document.getElementById("review-dialog");
   const reviewFrame = document.getElementById("review-frame");
   const welcome = document.getElementById("welcome");
@@ -439,6 +516,8 @@
   let handshakeSeen = false;
   let frameLoaded = false;
   let inboxPollTimer = 0;
+  let inboxGeneration = 0;
+  let inboxRefreshActive = false;
   let lastHistoryItems = [];
   let serverAutomaticAnalysisEnabled = false;
   let automaticAnalysisBusy = false;
@@ -448,6 +527,8 @@
     historyList: reviewHistoryList,
     allButton: reviewHistoryAll,
     expandedList: reviewHistoryExpanded,
+    downloadSection: downloadHistory,
+    downloadList: downloadHistoryList,
   };
 
   function setText(node, value, kind) {
@@ -459,7 +540,17 @@
     }
   }
 
+  function retireInboxGeneration() {
+    inboxGeneration += 1;
+    inboxRefreshActive = false;
+    renderDownloadHistory(downloadHistoryList, []);
+    if (downloadHistory) {
+      downloadHistory.hidden = true;
+    }
+  }
+
   runtimeStaleHandler = function handleRuntimeStale() {
+    retireInboxGeneration();
     setText(shellStatus, RELOAD_RECOVERY, "error");
     chromeAction.disabled = true;
     settingsSave.disabled = true;
@@ -564,16 +655,16 @@
   }
 
   function applyInboxResult(result) {
-    if (!result || result.ok !== true || result.forbidden === true || result.status === 403) {
-      hideInboxSection();
-      lastHistoryItems = [];
+    const allWasExpanded = reviewHistoryAll.getAttribute("aria-expanded") === "true";
+    const presented = presentHistory(reviewChromeNodes, result);
+    lastHistoryItems = presented.ok ? presented.historyItems : [];
+    if (!presented.ok || !presented.rendered) {
       return;
     }
-    const allWasExpanded = reviewHistoryAll.getAttribute("aria-expanded") === "true";
-    const compactMode = result.history_source === "own-history" ? "own_activity" : "analyzed";
-    const rendered = renderReviewCollections(reviewChromeNodes, result.items, compactMode);
-    lastHistoryItems = rendered.historyItems;
-    setAllExpanded(reviewChromeNodes, allWasExpanded && rendered.expanded.length > 0);
+    setAllExpanded(
+      reviewChromeNodes,
+      allWasExpanded && presented.rendered.expanded.length > 0
+    );
   }
 
   async function refreshInbox() {
@@ -581,8 +672,22 @@
       hideInboxSection();
       return;
     }
-    const result = await request(companion.TYPES.REVIEW_INBOX, {});
-    applyInboxResult(result);
+    if (inboxRefreshActive) {
+      return;
+    }
+    const generation = inboxGeneration;
+    inboxRefreshActive = true;
+    try {
+      const result = await request(companion.TYPES.REVIEW_INBOX, {});
+      if (generation !== inboxGeneration) {
+        return;
+      }
+      applyInboxResult(result);
+    } finally {
+      if (generation === inboxGeneration) {
+        inboxRefreshActive = false;
+      }
+    }
   }
 
   function onHistoryToggle() {
@@ -828,6 +933,7 @@
   }
 
   async function connect() {
+    retireInboxGeneration();
     const origin = originInput.value.trim();
     if (!origin) {
       setText(shellStatus, "Enter a Kronika origin in Settings", "error");
@@ -858,6 +964,7 @@
   }
 
   async function reset() {
+    retireInboxGeneration();
     stopInboxPoll();
     hideInboxSection();
     const result = await request(companion.TYPES.RESET, {});

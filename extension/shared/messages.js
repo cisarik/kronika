@@ -69,6 +69,49 @@
     badgeLimit: 1,
     maxLimit: 100,
   });
+  const DOWNLOAD_HISTORY = Object.freeze({
+    limit: 5,
+    sources: Object.freeze(["x", "youtube"]),
+    statuses: Object.freeze([
+      "saving",
+      "saved",
+      "saved_private",
+      "partial",
+      "already_saved",
+      "failed",
+      "unavailable",
+    ]),
+  });
+  const DOWNLOAD_STATUS_TEXT = Object.freeze({
+    saving: "Saving…",
+    saved: "Saved",
+    saved_private: "Saved privately",
+    partial: "Partly saved",
+    already_saved: "Already saved",
+    failed: "Download failed",
+    unavailable: "Unavailable",
+  });
+  const X_DOWNLOAD_STATUS_BY_STATE = Object.freeze({
+    submitted: "saving",
+    queued: "saving",
+    extracting: "saving",
+    acquiring: "saving",
+    handing_off: "saving",
+    completed: "saved",
+    completed_partial: "partial",
+    duplicate_resolved: "already_saved",
+    failed: "failed",
+    catalog_removed: "unavailable",
+  });
+  const YOUTUBE_DOWNLOAD_STATUS_BY_PHASE = Object.freeze({
+    queued: "saving",
+    processing: "saving",
+    downloading: "saving",
+    completed: "saved",
+    completed_private: "saved_private",
+    failed: "failed",
+    unavailable: "unavailable",
+  });
 
   // Browser state uses canonical identifiers after the completed migration.
   const STORAGE = Object.freeze({
@@ -449,6 +492,133 @@
     return normalizeAwaitingRecords(records, nowMs).filter((record) => !present[record.media_id]);
   }
 
+  function failedDownloadProjection() {
+    return { ok: false, items: [] };
+  }
+
+  function safeDownloadTimestamp(value) {
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+      return null;
+    }
+    return value;
+  }
+
+  function downloadStatusText(status) {
+    return Object.prototype.hasOwnProperty.call(DOWNLOAD_STATUS_TEXT, status)
+      ? DOWNLOAD_STATUS_TEXT[status]
+      : "";
+  }
+
+  function sanitizeDownloadHistoryItem(item) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+    if (item.source !== "x" && item.source !== "youtube") {
+      return null;
+    }
+    if (!isUuid(item.request_id) || typeof item.status !== "string" || !downloadStatusText(item.status)) {
+      return null;
+    }
+    const label = canonicalizeCompanionAliasTitle(item.label);
+    const created = safeDownloadTimestamp(item.created_at_ms);
+    if (!label || created === null) {
+      return null;
+    }
+    return {
+      source: item.source,
+      request_id: item.request_id,
+      label: label,
+      status: item.status,
+      created_at_ms: created,
+    };
+  }
+
+  function downloadItemFromXRequest(row) {
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    const requestId = typeof row.request_id === "string" ? row.request_id : row.claim_id;
+    const status = X_DOWNLOAD_STATUS_BY_STATE[row.state];
+    const created = safeDownloadTimestamp(row.created_at_ms);
+    if (!status || created === null) {
+      return null;
+    }
+    let label = canonicalizeCompanionAliasTitle(row.title);
+    if (!label) {
+      const postId = acceptXPostId(row.x_post_id);
+      if (!postId) {
+        return null;
+      }
+      label = "X post " + postId;
+    }
+    return sanitizeDownloadHistoryItem({
+      source: "x",
+      request_id: requestId,
+      label: label,
+      status: status,
+      created_at_ms: created,
+    });
+  }
+
+  function downloadItemFromYouTubeRequest(row) {
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    const status = YOUTUBE_DOWNLOAD_STATUS_BY_PHASE[row.phase];
+    const created = safeDownloadTimestamp(row.created_at_ms);
+    if (!status || created === null) {
+      return null;
+    }
+    const accepted = acceptYouTubeVideoUrl(row.canonical_url);
+    if (!accepted) {
+      return null;
+    }
+    return sanitizeDownloadHistoryItem({
+      source: "youtube",
+      request_id: row.request_id,
+      label: "YouTube video " + accepted.videoId,
+      status: status,
+      created_at_ms: created,
+    });
+  }
+
+  function mergeDownloadHistoryItems(items) {
+    const seen = {};
+    const unique = [];
+    (Array.isArray(items) ? items : []).forEach((item) => {
+      const clean = sanitizeDownloadHistoryItem(item);
+      if (!clean) {
+        return;
+      }
+      const key = clean.source + "\0" + clean.request_id.toLowerCase();
+      if (seen[key]) {
+        return;
+      }
+      seen[key] = true;
+      unique.push(clean);
+    });
+    unique.sort((left, right) => {
+      if (left.created_at_ms !== right.created_at_ms) {
+        return right.created_at_ms - left.created_at_ms;
+      }
+      if (left.source !== right.source) {
+        return left.source < right.source ? -1 : 1;
+      }
+      if (left.request_id !== right.request_id) {
+        return left.request_id < right.request_id ? 1 : -1;
+      }
+      return 0;
+    });
+    return unique.slice(0, DOWNLOAD_HISTORY.limit);
+  }
+
+  function sanitizeDownloadProjection(value) {
+    if (!value || typeof value !== "object" || value.ok !== true || !Array.isArray(value.items)) {
+      return failedDownloadProjection();
+    }
+    return { ok: true, items: mergeDownloadHistoryItems(value.items) };
+  }
+
   function sanitizeReviewInboxItems(raw) {
     if (!Array.isArray(raw)) {
       return [];
@@ -741,6 +911,7 @@
     TYPES,
     CONTENT_CATEGORIES,
     REVIEW_INBOX,
+    DOWNLOAD_HISTORY,
     REVIEW_OVERLAY,
     REVIEW_APPLY_FIELDS,
     STORAGE,
@@ -769,6 +940,13 @@
     normalizeAwaitingRecords,
     pruneAwaitingRecords,
     sanitizeReviewInboxItems,
+    failedDownloadProjection,
+    downloadStatusText,
+    sanitizeDownloadHistoryItem,
+    downloadItemFromXRequest,
+    downloadItemFromYouTubeRequest,
+    mergeDownloadHistoryItems,
+    sanitizeDownloadProjection,
     sanitizeReviewApplyBody,
     parseReviewMediaHash,
     formatReviewRunLabel,

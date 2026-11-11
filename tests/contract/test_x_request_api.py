@@ -19,10 +19,14 @@ from kronika.application.x_acquisition import (
     XAcquisitionInvalidCursorError,
     XAcquisitionInvalidRequesterIdentityError,
     XAcquisitionNoRetryableAssetsError,
+    XAcquisitionNotFoundError,
     XAcquisitionNotRetryableError,
 )
 from kronika.domain.identity_access import (
+    CAPABILITIES_BY_ROLE,
     CAPABILITY_X_REQUEST,
+    ROLE_ADMIN,
+    ROLE_USER,
     IdentityContext,
 )
 
@@ -390,3 +394,105 @@ def test_retry_route_state_conflict_discriminators_return_static_literals() -> N
         assert response.json() == {
             "error": {"code": "X_REQUEST_STATE_CONFLICT", "message": message}
         }
+
+
+_X_ITEM_FIELDS = {
+    "request_id",
+    "claim_id",
+    "phase",
+    "state",
+    "x_post_id",
+    "submitted_url",
+    "canonical_url",
+    "title",
+    "failure_code",
+    "retry_of_request_id",
+    "requested_content_category",
+    "discovered_asset_count",
+    "success_count",
+    "failure_count",
+    "can_retry",
+    "submission_result",
+    "created_at_ms",
+    "updated_at_ms",
+    "assets",
+}
+_MISSING_X_ID = "00000000-0000-4000-8000-000000000099"
+
+
+class _OwnedXService:
+    def __init__(self) -> None:
+        self.owner = "alice"
+        self.list_calls: list[tuple[str, int, str | None]] = []
+        self.detail_calls: list[tuple[str, str]] = []
+
+    def list_owned(self, login_key: str, limit: int, cursor: str | None):
+        self.list_calls.append((login_key, limit, cursor))
+        if login_key != self.owner:
+            return types.SimpleNamespace(items=[], next_cursor=None)
+        return types.SimpleNamespace(
+            items=[_snapshot(_VALID_ID, state="completed")],
+            next_cursor=None,
+        )
+
+    def get_owned(self, claim_id: object, login_key: str):
+        self.detail_calls.append((str(claim_id), login_key))
+        if login_key != self.owner or str(claim_id) != _VALID_ID:
+            raise XAcquisitionNotFoundError("hidden")
+        return _snapshot(claim_id, state="completed")
+
+
+def _client_for(service: _OwnedXService, login: str, role: str) -> TestClient:
+    app = FastAPI()
+    app.include_router(
+        create_x_request_api_router(
+            XRequestApiDependencies(service=service, audit_recorder=None, enabled=True)
+        )
+    )
+    identity = IdentityContext(
+        login=login,
+        login_key=login,
+        display_name=login,
+        role=role,
+        capabilities=CAPABILITIES_BY_ROLE[role],
+        provenance="tailscale-serve",
+    )
+
+    @app.middleware("http")
+    async def _inject(request, call_next):
+        request.scope[SCOPE_IDENTITY] = identity
+        return await call_next(request)
+
+    return TestClient(app)
+
+
+@pytest.mark.parametrize(
+    ("login", "role"),
+    [("alice", ROLE_USER), ("bob", ROLE_USER), ("ada", ROLE_ADMIN)],
+)
+def test_owned_x_list_and_detail_follow_the_caller(login: str, role: str) -> None:
+    service = _OwnedXService()
+    client = _client_for(service, login, role)
+    listed = client.get("/api/x/requests", params={"limit": 5})
+    foreign = client.get(f"/api/x/requests/{_VALID_ID}")
+    missing = client.get(f"/api/x/requests/{_MISSING_X_ID}")
+    assert listed.status_code == 200
+    assert listed.headers["cache-control"] == "no-store"
+    assert service.list_calls == [(login, 5, None)]
+    assert [call[1] for call in service.detail_calls] == [login, login]
+    assert "login_key" not in listed.text
+    assert "created_by" not in listed.text
+    if login == service.owner:
+        assert set(listed.json()["items"][0]) == _X_ITEM_FIELDS
+        assert foreign.status_code == 200
+        assert foreign.headers["cache-control"] == "no-store"
+        assert set(foreign.json()) == _X_ITEM_FIELDS
+        assert "login_key" not in foreign.text
+    else:
+        assert listed.json()["items"] == []
+        assert foreign.status_code == missing.status_code == 404
+        assert foreign.json() == missing.json()
+        assert foreign.headers["cache-control"] == "no-store"
+        assert missing.headers["cache-control"] == "no-store"
+        assert _VALID_ID not in foreign.text
+        assert "hidden" not in foreign.text

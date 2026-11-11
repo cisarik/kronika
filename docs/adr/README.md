@@ -33,6 +33,11 @@ meaning. The rest of ADR-0083 remains accepted.
 view. The Timeline is the single overview; Search and Research remain actions;
 question and answer records and APIs remain; Gallery remains separate. This
 supersedes only the removed-view statements in ADR-0083 and ADR-0087.
+[ADR-0089](0089-companion-own-download-status-history.md) supplements only the
+companion history sheet in
+[ADR-0076](0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md)
+with a separate read-only own-download status block. ADR-0076 review routing,
+hosted Details, and the review-only badge remain.
 [ADR-0085](0085-kronika-sole-identity.md) partially supersedes ADR-0082 by
 citation, not by patch: the internal `framenest` package, migration history,
 compatible HTTP headers and deployment identifiers staying, and the exclusion of
@@ -133,7 +138,7 @@ An accepted ADR may only be changed by a later ADR that supersedes it. Editing a
 | 0073 | Companion Merged History Chrome, Pending Visibility, 𝕏 Seed Tag, and Preserving Apply | Accepted; mixed-inbox, pending-overlay, and ordinary-403-hides-history statements succeeded by [ADR-0076](0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md) | 2026-08-24 | [0073-companion-merged-history-chrome-pending-visibility-x-seed-tag-and-preserving-apply.md](0073-companion-merged-history-chrome-pending-visibility-x-seed-tag-and-preserving-apply.md) |
 | 0074 | Dual-Audience Public Published and Tailscale Workspace Boundary | Accepted | 2026-08-25 | [0074-dual-audience-public-published-and-tailscale-workspace-boundary.md](0074-dual-audience-public-published-and-tailscale-workspace-boundary.md) |
 | 0075 | NUC as Development-Test Target and Routine Release Refresh | Accepted | 2026-08-26 | [0075-nuc-development-test-target-and-routine-release-refresh.md](0075-nuc-development-test-target-and-routine-release-refresh.md) |
-| 0076 | Companion History Hosted Click, Administrator Analyzed Inbox, and Ordinary Own-History | Accepted; “Edit remains `metadata.canonical.write`” succeeded by [ADR-0077](0077-ordinary-alias-edit-affordance-and-per-field-ai-suggestions.md) | 2026-08-26 | [0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md](0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md) |
+| 0076 | Companion History Hosted Click, Administrator Analyzed Inbox, and Ordinary Own-History | Accepted; “Edit remains `metadata.canonical.write`” succeeded by [ADR-0077](0077-ordinary-alias-edit-affordance-and-per-field-ai-suggestions.md); own-download status block supplemented by [ADR-0089](0089-companion-own-download-status-history.md) | 2026-08-26 | [0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md](0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md) |
 | 0077 | Ordinary Alias Edit Affordance and Per-Field AI Suggestions | Accepted; Gallery card 🧠 bulk analyze-and-canonical-save succeeded by [ADR-0078](0078-gallery-card-ai-per-field-review.md); Load and hide-on-dropdown-change succeeded by [ADR-0080](0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md); Gallery/Details overlay display, ordinary suggestion-list GET, hosted suggestion chrome, and filename note succeeded in this file | 2026-08-26 | [0077-ordinary-alias-edit-affordance-and-per-field-ai-suggestions.md](0077-ordinary-alias-edit-affordance-and-per-field-ai-suggestions.md) |
 | 0078 | Gallery Card AI Per-Field Review | Accepted; analyze-then-open order succeeded by [ADR-0080](0080-immediate-editor-suggestion-reveal-and-in-modal-analysis.md) | 2026-08-27 | [0078-gallery-card-ai-per-field-review.md](0078-gallery-card-ai-per-field-review.md) |
 | 0079 | Administrator Automatic Analysis Runtime Setting | Accepted | 2026-08-27 | [0079-administrator-automatic-analysis-runtime-setting.md](0079-administrator-automatic-analysis-runtime-setting.md) |
@@ -146,3 +151,4 @@ An accepted ADR may only be changed by a later ADR that supersedes it. Editing a
 | 0086 | Companion YouTube Save, Upload Message, and Preview Backfill | Accepted | 2026-11-08 | [0086-companion-youtube-save-upload-message-and-preview-backfill.md](0086-companion-youtube-save-upload-message-and-preview-backfill.md) |
 | 0087 | Complete Visibility-Aware Timeline Chronicle | Accepted; supersedes only ADR-0083's approved-only Timeline membership; separate History view superseded by [ADR-0088](0088-timeline-as-single-overview.md) | 2026-11-09 | [0087-complete-visibility-aware-timeline-chronicle.md](0087-complete-visibility-aware-timeline-chronicle.md) |
 | 0088 | Timeline as the Single Overview | Accepted; supersedes the separate History view in ADR-0083 and ADR-0087 | 2026-11-10 | [0088-timeline-as-single-overview.md](0088-timeline-as-single-overview.md) |
+| 0089 | Companion Own Download Status History | Accepted; supplements only the history sheet in ADR-0076 | 2026-11-11 | [0089-companion-own-download-status-history.md](0089-companion-own-download-status-history.md) |

@@ -298,6 +298,29 @@ local or unpublished checkout.
 [docs/UX_AUDIT.md](docs/UX_AUDIT.md) is the historical record of one UX round.
 It is not task authority.
 
+## Companion own download status
+
+Focused checks for the companion Recent downloads block:
+
+```text
+# [MacBook / fish]
+./.ap/ap project check --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline>
+./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation runtime-info
+./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation test-focus -- tests/contract/test_x_request_api.py tests/contract/test_youtube_request_api.py tests/contract/test_companion_review_api.py -q -p no:cacheprovider
+node --test tests/companion_review_extension.test.js tests/x_companion_extension.test.js
+./.ap/ap exec --root /Users/agile/Projects/kronika --baseline <exact-authorized-baseline> --operation test-focus -- tests/contract/test_tailscale_ingress_security.py tests/contract/test_requester_private_youtube_details.py tests/unit/application/test_x_acquisition_lifecycle.py tests/integration/test_youtube_acquisition_lifecycle.py tests/unit/infrastructure/persistence/test_companion_review_repository.py tests/unit/domain/test_x_acquisition_domain.py tests/unit/domain/test_youtube_acquisition.py -q -p no:cacheprovider
+node --test tests/companion_web_bridge.test.js tests/companion_settings_automatic_analysis.test.js tests/youtube_request_cockpit.test.js tests/youtube_acquisition_cockpit.test.js tests/x_acquisition_cockpit.test.js
+#------------------------------------------------------
+```
+
+Use synthetic fixtures only. Rendered acceptance is a later Cooperator pass on
+the unpacked companion reloaded from the published `main` revision after the
+routine NUC refresh. NUC refresh alone does not reload the extension. Check
+ordinary and administrator coexistence, terminal status copy, observation
+after the source tab closes, download-read failure leaving review history and
+the badge in place, sheet scrolling, an unchanged review-only badge, and
+hosted Attach still completing.
+
 ## Upload Flow
 
 Normative upload behavior, including automatic start after a permitted selection or drop, explicit Resume, and truthful progress, is [SPEC.md](SPEC.md) §18. Companion `open_upload` only opens that hosted dialog; progress and results stay inside it.

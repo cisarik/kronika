@@ -295,6 +295,16 @@ and
 [ADR-0079](docs/adr/0079-administrator-automatic-analysis-runtime-setting.md).
 The sixth mutation is
 [ADR-0086](docs/adr/0086-companion-youtube-save-upload-message-and-preview-backfill.md).
+Companion Recent downloads reads only the signed-in requester's own
+`GET /api/x/requests` and `GET /api/youtube/requests` rows. The side panel
+receives a sanitized native projection of source, request id, bounded label,
+status and creation time, with no raw URL, asset, media filename, provider
+payload or failure detail. `review_inbox` is accepted only from the extension's
+own sidebar document. Download snapshots are not stored. This adds no mutation
+route, permission, CORS entry or persisted download record.
+[ADR-0089](docs/adr/0089-companion-own-download-status-history.md) supplements
+[ADR-0076](docs/adr/0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md)
+for that block only.
 Public JPEG/PNG X photographs are
 acquired through an isolated status bridge and a strict `pbs.twimg.com`
 transport; WebP is rejected; content scripts never fetch Kronika or the CDN.

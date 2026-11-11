@@ -3,6 +3,7 @@ importScripts(chrome.runtime.getURL("shared/messages.js"));
 
 const companion = self.KronikaCompanion;
 let boundTabId = null;
+let configurationRevision = 0;
 // The extension and server use only the canonical mutation header.
 const MUTATION_REQUEST_HEADERS = Object.freeze({
   "X-Kronika-Request": "1",
@@ -108,7 +109,7 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-async function handle(message) {
+async function handle(message, sender) {
   switch (message.type) {
     case companion.TYPES.CONFIGURE_ORIGIN:
       return configureOrigin(message.payload || {});
@@ -140,6 +141,9 @@ async function handle(message) {
     case companion.TYPES.PICKER_LAYOUT:
       return forwardPickerLayout(message.payload || {});
     case companion.TYPES.REVIEW_INBOX:
+      if (!isSidebarReviewSender(sender)) {
+        return invalidSenderReviewResult();
+      }
       return reviewInbox();
     case companion.TYPES.REVIEW_INBOX_DETAIL:
       return reviewInboxDetail(message.payload || {});
@@ -180,6 +184,7 @@ async function configureOrigin(payload) {
   }
   await enqueueOriginWork(async () => {
     await chrome.storage.local.set({ [STORAGE_KEYS.origin]: origin });
+    configurationRevision += 1;
   });
   await ensureReviewInboxAlarm();
   await refreshReviewInboxBadge();
@@ -188,6 +193,7 @@ async function configureOrigin(payload) {
 
 async function resetState() {
   return enqueueOriginWork(async () => {
+    configurationRevision += 1;
     const stored = await chrome.storage.local.get(
       companion.storageKeyRequest(companion.STORAGE.origin)
     );
@@ -685,6 +691,36 @@ function reviewInboxPageSuffix(cursor) {
   return "?" + query.toString();
 }
 
+function invalidSenderReviewResult() {
+  return {
+    ok: false,
+    error: "invalid_sender",
+    status: 0,
+    forbidden: false,
+    stale: false,
+    items: [],
+    unopened_count: 0,
+    awaiting: [],
+    history_source: "",
+    downloads: companion.failedDownloadProjection(),
+  };
+}
+
+function staleContextReviewResult() {
+  return {
+    ok: false,
+    error: "stale_context",
+    status: 0,
+    forbidden: false,
+    stale: true,
+    items: [],
+    unopened_count: 0,
+    awaiting: [],
+    history_source: "",
+    downloads: companion.failedDownloadProjection(),
+  };
+}
+
 async function failedReviewInbox(response, error) {
   await clearBadgeText();
   return {
@@ -692,10 +728,12 @@ async function failedReviewInbox(response, error) {
     error: error || (response && response.error) || "request_failed",
     status: (response && response.status) || 0,
     forbidden: inboxForbidden(response) || Boolean(response && response.forbidden),
+    stale: false,
     items: [],
     unopened_count: 0,
     awaiting: [],
     history_source: "",
+    downloads: companion.failedDownloadProjection(),
   };
 }
 
@@ -704,8 +742,59 @@ function capabilitiesFromBody(body) {
   return {
     workflowRead: caps.indexOf("media.workflow.read") !== -1,
     xRequest: caps.indexOf("x.request") !== -1,
+    youtubeRequest: caps.indexOf("youtube.request") !== -1,
     providerOperate: caps.indexOf("provider.operate") !== -1,
   };
+}
+
+function sameCapabilities(left, right) {
+  return Boolean(
+    left &&
+      right &&
+      left.workflowRead === right.workflowRead &&
+      left.xRequest === right.xRequest &&
+      left.youtubeRequest === right.youtubeRequest
+  );
+}
+
+function extensionResourceUrl(resource) {
+  try {
+    return chrome.runtime.getURL(resource);
+  } catch {
+    return "";
+  }
+}
+
+function originOfExtensionUrl(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
+}
+
+function isSidebarReviewSender(sender) {
+  const runtimeId = chrome.runtime && chrome.runtime.id;
+  if (!sender || !runtimeId || sender.id !== runtimeId) {
+    return false;
+  }
+  const sidebarUrl = extensionResourceUrl("ui/sidebar.html");
+  const origin = originOfExtensionUrl(sidebarUrl);
+  return Boolean(sidebarUrl && origin && sender.url === sidebarUrl && sender.origin === origin);
+}
+
+async function readOriginBinding() {
+  return enqueueOriginWork(async () => {
+    const stored = await chrome.storage.local.get(
+      companion.storageKeyRequest(companion.STORAGE.origin)
+    );
+    return {
+      origin: companion.canonicalizeKronikaOrigin(
+        companion.storageValue(stored, companion.STORAGE.origin)
+      ),
+      revision: configurationRevision,
+    };
+  });
 }
 
 async function putAutomaticAnalysisSettings(payload) {
@@ -734,27 +823,101 @@ async function putAutomaticAnalysisSettings(payload) {
 }
 
 async function historyListRoute() {
-  const identity = await fetchJson("identity");
+  const binding = await readOriginBinding();
+  if (!binding.origin) {
+    return { ok: false, error: "not_configured", forbidden: false, status: 0 };
+  }
+  const identity = await fetchJson("identity", { origin: binding.origin });
   if (!identity || !identity.ok) {
     return {
       ok: false,
       error: (identity && identity.error) || "identity_unavailable",
       forbidden: Boolean(identity && (identity.status === 403 || identity.error === "http_403")),
+      status: identity && identity.status,
     };
   }
   const caps = capabilitiesFromBody(identity.body);
+  const base = {
+    origin: binding.origin,
+    revision: binding.revision,
+    capabilities: caps,
+  };
   if (caps.workflowRead) {
-    return { ok: true, pathName: "reviewInbox", history_source: "review-inbox" };
+    return Object.assign({ ok: true, pathName: "reviewInbox", history_source: "review-inbox" }, base);
   }
   if (caps.xRequest) {
-    return {
-      ok: true,
-      pathName: "ownHistory",
-      path: "/api/companion/own-history",
-      history_source: "own-history",
-    };
+    return Object.assign(
+      {
+        ok: true,
+        pathName: "ownHistory",
+        path: "/api/companion/own-history",
+        history_source: "own-history",
+      },
+      base
+    );
   }
-  return { ok: false, error: "http_403", forbidden: true };
+  return { ok: false, error: "http_403", forbidden: true, status: 403 };
+}
+
+async function readCapabilityDownloadList(pathName, origin) {
+  const response = await fetchJson(pathName, {
+    origin: origin,
+    suffix: "?limit=" + String(companion.DOWNLOAD_HISTORY.limit),
+  });
+  if (!response || !response.ok || !response.body || typeof response.body !== "object") {
+    return companion.failedDownloadProjection();
+  }
+  if (!Array.isArray(response.body.items)) {
+    return companion.failedDownloadProjection();
+  }
+  return { ok: true, items: response.body.items };
+}
+
+async function readDownloadWindow(route) {
+  const caps = route.capabilities;
+  const mapped = [];
+  if (caps.xRequest) {
+    const page = await readCapabilityDownloadList("xRequests", route.origin);
+    if (!page.ok) {
+      return companion.failedDownloadProjection();
+    }
+    page.items.forEach((row) => {
+      const item = companion.downloadItemFromXRequest(row);
+      if (item) {
+        mapped.push(item);
+      }
+    });
+  }
+  if (caps.youtubeRequest) {
+    const page = await readCapabilityDownloadList("youtubeRequests", route.origin);
+    if (!page.ok) {
+      return companion.failedDownloadProjection();
+    }
+    page.items.forEach((row) => {
+      const item = companion.downloadItemFromYouTubeRequest(row);
+      if (item) {
+        mapped.push(item);
+      }
+    });
+  }
+  return { ok: true, items: companion.mergeDownloadHistoryItems(mapped) };
+}
+
+async function aggregationContextMatches(route) {
+  const binding = await readOriginBinding();
+  if (!binding.origin || binding.origin !== route.origin || binding.revision !== route.revision) {
+    return false;
+  }
+  const identity = await fetchJson("identity", { origin: route.origin });
+  if (!identity || !identity.ok) {
+    return false;
+  }
+  const caps = capabilitiesFromBody(identity.body);
+  if (!sameCapabilities(caps, route.capabilities)) {
+    return false;
+  }
+  const source = caps.workflowRead ? "review-inbox" : caps.xRequest ? "own-history" : "";
+  return source === route.history_source;
 }
 
 async function reviewInbox() {
@@ -771,6 +934,7 @@ async function reviewInbox() {
   while (true) {
     const response = await fetchJson(route.pathName, {
       path: route.path,
+      origin: route.origin,
       suffix: reviewInboxPageSuffix(cursor),
     });
     if (!response.ok) {
@@ -803,6 +967,10 @@ async function reviewInbox() {
     seenCursors[nextCursor] = true;
     cursor = nextCursor;
   }
+  const downloads = await readDownloadWindow(route);
+  if (!(await aggregationContextMatches(route))) {
+    return staleContextReviewResult();
+  }
   await applyBadgeFromResponse({ ok: true, body: { unopened_count: unopenedCount } });
   const inboxIds = items.map((item) => item.media_id);
   const awaiting = companion.pruneAwaitingRecords(
@@ -814,10 +982,12 @@ async function reviewInbox() {
   return {
     ok: true,
     forbidden: false,
+    stale: false,
     items: items,
     unopened_count: unopenedCount,
     awaiting: awaiting,
     history_source: route.history_source,
+    downloads: downloads,
   };
 }
 
@@ -865,7 +1035,12 @@ async function previewFetch(payload) {
 }
 
 async function fetchJson(pathName, options) {
-  const origin = await configuredOrigin();
+  let origin = null;
+  if (options && Object.prototype.hasOwnProperty.call(options, "origin")) {
+    origin = companion.canonicalizeKronikaOrigin(options.origin);
+  } else {
+    origin = await configuredOrigin();
+  }
   if (!origin) {
     return { ok: false, error: "not_configured" };
   }
