@@ -1653,7 +1653,7 @@ test("ordinary own-history and administrator inbox both keep separate own downlo
   assert.equal(JSON.stringify(inbox.downloads).indexOf("Bob analyzed"), -1);
 });
 
-test("changed identity discards the in-flight history result without clearing the badge", async () => {
+test("changed identity capabilities discard the in-flight history result without clearing the badge", async () => {
   const worker = loadWorker({
     storage: { kronikaOrigin: ORIGIN },
     identityBody: { capabilities: ["media.workflow.read", "x.request", "youtube.request"] },
@@ -1669,6 +1669,36 @@ test("changed identity discards the in-flight history result without clearing th
       identitySeen += 1;
       if (identitySeen >= 2) {
         worker.state.identityBody = { capabilities: [] };
+      }
+    }
+    return original(url, init);
+  };
+  const result = await worker.context.reviewInbox();
+  assert.equal(identitySeen >= 2, true);
+  assert.equal(result.stale, true);
+  assert.equal(result.ok, false);
+  assert.equal(result.items.length, 0);
+  assert.equal(result.downloads.items.length, 0);
+  assert.equal(worker.state.badgeText, "9");
+});
+
+test("changed identity login discards the in-flight history result without clearing the badge", async () => {
+  const capabilities = ["media.workflow.read", "x.request", "youtube.request"];
+  const worker = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { login: "alice", capabilities: capabilities },
+    inboxBody: { items: [], unopened_count: 4, next_cursor: null },
+    xRequestsBody: { items: [xDownloadRow()] },
+    youtubeRequestsBody: { items: [youtubeDownloadRow()] },
+  });
+  worker.state.badgeText = "9";
+  const original = worker.context.fetch;
+  let identitySeen = 0;
+  worker.context.fetch = async (url, init) => {
+    if (String(url).indexOf("/api/identity/me") !== -1) {
+      identitySeen += 1;
+      if (identitySeen >= 2) {
+        worker.state.identityBody = { login: "bob", capabilities: capabilities.slice() };
       }
     }
     return original(url, init);

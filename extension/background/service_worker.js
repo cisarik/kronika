@@ -747,6 +747,11 @@ function capabilitiesFromBody(body) {
   };
 }
 
+function identityLoginFromBody(body) {
+  const login = body && body.login;
+  return typeof login === "string" ? login : "";
+}
+
 function sameCapabilities(left, right) {
   return Boolean(
     left &&
@@ -841,6 +846,7 @@ async function historyListRoute() {
     origin: binding.origin,
     revision: binding.revision,
     capabilities: caps,
+    login: identityLoginFromBody(identity.body),
   };
   if (caps.workflowRead) {
     return Object.assign({ ok: true, pathName: "reviewInbox", history_source: "review-inbox" }, base);
@@ -913,6 +919,9 @@ async function aggregationContextMatches(route) {
     return false;
   }
   const caps = capabilitiesFromBody(identity.body);
+  if (identityLoginFromBody(identity.body) !== route.login) {
+    return false;
+  }
   if (!sameCapabilities(caps, route.capabilities)) {
     return false;
   }
