@@ -295,6 +295,12 @@ acceptance requires the exact accepted commit to be published on public `main`
 and refreshed onto the NUC first; do not request visual acceptance against a
 local or unpublished checkout.
 
+Compact companion shell, after that same published revision is on the NUC and the unpacked companion is reloaded:
+
+- Timeline status and visibility are words, with readable Kind, Status and Visibility labels. Titles wrap in full and are not clamped. The wide page still shows the glyph table.
+- Filter starts collapsed. Activating Filter expands the same four menus and activating it again collapses them. Filtering still follows the Timeline query. The wide page keeps the filters visible and does not show the Filter button.
+- My contributions titles fill the row and wrap on spaces. Metadata, badges and actions stay readable. The wide contributions layout stays a multi-column row.
+
 [docs/UX_AUDIT.md](docs/UX_AUDIT.md) is the historical record of one UX round.
 It is not task authority.
 

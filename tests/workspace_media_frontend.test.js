@@ -126,3 +126,25 @@ test("administrator analysis-proposals view stays hidden from the public audienc
   assert.match(extractFunction(APP_SOURCE, "loadAnalysisProposals"), /ANALYSIS_PROPOSALS_ENDPOINT/);
   assert.match(extractFunction(APP_SOURCE, "openAnalysisProposalsBrowser"), /identityAllowsAdminWorkflow/);
 });
+
+test("companion My contributions title fills the row and the wide grid stays", () => {
+  assert.match(
+    STYLES_SOURCE,
+    /\.workspace-media-browser \.admin-media-row \{\s*grid-template-columns: minmax\(0, 1\.6fr\) minmax\(8rem, 0\.7fr\) minmax\(8rem, 0\.6fr\) minmax\(7rem, 0\.55fr\);/,
+  );
+  assert.match(
+    STYLES_SOURCE,
+    /\.admin-media-row__title-button \{[^}]*display: inline-flex;/,
+  );
+  assert.match(
+    STYLES_SOURCE,
+    /\.kronika-companion-hosted \.workspace-media-browser \.admin-media-row \{\s*grid-template-columns: minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    STYLES_SOURCE,
+    /\.kronika-companion-hosted \.workspace-media-browser \.admin-media-row__title-button,\s*\.kronika-companion-hosted \.workspace-media-browser \.admin-media-row__metadata \{\s*display: block;\s*width: 100%;\s*max-width: 100%;\s*min-width: 0;\s*overflow-wrap: break-word;\s*word-break: normal;\s*white-space: normal;/,
+  );
+  const render = extractFunction(APP_SOURCE, "renderWorkspaceMediaItem");
+  assert.match(render, /titleButton\.className = "admin-media-row__title-button"/);
+  assert.match(render, /titleButton\.textContent = title/);
+});

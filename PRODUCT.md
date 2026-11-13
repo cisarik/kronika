@@ -61,6 +61,11 @@ direction.
   by default and 100 at most. Filters combine Search, Research, media
   categories, status, visibility and publication inside the caller's authorized
   set. GIF is a format, not a replacement for Meme.
+- In the companion side panel, Timeline status and visibility are words with
+  Kind, Status and Visibility labels, titles wrap in full, and the four filters
+  stay behind one Filter button until it is opened. My contributions titles use
+  the row width and wrap on words. The wide page keeps its table, glyphs and
+  always-visible filters.
 - Every new record starts private to its owner. Verified identity supplies
   that owner. An authenticated application administrator can read all product
   records, including private and unfinished work. That access is application

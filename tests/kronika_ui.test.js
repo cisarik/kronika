@@ -112,6 +112,29 @@ class El {
     if (listeners) listeners.forEach((listener) => listener({ type: "focus", target: this }));
   }
 
+  get classList() {
+    const element = this;
+    const tokens = () => String(element.className || "").split(/\s+/).filter(Boolean);
+    return {
+      contains(name) {
+        return tokens().includes(name);
+      },
+      add(name) {
+        if (!tokens().includes(name)) element.className = [...tokens(), name].join(" ");
+      },
+      remove(name) {
+        element.className = tokens().filter((token) => token !== name).join(" ");
+      },
+      toggle(name, force) {
+        const present = tokens().includes(name);
+        const next = force === undefined ? !present : Boolean(force);
+        if (next && !present) element.className = [...tokens(), name].join(" ");
+        if (!next && present) element.className = tokens().filter((token) => token !== name).join(" ");
+        return next;
+      },
+    };
+  }
+
   querySelectorAll(selector) {
     const found = [];
     const visit = (node) => {
@@ -266,6 +289,14 @@ function createHarness(fetchImpl, options = {}) {
     button.setAttribute("data-kronika-filter", name);
     byId["kronika-timeline-filters"].appendChild(button);
   });
+  byId["kronika-timeline-filters"].className = "kronika-chronicle-filters is-collapsed";
+  const filterToggle = new El("button", "kronika-timeline-filter-toggle");
+  filterToggle.type = "button";
+  filterToggle.className = "kronika-chronicle-filter-toggle";
+  filterToggle.textContent = "Filter";
+  filterToggle.setAttribute("aria-controls", "kronika-timeline-filters");
+  filterToggle.setAttribute("aria-expanded", "false");
+  byId[filterToggle.id] = filterToggle;
   const calls = [];
   const detailsCalls = [];
   const catalogLoads = [];
@@ -794,7 +825,7 @@ test("Timeline chronicle header is hidden from assistive tech and rows label the
   await harness.kronikaLoadTimeline(harness.kronikaParseRoute("#/timeline"));
   const row = harness.byId["kronika-timeline-results"].children[0];
   const labels = row.querySelectorAll(".kronika-chronicle__label").map((node) => node.textContent);
-  assert.deepEqual(labels, ["Kind"]);
+  assert.deepEqual(labels, ["Kind", "Status", "Visibility"]);
   labels.forEach((label) => {
     const node = row.querySelectorAll(".kronika-chronicle__label").find((item) => item.textContent === label);
     assert.equal(node.className.includes("visually-hidden"), true);
@@ -1662,6 +1693,98 @@ test("Timeline chronicle uses glyphs with accessible text and a quiet hover", as
     assert.equal(row.querySelector(".kronika-chronicle__status").children[0].getAttribute("aria-hidden"), "true");
     assert.equal(row.querySelector(".kronika-chronicle__visibility").children[1].className.includes("visually-hidden"), true);
   });
+});
+
+test("companion Timeline text and Filter disclosure stay off the wide page", async () => {
+  const toggleAt = INDEX_SOURCE.indexOf('id="kronika-timeline-filter-toggle"');
+  const formAt = INDEX_SOURCE.indexOf('id="kronika-timeline-filters"');
+  assert.ok(toggleAt > -1 && toggleAt < formAt);
+  assert.match(
+    INDEX_SOURCE,
+    /<button id="kronika-timeline-filter-toggle" class="kronika-chronicle-filter-toggle" type="button" aria-controls="kronika-timeline-filters" aria-expanded="false">Filter<\/button>/,
+  );
+  assert.match(
+    INDEX_SOURCE,
+    /<form id="kronika-timeline-filters" class="kronika-chronicle-filters is-collapsed" aria-label="Timeline filters">/,
+  );
+  assert.match(
+    STYLES_SOURCE,
+    /\.kronika-chronicle-filter-toggle,\s*\.kronika-chronicle__reading \{\s*display: none;/,
+  );
+  assert.match(
+    STYLES_SOURCE,
+    /\.kronika-companion-hosted \.kronika-chronicle-filter-toggle \{[^}]*display: inline-flex;/,
+  );
+  const collapsedRules = STYLES_SOURCE.match(/[^{}]*#kronika-timeline-filters\.is-collapsed\s*\{[^}]*\}/g) || [];
+  assert.equal(collapsedRules.length, 1);
+  assert.match(collapsedRules[0], /\.kronika-companion-hosted #kronika-timeline-filters\.is-collapsed/);
+  assert.match(collapsedRules[0], /display:\s*none/);
+  assert.match(STYLES_SOURCE, /\.kronika-companion-hosted #kronika-timeline \.kronika-chronicle__glyph \{\s*display: none;/);
+  assert.match(STYLES_SOURCE, /\.kronika-companion-hosted #kronika-timeline \.kronika-chronicle__reading \{\s*display: inline;/);
+  assert.match(STYLES_SOURCE, /\.kronika-companion-hosted #kronika-timeline \.kronika-chronicle__title \{[^}]*-webkit-line-clamp: none;/);
+  assert.match(STYLES_SOURCE, /\.kronika-chronicle__title \{[^}]*-webkit-line-clamp: 2;/);
+  assert.match(
+    STYLES_SOURCE,
+    /\.kronika-chronicle-header,\s*\.kronika-chronicle__item \{\s*display: grid;\s*grid-template-columns: 4\.75rem minmax\(0, 1fr\) 5\.5rem 4\.5rem 6\.25rem;/,
+  );
+  const harness = createHarness(async () => jsonResponse({
+    items: [{
+      item_id: "question:op-1",
+      kind: "search",
+      display_title: "A long companion title that must wrap instead of being clamped",
+      record_id: "record-1",
+      operation_id: "op-1",
+      created_at_ms: 1,
+      status: "saved",
+      visibility: "private",
+      publication_state: "unpublished",
+    }],
+    total: 1,
+    limit: 24,
+    offset: 0,
+  }));
+  const route = "#/timeline?filter=media&status=failed&visibility=private&publication=unpublished";
+  harness.location.hash = route;
+  harness.kronikaStartNavigation();
+  await settle();
+  const row = harness.byId["kronika-timeline-results"].children[0];
+  const status = row.querySelector(".kronika-chronicle__status");
+  const visibility = row.querySelector(".kronika-chronicle__visibility");
+  assert.equal(status.children[0].className.includes("kronika-chronicle__glyph"), true);
+  assert.equal(status.children[0].textContent, "✅");
+  assert.equal(status.querySelector(".kronika-chronicle__label").textContent, "Status");
+  assert.equal(status.querySelector(".kronika-chronicle__value").textContent, "Saved");
+  assert.equal(status.getAttribute("title"), "Saved");
+  assert.equal(visibility.children[0].textContent, "🔒");
+  assert.equal(visibility.querySelector(".kronika-chronicle__label").textContent, "Visibility");
+  assert.equal(visibility.querySelector(".kronika-chronicle__value").textContent, "Private · Unpublished");
+  assert.equal(
+    row.querySelector(".kronika-chronicle__kind").querySelector(".kronika-chronicle__label").textContent,
+    "Kind",
+  );
+  const button = harness.byId["kronika-timeline-filter-toggle"];
+  const form = harness.byId["kronika-timeline-filters"];
+  assert.equal(button.type, "button");
+  assert.equal(button.textContent, "Filter");
+  assert.equal(button.getAttribute("aria-controls"), "kronika-timeline-filters");
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(form.classList.contains("is-collapsed"), true);
+  const timelineCall = harness.calls.find((call) => String(call.url).startsWith("/api/timeline"));
+  assert.ok(timelineCall);
+  const queried = new URL(timelineCall.url, "http://kronika.local");
+  assert.equal(queried.searchParams.get("kind"), "media");
+  assert.equal(queried.searchParams.get("status"), "failed");
+  assert.equal(queried.searchParams.get("visibility"), "private");
+  assert.equal(queried.searchParams.get("publication"), "unpublished");
+  const callsBefore = harness.calls.length;
+  button.listeners.get("click")[0]();
+  assert.equal(form.classList.contains("is-collapsed"), false);
+  assert.equal(button.getAttribute("aria-expanded"), "true");
+  button.listeners.get("click")[0]();
+  assert.equal(form.classList.contains("is-collapsed"), true);
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(harness.location.hash, route);
+  assert.equal(harness.calls.length, callsBefore);
 });
 
 test("header search occupies one slot and only the active view is visible", async () => {

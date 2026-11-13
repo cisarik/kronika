@@ -1473,6 +1473,34 @@ def test_served_shell_groups_navigation_and_timeline_controls(client: TestClient
     assert "text-decoration: none" in css[css.index(".kronika-chronicle__title,") : css.index(".kronika-chronicle__title {")]
 
 
+def test_companion_hosted_timeline_disclosure_is_in_the_served_shell(client: TestClient) -> None:
+    html = client.get("/").text
+    css = client.get("/assets/styles.css").text
+    script = client.get("/assets/app.js").text
+    toggle = html.index('id="kronika-timeline-filter-toggle"')
+    form = html.index('id="kronika-timeline-filters"')
+    assert 0 <= toggle < form
+    assert 'type="button"' in html[toggle:form]
+    assert 'aria-controls="kronika-timeline-filters"' in html[toggle:form]
+    assert 'aria-expanded="false"' in html[toggle:form]
+    assert ">Filter</button>" in html[toggle:form]
+    assert 'class="kronika-chronicle-filters is-collapsed"' in html
+    assert ".kronika-companion-hosted .kronika-chronicle-filter-toggle" in css
+    assert ".kronika-companion-hosted #kronika-timeline-filters.is-collapsed" in css
+    assert ".kronika-companion-hosted #kronika-timeline .kronika-chronicle__glyph" in css
+    assert "-webkit-line-clamp: none" in css
+    assert "-webkit-line-clamp: 2" in css
+    companion_row = css.index(".kronika-companion-hosted .workspace-media-browser .admin-media-row")
+    assert "grid-template-columns: minmax(0, 1fr);" in css[companion_row:companion_row + 180]
+    assert 'classList.toggle("is-collapsed")' in script
+    assert "kronika-timeline-filter-toggle" in script
+    wide_columns = "minmax(0, 1.6fr) minmax(8rem, 0.7fr) minmax(8rem, 0.6fr) minmax(7rem, 0.55fr)"
+    assert wide_columns in css
+    assert css.index(".workspace-media-browser .admin-media-row") < css.index(
+        ".kronika-companion-hosted .workspace-media-browser .admin-media-row"
+    )
+
+
 def test_javascript_tag_filters_use_active_chip_and_card_pressed_semantics(client: TestClient) -> None:
     script = client.get("/assets/app.js").text
     assert "aria-pressed" in script

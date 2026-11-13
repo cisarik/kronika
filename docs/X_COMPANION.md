@@ -251,6 +251,16 @@ Content scripts match `https://x.com/*` and `https://twitter.com/*` for X, and
 `optional_host_permissions` remains `https://*.ts.net/*`. There is no
 `host_permissions` key. The service worker has no X host permission.
 
+## Companion-hosted Timeline and My contributions
+
+The hosted shell adds `kronika-companion-hosted` on the document root. In that
+shell the Timeline hides status and visibility emoji, shows Kind, Status and
+Visibility as text, and wraps the full title. One Filter button expands and
+collapses the existing four Timeline filters; the wide page hides that button
+and keeps the filters visible. My contributions titles fill the row and wrap
+on words. The wide page keeps its table, glyphs and multi-column contributions
+layout.
+
 ## Residual gaps
 
 - Live signed-in X DOM evidence is not part of repository acceptance.

@@ -6856,6 +6856,117 @@ body[data-audience="public_published"] #admin-media-aliases-panel {
   color: #04130a;
 }
 
+.kronika-chronicle-filter-toggle,
+.kronika-chronicle__reading {
+  display: none;
+}
+
+.kronika-companion-hosted .kronika-chronicle-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin: 0 0 8px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.kronika-companion-hosted .kronika-chronicle-filter-toggle[aria-expanded="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.kronika-companion-hosted #kronika-timeline-filters.is-collapsed {
+  display: none;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle-header {
+  display: none;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__item {
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__kind,
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__status,
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__visibility {
+  grid-column: 2;
+  justify-content: flex-start;
+  min-height: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__status,
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__visibility {
+  display: block;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__glyph {
+  display: none;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__reading {
+  display: inline;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__status > .visually-hidden,
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__visibility > .visually-hidden {
+  display: none;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__label {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 0.4em 0 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: normal !important;
+}
+
+.kronika-companion-hosted #kronika-timeline .kronika-chronicle__title {
+  display: block;
+  min-height: 0;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  -webkit-line-clamp: none;
+  -webkit-box-orient: unset;
+  line-clamp: none;
+}
+
+.kronika-companion-hosted .workspace-media-browser .admin-media-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kronika-companion-hosted .workspace-media-browser .admin-media-cell--summary {
+  min-width: 0;
+  width: 100%;
+}
+
+.kronika-companion-hosted .workspace-media-browser .admin-media-row__title-button,
+.kronika-companion-hosted .workspace-media-browser .admin-media-row__metadata {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
 /* --- Leading icons for text action buttons (see KRONIKA_BUTTON_ICONS) --- */
 
 button[data-icon]::before {

@@ -847,7 +847,8 @@
     <main id="main" class="app-shell" tabindex="-1">
       <section id="kronika-timeline" class="kronika-section" data-kronika-view="timeline" aria-labelledby="kronika-timeline-heading" hidden>
         <h1 id="kronika-timeline-heading" class="visually-hidden" tabindex="-1">Timeline</h1>
-        <form id="kronika-timeline-filters" class="kronika-chronicle-filters" aria-label="Timeline filters">
+        <button id="kronika-timeline-filter-toggle" class="kronika-chronicle-filter-toggle" type="button" aria-controls="kronika-timeline-filters" aria-expanded="false">Filter</button>
+        <form id="kronika-timeline-filters" class="kronika-chronicle-filters is-collapsed" aria-label="Timeline filters">
           <div class="kronika-menu" data-kronika-menu="publication">
               <span class="kronika-menu__label" id="kronika-timeline-publication-label">Publication</span>
               <button id="kronika-timeline-publication" class="kronika-menu__trigger" type="button" value="" aria-haspopup="listbox" aria-expanded="false" aria-controls="kronika-timeline-publication-list" aria-labelledby="kronika-timeline-publication-label kronika-timeline-publication">

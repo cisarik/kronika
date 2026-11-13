@@ -14412,7 +14412,7 @@ function kronikaShareGlyph(item) {
   return "🔒";
 }
 
-function kronikaChronicleSignal(className, glyph, text) {
+function kronikaChronicleSignal(className, glyph, label, text) {
   const field = document.createElement("span");
   field.className = className;
   const icon = document.createElement("span");
@@ -14422,9 +14422,20 @@ function kronikaChronicleSignal(className, glyph, text) {
   const caption = document.createElement("span");
   caption.className = "visually-hidden";
   caption.textContent = text;
+  const reading = document.createElement("span");
+  reading.className = "kronika-chronicle__reading";
+  const captionLabel = document.createElement("span");
+  captionLabel.className = "visually-hidden kronika-chronicle__label";
+  captionLabel.textContent = label;
+  const valueNode = document.createElement("span");
+  valueNode.className = "kronika-chronicle__value";
+  valueNode.textContent = text;
+  reading.appendChild(captionLabel);
+  reading.appendChild(valueNode);
   field.setAttribute("title", text);
   field.appendChild(icon);
   field.appendChild(caption);
+  field.appendChild(reading);
   return field;
 }
 
@@ -14461,8 +14472,8 @@ function kronikaRenderChronicle(results, items) {
     });
     row.appendChild(title);
     row.appendChild(kronikaChronicleLabeled("kronika-chronicle__kind", "Kind", kronikaKindLabel(item)));
-    row.appendChild(kronikaChronicleSignal("kronika-chronicle__status", kronikaStatusGlyph(item.status), kronikaStatusLabel(item)));
-    row.appendChild(kronikaChronicleSignal("kronika-chronicle__visibility", kronikaShareGlyph(item), kronikaPublicationLabel(item)));
+    row.appendChild(kronikaChronicleSignal("kronika-chronicle__status", kronikaStatusGlyph(item.status), "Status", kronikaStatusLabel(item)));
+    row.appendChild(kronikaChronicleSignal("kronika-chronicle__visibility", kronikaShareGlyph(item), "Visibility", kronikaPublicationLabel(item)));
     kronikaAttachCardPreview(preview, item, "timeline");
     results.appendChild(row);
   });
@@ -15431,6 +15442,13 @@ function kronikaBindShell() {
   });
   const timelineFilters = document.getElementById("kronika-timeline-filters");
   if (timelineFilters) kronikaSetupTimelineMenus(document);
+  const filterToggle = document.getElementById("kronika-timeline-filter-toggle");
+  if (filterToggle && timelineFilters) {
+    filterToggle.addEventListener("click", () => {
+      const collapsed = timelineFilters.classList.toggle("is-collapsed");
+      filterToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    });
+  }
   const timelineSearchForm = document.getElementById("kronika-timeline-search-form");
   if (timelineSearchForm) {
     timelineSearchForm.addEventListener("submit", (event) => {
