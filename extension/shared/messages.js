@@ -661,7 +661,7 @@
       }
       return 0;
     });
-    return unique.slice(0, DOWNLOAD_HISTORY.limit);
+    return unique.slice(0, DOWNLOAD_HISTORY.readLimit);
   }
 
   function sanitizeDownloadProjection(value) {

@@ -1332,13 +1332,20 @@ and block Apply when that opened retry fails. Successful connection MUST render
 no status line; failure guidance, `Cleared`, and `Attached` remain visible. The
 toolbar badge MUST derive only from server `unopened_count`; pending rows and
 download rows MUST NOT increment it. The history sheet MUST also show a separate
-Recent downloads block of at most five own X and YouTube request
+Recent downloads block of the signed-in requester's own X and YouTube request
 states, most recent update first, for each present `x.request` or `youtube.request`
 capability. The download read window MUST be the first page at limit 50 for each
-available request capability and MUST retain five rows. Review pagination remains
+available request capability and MUST retain up to fifty rows. The compact sheet
+MUST show the five latest download rows and one All control. Activating All MUST
+reveal any retained download rows after those five and then the review history.
+A review row whose media id matches a download row MUST be omitted from the
+compact and expanded review lists. The toolbar badge MUST remain review-only.
+When no downloads exist, review history MUST keep its compact and All behavior.
+Review pagination remains
 fail-closed
 ([ADR-0089](docs/adr/0089-companion-own-download-status-history.md),
-[ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md)).
+[ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md),
+[ADR-0091](docs/adr/0091-companion-history-compact-five-and-all-expansion.md)).
 Failure of either capability-enabled
 download read MUST hide the entire Downloads block while retaining a
 successfully loaded review list and its server badge count. Server own-history

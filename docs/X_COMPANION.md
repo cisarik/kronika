@@ -55,12 +55,15 @@ surviving iframe. There is no `#review-inbox` list. Routing uses
 `GET /api/identity/me`: administrators (`media.workflow.read`) load
 `GET /api/companion/review-inbox`; ordinary `x.request` identities load
 `GET /api/companion/own-history`; otherwise history chrome hides. When connected
-history exists, a compact strip of at most five titles sits directly under the
-title bar. Administrator compact rows are newest analyzed items
-(`completed_at_ms`); **All** reveals remaining analyzed items. Ordinary compact
-rows are newest own cataloged X Saves of any state (analyzed `completed_at_ms`,
-pending `created_at_ms`) so a fresh Save sits immediately under the title bar;
-**All** reveals the remainder and controls review rows only. The sheet starts
+history exists and Recent downloads are absent, a compact strip of at most five
+titles sits directly under the title bar. Administrator compact rows are newest
+analyzed items (`completed_at_ms`); **All** reveals remaining analyzed items.
+Ordinary compact rows are newest own cataloged X Saves of any state (analyzed
+`completed_at_ms`, pending `created_at_ms`) so a fresh Save sits immediately
+under the title bar; **All** reveals the remainder and controls review rows
+only. When Recent downloads are present, that review strip stays behind the
+download **All**, and a review row whose media id matches a download row is
+omitted. The sheet starts
 closed on every panel load, does not persist that choice, and keeps the user's
 current expanded or collapsed choice across refreshes while the panel stays
 open. It expands directly under the title bar. Title bar, compact rows,
@@ -95,11 +98,15 @@ does not issue a second opened mutation after success. Hover and keyboard focus
 alone do not mark a row opened.
 
 Recent downloads is a separate block inside the same sheet
-(`#download-history`, `#download-history-list`). It shows at most five of the
+(`#download-history`, `#download-history-list`, `#download-history-all`,
+`#download-history-expanded`). The compact sheet shows the five latest of the
 signed-in requester's own X and YouTube request states, most recently updated
-first. Each available capability is read from the first page only:
+first, then one **All** control. **All** reveals any retained rows after those
+five and then the deduplicated review history; activating it again returns to
+the five-download sheet. The choice starts collapsed on each panel load and is
+not stored. Each available capability is read from the first page only:
 `GET /api/x/requests?limit=50` and `GET /api/youtube/requests?limit=50`.
-Cursors are not followed. The five retained rows are the latest updates.
+Cursors are not followed. The retained window is at most fifty latest updates.
 X uses the claim title, or `X post <id>` when that title is empty. YouTube
 uses `YouTube video <id>`. Status text is
 Saving…, Saved, Saved privately, Partly saved, Already saved, Download failed,
@@ -107,14 +114,20 @@ or Unavailable. Saved reports the terminal Save result and does not claim that
 new bytes were transferred. A row with an own cataloged media id is a button
 that opens hosted Details and stays clickable after that save was read. It
 does not post opened, retry, or remove itself. A row without a media id is
-inert: no click, Details, retry, or opened action. The block refreshes with
+inert: no click, Details, retry, or opened action, and it does not drop a
+review row. A review row with the same media id is omitted from both review
+lists; a distinct review media id remains behind **All**. If no downloads
+exist, review history keeps its compact and **All** behavior and no empty
+download **All** is shown. If downloads exist and review rows do not, **All**
+reveals only the later downloads. The block refreshes with
 the visible side panel, including after the source tab has closed, and
 produces no alert while the panel is closed. The toolbar badge stays
 review-only. If either enabled download read fails, the whole Downloads block
 disappears and the loaded review history remains. Rows leave the block when
-they fall outside the latest five
+they fall outside the retained fifty
 ([ADR-0089](adr/0089-companion-own-download-status-history.md),
-[ADR-0090](adr/0090-companion-download-row-details-and-latest-update-order.md)).
+[ADR-0090](adr/0090-companion-download-row-details-and-latest-update-order.md),
+[ADR-0091](adr/0091-companion-history-compact-five-and-all-expansion.md)).
 
 Save from X best-effort seeds `GET /api/canonical-tags?surface=x-companion-save`
 with the fixed `x` / `𝕏` pair and prepends that exact pair once when the list

@@ -42,7 +42,12 @@ hosted Details, and the review-only badge remain.
 supersedes only ADR-0089's inert download rows and newest-creation order. An
 own cataloged media id opens hosted Details; a row without a media id stays
 inert; order is the latest request update; the read is the first page at limit
-50 and retains five. ADR-0089's body is unchanged.
+50. ADR-0089's body is unchanged.
+[ADR-0091](0091-companion-history-compact-five-and-all-expansion.md)
+supplements ADR-0090 and supersedes only its at-most-five and single-window
+presentation. The compact sheet shows five download rows and one All control;
+All reveals later retained downloads and then review history that omits any
+download media id. ADR-0090's body is unchanged.
 [ADR-0085](0085-kronika-sole-identity.md) partially supersedes ADR-0082 by
 citation, not by patch: the internal `framenest` package, migration history,
 compatible HTTP headers and deployment identifiers staying, and the exclusion of
@@ -157,4 +162,5 @@ An accepted ADR may only be changed by a later ADR that supersedes it. Editing a
 | 0087 | Complete Visibility-Aware Timeline Chronicle | Accepted; supersedes only ADR-0083's approved-only Timeline membership; separate History view superseded by [ADR-0088](0088-timeline-as-single-overview.md) | 2026-11-09 | [0087-complete-visibility-aware-timeline-chronicle.md](0087-complete-visibility-aware-timeline-chronicle.md) |
 | 0088 | Timeline as the Single Overview | Accepted; supersedes the separate History view in ADR-0083 and ADR-0087 | 2026-11-10 | [0088-timeline-as-single-overview.md](0088-timeline-as-single-overview.md) |
 | 0089 | Companion Own Download Status History | Accepted; supplements only the history sheet in ADR-0076; inert download rows and creation order superseded by [ADR-0090](0090-companion-download-row-details-and-latest-update-order.md) | 2026-11-11 | [0089-companion-own-download-status-history.md](0089-companion-own-download-status-history.md) |
-| 0090 | Companion Download Row Details and Latest-Update Order | Accepted; supersedes only ADR-0089's inert-row and creation-order statements | 2026-11-13 | [0090-companion-download-row-details-and-latest-update-order.md](0090-companion-download-row-details-and-latest-update-order.md) |
+| 0090 | Companion Download Row Details and Latest-Update Order | Accepted; supersedes only ADR-0089's inert-row and creation-order statements; at-most-five and single-window presentation superseded by [ADR-0091](0091-companion-history-compact-five-and-all-expansion.md) | 2026-11-13 | [0090-companion-download-row-details-and-latest-update-order.md](0090-companion-download-row-details-and-latest-update-order.md) |
+| 0091 | Companion History Compact Five and All Expansion | Accepted; supplements ADR-0090 and supersedes only its at-most-five and single-window presentation | 2026-11-13 | [0091-companion-history-compact-five-and-all-expansion.md](0091-companion-history-compact-five-and-all-expansion.md) |

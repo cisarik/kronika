@@ -872,6 +872,48 @@ body:has(.welcome:not([hidden])) .title-bar__action {
   display: none;
 }
 
+#download-history-expanded[hidden],
+#review-history-rest[hidden],
+.download-history-all[hidden] {
+  display: none;
+}
+
+#review-history-rest {
+  display: grid;
+  gap: 6px;
+}
+
+.download-history-all {
+  display: block;
+  width: auto;
+  justify-self: center;
+  margin: 0;
+  padding: 5px 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--surface-input);
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.download-history-all::after {
+  content: " ▾";
+}
+
+.download-history-all[aria-expanded="true"]::after {
+  content: " ▴";
+}
+
+.download-history-all:hover,
+.download-history-all:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .download-history__heading {
   margin: 0;
   padding: 2px 2px 0;

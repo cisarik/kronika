@@ -140,14 +140,18 @@ global analyzed inbox with per-actor unopened accent; ordinary requesters see
 requester-private own X Saves, with unopened accent after analysis. Review
 rows open hosted Details without Analyze by AI in that popup. Separate
 download-status rows show that requester's own recent X and YouTube
-request states, most recently updated first. A row with an own cataloged media
+request states, most recently updated first. The compact sheet shows five of
+those rows and one All control. All reveals any later retained downloads and
+then review history that omits a download's media id. The toolbar badge stays
+review-only. A row with an own cataloged media
 id opens hosted Details. A row without a media id stays inert
 ([ADR-0067](docs/adr/0067-administrator-companion-review-inbox-and-mutation-trust.md),
 [ADR-0072](docs/adr/0072-native-side-panel-unread-inbox-and-title-bar-history-chrome.md),
 [ADR-0073](docs/adr/0073-companion-merged-history-chrome-pending-visibility-x-seed-tag-and-preserving-apply.md),
 [ADR-0076](docs/adr/0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md),
 [ADR-0089](docs/adr/0089-companion-own-download-status-history.md),
-[ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md)).
+[ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md),
+[ADR-0091](docs/adr/0091-companion-history-compact-five-and-all-expansion.md)).
 Workspace identities with only `metadata.alias.write` can edit the caller-private
 alias overlay through the existing Edit dialog, with per-field AI suggestion
 strips revealed immediately from the newest stored run and a dropdown that

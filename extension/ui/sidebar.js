@@ -83,6 +83,8 @@
   const REVIEW = companion.REVIEW_INBOX;
   const COMPACT_ANALYZED_LIMIT = 5;
   let historyUserExpanded = false;
+  let downloadHistoryExpanded = false;
+  let reviewAllAvailable = false;
 
   function historyStampMs(item) {
     if (!item) {
@@ -219,6 +221,66 @@
     return next;
   }
 
+  function reviewItemsOmittingDownloadMedia(rawItems, downloadItems) {
+    const covered = {};
+    (Array.isArray(downloadItems) ? downloadItems : []).forEach((item) => {
+      const mediaId = item && item.media_id;
+      if (companion.isUuid(mediaId)) {
+        covered[mediaId.toLowerCase()] = true;
+      }
+    });
+    if (!Array.isArray(rawItems)) {
+      return rawItems;
+    }
+    return rawItems.filter((item) => {
+      if (!item || typeof item !== "object" || typeof item.media_id !== "string") {
+        return true;
+      }
+      return covered[item.media_id.toLowerCase()] !== true;
+    });
+  }
+
+  function applyHistoryDisclosure(nodes) {
+    const sectionOpen = Boolean(nodes && nodes.downloadSection && nodes.downloadSection.hidden !== true);
+    const button = nodes && nodes.downloadAll;
+    if (!sectionOpen) {
+      downloadHistoryExpanded = false;
+    }
+    const expanded = Boolean(downloadHistoryExpanded && sectionOpen);
+    if (button) {
+      button.hidden = !sectionOpen;
+      button.disabled = !sectionOpen;
+      if (typeof button.setAttribute === "function") {
+        button.setAttribute("aria-expanded", expanded ? "true" : "false");
+      }
+    }
+    if (nodes && nodes.downloadExpandedList) {
+      const laterCount = nodes.downloadExpandedList.childNodes
+        ? nodes.downloadExpandedList.childNodes.length
+        : 0;
+      nodes.downloadExpandedList.hidden = !(expanded && laterCount > 0);
+    }
+    const gateReviews = Boolean(button && sectionOpen && !expanded);
+    if (nodes && nodes.reviewRest) {
+      nodes.reviewRest.hidden = gateReviews;
+    }
+    if (nodes && nodes.allButton) {
+      nodes.allButton.hidden = !(reviewAllAvailable && !gateReviews);
+    }
+    if (gateReviews) {
+      setAllExpanded(nodes, false);
+    }
+  }
+
+  function setDownloadHistoryExpanded(nodes, expanded) {
+    downloadHistoryExpanded = Boolean(expanded);
+    applyHistoryDisclosure(nodes);
+    const button = nodes && nodes.downloadAll;
+    return Boolean(
+      button && typeof button.getAttribute === "function" && button.getAttribute("aria-expanded") === "true"
+    );
+  }
+
   function renderDownloadHistory(listNode, items) {
     if (!listNode || typeof listNode.appendChild !== "function" || typeof listNode.removeChild !== "function") {
       return 0;
@@ -278,6 +340,7 @@
     const hasHistory = partitioned.items.length > 0;
     const hasDownloads = typeof downloadCount === "number" && downloadCount > 0;
     const hasRows = hasHistory || hasDownloads;
+    reviewAllAvailable = hasHistory;
     nodes.toggle.disabled = !hasRows;
     if (nodes.allButton) {
       nodes.allButton.hidden = !hasHistory;
@@ -285,6 +348,7 @@
     }
     if (!hasRows) {
       historyUserExpanded = false;
+      downloadHistoryExpanded = false;
       setReviewHistoryExpanded(nodes.toggle, nodes.history, false);
       setAllExpanded(nodes, false);
     } else if (!hasHistory) {
@@ -293,6 +357,7 @@
     } else {
       setReviewHistoryExpanded(nodes.toggle, nodes.history, historyUserExpanded);
     }
+    applyHistoryDisclosure(nodes);
     return {
       historyItems: partitioned.items,
       compact: partitioned.compact,
@@ -306,17 +371,23 @@
       renderReviewInboxList(nodes.expandedList, []);
     }
     renderDownloadHistory(nodes.downloadList, []);
+    if (nodes.downloadExpandedList) {
+      renderDownloadHistory(nodes.downloadExpandedList, []);
+    }
     if (nodes.downloadSection) {
       nodes.downloadSection.hidden = true;
     }
     nodes.toggle.disabled = disableToggle === true;
     historyUserExpanded = false;
+    downloadHistoryExpanded = false;
+    reviewAllAvailable = false;
     setReviewHistoryExpanded(nodes.toggle, nodes.history, false);
     if (nodes.allButton) {
       nodes.allButton.hidden = true;
       nodes.allButton.disabled = true;
     }
     setAllExpanded(nodes, false);
+    applyHistoryDisclosure(nodes);
   }
 
   function presentHistory(nodes, result) {
@@ -332,16 +403,28 @@
     }
     const projection = companion.sanitizeDownloadProjection(result.downloads);
     const downloadItems = projection.ok ? projection.items : [];
-    const downloadCount = renderDownloadHistory(nodes.downloadList, downloadItems);
+    const canSplit = Boolean(nodes.downloadExpandedList);
+    const compactDownloads = canSplit
+      ? downloadItems.slice(0, companion.DOWNLOAD_HISTORY.limit)
+      : downloadItems;
+    const laterDownloads = canSplit ? downloadItems.slice(companion.DOWNLOAD_HISTORY.limit) : [];
+    renderDownloadHistory(nodes.downloadList, compactDownloads);
+    if (nodes.downloadExpandedList) {
+      renderDownloadHistory(nodes.downloadExpandedList, laterDownloads);
+    }
+    const downloadCount = projection.ok ? downloadItems.length : 0;
+    if (downloadCount === 0) {
+      downloadHistoryExpanded = false;
+    }
     if (nodes.downloadSection) {
-      nodes.downloadSection.hidden = !(projection.ok && downloadCount > 0);
+      nodes.downloadSection.hidden = downloadCount === 0;
     }
     const compactMode = result.history_source === "own-history" ? "own_activity" : "analyzed";
     const rendered = renderReviewCollections(
       nodes,
-      result.items,
+      reviewItemsOmittingDownloadMedia(result.items, projection.ok ? downloadItems : []),
       compactMode,
-      projection.ok ? downloadCount : 0
+      downloadCount
     );
     return {
       ok: true,
@@ -464,6 +547,7 @@
     hideCollections: hideReviewCollections,
     setHistoryExpanded: setReviewHistoryExpanded,
     setAllExpanded: setAllExpanded,
+    setDownloadHistoryExpanded: setDownloadHistoryExpanded,
     partitionHistoryItems: partitionHistoryItems,
     historyClickKind: historyClickKind,
     activateHistoryItem: activateHistoryItem,
@@ -496,6 +580,9 @@
   const reviewHistoryExpanded = document.getElementById("review-history-expanded");
   const downloadHistory = document.getElementById("download-history");
   const downloadHistoryList = document.getElementById("download-history-list");
+  const downloadHistoryAll = document.getElementById("download-history-all");
+  const downloadHistoryExpandedList = document.getElementById("download-history-expanded");
+  const reviewHistoryRest = document.getElementById("review-history-rest");
   const reviewDialog = document.getElementById("review-dialog");
   const reviewFrame = document.getElementById("review-frame");
   const welcome = document.getElementById("welcome");
@@ -547,6 +634,9 @@
     expandedList: reviewHistoryExpanded,
     downloadSection: downloadHistory,
     downloadList: downloadHistoryList,
+    downloadAll: downloadHistoryAll,
+    downloadExpandedList: downloadHistoryExpandedList,
+    reviewRest: reviewHistoryRest,
   };
 
   function setText(node, value, kind) {
@@ -561,9 +651,18 @@
   function retireInboxGeneration() {
     inboxGeneration += 1;
     inboxRefreshActive = false;
+    downloadHistoryExpanded = false;
     renderDownloadHistory(downloadHistoryList, []);
+    if (downloadHistoryExpandedList) {
+      renderDownloadHistory(downloadHistoryExpandedList, []);
+      downloadHistoryExpandedList.hidden = true;
+    }
     if (downloadHistory) {
       downloadHistory.hidden = true;
+    }
+    if (downloadHistoryAll && typeof downloadHistoryAll.setAttribute === "function") {
+      downloadHistoryAll.hidden = true;
+      downloadHistoryAll.setAttribute("aria-expanded", "false");
     }
   }
 
@@ -576,7 +675,11 @@
     hideAdminSettings();
     reviewHistoryToggle.disabled = true;
     reviewHistoryAll.disabled = true;
+    if (downloadHistoryAll) {
+      downloadHistoryAll.disabled = true;
+    }
     historyUserExpanded = false;
+    downloadHistoryExpanded = false;
     setReviewHistoryExpanded(reviewHistoryToggle, reviewHistory, false);
     setAllExpanded(reviewChromeNodes, false);
     reviewHistoryList.querySelectorAll("button").forEach((button) => {
@@ -709,15 +812,23 @@
   }
 
   function onHistoryToggle() {
-    historyUserExpanded = setReviewHistoryExpanded(
-      reviewHistoryToggle,
-      reviewHistory,
-      reviewHistoryToggle.getAttribute("aria-expanded") !== "true"
-    );
+    const opening = reviewHistoryToggle.getAttribute("aria-expanded") !== "true";
+    if (!opening) {
+      downloadHistoryExpanded = false;
+    }
+    historyUserExpanded = setReviewHistoryExpanded(reviewHistoryToggle, reviewHistory, opening);
+    applyHistoryDisclosure(reviewChromeNodes);
   }
 
   function onAllClick() {
     setAllExpanded(reviewChromeNodes, reviewHistoryAll.getAttribute("aria-expanded") !== "true");
+  }
+
+  function onDownloadAllClick() {
+    setDownloadHistoryExpanded(
+      reviewChromeNodes,
+      !(downloadHistoryAll && downloadHistoryAll.getAttribute("aria-expanded") === "true")
+    );
   }
 
   function openHostedDetails(mediaId) {
@@ -1187,6 +1298,9 @@
   }
   reviewHistoryToggle.addEventListener("click", onHistoryToggle);
   reviewHistoryAll.addEventListener("click", onAllClick);
+  if (downloadHistoryAll && typeof downloadHistoryAll.addEventListener === "function") {
+    downloadHistoryAll.addEventListener("click", onDownloadAllClick);
+  }
   reviewHistoryList.addEventListener("click", (event) => {
     onReviewListClick(event, reviewHistoryList);
   });

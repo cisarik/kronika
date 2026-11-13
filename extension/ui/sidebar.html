@@ -39,20 +39,33 @@
         <section id="download-history" hidden>
           <h2 class="download-history__heading">Recent downloads</h2>
           <ul id="download-history-list" class="download-history-list" aria-label="Your latest five download requests"></ul>
+          <button
+            id="download-history-all"
+            class="download-history-all"
+            type="button"
+            hidden
+            aria-expanded="false"
+            aria-controls="download-history-expanded review-history-rest"
+          >
+            All
+          </button>
+          <ul id="download-history-expanded" class="download-history-list" hidden aria-label="Earlier download requests"></ul>
         </section>
-        <ul id="review-history-list" class="review-list review-list--compact" aria-label="Recent review history"></ul>
-        <button
-          id="review-history-all"
-          class="review-history-all"
-          type="button"
-          hidden
-          aria-label="Show full review history"
-          aria-expanded="false"
-          aria-controls="review-history-expanded"
-        >
-          All
-        </button>
-        <ul id="review-history-expanded" class="review-list review-list--expanded" hidden aria-label="Full review history"></ul>
+        <div id="review-history-rest">
+          <ul id="review-history-list" class="review-list review-list--compact" aria-label="Recent review history"></ul>
+          <button
+            id="review-history-all"
+            class="review-history-all"
+            type="button"
+            hidden
+            aria-label="Show full review history"
+            aria-expanded="false"
+            aria-controls="review-history-expanded"
+          >
+            All
+          </button>
+          <ul id="review-history-expanded" class="review-list review-list--expanded" hidden aria-label="Full review history"></ul>
+        </div>
       </section>
       <dialog id="settings-dialog" class="settings-dialog" aria-label="Settings">
         <div class="settings-dialog__sheet">

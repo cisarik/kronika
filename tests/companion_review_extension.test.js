@@ -1479,7 +1479,7 @@ test("download rows map every accepted state and reject unknown or unsafe fields
   assert.equal(JSON.stringify(unsafe).indexOf("SECRET"), -1);
 });
 
-test("download merge keeps five rows, first duplicate, and deterministic ties", () => {
+test("download merge keeps the retained window, first duplicate, and deterministic ties", () => {
   const ids = [
     "11111111-1111-4111-8111-111111111111",
     "22222222-2222-4222-8222-222222222222",
@@ -1501,8 +1501,9 @@ test("download merge keeps five rows, first duplicate, and deterministic ties", 
   const merged = companion.mergeDownloadHistoryItems(rows);
   assert.deepEqual(
     merged.map((item) => item.label),
-    ["Row 5", "Row 4", "Row 3", "Row 2", "Row 1"]
+    ["Row 5", "Row 4", "Row 3", "Row 2", "Row 1", "Row 0"]
   );
+  assert.equal(merged.length > companion.DOWNLOAD_HISTORY.limit, true);
   const tiedX = companion.downloadItemFromXRequest(
     xDownloadRow({
       request_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -1540,6 +1541,26 @@ test("download merge keeps five rows, first duplicate, and deterministic ties", 
     ["First sight", "Newer id", "Older X", "YouTube video " + VIDEO_ID]
   );
   assert.equal(ordered[0].status, "failed");
+  const retained = [];
+  let retainedIndex = 0;
+  while (retainedIndex < companion.DOWNLOAD_HISTORY.readLimit + 1) {
+    const hex = retainedIndex.toString(16).padStart(12, "0");
+    retained.push(
+      companion.downloadItemFromXRequest(
+        xDownloadRow({
+          request_id: "12121212-1212-4212-8212-" + hex,
+          title: "Retained " + String(retainedIndex),
+          state: "queued",
+          created_at_ms: retainedIndex + 1,
+        })
+      )
+    );
+    retainedIndex += 1;
+  }
+  const capped = companion.mergeDownloadHistoryItems(retained);
+  assert.equal(capped.length, companion.DOWNLOAD_HISTORY.readLimit);
+  assert.equal(capped[0].label, "Retained " + String(companion.DOWNLOAD_HISTORY.readLimit));
+  assert.equal(capped[capped.length - 1].label, "Retained 1");
 });
 
 test("download media id selects the first cataloged X asset and the YouTube request id", () => {
@@ -1649,7 +1670,7 @@ test("download sort prefers updated_at_ms and keeps an older request that was up
   );
 });
 
-test("download read window uses limit 50, ignores cursors, and keeps five newest updates", async () => {
+test("download read window uses limit 50, ignores cursors, and keeps the retained rows", async () => {
   const ids = [
     "10101010-1010-4010-8010-101010101010",
     "20202020-2020-4020-8020-202020202020",
@@ -1678,9 +1699,11 @@ test("download read window uses limit 50, ignores cursors, and keeps five newest
   assert.equal(result.downloads.ok, true);
   assert.deepEqual(
     result.downloads.items.map((item) => item.label),
-    ["Window 0", "Window 5", "Window 4", "Window 3", "Window 2"]
+    ["Window 0", "Window 5", "Window 4", "Window 3", "Window 2", "Window 1"]
   );
-  assert.equal(result.downloads.items.length, companion.DOWNLOAD_HISTORY.limit);
+  assert.equal(result.downloads.items.length, 6);
+  assert.equal(result.downloads.items.length > companion.DOWNLOAD_HISTORY.limit, true);
+  assert.equal(companion.DOWNLOAD_HISTORY.limit, 5);
   assert.equal(companion.DOWNLOAD_HISTORY.readLimit, 50);
   const xCalls = worker.state.fetchCalls.filter((call) => call.url.indexOf("/api/x/requests") !== -1);
   const youtubeCalls = worker.state.fetchCalls.filter(
@@ -1696,6 +1719,248 @@ test("download read window uses limit 50, ignores cursors, and keeps five newest
     ),
     false
   );
+});
+
+function downloadDisclosureNodes() {
+  const nodes = fakeReviewChromeNodes();
+  const downloadAttributes = {
+    "aria-expanded": "false",
+    "aria-controls": "download-history-expanded review-history-rest",
+  };
+  nodes.downloadSection = { hidden: true };
+  nodes.downloadList = fakeListNode();
+  nodes.downloadExpandedList = fakeListNode();
+  nodes.reviewRest = { hidden: false };
+  nodes.downloadAll = {
+    hidden: true,
+    disabled: false,
+    textContent: "All",
+    type: "button",
+    setAttribute(name, value) {
+      downloadAttributes[name] = String(value);
+    },
+    getAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(downloadAttributes, name)
+        ? downloadAttributes[name]
+        : null;
+    },
+  };
+  return nodes;
+}
+
+function historyRowText(list) {
+  return list.childNodes.map((node) => node.textContent);
+}
+
+test("compact history shows five downloads, one All, then deduplicated review rows", () => {
+  const inbox = loadReviewInbox();
+  const nodes = downloadDisclosureNodes();
+  const downloads = [];
+  let index = 0;
+  while (index < 7) {
+    const hex = (index + 1).toString(16).padStart(12, "0");
+    const mediaId = index === 0 ? MEDIA_A : index === 1 ? null : "33333333-3333-4333-8333-" + hex;
+    downloads.push(
+      companion.downloadItemFromXRequest(
+        xDownloadRow({
+          request_id: "34343434-3434-4434-8434-" + hex,
+          title: "Download " + String(7 - index),
+          state: index === 1 ? "failed" : "completed",
+          created_at_ms: 70 - index,
+          assets:
+            mediaId === null
+              ? [{ filename: "secret.mp4" }]
+              : [{ ordinal: 1, state: "cataloged", media_id: mediaId }],
+        })
+      )
+    );
+    index += 1;
+  }
+  const duplicate = analyzedReviewItem(MEDIA_A.toUpperCase(), "Duplicate review");
+  const distinct = analyzedReviewItem(MEDIA_B, "Distinct review");
+  distinct.unopened = true;
+  const presented = inbox.presentHistory(nodes, {
+    ok: true,
+    items: [duplicate, distinct],
+    history_source: "review-inbox",
+    unopened_count: 4,
+    downloads: { ok: true, items: downloads },
+  });
+  assert.equal(presented.ok, true);
+  assert.equal(presented.downloads.length, 7);
+  assert.equal(nodes.downloadList.childNodes.length, 5);
+  assert.deepEqual(
+    historyRowText(nodes.downloadList).map((text) => text.indexOf("Download 7") !== -1),
+    [true, false, false, false, false]
+  );
+  assert.match(historyRowText(nodes.downloadList)[4], /Download 3/);
+  assert.equal(nodes.downloadAll.hidden, false);
+  assert.equal(nodes.downloadAll.disabled, false);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "false");
+  assert.equal(nodes.downloadExpandedList.hidden, true);
+  assert.equal(nodes.reviewRest.hidden, true);
+  assert.equal(nodes.allButton.hidden, true);
+  assert.equal(nodes.historyList.childNodes.length, 1);
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Duplicate review"), -1);
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Distinct review") !== -1, true);
+  assert.match(
+    nodes.historyList.childNodes[0].childNodes[0].className,
+    /review-history-button--unopened/
+  );
+  assert.equal(nodes.downloadList.childNodes[0].childNodes[0].tagName, "BUTTON");
+  assert.equal(nodes.downloadList.childNodes[1].childNodes[0].tagName, "DIV");
+
+  assert.equal(inbox.setDownloadHistoryExpanded(nodes, true), true);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "true");
+  assert.equal(nodes.downloadExpandedList.hidden, false);
+  assert.equal(nodes.downloadExpandedList.childNodes.length, 2);
+  assert.match(historyRowText(nodes.downloadExpandedList)[0], /Download 2/);
+  assert.match(historyRowText(nodes.downloadExpandedList)[1], /Download 1/);
+  assert.equal(nodes.reviewRest.hidden, false);
+  assert.equal(nodes.allButton.hidden, false);
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Duplicate review"), -1);
+  assert.equal(historyRowText(nodes.expandedList).join("\n").indexOf("Duplicate review"), -1);
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Distinct review") !== -1, true);
+
+  assert.equal(inbox.setDownloadHistoryExpanded(nodes, false), false);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "false");
+  assert.equal(nodes.downloadExpandedList.hidden, true);
+  assert.equal(nodes.reviewRest.hidden, true);
+  assert.equal(nodes.allButton.hidden, true);
+
+  const downloadOnly = downloadDisclosureNodes();
+  inbox.presentHistory(downloadOnly, {
+    ok: true,
+    items: [],
+    history_source: "own-history",
+    downloads: { ok: true, items: downloads },
+  });
+  assert.equal(downloadOnly.downloadAll.hidden, false);
+  assert.equal(downloadOnly.allButton.hidden, true);
+  assert.equal(downloadOnly.reviewRest.hidden, true);
+  inbox.setDownloadHistoryExpanded(downloadOnly, true);
+  assert.equal(downloadOnly.downloadExpandedList.childNodes.length, 2);
+  assert.equal(downloadOnly.historyList.childNodes.length, 0);
+  assert.equal(downloadOnly.allButton.hidden, true);
+
+  const reviewOnly = downloadDisclosureNodes();
+  inbox.presentHistory(reviewOnly, {
+    ok: true,
+    items: [distinct],
+    history_source: "review-inbox",
+    unopened_count: 1,
+    downloads: { ok: true, items: [] },
+  });
+  assert.equal(reviewOnly.downloadSection.hidden, true);
+  assert.equal(reviewOnly.downloadAll.hidden, true);
+  assert.equal(reviewOnly.reviewRest.hidden, false);
+  assert.equal(reviewOnly.historyList.childNodes.length, 1);
+  assert.equal(reviewOnly.allButton.hidden, false);
+
+  const failed = downloadDisclosureNodes();
+  const failedHistory = inbox.presentHistory(failed, {
+    ok: true,
+    items: [distinct],
+    history_source: "review-inbox",
+    unopened_count: 1,
+    downloads: { ok: false, items: [] },
+  });
+  assert.equal(failedHistory.downloads.length, 0);
+  assert.equal(failed.downloadSection.hidden, true);
+  assert.equal(failed.downloadAll.hidden, true);
+  assert.equal(failed.reviewRest.hidden, false);
+  assert.equal(failed.historyList.childNodes.length, 1);
+
+  const empty = downloadDisclosureNodes();
+  inbox.presentHistory(empty, {
+    ok: true,
+    items: [],
+    history_source: "review-inbox",
+    downloads: { ok: true, items: [] },
+  });
+  assert.equal(empty.toggle.disabled, true);
+  assert.equal(empty.downloadAll.hidden, true);
+  assert.equal(empty.allButton.hidden, true);
+  assert.equal(empty.downloadList.childNodes.length, 0);
+});
+
+test("download All toggles retained rows without a new inbox request", async () => {
+  const sent = [];
+  const shell = loadSidebarShell({
+    storedOrigin: ORIGIN,
+    withDownloads: true,
+    sendMessageResponse(message, callback) {
+      sent.push(message && message.type);
+      callback({
+        ok: true,
+        items: [],
+        unopened_count: 2,
+        downloads: { ok: true, items: [] },
+      });
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const downloads = [];
+  let index = 0;
+  while (index < 6) {
+    const hex = (index + 1).toString(16).padStart(12, "0");
+    downloads.push(
+      companion.downloadItemFromXRequest(
+        xDownloadRow({
+          request_id: "45454545-4545-4454-8454-" + hex,
+          title: "Sheet " + String(6 - index),
+          state: "completed",
+          created_at_ms: 60 - index,
+          assets: [{ ordinal: 1, state: "cataloged", media_id: MEDIA_B }],
+        })
+      )
+    );
+    index += 1;
+  }
+  const nodes = {
+    toggle: shell.nodes["review-history-toggle"],
+    history: shell.nodes["review-history"],
+    historyList: shell.nodes["review-history-list"],
+    allButton: shell.nodes["review-history-all"],
+    expandedList: shell.nodes["review-history-expanded"],
+    downloadSection: shell.nodes["download-history"],
+    downloadList: shell.nodes["download-history-list"],
+    downloadAll: shell.nodes["download-history-all"],
+    downloadExpandedList: shell.nodes["download-history-expanded"],
+    reviewRest: shell.nodes["review-history-rest"],
+  };
+  shell.inbox.presentHistory(nodes, {
+    ok: true,
+    items: [analyzedReviewItem(MEDIA_A, "Behind All")],
+    history_source: "review-inbox",
+    unopened_count: 2,
+    downloads: { ok: true, items: downloads },
+  });
+  const inboxCalls = sent.filter((type) => type === companion.TYPES.REVIEW_INBOX).length;
+  nodes.toggle.dispatchClick();
+  assert.equal(nodes.history.hidden, false);
+  assert.equal(nodes.toggle.getAttribute("aria-expanded"), "true");
+  assert.equal(nodes.downloadList.childNodes.length, 5);
+  assert.equal(nodes.downloadAll.hidden, false);
+  assert.equal(nodes.downloadAll.textContent, "All");
+  assert.equal(nodes.reviewRest.hidden, true);
+  nodes.downloadAll.dispatchClick();
+  assert.equal(sent.filter((type) => type === companion.TYPES.REVIEW_INBOX).length, inboxCalls);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "true");
+  assert.equal(nodes.downloadExpandedList.hidden, false);
+  assert.equal(nodes.downloadExpandedList.childNodes.length, 1);
+  assert.match(nodes.downloadExpandedList.childNodes[0].textContent, /Sheet 1/);
+  assert.equal(nodes.reviewRest.hidden, false);
+  assert.match(nodes.historyList.childNodes[0].textContent, /Behind All/);
+  nodes.toggle.dispatchClick();
+  assert.equal(nodes.history.hidden, true);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "false");
+  nodes.toggle.dispatchClick();
+  assert.equal(nodes.history.hidden, false);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "false");
+  assert.equal(nodes.reviewRest.hidden, true);
+  assert.equal(nodes.downloadExpandedList.hidden, true);
+  assert.equal(sent.filter((type) => type === companion.TYPES.REVIEW_INBOX).length, inboxCalls);
 });
 
 test("downloads follow caller capabilities and never trust the review message payload", async () => {
@@ -1991,7 +2256,16 @@ test("sidebar download rows are inert and isolated from review failure modes", (
   assert.match(sidebarCss, /button\.download-history-row--action:focus-visible/);
   assert.match(sidebarCss, /cursor:\s*default/);
   assert.match(sidebarCss, /button\.download-history-row--action\s*\{[\s\S]*?cursor:\s*pointer/);
-  assert.doesNotMatch(sidebarHtml.slice(sidebarHtml.indexOf('id="download-history"'), sidebarHtml.indexOf('id="review-history-list"')), /aria-live|<button|<a /);
+  const downloadMarkup = sidebarHtml.slice(
+    sidebarHtml.indexOf('id="download-history"'),
+    sidebarHtml.indexOf('id="review-history-list"')
+  );
+  assert.doesNotMatch(downloadMarkup, /aria-live|<a /);
+  assert.equal((downloadMarkup.match(/<button/g) || []).length, 1);
+  assert.match(
+    downloadMarkup,
+    /id="download-history-all"[^>]*type="button"[^>]*aria-controls="download-history-expanded review-history-rest"[^>]*>\s*All\s*</
+  );
 });
 
 test("own-media download rows open hosted details per click and stay clickable after a read save", async () => {
@@ -2516,6 +2790,10 @@ function loadSidebarShell(options) {
   if (settings.withDownloads === true) {
     nodes["download-history"] = sidebarShellNode("download-history", { hidden: true });
     nodes["download-history-list"] = downloadList;
+    nodes["download-history-all"] = sidebarShellNode("download-history-all", { hidden: true });
+    nodes["download-history-all"].textContent = "All";
+    nodes["download-history-expanded"] = fakeListNode();
+    nodes["review-history-rest"] = sidebarShellNode("review-history-rest");
   }
   const context = {
     KronikaCompanion: companion,

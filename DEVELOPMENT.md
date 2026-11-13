@@ -329,7 +329,11 @@ hosted Attach still completing. Also check that a download row with an own
 cataloged media id opens hosted Details, including a row whose save was already
 read, that a row without a media id stays inert, that rows are ordered by the
 latest request update, and that the read window is the first page at limit 50
-while the block retains five.
+while the block retains up to fifty. On the rendered sheet, check that the
+compact view shows five downloads and one All, that All reveals the sixth
+download and the last retained download, that a review row for a download
+media id is absent, that a distinct review row remains, and that review
+history appears only behind All.
 
 ## Upload Flow
 
