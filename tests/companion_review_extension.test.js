@@ -491,6 +491,7 @@ function fakeListNode() {
       createElement(tag) {
         const childNodes = [];
         const attributes = {};
+        const listeners = {};
         const node = {
           tagName: String(tag).toUpperCase(),
           childNodes,
@@ -504,6 +505,13 @@ function fakeListNode() {
           },
           getAttribute(name) {
             return attributes[name] || null;
+          },
+          addEventListener(type, fn) {
+            listeners[type] = listeners[type] || [];
+            listeners[type].push(fn);
+          },
+          dispatchClick() {
+            (listeners.click || []).forEach((fn) => fn({ target: node }));
           },
           appendChild(child) {
             childNodes.push(child);
@@ -1303,6 +1311,10 @@ test("history shows own terminal X and YouTube request states without source tab
   assert.equal(projected.indexOf("SECRET"), -1);
   assert.equal(projected.indexOf("assets"), -1);
   assert.equal(projected.indexOf(MEDIA_A), -1);
+  assert.equal(response.downloads.items[0].media_id, null);
+  assert.equal(response.downloads.items[1].media_id, MEDIA_B);
+  assert.equal(response.downloads.items[0].sort_at_ms, 50);
+  assert.equal(response.downloads.items[1].sort_at_ms, 40);
   worker.state.fetchCalls.forEach((call) => {
     assert.equal(call.init.method || "GET", "GET");
     assert.equal(call.url.indexOf("evil.example"), -1);
@@ -1311,11 +1323,11 @@ test("history shows own terminal X and YouTube request states without source tab
     assert.equal(call.url.indexOf("gallery-preview"), -1);
   });
   assert.equal(
-    worker.state.fetchCalls.some((call) => call.url.indexOf("/api/x/requests?limit=5") !== -1),
+    worker.state.fetchCalls.some((call) => call.url.indexOf("/api/x/requests?limit=50") !== -1),
     true
   );
   assert.equal(
-    worker.state.fetchCalls.some((call) => call.url.indexOf("/api/youtube/requests?limit=5") !== -1),
+    worker.state.fetchCalls.some((call) => call.url.indexOf("/api/youtube/requests?limit=50") !== -1),
     true
   );
   assert.equal(worker.state.fetchCalls.some((call) => call.url.indexOf("cursor=") !== -1), false);
@@ -1335,6 +1347,13 @@ test("history shows own terminal X and YouTube request states without source tab
   assert.equal(nodes.toggle.getAttribute("aria-expanded"), "false");
   assert.match(nodes.downloadList.childNodes[0].textContent, /Saved/);
   assert.match(nodes.downloadList.childNodes[1].textContent, /Saved privately/);
+  assert.equal(nodes.downloadList.childNodes[0].childNodes[0].tagName, "DIV");
+  assert.equal(nodes.downloadList.childNodes[0].childNodes[0].className, "download-history-row");
+  assert.equal(nodes.downloadList.childNodes[1].childNodes[0].tagName, "BUTTON");
+  assert.equal(
+    nodes.downloadList.childNodes[1].childNodes[0].className,
+    "download-history-row download-history-row--action"
+  );
   assert.equal(nodes.downloadList.childNodes.some((node) => node.tagName === "BUTTON"), false);
   assert.equal(nodes.allButton.hidden, true);
   assert.equal(worker.state.badgeText, "");
@@ -1404,10 +1423,13 @@ test("download rows map every accepted state and reject unknown or unsafe fields
     assert.equal(item.status, entry[1], entry[0]);
     assert.equal(item.label, "X post 100");
     assert.equal(companion.downloadStatusText(item.status), entry[2]);
+    assert.equal(item.media_id, null);
+    assert.equal(item.sort_at_ms, 10);
     assert.deepEqual(Object.keys(item).sort(), [
-      "created_at_ms",
       "label",
+      "media_id",
       "request_id",
+      "sort_at_ms",
       "source",
       "status",
     ]);
@@ -1427,6 +1449,8 @@ test("download rows map every accepted state and reject unknown or unsafe fields
     );
     assert.equal(item.status, entry[1], entry[0]);
     assert.equal(item.label, "YouTube video " + VIDEO_ID);
+    assert.equal(item.media_id, MEDIA_A);
+    assert.equal(item.sort_at_ms, 9);
     assert.equal(companion.downloadStatusText(item.status), entry[2]);
   });
   assert.equal(companion.downloadItemFromXRequest(xDownloadRow({ state: "mystery" })), null);
@@ -1518,6 +1542,162 @@ test("download merge keeps five rows, first duplicate, and deterministic ties", 
   assert.equal(ordered[0].status, "failed");
 });
 
+test("download media id selects the first cataloged X asset and the YouTube request id", () => {
+  const selected = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      assets: [
+        { ordinal: 3, state: "cataloged", media_id: MEDIA_B },
+        { ordinal: 1, state: "acquired", media_id: MEDIA_A },
+        { ordinal: 2, state: "cataloged", media_id: "not-a-uuid" },
+        { ordinal: 0, state: "cataloged", media_id: "also-bad" },
+        { ordinal: 2, state: "cataloged", media_id: MEDIA_A },
+      ],
+    })
+  );
+  assert.equal(selected.media_id, MEDIA_A);
+  const tied = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      assets: [
+        { ordinal: 1, state: "cataloged", media_id: MEDIA_B },
+        { ordinal: 1, state: "cataloged", media_id: MEDIA_A },
+      ],
+    })
+  );
+  assert.equal(tied.media_id, MEDIA_B);
+  const absent = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      assets: [{ ordinal: 1, state: "failed", media_id: MEDIA_A }],
+    })
+  );
+  assert.equal(absent.media_id, null);
+  assert.equal(JSON.stringify(absent).indexOf(MEDIA_A), -1);
+  const youtube = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({ media_id: MEDIA_B, phase: "completed_private" })
+  );
+  assert.equal(youtube.media_id, MEDIA_B);
+  const invalid = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({ media_id: "secret.mp4", phase: "completed" })
+  );
+  assert.ok(invalid);
+  assert.equal(invalid.media_id, null);
+  assert.equal(
+    companion.downloadItemFromYouTubeRequest(youtubeDownloadRow({ media_id: null })).media_id,
+    null
+  );
+});
+
+test("download sort prefers updated_at_ms and keeps an older request that was updated later", () => {
+  const updatedLater = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Updated later",
+      created_at_ms: 10,
+      updated_at_ms: 80,
+      state: "completed",
+    })
+  );
+  const newerCreation = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({
+      created_at_ms: 70,
+      updated_at_ms: 70,
+      phase: "completed",
+      media_id: null,
+    })
+  );
+  const createdFallback = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "Created fallback",
+      created_at_ms: 40,
+      updated_at_ms: 1.5,
+      state: "queued",
+    })
+  );
+  const zeroUpdate = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      title: "Zero update",
+      created_at_ms: 5,
+      updated_at_ms: 0,
+      state: "failed",
+    })
+  );
+  assert.equal(updatedLater.sort_at_ms, 80);
+  assert.equal(createdFallback.sort_at_ms, 40);
+  assert.equal(zeroUpdate.sort_at_ms, 0);
+  assert.equal(
+    companion.downloadItemFromXRequest(xDownloadRow({ created_at_ms: -1, updated_at_ms: 12 })).sort_at_ms,
+    12
+  );
+  assert.equal(
+    companion.downloadItemFromXRequest(xDownloadRow({ created_at_ms: 1.5, updated_at_ms: -5 })),
+    null
+  );
+  assert.equal(
+    companion.downloadItemFromXRequest(xDownloadRow({ created_at_ms: "10", updated_at_ms: "80" })),
+    null
+  );
+  const ordered = companion.mergeDownloadHistoryItems([
+    newerCreation,
+    createdFallback,
+    zeroUpdate,
+    updatedLater,
+  ]);
+  assert.deepEqual(
+    ordered.map((item) => item.label),
+    ["Updated later", "YouTube video " + VIDEO_ID, "Created fallback", "Zero update"]
+  );
+});
+
+test("download read window uses limit 50, ignores cursors, and keeps five newest updates", async () => {
+  const ids = [
+    "10101010-1010-4010-8010-101010101010",
+    "20202020-2020-4020-8020-202020202020",
+    "30303030-3030-4030-8030-303030303030",
+    "40404040-4040-4040-8040-404040404040",
+    "50505050-5050-4050-8050-505050505050",
+    "60606060-6060-4060-8060-606060606060",
+  ];
+  const items = ids.map((id, index) =>
+    xDownloadRow({
+      request_id: id,
+      title: "Window " + String(index),
+      state: "queued",
+      created_at_ms: index + 1,
+      updated_at_ms: index === 0 ? 90 : index + 1,
+    })
+  );
+  const worker = loadWorker({
+    storage: { kronikaOrigin: ORIGIN },
+    identityBody: { capabilities: ["x.request", "youtube.request"] },
+    inboxBody: { items: [], unopened_count: 0, next_cursor: null },
+    xRequestsBody: { items: items, next_cursor: "do-not-follow" },
+    youtubeRequestsBody: { items: [], next_cursor: "also-do-not-follow" },
+  });
+  const result = await worker.context.reviewInbox();
+  assert.equal(result.downloads.ok, true);
+  assert.deepEqual(
+    result.downloads.items.map((item) => item.label),
+    ["Window 0", "Window 5", "Window 4", "Window 3", "Window 2"]
+  );
+  assert.equal(result.downloads.items.length, companion.DOWNLOAD_HISTORY.limit);
+  assert.equal(companion.DOWNLOAD_HISTORY.readLimit, 50);
+  const xCalls = worker.state.fetchCalls.filter((call) => call.url.indexOf("/api/x/requests") !== -1);
+  const youtubeCalls = worker.state.fetchCalls.filter(
+    (call) => call.url.indexOf("/api/youtube/requests") !== -1
+  );
+  assert.equal(xCalls.length, 1);
+  assert.equal(youtubeCalls.length, 1);
+  assert.equal(xCalls[0].url.indexOf("?limit=50") !== -1, true);
+  assert.equal(youtubeCalls[0].url.indexOf("?limit=50") !== -1, true);
+  assert.equal(
+    worker.state.fetchCalls.some(
+      (call) => call.url.indexOf("cursor=") !== -1 || call.url.indexOf("do-not-follow") !== -1
+    ),
+    false
+  );
+});
+
 test("downloads follow caller capabilities and never trust the review message payload", async () => {
   const withCaps = async (capabilities) => {
     const loaded = loadWorker({
@@ -1549,8 +1729,8 @@ test("downloads follow caller capabilities and never trust the review message pa
   assert.equal(xOnly.result.downloads.items.length, 2);
   assert.equal(xOnly.urls.some((url) => url.indexOf("/api/companion/own-history?limit=100") !== -1), true);
   assert.equal(xOnly.urls.some((url) => /\/api\/companion\/review-inbox(?:\?|$)/.test(url)), false);
-  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/x/requests?limit=5") !== -1), true);
-  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/youtube/requests?limit=5") !== -1), true);
+  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/x/requests?limit=50") !== -1), true);
+  assert.equal(xOnly.urls.some((url) => url.indexOf("/api/youtube/requests?limit=50") !== -1), true);
   assert.equal(xOnly.urls.some((url) => url.indexOf("cursor=") !== -1 || url.indexOf("evil.example") !== -1), false);
 
   const youtubeOnly = await withCaps(["youtube.request"]);
@@ -1750,6 +1930,8 @@ test("sidebar download rows are inert and isolated from review failure modes", (
   assert.equal(nodes.downloadList.childNodes.length, 1);
   assert.equal(nodes.downloadList.childNodes[0].textContent.indexOf("<img src=x>") > 0, true);
   assert.equal(nodes.downloadList.childNodes[0].textContent.indexOf("Partly saved") > 0, true);
+  assert.equal(nodes.downloadList.childNodes[0].childNodes[0].tagName, "DIV");
+  assert.equal(nodes.downloadList.childNodes[0].childNodes[0].className, "download-history-row");
   assert.equal(
     nodes.downloadList.childNodes.some((node) => node.tagName === "BUTTON" || node.tagName === "A"),
     false
@@ -1797,8 +1979,105 @@ test("sidebar download rows are inert and isolated from review failure modes", (
   assert.equal(nodes.toggle.disabled, true);
   assert.equal(nodes.historyList.childNodes.length, 0);
   assert.equal(nodes.downloadSection.hidden, true);
-  assert.doesNotMatch(extractNamedFunction(sidebarSource, "renderDownloadHistory"), /open_details|innerHTML|aria-live/);
+  assert.doesNotMatch(
+    extractNamedFunction(sidebarSource, "renderDownloadHistory"),
+    /open_details|REVIEW_INBOX_OPENED|innerHTML|aria-live/
+  );
+  assert.match(
+    extractNamedFunction(sidebarSource, "renderDownloadHistory"),
+    /openHostedDetails\(mediaId\)/
+  );
+  assert.match(sidebarCss, /button\.download-history-row--action:hover/);
+  assert.match(sidebarCss, /button\.download-history-row--action:focus-visible/);
+  assert.match(sidebarCss, /cursor:\s*default/);
+  assert.match(sidebarCss, /button\.download-history-row--action\s*\{[\s\S]*?cursor:\s*pointer/);
   assert.doesNotMatch(sidebarHtml.slice(sidebarHtml.indexOf('id="download-history"'), sidebarHtml.indexOf('id="review-history-list"')), /aria-live|<button|<a /);
+});
+
+test("own-media download rows open hosted details per click and stay clickable after a read save", async () => {
+  const sent = [];
+  const shell = loadSidebarShell({
+    storedOrigin: ORIGIN,
+    withDownloads: true,
+    captureFrames: true,
+    sendMessageResponse(message, callback) {
+      sent.push(message.type);
+      callback({
+        ok: true,
+        items: [],
+        unopened_count: 0,
+        downloads: { ok: true, items: [] },
+      });
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  shell.deliverWebMessage("kronika.companion.web.v1", "web_ready");
+  const owned = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      title: "Owned clip",
+      state: "completed",
+      assets: [{ ordinal: 1, state: "cataloged", media_id: MEDIA_A }],
+    })
+  );
+  const inert = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({
+      phase: "failed",
+      media_id: null,
+      created_at_ms: 4,
+    })
+  );
+  const readItem = analyzedReviewItem(MEDIA_A, "Already read");
+  readItem.unopened = false;
+  const nodes = {
+    toggle: shell.nodes["review-history-toggle"],
+    history: shell.nodes["review-history"],
+    historyList: shell.nodes["review-history-list"],
+    allButton: shell.nodes["review-history-all"],
+    expandedList: shell.nodes["review-history-expanded"],
+    downloadSection: shell.nodes["download-history"],
+    downloadList: shell.downloadList,
+  };
+  shell.inbox.presentHistory(nodes, {
+    ok: true,
+    items: [readItem],
+    history_source: "review-inbox",
+    unopened_count: 0,
+    downloads: { ok: true, items: [owned, inert] },
+  });
+  const rows = shell.downloadList.childNodes;
+  assert.equal(rows.length, 2);
+  const action = rows[0].childNodes[0];
+  const plain = rows[1].childNodes[0];
+  assert.equal(action.tagName, "BUTTON");
+  assert.equal(action.type, "button");
+  assert.equal(action.className, "download-history-row download-history-row--action");
+  assert.equal(action.getAttribute("aria-label"), "Open details for Owned clip");
+  assert.equal(action.textContent.indexOf("Owned clip") > 0, true);
+  assert.equal(action.textContent.indexOf("Open details"), -1);
+  assert.equal(plain.tagName, "DIV");
+  assert.equal(plain.className, "download-history-row");
+  assert.equal(plain.getAttribute("aria-label"), null);
+  const openedBefore = sent.filter((type) => type === companion.TYPES.REVIEW_INBOX_OPENED).length;
+  action.dispatchClick();
+  const details = shell.framePosts.filter((post) => post.message && post.message.type === "open_details");
+  assert.equal(details.length, 1);
+  assert.equal(details[0].message.payload.mediaId, MEDIA_A);
+  assert.equal(details[0].message.v, "kronika.companion.web.v1");
+  assert.equal(details[0].targetOrigin, ORIGIN);
+  assert.equal(shell.downloadList.childNodes.length, 2);
+  assert.equal(shell.downloadList.childNodes[0].childNodes[0], action);
+  action.dispatchClick();
+  const detailsAgain = shell.framePosts.filter((post) => post.message && post.message.type === "open_details");
+  assert.equal(detailsAgain.length, 2);
+  assert.equal(detailsAgain[1].message.payload.mediaId, MEDIA_A);
+  const posted = shell.framePosts.length;
+  plain.dispatchClick();
+  assert.equal(shell.framePosts.length, posted);
+  assert.equal(shell.downloadList.childNodes.length, 2);
+  assert.equal(sent.filter((type) => type === companion.TYPES.REVIEW_INBOX_OPENED).length, openedBefore);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(shell.downloadList.childNodes.length, 2);
+  assert.equal(sent.filter((type) => type === companion.TYPES.REVIEW_INBOX_OPENED).length, openedBefore);
 });
 
 test("same X request updates in place and a new YouTube request stays distinct", () => {

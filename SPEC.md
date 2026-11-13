@@ -1320,8 +1320,9 @@ cursor page, and fail the complete list rather than expose partial titles on a
 later-page error or repeated cursor. Complete review pagination remains
 fail-closed. Empty history MUST consume no height.
 Clicking a review row MUST NOT remove it. Every review row MUST post hosted
-`open_details` without gating the iframe on opened HTTP. Download rows MUST NOT
-post `open_details`. Pending rows MUST NOT
+`open_details` without gating the iframe on opened HTTP. A download row with an
+own cataloged media id MUST open hosted `open_details`. A download row without
+a media id is inert. Download rows MUST NOT post opened. Pending rows MUST NOT
 send an opened mutation. The hosted iframe MUST
 remain mounted. A row MUST mark opened only after durable opened success and
 refresh; Review Save MUST ensure opened before Apply and MUST retain selections
@@ -1329,11 +1330,14 @@ and block Apply when that opened retry fails. Successful connection MUST render
 no status line; failure guidance, `Cleared`, and `Attached` remain visible. The
 toolbar badge MUST derive only from server `unopened_count`; pending rows and
 download rows MUST NOT increment it. The history sheet MUST also show a separate
-read-only Recent downloads block of at most five own X and YouTube request
-states, newest creation first, for each present `x.request` or `youtube.request`
-capability
-([ADR-0089](docs/adr/0089-companion-own-download-status-history.md)).
-Download rows are inert. Failure of either capability-enabled
+Recent downloads block of at most five own X and YouTube request
+states, most recent update first, for each present `x.request` or `youtube.request`
+capability. The download read window MUST be the first page at limit 50 for each
+available request capability and MUST retain five rows. Review pagination remains
+fail-closed
+([ADR-0089](docs/adr/0089-companion-own-download-status-history.md),
+[ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md)).
+Failure of either capability-enabled
 download read MUST hide the entire Downloads block while retaining a
 successfully loaded review list and its server badge count. Server own-history
 remains the actor’s cataloged X Saves only. Ordinary identities MUST receive own-history rather than inbox

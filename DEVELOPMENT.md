@@ -319,7 +319,11 @@ routine NUC refresh. NUC refresh alone does not reload the extension. Check
 ordinary and administrator coexistence, terminal status copy, observation
 after the source tab closes, download-read failure leaving review history and
 the badge in place, sheet scrolling, an unchanged review-only badge, and
-hosted Attach still completing.
+hosted Attach still completing. Also check that a download row with an own
+cataloged media id opens hosted Details, including a row whose save was already
+read, that a row without a media id stays inert, that rows are ordered by the
+latest request update, and that the read window is the first page at limit 50
+while the block retains five.
 
 ## Upload Flow
 

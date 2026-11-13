@@ -242,10 +242,28 @@
       source.textContent = item.source === "youtube" ? "YouTube" : "X";
       label.textContent = item.label;
       status.textContent = companion.downloadStatusText(item.status);
-      li.className = "download-history-row";
-      li.appendChild(source);
-      li.appendChild(label);
-      li.appendChild(status);
+      const mediaId = item && item.media_id;
+      const actionable = companion.isUuid(mediaId);
+      const row = doc.createElement(actionable ? "button" : "div");
+      if (actionable) {
+        row.type = "button";
+        row.className = "download-history-row download-history-row--action";
+        if (typeof row.setAttribute === "function") {
+          row.setAttribute("type", "button");
+          row.setAttribute("aria-label", "Open details for " + item.label);
+        }
+        if (typeof row.addEventListener === "function") {
+          row.addEventListener("click", function openOwnDownloadDetails() {
+            openHostedDetails(mediaId);
+          });
+        }
+      } else {
+        row.className = "download-history-row";
+      }
+      row.appendChild(source);
+      row.appendChild(label);
+      row.appendChild(status);
+      li.appendChild(row);
       listNode.appendChild(li);
     });
     return rows.length;

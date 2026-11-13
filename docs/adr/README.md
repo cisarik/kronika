@@ -36,8 +36,13 @@ supersedes only the removed-view statements in ADR-0083 and ADR-0087.
 [ADR-0089](0089-companion-own-download-status-history.md) supplements only the
 companion history sheet in
 [ADR-0076](0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md)
-with a separate read-only own-download status block. ADR-0076 review routing,
+with a separate own-download status block. ADR-0076 review routing,
 hosted Details, and the review-only badge remain.
+[ADR-0090](0090-companion-download-row-details-and-latest-update-order.md)
+supersedes only ADR-0089's inert download rows and newest-creation order. An
+own cataloged media id opens hosted Details; a row without a media id stays
+inert; order is the latest request update; the read is the first page at limit
+50 and retains five. ADR-0089's body is unchanged.
 [ADR-0085](0085-kronika-sole-identity.md) partially supersedes ADR-0082 by
 citation, not by patch: the internal `framenest` package, migration history,
 compatible HTTP headers and deployment identifiers staying, and the exclusion of
@@ -151,4 +156,5 @@ An accepted ADR may only be changed by a later ADR that supersedes it. Editing a
 | 0086 | Companion YouTube Save, Upload Message, and Preview Backfill | Accepted | 2026-11-08 | [0086-companion-youtube-save-upload-message-and-preview-backfill.md](0086-companion-youtube-save-upload-message-and-preview-backfill.md) |
 | 0087 | Complete Visibility-Aware Timeline Chronicle | Accepted; supersedes only ADR-0083's approved-only Timeline membership; separate History view superseded by [ADR-0088](0088-timeline-as-single-overview.md) | 2026-11-09 | [0087-complete-visibility-aware-timeline-chronicle.md](0087-complete-visibility-aware-timeline-chronicle.md) |
 | 0088 | Timeline as the Single Overview | Accepted; supersedes the separate History view in ADR-0083 and ADR-0087 | 2026-11-10 | [0088-timeline-as-single-overview.md](0088-timeline-as-single-overview.md) |
-| 0089 | Companion Own Download Status History | Accepted; supplements only the history sheet in ADR-0076 | 2026-11-11 | [0089-companion-own-download-status-history.md](0089-companion-own-download-status-history.md) |
+| 0089 | Companion Own Download Status History | Accepted; supplements only the history sheet in ADR-0076; inert download rows and creation order superseded by [ADR-0090](0090-companion-download-row-details-and-latest-update-order.md) | 2026-11-11 | [0089-companion-own-download-status-history.md](0089-companion-own-download-status-history.md) |
+| 0090 | Companion Download Row Details and Latest-Update Order | Accepted; supersedes only ADR-0089's inert-row and creation-order statements | 2026-11-13 | [0090-companion-download-row-details-and-latest-update-order.md](0090-companion-download-row-details-and-latest-update-order.md) |

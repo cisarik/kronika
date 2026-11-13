@@ -868,7 +868,7 @@ async function historyListRoute() {
 async function readCapabilityDownloadList(pathName, origin) {
   const response = await fetchJson(pathName, {
     origin: origin,
-    suffix: "?limit=" + String(companion.DOWNLOAD_HISTORY.limit),
+    suffix: "?limit=" + String(companion.DOWNLOAD_HISTORY.readLimit),
   });
   if (!response || !response.ok || !response.body || typeof response.body !== "object") {
     return companion.failedDownloadProjection();

@@ -896,14 +896,36 @@ body:has(.welcome:not([hidden])) .title-bar__action {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
   align-items: baseline;
+  width: 100%;
   margin: 0 0 6px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
+  font-family: inherit;
   font-size: 0.76rem;
+  font-weight: inherit;
   line-height: 1.4;
+  text-align: left;
+  cursor: default;
+}
+
+button.download-history-row--action {
+  appearance: none;
+  cursor: pointer;
+}
+
+button.download-history-row--action:hover,
+button.download-history-row--action:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+button.download-history-row--action:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
 
 .download-history-source,

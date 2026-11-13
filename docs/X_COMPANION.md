@@ -38,7 +38,9 @@ An authenticated Kronika user can:
   the surviving hosted Kronika iframe. Administrators see newest analyzed
   titles first; ordinary requesters see their newest own Saves of any state.
   Every review row opens hosted
-  media-details via `open_details`. Separate Recent downloads rows are inert.
+  media-details via `open_details`. A Recent downloads row with an own
+  cataloged media id opens that same hosted Details, including after the save
+  was read. A row without a media id stays inert.
   In that hosted
   Gallery, open-original stays bottom-right and Attach sits top-left on the card
   image. Ordinary browser tabs keep open-original only. Gallery 📎 attaches
@@ -74,8 +76,9 @@ cataloged X Saves, all analysis states, movies excluded; Alice never sees Bob’
 saves. Suggestion-ready unpublished items can appear in administrator history
 and the toolbar badge; they do not appear in the ordinary gallery. Clicking a
 review row never removes it. Every review row posts hosted Kronika media-details via
-the web-bridge type `open_details` (`storedOrigin`, never `*`). Download rows
-do not. Analyzed clicks
+the web-bridge type `open_details` (`storedOrigin`, never `*`). A download row
+with an own cataloged media id posts that same `open_details` and does not post
+opened. A download row without a media id does not. Analyzed clicks
 also POST opened for that actor with the row’s `analysis_run_id` without gating
 the iframe; pending clicks never POST opened. Hosted Details hide Analyze by AI
 and keep the suggestions dropdown and strips for workspace actors with
@@ -93,19 +96,25 @@ alone do not mark a row opened.
 
 Recent downloads is a separate block inside the same sheet
 (`#download-history`, `#download-history-list`). It shows at most five of the
-signed-in requester's own X and YouTube request states, newest creation first,
-from the first page of `GET /api/x/requests?limit=5` and
-`GET /api/youtube/requests?limit=5`. X uses the claim title, or `X post <id>`
-when that title is empty. YouTube uses `YouTube video <id>`. Status text is
+signed-in requester's own X and YouTube request states, most recently updated
+first. Each available capability is read from the first page only:
+`GET /api/x/requests?limit=50` and `GET /api/youtube/requests?limit=50`.
+Cursors are not followed. The five retained rows are the latest updates.
+X uses the claim title, or `X post <id>` when that title is empty. YouTube
+uses `YouTube video <id>`. Status text is
 Saving…, Saved, Saved privately, Partly saved, Already saved, Download failed,
 or Unavailable. Saved reports the terminal Save result and does not claim that
-new bytes were transferred. The rows are inert: no click, Details, retry, or
-opened action. The block refreshes with the visible side panel, including
-after the source tab has closed, and produces no alert while the panel is
-closed. The toolbar badge stays review-only. If either enabled download read
-fails, the whole Downloads block disappears and the loaded review history
-remains. Rows leave the block when they fall outside the latest five
-([ADR-0089](adr/0089-companion-own-download-status-history.md)).
+new bytes were transferred. A row with an own cataloged media id is a button
+that opens hosted Details and stays clickable after that save was read. It
+does not post opened, retry, or remove itself. A row without a media id is
+inert: no click, Details, retry, or opened action. The block refreshes with
+the visible side panel, including after the source tab has closed, and
+produces no alert while the panel is closed. The toolbar badge stays
+review-only. If either enabled download read fails, the whole Downloads block
+disappears and the loaded review history remains. Rows leave the block when
+they fall outside the latest five
+([ADR-0089](adr/0089-companion-own-download-status-history.md),
+[ADR-0090](adr/0090-companion-download-row-details-and-latest-update-order.md)).
 
 Save from X best-effort seeds `GET /api/canonical-tags?surface=x-companion-save`
 with the fixed `x` / `𝕏` pair and prepends that exact pair once when the list

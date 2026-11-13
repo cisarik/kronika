@@ -298,11 +298,15 @@ The sixth mutation is
 Companion Recent downloads reads only the signed-in requester's own
 `GET /api/x/requests` and `GET /api/youtube/requests` rows. The side panel
 receives a sanitized native projection of source, request id, bounded label,
-status and creation time, with no raw URL, asset, media filename, provider
-payload or failure detail. `review_inbox` is accepted only from the extension's
+status, an own media id, and a sort timestamp, with no raw URL, asset list,
+media filename, provider payload, failure detail, or foreign record. An invalid
+media id is omitted rather than linked. `open_details` is the existing hosted
+web-bridge message, not a new mutation. `review_inbox` is accepted only from the extension's
 own sidebar document. Download snapshots are not stored. This adds no mutation
 route, permission, CORS entry or persisted download record.
-[ADR-0089](docs/adr/0089-companion-own-download-status-history.md) supplements
+[ADR-0089](docs/adr/0089-companion-own-download-status-history.md) and
+[ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md)
+supplement
 [ADR-0076](docs/adr/0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md)
 for that block only.
 Public JPEG/PNG X photographs are

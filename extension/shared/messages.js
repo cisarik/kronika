@@ -71,6 +71,7 @@
   });
   const DOWNLOAD_HISTORY = Object.freeze({
     limit: 5,
+    readLimit: 50,
     sources: Object.freeze(["x", "youtube"]),
     statuses: Object.freeze([
       "saving",
@@ -509,6 +510,54 @@
       : "";
   }
 
+  function nullableDownloadMediaId(value) {
+    if (value === null || typeof value === "undefined") {
+      return null;
+    }
+    return isUuid(value) ? value : null;
+  }
+
+  function representativeCatalogedMediaId(assets) {
+    if (!Array.isArray(assets)) {
+      return null;
+    }
+    const candidates = [];
+    assets.forEach((asset, index) => {
+      if (!asset || typeof asset !== "object" || asset.state !== "cataloged") {
+        return;
+      }
+      if (!isUuid(asset.media_id)) {
+        return;
+      }
+      if (typeof asset.ordinal !== "number" || !Number.isFinite(asset.ordinal)) {
+        return;
+      }
+      candidates.push({
+        mediaId: asset.media_id,
+        ordinal: asset.ordinal,
+        index: index,
+      });
+    });
+    candidates.sort((left, right) => {
+      if (left.ordinal !== right.ordinal) {
+        return left.ordinal - right.ordinal;
+      }
+      return left.index - right.index;
+    });
+    return candidates.length ? candidates[0].mediaId : null;
+  }
+
+  function downloadSortAt(row) {
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    const updated = safeDownloadTimestamp(row.updated_at_ms);
+    if (updated !== null) {
+      return updated;
+    }
+    return safeDownloadTimestamp(row.created_at_ms);
+  }
+
   function sanitizeDownloadHistoryItem(item) {
     if (!item || typeof item !== "object") {
       return null;
@@ -520,8 +569,8 @@
       return null;
     }
     const label = canonicalizeCompanionAliasTitle(item.label);
-    const created = safeDownloadTimestamp(item.created_at_ms);
-    if (!label || created === null) {
+    const sortAt = safeDownloadTimestamp(item.sort_at_ms);
+    if (!label || sortAt === null) {
       return null;
     }
     return {
@@ -529,7 +578,8 @@
       request_id: item.request_id,
       label: label,
       status: item.status,
-      created_at_ms: created,
+      media_id: nullableDownloadMediaId(item.media_id),
+      sort_at_ms: sortAt,
     };
   }
 
@@ -539,8 +589,8 @@
     }
     const requestId = typeof row.request_id === "string" ? row.request_id : row.claim_id;
     const status = X_DOWNLOAD_STATUS_BY_STATE[row.state];
-    const created = safeDownloadTimestamp(row.created_at_ms);
-    if (!status || created === null) {
+    const sortAt = downloadSortAt(row);
+    if (!status || sortAt === null) {
       return null;
     }
     let label = canonicalizeCompanionAliasTitle(row.title);
@@ -556,7 +606,8 @@
       request_id: requestId,
       label: label,
       status: status,
-      created_at_ms: created,
+      media_id: representativeCatalogedMediaId(row.assets),
+      sort_at_ms: sortAt,
     });
   }
 
@@ -565,8 +616,8 @@
       return null;
     }
     const status = YOUTUBE_DOWNLOAD_STATUS_BY_PHASE[row.phase];
-    const created = safeDownloadTimestamp(row.created_at_ms);
-    if (!status || created === null) {
+    const sortAt = downloadSortAt(row);
+    if (!status || sortAt === null) {
       return null;
     }
     const accepted = acceptYouTubeVideoUrl(row.canonical_url);
@@ -578,7 +629,8 @@
       request_id: row.request_id,
       label: "YouTube video " + accepted.videoId,
       status: status,
-      created_at_ms: created,
+      media_id: nullableDownloadMediaId(row.media_id),
+      sort_at_ms: sortAt,
     });
   }
 
@@ -598,8 +650,8 @@
       unique.push(clean);
     });
     unique.sort((left, right) => {
-      if (left.created_at_ms !== right.created_at_ms) {
-        return right.created_at_ms - left.created_at_ms;
+      if (left.sort_at_ms !== right.sort_at_ms) {
+        return right.sort_at_ms - left.sort_at_ms;
       }
       if (left.source !== right.source) {
         return left.source < right.source ? -1 : 1;
