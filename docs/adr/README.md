@@ -48,6 +48,12 @@ supplements ADR-0090 and supersedes only its at-most-five and single-window
 presentation. The compact sheet shows five download rows and one All control;
 All reveals later retained downloads and then review history that omits any
 download media id. ADR-0090's body is unchanged.
+[ADR-0092](0092-companion-download-unread-state.md) supplements ADR-0091 and
+supersedes only its review-All presentation when downloads exist and the
+statement that a matched analyzed unread download row does not post opened.
+When downloads exist there is one All, and that All reveals later downloads and
+the complete review history. A matched unread download row carries the unread
+marker and uses the existing opened mutation. ADR-0091's body is unchanged.
 [ADR-0085](0085-kronika-sole-identity.md) partially supersedes ADR-0082 by
 citation, not by patch: the internal `framenest` package, migration history,
 compatible HTTP headers and deployment identifiers staying, and the exclusion of
@@ -163,4 +169,5 @@ An accepted ADR may only be changed by a later ADR that supersedes it. Editing a
 | 0088 | Timeline as the Single Overview | Accepted; supersedes the separate History view in ADR-0083 and ADR-0087 | 2026-11-10 | [0088-timeline-as-single-overview.md](0088-timeline-as-single-overview.md) |
 | 0089 | Companion Own Download Status History | Accepted; supplements only the history sheet in ADR-0076; inert download rows and creation order superseded by [ADR-0090](0090-companion-download-row-details-and-latest-update-order.md) | 2026-11-11 | [0089-companion-own-download-status-history.md](0089-companion-own-download-status-history.md) |
 | 0090 | Companion Download Row Details and Latest-Update Order | Accepted; supersedes only ADR-0089's inert-row and creation-order statements; at-most-five and single-window presentation superseded by [ADR-0091](0091-companion-history-compact-five-and-all-expansion.md) | 2026-11-13 | [0090-companion-download-row-details-and-latest-update-order.md](0090-companion-download-row-details-and-latest-update-order.md) |
-| 0091 | Companion History Compact Five and All Expansion | Accepted; supplements ADR-0090 and supersedes only its at-most-five and single-window presentation | 2026-11-13 | [0091-companion-history-compact-five-and-all-expansion.md](0091-companion-history-compact-five-and-all-expansion.md) |
+| 0091 | Companion History Compact Five and All Expansion | Accepted; supplements ADR-0090 and supersedes only its at-most-five and single-window presentation; review-All presentation when downloads exist and the no-opened statement for a matched analyzed unread download row superseded by [ADR-0092](0092-companion-download-unread-state.md) | 2026-11-13 | [0091-companion-history-compact-five-and-all-expansion.md](0091-companion-history-compact-five-and-all-expansion.md) |
+| 0092 | Companion Download Unread State | Accepted; supplements ADR-0091 and supersedes only its review-All presentation when downloads exist and the no-opened statement for a matched analyzed unread download row | 2026-11-13 | [0092-companion-download-unread-state.md](0092-companion-download-unread-state.md) |

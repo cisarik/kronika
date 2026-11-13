@@ -1324,7 +1324,10 @@ fail-closed. Empty history MUST consume no height.
 Clicking a review row MUST NOT remove it. Every review row MUST post hosted
 `open_details` without gating the iframe on opened HTTP. A download row with an
 own cataloged media id MUST open hosted `open_details`. A download row without
-a media id is inert. Download rows MUST NOT post opened. Pending rows MUST NOT
+a media id is inert. A download row MUST post the existing opened mutation only
+when its media id matches an analyzed unread review item that has an analysis
+run: that click posts opened once for that run and then refreshes. Any other
+download row MUST NOT post opened. No new mutation is added. Pending rows MUST NOT
 send an opened mutation. The hosted iframe MUST
 remain mounted. A row MUST mark opened only after durable opened success and
 refresh; Review Save MUST ensure opened before Apply and MUST retain selections
@@ -1336,16 +1339,22 @@ Recent downloads block of the signed-in requester's own X and YouTube request
 states, most recent update first, for each present `x.request` or `youtube.request`
 capability. The download read window MUST be the first page at limit 50 for each
 available request capability and MUST retain up to fifty rows. The compact sheet
-MUST show the five latest download rows and one All control. Activating All MUST
-reveal any retained download rows after those five and then the review history.
-A review row whose media id matches a download row MUST be omitted from the
-compact and expanded review lists. The toolbar badge MUST remain review-only.
-When no downloads exist, review history MUST keep its compact and All behavior.
+MUST show the five latest download rows and one All control. When downloads exist,
+that All is the only All: activating it MUST reveal any retained download rows
+after those five and the complete review history, including the compact and
+expanded review lists, and activating it again MUST return to the five-download
+sheet. The review All MUST stay hidden while downloads exist. A review row whose
+media id matches a download row MUST be omitted from the compact and expanded
+review lists. A matched analyzed unread download row MUST show an unread marker
+that is not color-only. The toolbar badge MUST remain review-only.
+When no downloads exist, review history MUST keep its compact and All behavior
+and no empty download All is shown.
 Review pagination remains
 fail-closed
 ([ADR-0089](docs/adr/0089-companion-own-download-status-history.md),
 [ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md),
-[ADR-0091](docs/adr/0091-companion-history-compact-five-and-all-expansion.md)).
+[ADR-0091](docs/adr/0091-companion-history-compact-five-and-all-expansion.md),
+[ADR-0092](docs/adr/0092-companion-download-unread-state.md)).
 Failure of either capability-enabled
 download read MUST hide the entire Downloads block while retaining a
 successfully loaded review list and its server badge count. Server own-history

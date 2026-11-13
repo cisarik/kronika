@@ -211,11 +211,17 @@
   function setAllExpanded(nodes, expanded) {
     const allButton = nodes && nodes.allButton;
     const expandedList = nodes && nodes.expandedList;
+    const downloadsOwnAll = Boolean(
+      nodes &&
+        nodes.downloadAll &&
+        nodes.downloadSection &&
+        nodes.downloadSection.hidden !== true
+    );
     const next = Boolean(expanded && allButton && allButton.hidden !== true && allButton.disabled !== true);
     if (allButton && typeof allButton.setAttribute === "function") {
       allButton.setAttribute("aria-expanded", next ? "true" : "false");
     }
-    if (expandedList) {
+    if (expandedList && !downloadsOwnAll) {
       expandedList.hidden = !next;
     }
     return next;
@@ -238,6 +244,20 @@
       }
       return covered[item.media_id.toLowerCase()] !== true;
     });
+  }
+
+  function unreadRunByMediaId(rawItems) {
+    const matched = {};
+    companion.sanitizeReviewInboxItems(rawItems).forEach((item) => {
+      if (item.analyzed !== true || item.unopened !== true || !companion.isUuid(item.analysis_run_id)) {
+        return;
+      }
+      const key = item.media_id.toLowerCase();
+      if (!matched[key]) {
+        matched[key] = item.analysis_run_id;
+      }
+    });
+    return matched;
   }
 
   function applyHistoryDisclosure(nodes) {
@@ -264,8 +284,20 @@
     if (nodes && nodes.reviewRest) {
       nodes.reviewRest.hidden = gateReviews;
     }
+    const downloadsOwnAll = Boolean(button && sectionOpen);
     if (nodes && nodes.allButton) {
-      nodes.allButton.hidden = !(reviewAllAvailable && !gateReviews);
+      if (downloadsOwnAll) {
+        nodes.allButton.hidden = true;
+        if (typeof nodes.allButton.setAttribute === "function") {
+          nodes.allButton.setAttribute("aria-expanded", "false");
+        }
+      } else {
+        nodes.allButton.hidden = !(reviewAllAvailable && !gateReviews);
+      }
+    }
+    if (downloadsOwnAll && nodes && nodes.expandedList) {
+      const reviewLater = nodes.expandedList.childNodes ? nodes.expandedList.childNodes.length : 0;
+      nodes.expandedList.hidden = !(expanded && reviewLater > 0);
     }
     if (gateReviews) {
       setAllExpanded(nodes, false);
@@ -281,7 +313,24 @@
     );
   }
 
-  function renderDownloadHistory(listNode, items) {
+  function markMatchedDownloadOpened(mediaId, analysisRunId) {
+    if (!companion.isUuid(mediaId) || !companion.isUuid(analysisRunId)) {
+      return;
+    }
+    void request(companion.TYPES.REVIEW_INBOX_OPENED, {
+      mediaId: mediaId,
+      analysis_run_id: analysisRunId,
+    }).then(
+      function refreshAfterOpened() {
+        void refreshInbox();
+      },
+      function refreshAfterOpenedFailure() {
+        void refreshInbox();
+      }
+    );
+  }
+
+  function renderDownloadHistory(listNode, items, unreadRuns) {
     if (!listNode || typeof listNode.appendChild !== "function" || typeof listNode.removeChild !== "function") {
       return 0;
     }
@@ -290,6 +339,7 @@
     }
     const doc = listNode.ownerDocument || globalThis.document;
     const rows = Array.isArray(items) ? items : [];
+    const runs = unreadRuns && typeof unreadRuns === "object" ? unreadRuns : {};
     if (!doc || typeof doc.createElement !== "function") {
       return 0;
     }
@@ -306,17 +356,30 @@
       status.textContent = companion.downloadStatusText(item.status);
       const mediaId = item && item.media_id;
       const actionable = companion.isUuid(mediaId);
+      const matchedRun = actionable ? runs[String(mediaId).toLowerCase()] : "";
+      const unread = companion.isUuid(matchedRun);
       const row = doc.createElement(actionable ? "button" : "div");
       if (actionable) {
         row.type = "button";
-        row.className = "download-history-row download-history-row--action";
+        row.className = unread
+          ? "download-history-row download-history-row--action download-history-row--unread"
+          : "download-history-row download-history-row--action";
         if (typeof row.setAttribute === "function") {
           row.setAttribute("type", "button");
-          row.setAttribute("aria-label", "Open details for " + item.label);
+          row.setAttribute(
+            "aria-label",
+            (unread ? "Unread. " : "") + "Open details for " + item.label
+          );
         }
         if (typeof row.addEventListener === "function") {
+          let openedPosted = false;
           row.addEventListener("click", function openOwnDownloadDetails() {
             openHostedDetails(mediaId);
+            if (!unread || openedPosted) {
+              return;
+            }
+            openedPosted = true;
+            markMatchedDownloadOpened(mediaId, matchedRun);
           });
         }
       } else {
@@ -325,6 +388,18 @@
       row.appendChild(source);
       row.appendChild(label);
       row.appendChild(status);
+      if (unread) {
+        const dot = doc.createElement("span");
+        dot.className = "download-history-unread-dot";
+        if (typeof dot.setAttribute === "function") {
+          dot.setAttribute("aria-hidden", "true");
+        }
+        const hidden = doc.createElement("span");
+        hidden.className = "download-history-unread";
+        hidden.textContent = "Unread";
+        row.appendChild(dot);
+        row.appendChild(hidden);
+      }
       li.appendChild(row);
       listNode.appendChild(li);
     });
@@ -408,9 +483,10 @@
       ? downloadItems.slice(0, companion.DOWNLOAD_HISTORY.limit)
       : downloadItems;
     const laterDownloads = canSplit ? downloadItems.slice(companion.DOWNLOAD_HISTORY.limit) : [];
-    renderDownloadHistory(nodes.downloadList, compactDownloads);
+    const unreadRuns = unreadRunByMediaId(result.items);
+    renderDownloadHistory(nodes.downloadList, compactDownloads, unreadRuns);
     if (nodes.downloadExpandedList) {
-      renderDownloadHistory(nodes.downloadExpandedList, laterDownloads);
+      renderDownloadHistory(nodes.downloadExpandedList, laterDownloads, unreadRuns);
     }
     const downloadCount = projection.ok ? downloadItems.length : 0;
     if (downloadCount === 0) {
@@ -780,6 +856,12 @@
     const presented = presentHistory(reviewChromeNodes, result);
     lastHistoryItems = presented.ok ? presented.historyItems : [];
     if (!presented.ok || !presented.rendered) {
+      return;
+    }
+    const downloadsOpen = Boolean(
+      reviewChromeNodes.downloadSection && reviewChromeNodes.downloadSection.hidden !== true
+    );
+    if (downloadsOpen) {
       return;
     }
     setAllExpanded(

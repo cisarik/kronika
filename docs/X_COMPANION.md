@@ -61,9 +61,11 @@ analyzed items (`completed_at_ms`); **All** reveals remaining analyzed items.
 Ordinary compact rows are newest own cataloged X Saves of any state (analyzed
 `completed_at_ms`, pending `created_at_ms`) so a fresh Save sits immediately
 under the title bar; **All** reveals the remainder and controls review rows
-only. When Recent downloads are present, that review strip stays behind the
-download **All**, and a review row whose media id matches a download row is
-omitted. The sheet starts
+only. When Recent downloads are present, there is exactly one **All**, the download
+**All**. It reveals the later retained downloads and the complete review
+history, both the compact and expanded review lists, and collapses them again.
+The review **All** stays in the page and stays hidden while downloads exist. A
+review row whose media id matches a download row is omitted. The sheet starts
 closed on every panel load, does not persist that choice, and keeps the user's
 current expanded or collapsed choice across refreshes while the panel stays
 open. It expands directly under the title bar. Title bar, compact rows,
@@ -80,8 +82,12 @@ saves. Suggestion-ready unpublished items can appear in administrator history
 and the toolbar badge; they do not appear in the ordinary gallery. Clicking a
 review row never removes it. Every review row posts hosted Kronika media-details via
 the web-bridge type `open_details` (`storedOrigin`, never `*`). A download row
-with an own cataloged media id posts that same `open_details` and does not post
-opened. A download row without a media id does not. Analyzed clicks
+with an own cataloged media id posts that same `open_details`. When that media
+id matches an analyzed unread review item (`unopened` with an `analysis_run_id`),
+the same click also posts the existing opened mutation once for that run and
+refreshes, so the unread marker and the review-only badge can clear. Any other
+download row does not post opened. A download row without a media id does not
+open details or post opened. Analyzed review clicks
 also POST opened for that actor with the row’s `analysis_run_id` without gating
 the iframe; pending clicks never POST opened. Hosted Details hide Analyze by AI
 and keep the suggestions dropdown and strips for workspace actors with
@@ -101,9 +107,10 @@ Recent downloads is a separate block inside the same sheet
 (`#download-history`, `#download-history-list`, `#download-history-all`,
 `#download-history-expanded`). The compact sheet shows the five latest of the
 signed-in requester's own X and YouTube request states, most recently updated
-first, then one **All** control. **All** reveals any retained rows after those
-five and then the deduplicated review history; activating it again returns to
-the five-download sheet. The choice starts collapsed on each panel load and is
+first, then one **All** control. When downloads exist that control is the only
+**All**. It reveals any retained rows after those five, including the sixth and
+the last retained row, and the complete deduplicated review history; activating
+it again returns to the five-download sheet. The review **All** stays hidden. The choice starts collapsed on each panel load and is
 not stored. Each available capability is read from the first page only:
 `GET /api/x/requests?limit=50` and `GET /api/youtube/requests?limit=50`.
 Cursors are not followed. The retained window is at most fifty latest updates.
@@ -112,14 +119,20 @@ uses `YouTube video <id>`. Status text is
 Saving…, Saved, Saved privately, Partly saved, Already saved, Download failed,
 or Unavailable. Saved reports the terminal Save result and does not claim that
 new bytes were transferred. A row with an own cataloged media id is a button
-that opens hosted Details and stays clickable after that save was read. It
-does not post opened, retry, or remove itself. A row without a media id is
+that opens hosted Details and stays clickable after that save was read. If the
+same media id matches an analyzed unread review item, the row shows the unread
+dot and accent and an accessible Unread indication. Opening it posts the
+existing opened mutation once for that analysis run and refreshes, which clears
+the marker. It does not retry or remove itself, and it does not add a badge
+counter. A row that does not match an analyzed unread item does not post
+opened. A row without a media id is
 inert: no click, Details, retry, or opened action, and it does not drop a
 review row. A review row with the same media id is omitted from both review
-lists; a distinct review media id remains behind **All**. If no downloads
+lists; a distinct review media id remains in the complete review history behind
+the download **All**. If no downloads
 exist, review history keeps its compact and **All** behavior and no empty
 download **All** is shown. If downloads exist and review rows do not, **All**
-reveals only the later downloads. The block refreshes with
+reveals only the later downloads. The toolbar badge stays review-only. The block refreshes with
 the visible side panel, including after the source tab has closed, and
 produces no alert while the panel is closed. The toolbar badge stays
 review-only. If either enabled download read fails, the whole Downloads block
@@ -127,7 +140,8 @@ disappears and the loaded review history remains. Rows leave the block when
 they fall outside the retained fifty
 ([ADR-0089](adr/0089-companion-own-download-status-history.md),
 [ADR-0090](adr/0090-companion-download-row-details-and-latest-update-order.md),
-[ADR-0091](adr/0091-companion-history-compact-five-and-all-expansion.md)).
+[ADR-0091](adr/0091-companion-history-compact-five-and-all-expansion.md),
+[ADR-0092](adr/0092-companion-download-unread-state.md)).
 
 Save from X best-effort seeds `GET /api/canonical-tags?surface=x-companion-save`
 with the fixed `x` / `𝕏` pair and prepends that exact pair once when the list
@@ -286,3 +300,7 @@ layout.
   web.
 - Larger-than-32-MiB attach uses optional `chrome.downloads` with Save As;
   it still does not auto-post.
+- An X Save that ends as «Save to Kronika failed», and a history row that
+  shows Download failed, are acquisition outcomes. They are a separate residual
+  from this history sheet, in the same class as the YouTube inspection output
+  limit. The history row stays Download failed.

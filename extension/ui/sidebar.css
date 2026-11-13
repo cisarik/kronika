@@ -970,6 +970,44 @@ button.download-history-row--action:focus-visible {
   outline-offset: 1px;
 }
 
+button.download-history-row--unread {
+  position: relative;
+  padding-left: 22px;
+  border-color: rgba(0, 255, 65, 0.82);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.08), 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+button.download-history-row--action.download-history-row--unread:hover,
+button.download-history-row--action.download-history-row--unread:focus-visible {
+  border-color: rgba(0, 255, 65, 0.82);
+  background: var(--accent-soft);
+}
+
+.download-history-unread-dot {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transform: translateY(-50%);
+}
+
+.download-history-unread {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .download-history-source,
 .download-history-status {
   color: var(--text);

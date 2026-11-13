@@ -1817,7 +1817,8 @@ test("compact history shows five downloads, one All, then deduplicated review ro
   assert.match(historyRowText(nodes.downloadExpandedList)[0], /Download 2/);
   assert.match(historyRowText(nodes.downloadExpandedList)[1], /Download 1/);
   assert.equal(nodes.reviewRest.hidden, false);
-  assert.equal(nodes.allButton.hidden, false);
+  assert.equal(nodes.allButton.hidden, true);
+  assert.equal(nodes.expandedList.hidden, true);
   assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Duplicate review"), -1);
   assert.equal(historyRowText(nodes.expandedList).join("\n").indexOf("Duplicate review"), -1);
   assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Distinct review") !== -1, true);
@@ -1882,6 +1883,240 @@ test("compact history shows five downloads, one All, then deduplicated review ro
   assert.equal(empty.downloadAll.hidden, true);
   assert.equal(empty.allButton.hidden, true);
   assert.equal(empty.downloadList.childNodes.length, 0);
+});
+
+test("one download All reveals later downloads and the complete review history", () => {
+  const inbox = loadReviewInbox();
+  const nodes = downloadDisclosureNodes();
+  const downloads = [];
+  let index = 0;
+  while (index < 7) {
+    const hex = (index + 1).toString(16).padStart(12, "0");
+    const mediaId = index === 0 ? MEDIA_A : "34343434-3434-4434-8434-" + hex;
+    downloads.push(
+      companion.downloadItemFromXRequest(
+        xDownloadRow({
+          request_id: "45454545-4545-4454-8454-" + hex,
+          title: "Download " + String(7 - index),
+          state: "completed",
+          created_at_ms: 70 - index,
+          assets: [{ ordinal: 1, state: "cataloged", media_id: mediaId }],
+        })
+      )
+    );
+    index += 1;
+  }
+  const reviews = [];
+  let reviewIndex = 0;
+  while (reviewIndex < 7) {
+    const hex = (reviewIndex + 1).toString(16).padStart(12, "0");
+    reviews.push({
+      media_id: "56565656-5656-4565-8565-" + hex,
+      title: reviewIndex < 5 ? "Compact " + String(reviewIndex + 1) : "Expanded " + String(reviewIndex - 4),
+      created_at_ms: 40 - reviewIndex,
+      analyzed: true,
+      analysis_run_id: RUN_NEW,
+      completed_at_ms: 40 - reviewIndex,
+      unopened: false,
+    });
+    reviewIndex += 1;
+  }
+  const duplicate = analyzedReviewItem(MEDIA_A.toUpperCase(), "Duplicate review");
+  inbox.presentHistory(nodes, {
+    ok: true,
+    items: [duplicate].concat(reviews),
+    history_source: "review-inbox",
+    unopened_count: 0,
+    downloads: { ok: true, items: downloads },
+  });
+  assert.equal(nodes.downloadAll.hidden, false);
+  assert.equal(nodes.downloadAll.textContent, "All");
+  assert.equal(nodes.allButton.hidden, true);
+  assert.equal(nodes.allButton.textContent, "All");
+  assert.equal(nodes.reviewRest.hidden, true);
+  assert.equal(nodes.downloadList.childNodes.length, 5);
+  assert.equal(nodes.downloadExpandedList.hidden, true);
+
+  assert.equal(inbox.setDownloadHistoryExpanded(nodes, true), true);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "true");
+  assert.equal(nodes.allButton.hidden, true);
+  assert.equal(nodes.allButton.getAttribute("aria-expanded"), "false");
+  assert.equal(nodes.downloadExpandedList.hidden, false);
+  assert.equal(nodes.downloadExpandedList.childNodes.length, 2);
+  assert.match(historyRowText(nodes.downloadExpandedList)[0], /Download 2/);
+  assert.match(historyRowText(nodes.downloadExpandedList)[1], /Download 1/);
+  assert.equal(nodes.reviewRest.hidden, false);
+  assert.equal(nodes.historyList.childNodes.length, 5);
+  assert.equal(nodes.expandedList.hidden, false);
+  assert.equal(nodes.expandedList.childNodes.length, 2);
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Duplicate review"), -1);
+  assert.equal(historyRowText(nodes.expandedList).join("\n").indexOf("Duplicate review"), -1);
+  assert.match(historyRowText(nodes.historyList).join("\n"), /Compact 1/);
+  assert.match(historyRowText(nodes.expandedList).join("\n"), /Expanded 1/);
+  assert.match(historyRowText(nodes.expandedList).join("\n"), /Expanded 2/);
+
+  assert.equal(inbox.setDownloadHistoryExpanded(nodes, false), false);
+  assert.equal(nodes.downloadAll.getAttribute("aria-expanded"), "false");
+  assert.equal(nodes.downloadList.childNodes.length, 5);
+  assert.equal(nodes.downloadExpandedList.hidden, true);
+  assert.equal(nodes.reviewRest.hidden, true);
+  assert.equal(nodes.expandedList.hidden, true);
+  assert.equal(nodes.allButton.hidden, true);
+
+  const reviewOnly = downloadDisclosureNodes();
+  inbox.presentHistory(reviewOnly, {
+    ok: true,
+    items: reviews,
+    history_source: "review-inbox",
+    downloads: { ok: true, items: [] },
+  });
+  assert.equal(reviewOnly.downloadSection.hidden, true);
+  assert.equal(reviewOnly.downloadAll.hidden, true);
+  assert.equal(reviewOnly.reviewRest.hidden, false);
+  assert.equal(reviewOnly.allButton.hidden, false);
+  assert.equal(inbox.setAllExpanded(reviewOnly, true), true);
+  assert.equal(reviewOnly.expandedList.hidden, false);
+  assert.equal(reviewOnly.expandedList.childNodes.length, 2);
+});
+
+test("matched unread download row posts opened once and clears the marker", async () => {
+  const sent = [];
+  let openedPosted = false;
+  const unreadItem = analyzedReviewItem(MEDIA_A, "Fresh save");
+  const readItem = analyzedReviewItem(MEDIA_B, "Read save");
+  readItem.unopened = false;
+  readItem.analysis_run_id = RUN_OLD;
+  const distinct = analyzedReviewItem("33333333-3333-4333-8333-333333333333", "Distinct review");
+  distinct.unopened = false;
+  distinct.completed_at_ms = 1;
+  const pending = {
+    media_id: "44444444-4444-4444-8444-444444444444",
+    title: "Pending review",
+    created_at_ms: 2,
+    analyzed: false,
+    analysis_run_id: null,
+    completed_at_ms: null,
+    unopened: false,
+  };
+  const owned = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "abababab-abab-4aba-8aba-abababababab",
+      title: "Fresh save",
+      state: "completed",
+      created_at_ms: 30,
+      assets: [{ ordinal: 1, state: "cataloged", media_id: MEDIA_A }],
+    })
+  );
+  const readDownload = companion.downloadItemFromXRequest(
+    xDownloadRow({
+      request_id: "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
+      title: "Read save",
+      state: "completed",
+      created_at_ms: 20,
+      assets: [{ ordinal: 1, state: "cataloged", media_id: MEDIA_B }],
+    })
+  );
+  const inert = companion.downloadItemFromYouTubeRequest(
+    youtubeDownloadRow({
+      request_id: "99999999-9999-4999-8999-999999999999",
+      phase: "failed",
+      media_id: null,
+      created_at_ms: 4,
+    })
+  );
+  const downloads = [owned, readDownload, inert];
+  const shell = loadSidebarShell({
+    storedOrigin: ORIGIN,
+    withDownloads: true,
+    captureFrames: true,
+    sendMessageResponse(message, callback) {
+      sent.push(message);
+      if (message && message.type === companion.TYPES.REVIEW_INBOX_OPENED) {
+        openedPosted = true;
+        callback({ ok: true, unopened_count: 0 });
+        return;
+      }
+      const cleared = analyzedReviewItem(MEDIA_A, "Fresh save");
+      cleared.unopened = false;
+      callback({
+        ok: true,
+        items: openedPosted ? [cleared, readItem, distinct, pending] : [],
+        unopened_count: openedPosted ? 0 : 1,
+        downloads: { ok: true, items: openedPosted ? downloads : [] },
+      });
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  shell.deliverWebMessage("kronika.companion.web.v1", "web_ready");
+  const nodes = {
+    toggle: shell.nodes["review-history-toggle"],
+    history: shell.nodes["review-history"],
+    historyList: shell.nodes["review-history-list"],
+    allButton: shell.nodes["review-history-all"],
+    expandedList: shell.nodes["review-history-expanded"],
+    downloadSection: shell.nodes["download-history"],
+    downloadList: shell.downloadList,
+    downloadAll: shell.nodes["download-history-all"],
+    downloadExpandedList: shell.nodes["download-history-expanded"],
+    reviewRest: shell.nodes["review-history-rest"],
+  };
+  shell.inbox.presentHistory(nodes, {
+    ok: true,
+    items: [unreadItem, readItem, distinct, pending],
+    history_source: "review-inbox",
+    unopened_count: 1,
+    downloads: { ok: true, items: downloads },
+  });
+  assert.match(sidebarCss, /button\.download-history-row--unread/);
+  assert.match(sidebarCss, /\.download-history-unread\b/);
+  const rows = shell.downloadList.childNodes;
+  assert.equal(rows.length, 3);
+  const unreadRow = rows[0].childNodes[0];
+  const readRow = rows[1].childNodes[0];
+  const inertRow = rows[2].childNodes[0];
+  assert.match(unreadRow.className, /download-history-row--unread/);
+  assert.match(unreadRow.getAttribute("aria-label"), /Unread/);
+  assert.match(unreadRow.textContent, /Unread/);
+  assert.equal(readRow.className, "download-history-row download-history-row--action");
+  assert.equal(readRow.getAttribute("aria-label"), "Open details for Read save");
+  assert.equal(readRow.textContent.indexOf("Unread"), -1);
+  assert.equal(inertRow.tagName, "DIV");
+  assert.equal(inertRow.className, "download-history-row");
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Fresh save"), -1);
+  assert.equal(historyRowText(nodes.historyList).join("\n").indexOf("Read save"), -1);
+  assert.match(historyRowText(nodes.historyList).join("\n"), /Distinct review/);
+  assert.match(historyRowText(nodes.expandedList).join("\n"), /Pending review/);
+  const openedBefore = sent.filter((message) => message.type === companion.TYPES.REVIEW_INBOX_OPENED).length;
+  readRow.dispatchClick();
+  inertRow.dispatchClick();
+  assert.equal(sent.filter((message) => message.type === companion.TYPES.REVIEW_INBOX_OPENED).length, openedBefore);
+  const detailsAfterRead = shell.framePosts.filter((post) => post.message && post.message.type === "open_details");
+  assert.equal(detailsAfterRead.length, 1);
+  assert.equal(detailsAfterRead[0].message.payload.mediaId, MEDIA_B);
+  unreadRow.dispatchClick();
+  unreadRow.dispatchClick();
+  const opened = sent.filter((message) => message.type === companion.TYPES.REVIEW_INBOX_OPENED);
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].payload.mediaId, MEDIA_A);
+  assert.equal(opened[0].payload.analysis_run_id, RUN_NEW);
+  const details = shell.framePosts.filter((post) => post.message && post.message.type === "open_details");
+  assert.equal(details.length, 3);
+  assert.equal(details[1].message.payload.mediaId, MEDIA_A);
+  assert.equal(details[2].message.payload.mediaId, MEDIA_A);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(shell.downloadList.childNodes.length, 3);
+  const refreshed = shell.downloadList.childNodes[0].childNodes[0];
+  assert.equal(refreshed.className, "download-history-row download-history-row--action");
+  assert.equal(refreshed.textContent.indexOf("Unread"), -1);
+  assert.equal(refreshed.getAttribute("aria-label").indexOf("Unread"), -1);
+  assert.match(refreshed.textContent, /Fresh save/);
+  refreshed.dispatchClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(sent.filter((message) => message.type === companion.TYPES.REVIEW_INBOX_OPENED).length, 1);
+  assert.equal(
+    shell.framePosts.filter((post) => post.message && post.message.type === "open_details").length,
+    4
+  );
 });
 
 test("download All toggles retained rows without a new inbox request", async () => {
@@ -1951,6 +2186,7 @@ test("download All toggles retained rows without a new inbox request", async () 
   assert.equal(nodes.downloadExpandedList.childNodes.length, 1);
   assert.match(nodes.downloadExpandedList.childNodes[0].textContent, /Sheet 1/);
   assert.equal(nodes.reviewRest.hidden, false);
+  assert.equal(nodes.allButton.hidden, true);
   assert.match(nodes.historyList.childNodes[0].textContent, /Behind All/);
   nodes.toggle.dispatchClick();
   assert.equal(nodes.history.hidden, true);

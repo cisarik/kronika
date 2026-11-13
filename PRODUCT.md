@@ -141,8 +141,11 @@ requester-private own X Saves, with unopened accent after analysis. Review
 rows open hosted Details without Analyze by AI in that popup. Separate
 download-status rows show that requester's own recent X and YouTube
 request states, most recently updated first. The compact sheet shows five of
-those rows and one All control. All reveals any later retained downloads and
-then review history that omits a download's media id. The toolbar badge stays
+those rows and one All control. When downloads exist, that All is the only All.
+It reveals any later retained downloads and the complete review history, which
+omits a download's media id. A download row that matches an analyzed unread
+item shows an unread marker; opening it uses the existing opened behavior so
+the marker can clear. The toolbar badge stays
 review-only. A row with an own cataloged media
 id opens hosted Details. A row without a media id stays inert
 ([ADR-0067](docs/adr/0067-administrator-companion-review-inbox-and-mutation-trust.md),
@@ -151,7 +154,8 @@ id opens hosted Details. A row without a media id stays inert
 [ADR-0076](docs/adr/0076-companion-history-hosted-click-admin-analyzed-inbox-and-ordinary-own-history.md),
 [ADR-0089](docs/adr/0089-companion-own-download-status-history.md),
 [ADR-0090](docs/adr/0090-companion-download-row-details-and-latest-update-order.md),
-[ADR-0091](docs/adr/0091-companion-history-compact-five-and-all-expansion.md)).
+[ADR-0091](docs/adr/0091-companion-history-compact-five-and-all-expansion.md),
+[ADR-0092](docs/adr/0092-companion-download-unread-state.md)).
 Workspace identities with only `metadata.alias.write` can edit the caller-private
 alias overlay through the existing Edit dialog, with per-field AI suggestion
 strips revealed immediately from the newest stored run and a dropdown that
