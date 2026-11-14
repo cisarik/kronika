@@ -773,7 +773,13 @@ class _CompletedProcess:
 
 # Matchers are source-backed for installed yt_dlp==2026.7.4:
 # yt_dlp/YoutubeDL.py: report_error, process_video_result, process_info;
-# yt_dlp/networking/exceptions.py: HTTPError;
+# yt_dlp/networking/exceptions.py: HTTPError, RequestError.__init__
+#   (if not msg and cause: msg = str(cause) delegates terminal payload wording);
+# yt_dlp/networking/_urllib.py: except urllib.error.URLError as e:
+#   raise TransportError(cause=e);
+# CPython 3.13 stdlib urllib/request.py: except OSError as err:
+#   raise URLError(err) wraps socket-level TimeoutError; its OS strerror
+#   contains "timed out" (e.g. "Operation timed out", "Connection timed out").
 # yt_dlp/extractor/youtube/_video.py: _real_extract (sign-in reasons);
 # yt_dlp/extractor/youtube/_base.py: _check_login_required, _call_api;
 # yt_dlp/extractor/common.py: _login_hint, _request_webpage;
