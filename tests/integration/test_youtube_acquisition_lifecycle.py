@@ -18,6 +18,7 @@ from kronika.application.ports.youtube_downloader import (
     YouTubeDownloadPlan,
     YouTubeDownloadResult,
     YouTubeInspection,
+    YouTubeInspectionError,
 )
 from kronika.application.upload_catalog import CatalogPublishedUpload
 from kronika.application.upload_catalog_coordinator import UploadCatalogCoordinator
@@ -119,6 +120,7 @@ class _FakeDownloader:
         self.download_calls: list[str] = []
         self.resume_seen = False
         self.fail_download = False
+        self.fail_inspection = False
 
     async def attest_version(self) -> str:
         self.attest_calls += 1
@@ -126,6 +128,8 @@ class _FakeDownloader:
 
     async def inspect(self, identity) -> YouTubeInspection:
         self.inspect_calls.append(identity.video_id)
+        if self.fail_inspection:
+            raise YouTubeInspectionError("INSPECTION_OUTPUT_LIMIT")
         return YouTubeInspection(
             video_id=identity.video_id,
             extractor_key="Youtube",
@@ -931,6 +935,35 @@ def test_unresolved_byte_duplicate_fails_youtube_claim_and_cleans_staging(
         assert failed.cleanup_state.value == "complete"
         assert not (fixture.staging_root / failed.staging_key).exists()
         assert fixture.uploads.get(manual_id).state is UploadSessionState.FAILED  # type: ignore[union-attr]
+        await fixture.close()
+
+    asyncio.run(scenario())
+
+
+def test_inspection_output_limit_fails_claim_and_skips_download(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+
+    async def scenario() -> None:
+        fixture.downloader.fail_inspection = True
+        submitted = fixture.service.submit(
+            submitted_url=f"https://youtu.be/{VIDEO_A}",
+            confirmation_method=YouTubeConfirmationMethod.YES_FLAG,
+        )
+        await fixture.acquisition.drain()
+        await fixture.acquisition.drain()
+        failed = fixture.claims.get(
+            YouTubeAcquisitionClaimId.from_string(submitted.snapshot.id)
+        )
+        assert failed is not None
+        assert failed.state is YouTubeAcquisitionState.FAILED
+        assert failed.failure_stage is not None
+        assert failed.failure_stage.value == "inspection"
+        assert failed.failure_code == "INSPECTION_OUTPUT_LIMIT"
+        assert failed.cleanup_state.value == "complete"
+        assert not (fixture.staging_root / failed.staging_key).exists()
+        assert fixture.downloader.download_calls == []
         await fixture.close()
 
     asyncio.run(scenario())

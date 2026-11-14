@@ -778,7 +778,12 @@ loopback-only CLI and server lifecycle. The server MUST independently validate
 one supported cookie-free public HTTPS YouTube video identity, persist an
 immutable acquisition claim, use a shell-free pinned downloader subprocess in
 a private claim-owned staging root, and hand only a stable exact-size artifact
-to the existing upload transport. It MUST NOT bypass quarantine, validation,
+to the existing upload transport. Inspection requests only the metadata and
+format-selection fields the server consumes, retains at most 1 MiB of
+inspection standard output and 64 KiB of inspection standard error, terminates
+that inspection subprocess when either cap is exceeded, and a larger document
+fails closed as `INSPECTION_OUTPUT_LIMIT` without being parsed or logged. It
+MUST NOT bypass quarantine, validation,
 canonical byte identity, publication, or catalog creation. Source-identity and
 byte duplicates MUST reuse existing outcomes without creating accidental
 logical media, while preserving each claim. YouTube ingestion MUST NOT use

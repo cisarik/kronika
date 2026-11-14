@@ -54,6 +54,20 @@ DEFAULT_STAGING_SIZE_LIMIT_BYTES = 2_214_592_512
 DEFAULT_FREE_SPACE_RESERVE_BYTES = 67_108_864
 MAX_STDOUT_BYTES = 1_048_576
 MAX_STDERR_BYTES = 65_536
+INSPECTION_STDOUT_LIMIT_BYTES = 1_048_576
+INSPECTION_STDERR_LIMIT_BYTES = 65_536
+# Two-line inspection projection for pinned yt-dlp 2026.7.4.
+# Owners: yt_dlp-2026.7.4.dist-info/METADATA (OUTPUT TEMPLATE and --print),
+# yt_dlp/options.py (--print registration), and yt_dlp/YoutubeDL.py
+# (prepare_outtmpl, traverse_obj, _forceprint, and the dump_single_json wrapper).
+INSPECTION_METADATA_TEMPLATE = (
+    "%(.{extractor_key,id,_type,is_live,live_status,availability,age_limit,"
+    "duration,title,channel,channel_id,upload_date,_filename,filename})j"
+)
+INSPECTION_FORMATS_TEMPLATE = (
+    "%(formats.:.{format_id,ext,video_ext,audio_ext,vcodec,acodec,height,width,"
+    "fps,tbr,abr,asr,filesize,filesize_approx,has_drm})j"
+)
 TERMINATE_GRACE_SECONDS = 10.0
 KILL_GRACE_SECONDS = 5.0
 _MONITOR_INTERVAL_SECONDS = 0.25
@@ -167,9 +181,12 @@ class YtDlpYouTubeDownloader:
             raise YouTubeInspectionError("INVALID_SOURCE_IDENTITY")
         version = await self._require_attested_version()
         argv = self._base_argv() + self._common_network_argv() + (
-            "--dump-single-json",
-            "--skip-download",
+            "--simulate",
             "--no-write-info-json",
+            "--print",
+            INSPECTION_METADATA_TEMPLATE,
+            "--print",
+            INSPECTION_FORMATS_TEMPLATE,
             "--",
             identity.canonical_url,
         )
@@ -177,23 +194,22 @@ class YtDlpYouTubeDownloader:
             completed = await self._run_bounded(
                 argv,
                 timeout_seconds=self._inspection_timeout_seconds,
-                stdout_limit=MAX_STDOUT_BYTES,
-                stderr_limit=MAX_STDERR_BYTES,
+                stdout_limit=INSPECTION_STDOUT_LIMIT_BYTES,
+                stderr_limit=INSPECTION_STDERR_LIMIT_BYTES,
                 cwd=None,
+                terminate_on_overflow=True,
             )
         except YouTubeDownloadError as exc:
             raise YouTubeInspectionError("INSPECTION_TIMEOUT") from exc
-        if completed.returncode != 0:
-            raise YouTubeInspectionError("INSPECTION_FAILED")
         if completed.stdout_overflow or completed.stderr_overflow:
             raise YouTubeInspectionError("INSPECTION_OUTPUT_LIMIT")
-        try:
-            raw = json.loads(completed.stdout)
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT") from exc
-        if not isinstance(raw, dict):
-            raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT")
-        return self._inspection_from_payload(identity, raw, version)
+        if completed.returncode != 0:
+            raise YouTubeInspectionError("INSPECTION_FAILED")
+        return self._inspection_from_payload(
+            identity,
+            _projected_inspection_document(completed.stdout),
+            version,
+        )
 
     async def download(
         self,
@@ -484,35 +500,157 @@ class YtDlpYouTubeDownloader:
         stdout_limit: int,
         stderr_limit: int,
         cwd: Path | None,
+        terminate_on_overflow: bool = False,
     ) -> "_CompletedProcess":
         process = await self._spawn(argv, cwd=cwd)
         stdout_task = asyncio.create_task(
-            _capture_stream(process.stdout, stdout_limit)
+            _capture_stream(
+                process.stdout,
+                stdout_limit,
+                stop_after_limit=terminate_on_overflow,
+            )
         )
         stderr_task = asyncio.create_task(
-            _capture_stream(process.stderr, stderr_limit)
+            _capture_stream(
+                process.stderr,
+                stderr_limit,
+                stop_after_limit=terminate_on_overflow,
+            )
         )
+        if not terminate_on_overflow:
+            try:
+                returncode = await asyncio.wait_for(
+                    process.wait(),
+                    timeout=timeout_seconds,
+                )
+            except TimeoutError as exc:
+                try:
+                    await self._terminate_process_group(process)
+                except Exception:
+                    pass
+                await _finish_capture_tasks(stdout_task, stderr_task)
+                raise YouTubeDownloadError("SUBPROCESS_TIMEOUT") from exc
+            except BaseException:
+                try:
+                    await self._terminate_process_group(process)
+                except Exception:
+                    pass
+                await _finish_capture_tasks(stdout_task, stderr_task)
+                raise
+            stdout, stdout_overflow = await stdout_task
+            stderr, stderr_overflow = await stderr_task
+            return _CompletedProcess(
+                returncode=returncode,
+                stdout=stdout,
+                stderr=stderr,
+                stdout_overflow=stdout_overflow,
+                stderr_overflow=stderr_overflow,
+            )
+
+        wait_task = asyncio.create_task(process.wait())
         try:
-            returncode = await asyncio.wait_for(
-                process.wait(),
-                timeout=timeout_seconds,
+            return await self._complete_or_stop_on_overflow(
+                process,
+                stdout_task,
+                stderr_task,
+                wait_task,
+                timeout_seconds=timeout_seconds,
             )
         except TimeoutError as exc:
+            if not wait_task.done():
+                wait_task.cancel()
             try:
                 await self._terminate_process_group(process)
             except Exception:
                 pass
             await _finish_capture_tasks(stdout_task, stderr_task)
+            await asyncio.gather(wait_task, return_exceptions=True)
             raise YouTubeDownloadError("SUBPROCESS_TIMEOUT") from exc
         except BaseException:
+            if not wait_task.done():
+                wait_task.cancel()
             try:
                 await self._terminate_process_group(process)
             except Exception:
                 pass
             await _finish_capture_tasks(stdout_task, stderr_task)
+            await asyncio.gather(wait_task, return_exceptions=True)
             raise
-        stdout, stdout_overflow = await stdout_task
-        stderr, stderr_overflow = await stderr_task
+
+    async def _complete_or_stop_on_overflow(
+        self,
+        process: Any,
+        stdout_task: asyncio.Task[tuple[bytes, bool]],
+        stderr_task: asyncio.Task[tuple[bytes, bool]],
+        wait_task: asyncio.Task[int],
+        *,
+        timeout_seconds: float,
+    ) -> "_CompletedProcess":
+        deadline = asyncio.get_running_loop().time() + timeout_seconds
+        while True:
+            if _capture_overflowed(stdout_task) or _capture_overflowed(
+                stderr_task
+            ):
+                return await self._stop_for_overflow(
+                    process,
+                    stdout_task,
+                    stderr_task,
+                    wait_task,
+                )
+            if stdout_task.done() and stderr_task.done() and wait_task.done():
+                stdout, stdout_overflow = stdout_task.result()
+                stderr, stderr_overflow = stderr_task.result()
+                return _CompletedProcess(
+                    returncode=wait_task.result(),
+                    stdout=stdout,
+                    stderr=stderr,
+                    stdout_overflow=stdout_overflow,
+                    stderr_overflow=stderr_overflow,
+                )
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise TimeoutError
+            waiting = {
+                task
+                for task in (stdout_task, stderr_task, wait_task)
+                if not task.done()
+            }
+            done, _pending = await asyncio.wait(
+                waiting,
+                timeout=remaining,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if not done:
+                raise TimeoutError
+
+    async def _stop_for_overflow(
+        self,
+        process: Any,
+        stdout_task: asyncio.Task[tuple[bytes, bool]],
+        stderr_task: asyncio.Task[tuple[bytes, bool]],
+        wait_task: asyncio.Task[int],
+    ) -> "_CompletedProcess":
+        for task in (stdout_task, stderr_task):
+            if not task.done():
+                task.cancel()
+        try:
+            await self._terminate_process_group(process)
+        except Exception:
+            pass
+        await _finish_capture_tasks(stdout_task, stderr_task)
+        if not wait_task.done():
+            wait_task.cancel()
+        await asyncio.gather(wait_task, return_exceptions=True)
+        stdout, stdout_overflow = _settled_capture(stdout_task)
+        stderr, stderr_overflow = _settled_capture(stderr_task)
+        returncode = 1
+        if wait_task.done() and not wait_task.cancelled():
+            try:
+                waited = wait_task.result()
+            except Exception:
+                waited = None
+            if isinstance(waited, int):
+                returncode = waited
         return _CompletedProcess(
             returncode=returncode,
             stdout=stdout,
@@ -631,6 +769,8 @@ class _CompletedProcess:
 async def _capture_stream(
     stream: Any,
     limit: int,
+    *,
+    stop_after_limit: bool = False,
 ) -> tuple[bytes, bool]:
     captured = bytearray()
     overflow = False
@@ -643,7 +783,66 @@ async def _capture_stream(
             captured.extend(chunk[:remaining])
         if len(chunk) > remaining:
             overflow = True
+            if stop_after_limit:
+                break
     return bytes(captured), overflow
+
+
+def _capture_overflowed(task: asyncio.Task[tuple[bytes, bool]]) -> bool:
+    if not task.done() or task.cancelled():
+        return False
+    _data, overflow = task.result()
+    return overflow
+
+
+def _settled_capture(
+    task: asyncio.Task[tuple[bytes, bool]],
+) -> tuple[bytes, bool]:
+    if task.cancelled() or not task.done():
+        return b"", False
+    try:
+        return task.result()
+    except Exception:
+        return b"", False
+
+
+def _projected_inspection_document(raw_stdout: bytes) -> dict[str, object]:
+    """Rebuild the consumed inspection object from two projected lines.
+
+    A formats-line ``NA`` is yt-dlp's default output-template placeholder for
+    a missing value (METADATA ``outtmpl_na_placeholder``), so it becomes an
+    empty list and the existing selector reports the no-visual policy code.
+    A metadata-line ``NA`` is not an object.
+    """
+    try:
+        text = raw_stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT") from exc
+    lines = text.splitlines()
+    while lines and lines[-1] == "":
+        lines.pop()
+    if len(lines) != 2 or lines[0] == "" or lines[1] == "":
+        raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT")
+    metadata_line, formats_line = lines
+    if metadata_line == "NA":
+        raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT")
+    try:
+        metadata = json.loads(metadata_line)
+    except json.JSONDecodeError as exc:
+        raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT") from exc
+    if not isinstance(metadata, dict) or "formats" in metadata:
+        raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT")
+    if formats_line == "NA":
+        formats: object = []
+    else:
+        try:
+            formats = json.loads(formats_line)
+        except json.JSONDecodeError as exc:
+            raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT") from exc
+        if not isinstance(formats, list):
+            raise YouTubeInspectionError("INSPECTION_INVALID_OUTPUT")
+    metadata["formats"] = formats
+    return metadata
 
 
 async def _finish_capture_tasks(*tasks: asyncio.Task[object]) -> None:
