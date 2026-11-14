@@ -775,8 +775,9 @@ class _CompletedProcess:
 # yt_dlp/YoutubeDL.py: report_error, process_video_result, process_info;
 # yt_dlp/networking/exceptions.py: HTTPError, RequestError.__init__
 #   (if not msg and cause: msg = str(cause) delegates terminal payload wording);
-# yt_dlp/networking/_urllib.py: except urllib.error.URLError as e:
-#   raise TransportError(cause=e);
+# yt_dlp/networking/_urllib.py: handle_response_read_exceptions
+#   (OSError branch) raises TransportError(cause=e) for the wrapped
+#   socket-level TimeoutError before the URLError handler's own raise;
 # CPython 3.13 stdlib urllib/request.py: except OSError as err:
 #   raise URLError(err) wraps socket-level TimeoutError; its OS strerror
 #   contains "timed out" (e.g. "Operation timed out", "Connection timed out").
