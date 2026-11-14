@@ -270,10 +270,12 @@ class YtDlpYouTubeDownloader:
             staging_key=staging_key,
             claim_directory=claim_directory,
         )
-        if completed.returncode != 0:
-            raise YouTubeDownloadError("DOWNLOAD_FAILED")
         if completed.stdout_overflow or completed.stderr_overflow:
             raise YouTubeDownloadError("DOWNLOAD_OUTPUT_LIMIT")
+        if completed.returncode != 0:
+            raise YouTubeDownloadError(
+                _download_failure_code(completed, video_id=identity.video_id)
+            )
         try:
             reader = self._staging.open_artifact(staging_key)
         except (FileNotFoundError, YouTubeStagingError) as exc:
@@ -281,7 +283,10 @@ class YtDlpYouTubeDownloader:
         try:
             if reader.size_bytes > self._max_final_size_bytes:
                 raise YouTubeDownloadError("FINAL_SIZE_LIMIT")
-            reader.verify_still_consistent()
+            try:
+                reader.verify_still_consistent()
+            except YouTubeStagingError as exc:
+                raise YouTubeDownloadError("DOWNLOAD_ARTIFACT_INVALID") from exc
             return YouTubeDownloadResult(size_bytes=reader.size_bytes)
         finally:
             reader.close()
@@ -764,6 +769,78 @@ class _CompletedProcess:
     stderr: bytes
     stdout_overflow: bool
     stderr_overflow: bool
+
+
+# Matchers are source-backed for installed yt_dlp==2026.7.4:
+# yt_dlp/YoutubeDL.py: report_error, process_video_result, process_info;
+# yt_dlp/networking/exceptions.py: HTTPError;
+# yt_dlp/extractor/youtube/_video.py: _real_extract (sign-in reasons);
+# yt_dlp/extractor/youtube/_base.py: _check_login_required, _call_api;
+# yt_dlp/extractor/common.py: _login_hint, _request_webpage;
+# yt_dlp/downloader/common.py: wrap_file_access, report_retry;
+# yt_dlp/downloader/http.py: real_download (open/write errors);
+# yt_dlp/postprocessor/ffmpeg.py: real_run_ffmpeg.
+# CLI wording is not a stable interface. Wording drift must safely reduce
+# specificity to DOWNLOAD_FAILED; never expose the untrusted diagnostic body.
+_DOWNLOAD_FORMAT_UNAVAILABLE_MESSAGE = (
+    "Requested format is not available. Use --list-formats for a list of "
+    "available formats"
+)
+_DOWNLOAD_STORAGE_PREFIXES = (
+    "unable to open for writing: ",
+    "unable to write data: ",
+    "Unable to rename file: ",
+    "Unable to remove file: ",
+)
+_DOWNLOAD_TIMEOUT_PREFIXES = (
+    "unable to download video data: ",
+    "[download] Got error: ",
+    "Unable to download webpage: ",
+    "Unable to download API page: ",
+)
+_DOWNLOAD_AUTHENTICATION_HINT = (
+    "Use --cookies-from-browser or --cookies for the authentication."
+)
+
+
+def _download_failure_code(completed: _CompletedProcess, *, video_id: str) -> str:
+    """Recognize one bounded terminal stderr shape, returning literals only."""
+    if completed.returncode != 1 or len(completed.stderr) > MAX_STDERR_BYTES:
+        return "DOWNLOAD_FAILED"
+    if any(
+        (byte < 32 and byte not in (10, 13)) or byte == 127
+        for byte in completed.stderr
+    ):
+        return "DOWNLOAD_FAILED"
+    try:
+        text = completed.stderr.decode("utf-8")
+    except UnicodeDecodeError:
+        return "DOWNLOAD_FAILED"
+    text = text.replace("\r\n", "\n").replace("\r", "")
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) != 1 or not lines[0].startswith("ERROR: "):
+        return "DOWNLOAD_FAILED"
+    body = lines[0][len("ERROR: "):]
+    youtube_prefix = f"[youtube] {video_id}: "
+    if body.startswith(youtube_prefix):
+        body = body[len(youtube_prefix):]
+    elif body.startswith("[youtube]"):
+        return "DOWNLOAD_FAILED"
+    if body == _DOWNLOAD_FORMAT_UNAVAILABLE_MESSAGE:
+        return "DOWNLOAD_FORMAT_UNAVAILABLE"
+    if body.startswith("Postprocessing: "):
+        return "DOWNLOAD_POSTPROCESS_FAILED"
+    if body.startswith(_DOWNLOAD_STORAGE_PREFIXES):
+        return "DOWNLOAD_STORAGE_FAILED"
+    if body.startswith("Login details are needed to download this content.") or (
+        "sign in" in body.lower() and _DOWNLOAD_AUTHENTICATION_HINT in body
+    ):
+        return "DOWNLOAD_AUTH_REQUIRED"
+    if "HTTP Error 403:" in body:
+        return "DOWNLOAD_HTTP_403"
+    if body.startswith(_DOWNLOAD_TIMEOUT_PREFIXES) and "timed out" in body.lower():
+        return "DOWNLOAD_NETWORK_TIMEOUT"
+    return "DOWNLOAD_FAILED"
 
 
 async def _capture_stream(

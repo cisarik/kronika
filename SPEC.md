@@ -790,6 +790,31 @@ logical media, while preserving each claim. YouTube ingestion MUST NOT use
 cookies, browser profiles, arbitrary extractors, playlists, live media,
 sidecars, transcoding, or automatic AI analysis.
 
+YouTube download diagnostics MUST expose only the following fixed codes for
+recognized terminal stderr shapes from the pinned downloader's normal error
+exit. Codes describe reported failure shapes, not verified root causes;
+PO-token causation is not established. Classification MUST inspect only bounded,
+valid UTF-8 stderr containing one terminal error record, reject controls other
+than CR/LF and mismatched YouTube identity prefixes, and never expose captured
+text. Unknown, malformed, ambiguous or changed wording and other nonzero exit
+statuses MUST fall back to `DOWNLOAD_FAILED`.
+
+| Recognized reported failure shape | Download failure code |
+| --- | --- |
+| HTTP 403 | `DOWNLOAD_HTTP_403` |
+| Login-details requirement, or sign-in plus the recognized authentication hint | `DOWNLOAD_AUTH_REQUIRED` |
+| Requested selected format unavailable | `DOWNLOAD_FORMAT_UNAVAILABLE` |
+| Postprocessing failure | `DOWNLOAD_POSTPROCESS_FAILED` |
+| Recognized transport wrapper reporting a timeout | `DOWNLOAD_NETWORK_TIMEOUT` |
+| File open, write, rename or remove failure | `DOWNLOAD_STORAGE_FAILED` |
+| Unrecognized nonzero result | `DOWNLOAD_FAILED` |
+
+After a completed download process, either output-overflow flag MUST produce
+`DOWNLOAD_OUTPUT_LIMIT` before exit-code classification, regardless of exit
+status. Existing timeout, staging and final-size guards MUST retain their codes.
+A missing, invalid or post-open inconsistent artifact MUST fail closed as
+`DOWNLOAD_ARTIFACT_INVALID`, with every opened artifact reader closed.
+
 Per-user Trash MUST be server-persisted visibility state and MUST NOT delete
 the server original.
 

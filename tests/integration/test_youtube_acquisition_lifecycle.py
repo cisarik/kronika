@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 import itertools
 from pathlib import Path
 import sqlite3
 
+import pytest
 from sqlalchemy import insert, select, text
 
 from kronika.application.ports.upload_media_validation import (
@@ -20,6 +22,7 @@ from kronika.application.ports.youtube_downloader import (
     YouTubeInspection,
     YouTubeInspectionError,
 )
+from kronika.application.ports.youtube_staging import YouTubeStagingError
 from kronika.application.upload_catalog import CatalogPublishedUpload
 from kronika.application.upload_catalog_coordinator import UploadCatalogCoordinator
 from kronika.application.upload_publication import PublishPendingUpload
@@ -38,6 +41,9 @@ from kronika.application.upload_validation_coordinator import (
 from kronika.application.youtube_acquisition import (
     YouTubeAcquisitionCoordinator,
     YouTubeAcquisitionService,
+    YouTubeRequestLimitError,
+    YouTubeRequestLimits,
+    YouTubeRequestService,
     automatic_analysis_allowed_for_upload,
     youtube_classification_for_upload,
 )
@@ -111,10 +117,12 @@ class _FakeDownloader:
         *,
         version: str = "2026.7.4",
         payload: bytes = PAYLOAD,
+        download_failure_code: str = "SYNTHETIC_DOWNLOAD_FAILED",
     ) -> None:
         self._staging = staging
         self.version = version
         self.payload = payload
+        self.download_failure_code = download_failure_code
         self.attest_calls = 0
         self.inspect_calls: list[str] = []
         self.download_calls: list[str] = []
@@ -162,7 +170,7 @@ class _FakeDownloader:
         claim_directory = self._staging.prepare(staging_key)
         if self.fail_download:
             (claim_directory / "artifact.mp4.part").write_bytes(b"failed-partial")
-            raise YouTubeDownloadError("SYNTHETIC_DOWNLOAD_FAILED")
+            raise YouTubeDownloadError(self.download_failure_code)
         partial = claim_directory / "artifact.mp4.part"
         if partial.exists():
             self.resume_seen = True
@@ -197,6 +205,8 @@ class _Fixture:
     service: YouTubeAcquisitionService
     downloader: _FakeDownloader
     analysis: _AnalysisProbe
+    staging: FilesystemYouTubeStaging
+    now_ms: Callable[[], int]
 
     async def close(self) -> None:
         await self.acquisition.shutdown()
@@ -371,6 +381,8 @@ def _fixture(
         service=service,
         downloader=downloader,
         analysis=analysis,
+        staging=staging,
+        now_ms=now_ms,
     )
 
 
@@ -845,13 +857,26 @@ def test_startup_reconciliation_pages_through_all_active_claims(
     asyncio.run(scenario())
 
 
+_DOWNLOAD_FAILURE_CODES = (
+    "SYNTHETIC_DOWNLOAD_FAILED",
+    "DOWNLOAD_HTTP_403", "DOWNLOAD_AUTH_REQUIRED", "DOWNLOAD_FORMAT_UNAVAILABLE",
+    "DOWNLOAD_POSTPROCESS_FAILED", "DOWNLOAD_NETWORK_TIMEOUT", "DOWNLOAD_STORAGE_FAILED",
+    "DOWNLOAD_FAILED", "DOWNLOAD_TIMEOUT", "DOWNLOAD_OUTPUT_LIMIT",
+    "STAGING_UNAVAILABLE", "STAGING_SIZE_LIMIT", "STAGING_SPACE_RESERVE",
+    "DOWNLOAD_ARTIFACT_INVALID", "FINAL_SIZE_LIMIT", "SUBPROCESS_TERMINATION_FAILED",
+)
+
+
+@pytest.mark.parametrize("code", _DOWNLOAD_FAILURE_CODES)
 def test_terminal_downloader_failure_cleans_staging_and_retry_uses_new_lineage(
     tmp_path: Path,
+    code: str,
 ) -> None:
     fixture = _fixture(tmp_path)
 
     async def scenario() -> None:
         fixture.downloader.fail_download = True
+        fixture.downloader.download_failure_code = code
         first = fixture.service.submit(
             submitted_url=f"https://youtu.be/{VIDEO_A}",
             confirmation_method=YouTubeConfirmationMethod.YES_FLAG,
@@ -868,7 +893,18 @@ def test_terminal_downloader_failure_cleans_staging_and_retry_uses_new_lineage(
         ) is None
         assert failed is not None
         assert failed.state is YouTubeAcquisitionState.FAILED
-        assert failed.failure_code == "SYNTHETIC_DOWNLOAD_FAILED"
+        assert failed.failure_code == code
+        assert failed.failure_stage.value == "download"
+        assert failed.completed_at_ms <= failed.updated_at_ms
+        assert failed.completed_at_ms > failed.created_at_ms
+        assert failed.selected_video_format_id == "18"
+        assert failed.selected_audio_format_id is None
+        assert failed.downloader_version == failed.extractor_version == "2026.7.4"
+        assert failed.downloaded_size_bytes is None
+        assert failed.downloaded_at_ms is None
+        assert failed.upload_id is failed.media_id is failed.media_location_id is None
+        assert fixture.uploads.get(UploadSessionId.from_string(first.snapshot.id)) is None
+        assert _counts(fixture.database_path) == (0, 0, 1)
         assert failed.cleanup_state.value == "complete"
         assert not (fixture.staging_root / failed.staging_key).exists()
 
@@ -882,8 +918,138 @@ def test_terminal_downloader_failure_cleans_staging_and_retry_uses_new_lineage(
         )
         assert retried is not None
         assert retried.id != failed.id
+        assert retried.staging_key != failed.staging_key
         assert retried.retry_of_claim_id == failed.id
         assert retried.state is YouTubeAcquisitionState.CLAIMED
+        assert fixture.claims.get(failed.id) == failed
+        assert _counts(fixture.database_path) == (0, 0, 2)
+        await fixture.close()
+
+    asyncio.run(scenario())
+
+
+def test_cleanup_failure_retains_primary_download_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(tmp_path)
+
+    async def scenario() -> None:
+        fixture.downloader.fail_download = True
+        fixture.downloader.download_failure_code = "DOWNLOAD_HTTP_403"
+        submitted = fixture.service.submit(
+            submitted_url=f"https://youtu.be/{VIDEO_A}",
+            confirmation_method=YouTubeConfirmationMethod.YES_FLAG,
+        )
+        claim_id = YouTubeAcquisitionClaimId.from_string(submitted.snapshot.id)
+        cleanup = fixture.staging.cleanup
+        attempts = []
+
+        def fail_cleanup(key):
+            current = fixture.claims.get(claim_id)
+            assert current.state is YouTubeAcquisitionState.FAILED
+            assert current.failure_code == "DOWNLOAD_HTTP_403"
+            attempts.append(key)
+            raise YouTubeStagingError("synthetic cleanup failure")
+
+        monkeypatch.setattr(fixture.staging, "cleanup", fail_cleanup)
+        await fixture.acquisition.drain()
+        await fixture.acquisition.drain()
+        failed = fixture.claims.get(claim_id)
+        assert failed.state is YouTubeAcquisitionState.FAILED
+        assert failed.failure_stage.value == "download"
+        assert failed.failure_code == "DOWNLOAD_HTTP_403"
+        assert failed.cleanup_state.value == "pending"
+        assert attempts == [failed.staging_key]
+        assert (fixture.staging_root / failed.staging_key).exists()
+        monkeypatch.setattr(fixture.staging, "cleanup", cleanup)
+        await fixture.acquisition.drain()
+        recovered = fixture.claims.get(claim_id)
+        assert recovered.cleanup_state.value == "complete"
+        assert recovered.failure_code == failed.failure_code
+        assert recovered.failure_stage == failed.failure_stage
+        assert recovered.completed_at_ms == failed.completed_at_ms
+        assert not (fixture.staging_root / failed.staging_key).exists()
+        assert fixture.downloader.download_calls == [VIDEO_A]
+        assert _counts(fixture.database_path) == (0, 0, 1)
+        await fixture.close()
+
+    asyncio.run(scenario())
+
+
+def test_failed_download_diagnostics_preserve_requester_quota_and_retry_lineage(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+
+    class NoPublishedMedia:
+        def is_published(self, media_id):
+            return False
+
+    async def scenario() -> None:
+        owner = "alice@example.com"
+        limits = YouTubeRequestLimits()
+        service = YouTubeRequestService(
+            fixture.claims, NoPublishedMedia(), fixture.staging,
+            limits=replace(limits, max_submits_per_hour=100),
+            now_ms=fixture.now_ms, notifier=fixture.acquisition,
+        )
+        fixture.downloader.fail_download = True
+        submission = service.submit(
+            submitted_url=f"https://youtu.be/{VIDEO_A}",
+            confirmation_method=YouTubeConfirmationMethod.INTERACTIVE,
+            created_by_login_key=owner,
+        )
+        predecessors = []
+        for index in range(10):
+            fixture.downloader.download_failure_code = _DOWNLOAD_FAILURE_CODES[index + 1]
+            with pytest.raises(YouTubeRequestLimitError) as active:
+                service.submit(
+                    submitted_url=f"https://youtu.be/{VIDEO_B}",
+                    confirmation_method=YouTubeConfirmationMethod.INTERACTIVE,
+                    created_by_login_key=owner,
+                )
+            assert active.value.code == "YOUTUBE_REQUEST_ACTIVE_LIMIT"
+            assert _counts(fixture.database_path) == (0, 0, index + 1)
+            await fixture.acquisition.drain()
+            await fixture.acquisition.drain()
+            claim_id = YouTubeAcquisitionClaimId.from_string(submission.snapshot.request_id)
+            failed = fixture.claims.get(claim_id)
+            assert failed.state is YouTubeAcquisitionState.FAILED
+            assert failed.created_by_login_key == owner
+            assert failed.failure_code == fixture.downloader.download_failure_code
+            assert failed.failure_stage.value == "download"
+            assert failed.cleanup_state.value == "complete"
+            assert failed.upload_id is failed.media_id is failed.media_location_id is None
+            predecessors.append(failed)
+            # Repeated terminal recovery must not consume another failed slot.
+            await fixture.acquisition.drain()
+            await fixture.acquisition.drain()
+            if index < 9:
+                submission = service.retry(
+                    failed.id,
+                    confirmation_method=YouTubeConfirmationMethod.INTERACTIVE,
+                    created_by_login_key=owner,
+                )
+                retry = fixture.claims.get(
+                    YouTubeAcquisitionClaimId.from_string(submission.snapshot.request_id)
+                )
+                assert retry.retry_of_claim_id == failed.id
+                assert retry.id != failed.id
+                assert retry.staging_key != failed.staging_key
+                assert retry.created_by_login_key == owner
+            assert all(fixture.claims.get(item.id) == item for item in predecessors)
+        with pytest.raises(YouTubeRequestLimitError) as failed_limit:
+            service.retry(
+                predecessors[-1].id,
+                confirmation_method=YouTubeConfirmationMethod.INTERACTIVE,
+                created_by_login_key=owner,
+            )
+        assert failed_limit.value.code == "YOUTUBE_REQUEST_FAILED_24H_LIMIT"
+        assert _counts(fixture.database_path) == (0, 0, 10)
+        assert len(fixture.downloader.download_calls) == 10
+        assert all(fixture.claims.get(item.id) == item for item in predecessors)
+        assert len(service.list_owned(created_by_login_key=owner).items) == 10
+        assert service.list_owned(created_by_login_key="bob@example.com").items == ()
         await fixture.close()
 
     asyncio.run(scenario())

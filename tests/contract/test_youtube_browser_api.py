@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
@@ -236,6 +237,41 @@ def test_admin_can_create_read_and_retry_with_bounded_response_and_audit() -> No
     assert all(event.target_id in {CLAIM_ID, RETRY_ID} for event in audit.events)
     assert all(VIDEO_ID not in repr(event) for event in audit.events)
     assert all("youtu.be" not in repr(event) for event in audit.events)
+
+
+@pytest.mark.parametrize(("stage", "code"), [
+    *[("download", code) for code in (
+        "DOWNLOAD_HTTP_403", "DOWNLOAD_AUTH_REQUIRED", "DOWNLOAD_FORMAT_UNAVAILABLE",
+        "DOWNLOAD_POSTPROCESS_FAILED", "DOWNLOAD_NETWORK_TIMEOUT", "DOWNLOAD_STORAGE_FAILED",
+        "DOWNLOAD_FAILED", "DOWNLOAD_TIMEOUT", "DOWNLOAD_OUTPUT_LIMIT",
+        "STAGING_UNAVAILABLE", "STAGING_SIZE_LIMIT", "STAGING_SPACE_RESERVE",
+        "DOWNLOAD_ARTIFACT_INVALID", "FINAL_SIZE_LIMIT", "SUBPROCESS_TERMINATION_FAILED",
+    )],
+    ("configuration", "MERGER_UNAVAILABLE"),
+    ("configuration", "DOWNLOADER_UNAVAILABLE"),
+])
+def test_failed_download_projects_stage_code_and_uncataloged_workflow(
+    stage: str, code: str,
+) -> None:
+    service = _Service()
+    service.snapshot = _snapshot(
+        state="failed", failure_stage=stage, failure_code=code,
+        completed_at_ms=20, updated_at_ms=20, cleanup_state="complete",
+    )
+    workflow = _WorkflowStatus(MediaWorkflowStatus(
+        metadata_state="complete", missing_metadata_fields=(), publication_state="published",
+    ))
+    with _client(service, identity=_identity(ROLE_ADMIN), workflow=workflow) as client:
+        response = client.get(f"/api/admin/youtube/claims/{CLAIM_ID}")
+    assert response.status_code == 200
+    assert response.json() == {
+        "claim_id": CLAIM_ID, "state": "failed", "phase": "failed",
+        "submission_result": None, "media_id": None, "catalog_state": "not_cataloged",
+        "metadata_state": "unknown", "missing_metadata_fields": [],
+        "publication_state": "unknown", "failure": {"stage": stage, "code": code},
+        "retry_of_claim_id": None, "requester_login_key": None,
+    }
+    assert workflow.calls == []
 
 
 def test_cataloged_claim_projects_single_media_truth_without_publication_or_ai() -> None:

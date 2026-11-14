@@ -19,6 +19,7 @@ from kronika.application.ports.youtube_downloader import (
     YouTubeInspection,
     YouTubeInspectionError,
 )
+from kronika.application.ports.youtube_staging import YouTubeStagingError
 from kronika.domain.youtube_acquisition import canonicalize_youtube_url
 from kronika.infrastructure.youtube.downloader import (
     INSPECTION_FORMATS_TEMPLATE,
@@ -28,7 +29,9 @@ from kronika.infrastructure.youtube.downloader import (
     MAX_STDERR_BYTES,
     MAX_STDOUT_BYTES,
     YtDlpYouTubeDownloader,
+    _CompletedProcess,
     _capture_stream,
+    _download_failure_code,
 )
 from kronika.infrastructure.youtube.staging import FilesystemYouTubeStaging
 from kronika.application.in_process_lifecycle import ShutdownDeadline
@@ -869,6 +872,326 @@ def test_download_output_limit_waits_for_exit_without_kill(
     assert signals == []
     overflowing = process.stdout if stream_name == "stdout" else process.stderr
     assert overflowing.reads == 2
+
+
+def _download_inspection() -> YouTubeInspection:
+    return YouTubeInspection(
+        video_id=VIDEO_ID,
+        extractor_key="Youtube",
+        title=None,
+        channel=None,
+        channel_id=None,
+        source_date=None,
+        remote_filename=None,
+        duration_seconds=10,
+        downloader_version="2026.7.4",
+        extractor_version="2026.7.4",
+        plan=YouTubeDownloadPlan(
+            video_format_id="18",
+            audio_format_id=None,
+            expected_size_bytes=None,
+            has_source_audio=True,
+            split_streams=False,
+        ),
+    )
+
+
+def _run_test_download(downloader: YtDlpYouTubeDownloader):
+    async def bounded():
+        return await asyncio.wait_for(
+            downloader.download(
+                canonicalize_youtube_url(f"https://youtu.be/{VIDEO_ID}"),
+                _download_inspection(),
+                staging_key=STAGING_KEY,
+            ),
+            timeout=2,
+        )
+
+    return asyncio.run(bounded())
+
+
+_FORMAT_ERROR = (
+    b"Requested format is not available. Use --list-formats for a list of "
+    b"available formats"
+)
+_AUTH_HINT = b"Use --cookies-from-browser or --cookies for the authentication."
+_HTTP_ERROR = b"ERROR: unable to download video data: HTTP Error 403: Forbidden\n"
+
+
+@pytest.mark.parametrize(
+    ("stderr", "returncode", "code"),
+    [
+        (b"ERROR: " + _FORMAT_ERROR, 1, "DOWNLOAD_FORMAT_UNAVAILABLE"),
+        (f"\r\nERROR: [youtube] {VIDEO_ID}: ".encode() + _FORMAT_ERROR + b"\r\n\r\n",
+         1, "DOWNLOAD_FORMAT_UNAVAILABLE"),
+        (b"ERROR: Postprocessing: synthetic HTTP Error 403: timed out", 1,
+         "DOWNLOAD_POSTPROCESS_FAILED"),
+        *[(b"ERROR: " + prefix + b"synthetic HTTP Error 403: timed out", 1,
+           "DOWNLOAD_STORAGE_FAILED") for prefix in (
+            b"unable to open for writing: ", b"unable to write data: ",
+            b"Unable to rename file: ", b"Unable to remove file: ",
+        )],
+        (b"ERROR: Login details are needed to download this content. synthetic", 1,
+         "DOWNLOAD_AUTH_REQUIRED"),
+        (b"ERROR: Sign In to continue. " + _AUTH_HINT + b" HTTP Error 403: synthetic",
+         1, "DOWNLOAD_AUTH_REQUIRED"),
+        (_HTTP_ERROR, 1, "DOWNLOAD_HTTP_403"),
+        (f" \r\nERROR: [youtube] {VIDEO_ID}: ".encode()
+         + b"HTTP Error 403: synthetic\r\n \n", 1, "DOWNLOAD_HTTP_403"),
+        *[(b"ERROR: \r" + prefix + b"synthetic TiMeD OuT", 1,
+           "DOWNLOAD_NETWORK_TIMEOUT") for prefix in (
+            b"unable to download video data: ", b"[download] Got error: ",
+            b"Unable to download webpage: ", b"Unable to download API page: ",
+        )],
+        (b"ERROR: unknown synthetic failure", 1, "DOWNLOAD_FAILED"),
+        (b"", 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: ", 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: [youtube] ZyXwVu987_-: " + _FORMAT_ERROR, 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: [other] " + _FORMAT_ERROR, 1, "DOWNLOAD_FAILED"),
+        (b"WARNING: synthetic\n" + _HTTP_ERROR, 1, "DOWNLOAD_FAILED"),
+        (_HTTP_ERROR + _HTTP_ERROR, 1, "DOWNLOAD_FAILED"),
+        (_HTTP_ERROR + b"synthetic continuation\n", 1, "DOWNLOAD_FAILED"),
+        ("ERROR: Postprocessing: synthetic\u2028continuation".encode(), 1,
+         "DOWNLOAD_FAILED"),
+        ("ERROR: Postprocessing: synthetic\u0085continuation".encode(), 1,
+         "DOWNLOAD_FAILED"),
+        (b"ERROR: first\n\nHTTP Error 403: synthetic", 1, "DOWNLOAD_FAILED"),
+        (b"HTTP Error 403: synthetic", 1, "DOWNLOAD_FAILED"),
+        (b" ERROR: HTTP Error 403: synthetic", 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: sign in without authentication hint", 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: " + _AUTH_HINT, 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: unknown timed out", 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: " + _FORMAT_ERROR + b" changed", 1, "DOWNLOAD_FAILED"),
+        (b"ERROR: PO token was not provided", 1, "DOWNLOAD_FAILED"),
+        (_HTTP_ERROR + b"\xff", 1, "DOWNLOAD_FAILED"),
+        (b"\x1b[31m" + _HTTP_ERROR, 1, "DOWNLOAD_FAILED"),
+        *[(_HTTP_ERROR + bytes([control]), 1, "DOWNLOAD_FAILED")
+          for control in (*range(10), 11, 12, *range(14, 32), 127)],
+        (_HTTP_ERROR, 2, "DOWNLOAD_FAILED"),
+        (_HTTP_ERROR, -signal.SIGTERM, "DOWNLOAD_FAILED"),
+        (_HTTP_ERROR, -signal.SIGKILL, "DOWNLOAD_FAILED"),
+    ],
+    ids=lambda value: None if not isinstance(value, bytes) else "synthetic-stderr",
+)
+def test_download_nonzero_classifies_only_supported_terminal_shapes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
+    stderr: bytes,
+    returncode: int,
+    code: str,
+) -> None:
+    staging = _private_staging(tmp_path)
+    monkeypatch.setattr(staging, "open_artifact", lambda _key: pytest.fail("artifact handoff"))
+    factory = _RecordingFactory([_ImmediateProcess(stderr=stderr, returncode=returncode)])
+    with pytest.raises(YouTubeDownloadError) as exc_info:
+        _run_test_download(YtDlpYouTubeDownloader(staging, process_factory=factory))
+    assert exc_info.value.code == code
+    assert str(exc_info.value) == "YouTube downloader operation failed."
+    assert len(factory.calls) == 1
+    assert capsys.readouterr() == ("", "")
+    assert caplog.records == []
+
+
+@pytest.mark.parametrize("success", [False, True])
+def test_download_classifier_ignores_stdout_and_success_stderr(
+    tmp_path: Path, success: bool,
+) -> None:
+    staging = _private_staging(tmp_path)
+    process = _ImmediateProcess(
+        stdout=_HTTP_ERROR, stderr=_HTTP_ERROR if success else b"ERROR: unknown",
+        returncode=0 if success else 1,
+    )
+
+    def artifact(_argv, kwargs):
+        (Path(kwargs["cwd"]) / "artifact.mp4").write_bytes(b"synthetic")
+
+    factory = _RecordingFactory([process], on_spawn=artifact)
+    downloader = YtDlpYouTubeDownloader(staging, process_factory=factory)
+    if success:
+        assert _run_test_download(downloader).size_bytes == len(b"synthetic")
+    else:
+        with pytest.raises(YouTubeDownloadError) as exc_info:
+            _run_test_download(downloader)
+        assert exc_info.value.code == "DOWNLOAD_FAILED"
+    # Direct helper bound, including callers without capture overflow flags.
+    assert _download_failure_code(
+        _CompletedProcess(1, b"", _HTTP_ERROR + b"x" * MAX_STDERR_BYTES, False, False),
+        video_id=VIDEO_ID,
+    ) == "DOWNLOAD_FAILED"
+    at_cap = _HTTP_ERROR.rstrip(b"\n")
+    at_cap += b" " * (MAX_STDERR_BYTES - len(at_cap))
+    assert _download_failure_code(
+        _CompletedProcess(1, b"", at_cap, False, False), video_id=VIDEO_ID,
+    ) == "DOWNLOAD_HTTP_403"
+    assert len(factory.calls) == 1
+
+
+@pytest.mark.parametrize("streams", ["stdout", "stderr", "both"])
+@pytest.mark.parametrize("returncode", [0, 1, -signal.SIGTERM])
+def test_download_output_overflow_precedes_exit_classification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, streams: str, returncode: int,
+) -> None:
+    process = _ImmediateProcess(
+        stdout=b"x" * (MAX_STDOUT_BYTES + 33) if streams != "stderr" else b"",
+        stderr=_HTTP_ERROR + b"x" * MAX_STDERR_BYTES if streams != "stdout" else _HTTP_ERROR,
+        returncode=returncode,
+    )
+    retained: dict[int, tuple[int, bool]] = {}
+
+    async def capture(stream, limit, **kwargs):
+        data, overflow = await _capture_stream(stream, limit, **kwargs)
+        retained[limit] = (len(data), overflow)
+        return data, overflow
+
+    monkeypatch.setattr("kronika.infrastructure.youtube.downloader._capture_stream", capture)
+    signals: list[signal.Signals] = []
+    _record_killpg(monkeypatch, signals)
+    staging = _private_staging(tmp_path)
+    monkeypatch.setattr(staging, "open_artifact", lambda _key: pytest.fail("artifact handoff"))
+    factory = _RecordingFactory([process])
+    with pytest.raises(YouTubeDownloadError) as exc_info:
+        _run_test_download(YtDlpYouTubeDownloader(staging, process_factory=factory))
+    assert exc_info.value.code == "DOWNLOAD_OUTPUT_LIMIT"
+    assert retained[MAX_STDOUT_BYTES] == (
+        MAX_STDOUT_BYTES if streams != "stderr" else 0, streams != "stderr",
+    )
+    assert retained[MAX_STDERR_BYTES] == (
+        MAX_STDERR_BYTES if streams != "stdout" else len(_HTTP_ERROR), streams != "stdout",
+    )
+    assert process.stdout.reads == (1 if streams == "stderr" else 2)
+    assert process.stderr.reads == 2
+    assert len(factory.calls) == 1
+    assert signals == []
+
+
+@pytest.mark.parametrize("kill_required", [False, True])
+def test_download_timeout_terminates_group_and_preserves_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kill_required: bool,
+) -> None:
+    process = _HangingProcess(stderr=_HTTP_ERROR)
+    signals: list[signal.Signals] = []
+
+    def killpg(pid, sent_signal):
+        assert pid == process.pid
+        signals.append(sent_signal)
+        if not kill_required or sent_signal == signal.SIGKILL:
+            process.finished.set()
+
+    monkeypatch.setattr("kronika.infrastructure.youtube.downloader.os.killpg", killpg)
+    monkeypatch.setattr("kronika.infrastructure.youtube.downloader.TERMINATE_GRACE_SECONDS", 0.01)
+    monkeypatch.setattr("kronika.infrastructure.youtube.downloader.KILL_GRACE_SECONDS", 0.01)
+    factory = _RecordingFactory([process])
+    with pytest.raises(YouTubeDownloadError) as exc_info:
+        _run_test_download(YtDlpYouTubeDownloader(
+            _private_staging(tmp_path), process_factory=factory, download_timeout_seconds=0.01,
+        ))
+    assert exc_info.value.code == "DOWNLOAD_TIMEOUT"
+    assert signals == ([signal.SIGTERM, signal.SIGKILL] if kill_required else [signal.SIGTERM])
+    assert process.finished.is_set()
+    assert len(factory.calls) == 1
+
+
+@pytest.mark.parametrize(("failure", "running"), [
+    ("prepare", False), ("usage", False), ("size", False), ("reserve", False),
+    ("usage", True), ("size", True), ("reserve", True),
+])
+def test_download_staging_failures_preserve_existing_codes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str, running: bool,
+) -> None:
+    staging = _private_staging(tmp_path)
+    process = _HangingProcess(stderr=_HTTP_ERROR)
+    factory = _RecordingFactory([process])
+
+    def usage(_key):
+        if not running or factory.calls:
+            if failure == "usage":
+                raise YouTubeStagingError("synthetic staging error")
+            if failure == "size":
+                return 5
+        return 0
+
+    def available():
+        return 0 if failure == "reserve" and (not running or factory.calls) else 10
+
+    def prepare(_key):
+        raise YouTubeStagingError("synthetic preparation error")
+
+    monkeypatch.setattr(staging, "usage_bytes", usage)
+    monkeypatch.setattr(staging, "available_bytes", available)
+    if failure == "prepare":
+        monkeypatch.setattr(staging, "prepare", prepare)
+    signals: list[signal.Signals] = []
+
+    def killpg(pid, sent_signal):
+        assert pid == process.pid
+        signals.append(sent_signal)
+        process.finished.set()
+
+    monkeypatch.setattr("kronika.infrastructure.youtube.downloader.os.killpg", killpg)
+    with pytest.raises(YouTubeDownloadError) as exc_info:
+        _run_test_download(YtDlpYouTubeDownloader(
+            staging, process_factory=factory, max_staging_size_bytes=4,
+            free_space_reserve_bytes=1, download_timeout_seconds=1,
+        ))
+    assert exc_info.value.code == {
+        "prepare": "STAGING_UNAVAILABLE", "usage": "STAGING_UNAVAILABLE",
+        "size": "STAGING_SIZE_LIMIT", "reserve": "STAGING_SPACE_RESERVE",
+    }[failure]
+    assert len(factory.calls) == int(running)
+    assert signals == ([signal.SIGTERM] if running else [])
+
+
+@pytest.mark.parametrize("artifact", ["missing", "invalid", "exact", "above", "changed"])
+def test_download_artifact_validation_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, artifact: str,
+) -> None:
+    staging = _private_staging(tmp_path)
+    readers = []
+    original_open = staging.open_artifact
+
+    class ReaderProbe:
+        def __init__(self, reader):
+            self.reader = reader
+            self.size_bytes = reader.size_bytes
+            self.closed = False
+
+        def verify_still_consistent(self):
+            if artifact == "changed":
+                raise YouTubeStagingError("synthetic changed artifact")
+            self.reader.verify_still_consistent()
+
+        def close(self):
+            self.closed = True
+            self.reader.close()
+
+    def open_artifact(key):
+        reader = ReaderProbe(original_open(key))
+        readers.append(reader)
+        return reader
+
+    def on_spawn(_argv, kwargs):
+        path = Path(kwargs["cwd"]) / "artifact.mp4"
+        if artifact == "invalid":
+            path.mkdir()
+        elif artifact != "missing":
+            path.write_bytes(b"12345" if artifact == "above" else b"1234")
+
+    monkeypatch.setattr(staging, "open_artifact", open_artifact)
+    factory = _RecordingFactory([_ImmediateProcess()], on_spawn=on_spawn)
+    downloader = YtDlpYouTubeDownloader(staging, process_factory=factory, max_final_size_bytes=4)
+    if artifact == "exact":
+        assert _run_test_download(downloader).size_bytes == 4
+    else:
+        with pytest.raises(YouTubeDownloadError) as exc_info:
+            _run_test_download(downloader)
+        assert exc_info.value.code == (
+            "FINAL_SIZE_LIMIT" if artifact == "above" else "DOWNLOAD_ARTIFACT_INVALID"
+        )
+    assert len(factory.calls) == 1
+    assert len(readers) == int(artifact not in {"missing", "invalid"})
+    assert all(reader.closed for reader in readers)
 
 
 _FINAL_CAP = 1_073_741_824

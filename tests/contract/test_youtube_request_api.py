@@ -507,6 +507,7 @@ _MISSING_YOUTUBE_ID = "22222222-2222-4222-8222-222222222222"
 class _OwnedYouTubeService:
     def __init__(self) -> None:
         self.owner = "alice@example.com"
+        self.snapshot = _snapshot()
         self.list_calls: list[tuple[str, int, str | None]] = []
         self.detail_calls: list[tuple[str, str]] = []
 
@@ -514,14 +515,14 @@ class _OwnedYouTubeService:
         self.list_calls.append((created_by_login_key, limit, cursor))
         if created_by_login_key != self.owner:
             return YouTubeRequestPage(items=(), next_cursor=None)
-        return YouTubeRequestPage(items=(_snapshot(),), next_cursor=None)
+        return YouTubeRequestPage(items=(self.snapshot,), next_cursor=None)
 
     def get_owned(self, claim_id: object, *, created_by_login_key: str):
         identity = str(getattr(claim_id, "to_string", lambda: claim_id)())
         self.detail_calls.append((identity, created_by_login_key))
         if created_by_login_key != self.owner or identity != REQUEST_ID:
             raise YouTubeAcquisitionNotFoundError("hidden")
-        return _snapshot()
+        return self.snapshot
 
 
 def _named_identity(login: str, role: str) -> IdentityContext:
@@ -533,6 +534,48 @@ def _named_identity(login: str, role: str) -> IdentityContext:
         capabilities=CAPABILITIES_BY_ROLE[role],
         provenance="tailscale-serve",
     )
+
+
+@pytest.mark.parametrize(("stage", "code"), [
+    *[("download", code) for code in (
+        "DOWNLOAD_HTTP_403", "DOWNLOAD_AUTH_REQUIRED", "DOWNLOAD_FORMAT_UNAVAILABLE",
+        "DOWNLOAD_POSTPROCESS_FAILED", "DOWNLOAD_NETWORK_TIMEOUT", "DOWNLOAD_STORAGE_FAILED",
+        "DOWNLOAD_FAILED", "DOWNLOAD_TIMEOUT", "DOWNLOAD_OUTPUT_LIMIT",
+        "STAGING_UNAVAILABLE", "STAGING_SIZE_LIMIT", "STAGING_SPACE_RESERVE",
+        "DOWNLOAD_ARTIFACT_INVALID", "FINAL_SIZE_LIMIT", "SUBPROCESS_TERMINATION_FAILED",
+    )],
+    ("configuration", "MERGER_UNAVAILABLE"),
+    ("configuration", "DOWNLOADER_UNAVAILABLE"),
+])
+def test_failed_download_codes_use_existing_owned_get_and_list_fields(
+    stage: str, code: str,
+) -> None:
+    service = _OwnedYouTubeService()
+    service.snapshot = _snapshot(
+        phase="failed", failure_category=stage, failure_code=code, updated_at_ms=20,
+    )
+    for login, role in (
+        (service.owner, ROLE_USER), ("bob@example.com", ROLE_USER),
+        ("ada@example.com", ROLE_ADMIN),
+    ):
+        with _client(service, identity=_named_identity(login, role)) as client:
+            detail = client.get(f"/api/youtube/requests/{REQUEST_ID}")
+            listed = client.get("/api/youtube/requests")
+            missing = client.get(f"/api/youtube/requests/{_MISSING_YOUTUBE_ID}")
+        assert listed.status_code == 200
+        if login == service.owner:
+            assert detail.status_code == 200
+            assert listed.json()["items"] == [detail.json()]
+            assert set(detail.json()) == _YOUTUBE_ITEM_FIELDS
+            assert detail.json()["phase"] == "failed"
+            assert detail.json()["failure_category"] == stage
+            assert detail.json()["failure_code"] == code
+            assert detail.json()["media_id"] is None
+        else:
+            assert listed.json()["items"] == []
+            assert detail.status_code == missing.status_code == 404
+            assert detail.json() == missing.json()
+            assert code not in detail.text
 
 
 @pytest.mark.parametrize(

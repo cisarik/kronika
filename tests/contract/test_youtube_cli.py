@@ -265,6 +265,50 @@ def test_exit_code_matrix_for_invalid_not_configured_failure_and_status(
     assert status == 0
 
 
+@pytest.mark.parametrize(("stage", "code"), [
+    *[("download", code) for code in (
+        "DOWNLOAD_HTTP_403", "DOWNLOAD_AUTH_REQUIRED", "DOWNLOAD_FORMAT_UNAVAILABLE",
+        "DOWNLOAD_POSTPROCESS_FAILED", "DOWNLOAD_NETWORK_TIMEOUT", "DOWNLOAD_STORAGE_FAILED",
+        "DOWNLOAD_FAILED", "DOWNLOAD_TIMEOUT", "DOWNLOAD_OUTPUT_LIMIT",
+        "STAGING_UNAVAILABLE", "STAGING_SIZE_LIMIT", "STAGING_SPACE_RESERVE",
+        "DOWNLOAD_ARTIFACT_INVALID", "FINAL_SIZE_LIMIT", "SUBPROCESS_TERMINATION_FAILED",
+    )],
+    ("configuration", "MERGER_UNAVAILABLE"),
+    ("configuration", "DOWNLOADER_UNAVAILABLE"),
+])
+@pytest.mark.parametrize(("command", "exit_code"), [
+    ("status", 0), ("status-wait", 4), ("ingest", 4),
+])
+def test_download_failure_diagnostics_preserve_jsonl_copy_and_exit_matrix(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch,
+    stage: str, code: str, command: str, exit_code: int,
+) -> None:
+    snapshot = _snapshot("failed")
+    snapshot.update(failure_stage=stage, failure_code=code)
+    client = _Client(initial=snapshot)
+    monkeypatch.setattr(youtube, "load_settings", _settings)
+    monkeypatch.setattr(youtube, "_LoopbackHttpClient", lambda _settings: client)
+    argv = (
+        ["ingest", f"https://youtu.be/{VIDEO_ID}", "--yes"] if command == "ingest"
+        else ["status", CLAIM_ID, "--wait"] if command == "status-wait"
+        else ["status", CLAIM_ID]
+    )
+    assert youtube.main(argv) == exit_code
+    captured = capsys.readouterr()
+    statuses = [json.loads(line) for line in captured.out.splitlines()
+                if json.loads(line)["event"] == "status"]
+    assert statuses
+    assert all(item["failure_stage"] == stage and item["failure_code"] == code
+               for item in statuses)
+    if exit_code == 4:
+        error = json.loads(captured.err)
+        assert error["message"] == "YouTube acquisition failed."
+        assert code not in captured.err
+        assert len(captured.err.splitlines()) == 1
+    else:
+        assert captured.err == ""
+
+
 def test_retry_uses_confirmation_and_no_arbitrary_base_url_option(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
