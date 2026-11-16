@@ -73,7 +73,7 @@ def _status(*media: dict, text: str = "Watch this clip") -> dict:
 
 def test_attest_pinned_extractor_version_and_seam() -> None:
     assert attest_pinned_extractor() == PINNED_YTDLP_VERSION
-    assert PINNED_YTDLP_VERSION == "2026.07.04"
+    assert PINNED_YTDLP_VERSION == "2026.10.26"
 
 
 def test_isolated_context_has_empty_cookiejar_and_no_ambient_config() -> None:

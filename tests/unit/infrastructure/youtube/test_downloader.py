@@ -242,7 +242,7 @@ def test_attestation_and_inspection_use_exact_isolated_argv_and_environment(
 ) -> None:
     factory = _RecordingFactory(
         [
-            _ImmediateProcess(stdout=b"2026.07.04\n"),
+            _ImmediateProcess(stdout=b"2026.10.26\n"),
             _ImmediateProcess(stdout=_inspection_stdout(_inspection_payload())),
         ]
     )
@@ -360,7 +360,7 @@ def test_inspection_rejects_unsupported_outcomes(
 ) -> None:
     factory = _RecordingFactory(
         [
-            _ImmediateProcess(stdout=b"2026.07.04\n"),
+            _ImmediateProcess(stdout=b"2026.10.26\n"),
             _ImmediateProcess(
                 stdout=_inspection_stdout(_inspection_payload(**overrides))
             ),
@@ -579,7 +579,7 @@ def _run_inspection(
     if monkeypatch is not None and signals is not None:
         _record_killpg(monkeypatch, signals)
     factory = _RecordingFactory(
-        [_ImmediateProcess(stdout=b"2026.07.04\n"), process]
+        [_ImmediateProcess(stdout=b"2026.10.26\n"), process]
     )
     downloader = YtDlpYouTubeDownloader(
         _private_staging(tmp_path),
@@ -1412,7 +1412,7 @@ def test_projected_formats_match_full_payload_selection(
     _record_killpg(monkeypatch, signals)
     factory = _RecordingFactory(
         [
-            _ImmediateProcess(stdout=b"2026.07.04\n"),
+            _ImmediateProcess(stdout=b"2026.10.26\n"),
             _ImmediateProcess(stdout=stdout),
         ]
     )

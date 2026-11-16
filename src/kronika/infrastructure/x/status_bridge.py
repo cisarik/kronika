@@ -37,7 +37,7 @@ from kronika.domain.x_acquisition import (
     accept_x_post_url,
 )
 
-PINNED_YTDLP_VERSION = "2026.07.04"
+PINNED_YTDLP_VERSION = "2026.10.26"
 PBS_PHOTO_HOST = "pbs.twimg.com"
 PHOTO_CONNECT_TIMEOUT_SECONDS = 30.0
 PHOTO_READ_TIMEOUT_SECONDS = 30.0

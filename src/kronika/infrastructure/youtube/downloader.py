@@ -56,10 +56,11 @@ MAX_STDOUT_BYTES = 1_048_576
 MAX_STDERR_BYTES = 65_536
 INSPECTION_STDOUT_LIMIT_BYTES = 1_048_576
 INSPECTION_STDERR_LIMIT_BYTES = 65_536
-# Two-line inspection projection for pinned yt-dlp 2026.7.4.
-# Owners: yt_dlp-2026.7.4.dist-info/METADATA (OUTPUT TEMPLATE and --print),
-# yt_dlp/options.py (--print registration), and yt_dlp/YoutubeDL.py
-# (prepare_outtmpl, traverse_obj, _forceprint, and the dump_single_json wrapper).
+# Two-line inspection projection for pinned yt-dlp 2026.10.26.
+# Owners: yt_dlp-2026.10.26.dist-info/METADATA (OUTPUT TEMPLATE and --print),
+# yt_dlp/options.py (--print registration), yt_dlp/YoutubeDL.py
+# (prepare_outtmpl, _forceprint, and the dump_single_json wrapper), and
+# yt_dlp/utils/traversal.py (traverse_obj).
 INSPECTION_METADATA_TEMPLATE = (
     "%(.{extractor_key,id,_type,is_live,live_status,availability,age_limit,"
     "duration,title,channel,channel_id,upload_date,_filename,filename})j"
@@ -771,7 +772,7 @@ class _CompletedProcess:
     stderr_overflow: bool
 
 
-# Matchers are source-backed for installed yt_dlp==2026.7.4:
+# Matchers are source-backed for installed yt_dlp==2026.10.26:
 # yt_dlp/YoutubeDL.py: report_error, process_video_result, process_info;
 # yt_dlp/networking/exceptions.py: HTTPError, RequestError.__init__
 #   (if not msg and cause: msg = str(cause) delegates terminal payload wording);
@@ -784,7 +785,9 @@ class _CompletedProcess:
 # yt_dlp/extractor/youtube/_video.py: _real_extract (sign-in reasons);
 # yt_dlp/extractor/youtube/_base.py: _check_login_required, _call_api;
 # yt_dlp/extractor/common.py: _login_hint, _request_webpage;
-# yt_dlp/downloader/common.py: wrap_file_access, report_retry;
+# yt_dlp/downloader/common.py: wrap_file_access, report_retry
+#   (file-access wording is assembled as f'Unable to {action} file: {err}'
+#   for the open, remove and rename actions);
 # yt_dlp/downloader/http.py: real_download (open/write errors);
 # yt_dlp/postprocessor/ffmpeg.py: real_run_ffmpeg.
 # CLI wording is not a stable interface. Wording drift must safely reduce

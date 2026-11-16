@@ -3,8 +3,8 @@
 The adapter never exposes raw yt-dlp structures. Inspection and public-photo
 download go through the isolated status-bridge module
 (``sys.executable -I -m kronika.infrastructure.x.status_bridge``), which
-calls pinned ``TwitterIE._extract_status`` (``yt-dlp==2026.7.4``, runtime
-``2026.07.04``). Video and animated-GIF-as-MP4 download still uses a
+calls pinned ``TwitterIE._extract_status`` (``yt-dlp==2026.10.26``, runtime
+``2026.10.26``). Video and animated-GIF-as-MP4 download still uses a
 cookie-free, ``--ignore-config`` yt-dlp subprocess into the claim-owned
 ``artifact.bin`` staging name after reinspecting and matching
 ``source_media_key``.
