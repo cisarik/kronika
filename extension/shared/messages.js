@@ -20,6 +20,15 @@
   const HANDLE_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
   const X_HOSTS = new Set(["x.com", "www.x.com", "twitter.com", "www.twitter.com"]);
   const CONTENT_CATEGORIES = Object.freeze(["general", "meme", "movie", "youtube"]);
+  // One Save glyph language for both content surfaces. The path geometry is
+  // shared so the X control and the YouTube player control cannot drift apart;
+  // each adapter keeps its own SVG rendering attributes.
+  const SAVE_ICON_PATHS = Object.freeze({
+    idle: "M12 4.5v10m0 0l-4-4m4 4l4-4M5 19.5h14",
+    busy: "M12 4.5a7.5 7.5 0 1 1-5.3 2.2",
+    done: "M5.5 12.5l4.2 4.2L18.5 8",
+    failed: "M12 7v6m0 3.5v.5",
+  });
   const POST_ID_VALUE_PATTERN = /^[0-9]{1,19}$/;
   const TS_ORIGIN_PATTERN = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\.ts\.net$/;
   const TYPES = Object.freeze({
@@ -962,6 +971,7 @@
     EXTENSION_CONTEXT_RECOVERY_COPY,
     TYPES,
     CONTENT_CATEGORIES,
+    SAVE_ICON_PATHS,
     REVIEW_INBOX,
     DOWNLOAD_HISTORY,
     REVIEW_OVERLAY,

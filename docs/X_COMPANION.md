@@ -165,13 +165,17 @@ Analyze. Exactly six `companion_mutation` routes remain: X submit, X retry,
 review opened, review apply,
 `PUT /api/admin/settings/automatic-analysis`, and `POST /api/youtube/requests`.
 YouTube retry stays unflagged. A YouTube content script matches only
-`https://www.youtube.com/*` and `https://m.youtube.com/*` and adds the
-in-player Save control. Opened remains one of those
-mutations; ordinary
-callers may mark opened only on an owned cataloged X item (uniform 404
-otherwise). Inbox list, detail, and apply stay administrator-only. Companion
-Settings shows Administration and **Automatic media analysis** only for
-`provider.operate`.
+`https://www.youtube.com/*` and `https://m.youtube.com/*` and adds one
+in-player Save control at the player's bottom-right, above the native video
+controls, using the X control's 28px circular geometry. It stays hidden until
+player hover, playback without autohide, focus-within, or a busy, done or failed
+status, follows the player's own auto-hide, and grows its status text leftward
+from the button so the label cannot overflow the player. Both surfaces draw the
+same shared Save glyphs for idle, busy, done and failed. Opened remains one of
+those mutations; ordinary callers may mark opened only on an owned cataloged X
+item (uniform 404 otherwise). Inbox list, detail, and apply stay
+administrator-only. Companion Settings shows Administration and **Automatic
+media analysis** only for `provider.operate`.
 
 `ui/review.html` remains in the extension tree and is unused for history clicks.
 It is not web-accessible and is not inside `#frame`. Ingest Save remains the

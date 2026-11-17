@@ -418,17 +418,15 @@
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
     });
-    if (kind === "busy") {
-      g.appendChild(svgEl("path", { d: "M12 5.25a6.75 6.75 0 1 1-4.77 1.98" }));
-    } else if (kind === "done") {
-      g.appendChild(svgEl("path", { d: "M6.5 12.25l3.6 3.5 7.4-8" }));
-    } else if (kind === "failed") {
-      g.appendChild(svgEl("path", { d: "M12 6.5v11M6.5 12h11" }));
-    } else {
-      g.appendChild(svgEl("path", { d: "M12 6.5v11M6.5 12h11" }));
-    }
+    // One Save glyph language shared with the YouTube player control.
+    g.appendChild(svgEl("path", { d: saveIconPath(kind) }));
     svg.appendChild(g);
     return svg;
+  }
+
+  function saveIconPath(kind) {
+    const paths = companion.SAVE_ICON_PATHS;
+    return paths[kind] || paths.idle;
   }
 
   function setSaveName(button, name) {

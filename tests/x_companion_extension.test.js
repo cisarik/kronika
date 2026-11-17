@@ -11,6 +11,10 @@ const adapterSource = fs.readFileSync(
   path.join(REPO, "extension/content/x_adapter.js"),
   "utf8"
 );
+const youtubeAdapterSource = fs.readFileSync(
+  path.join(REPO, "extension/content/youtube_adapter.js"),
+  "utf8"
+);
 const workerSource = fs.readFileSync(
   path.join(REPO, "extension/background/service_worker.js"),
   "utf8"
@@ -185,6 +189,116 @@ test("manifest permissions stay minimized and omit X host access", () => {
   assert.deepEqual(youtubeScripts[0].matches, [
     "https://www.youtube.com/*",
     "https://m.youtube.com/*",
+  ]);
+});
+
+test("shared Save glyph map is frozen, complete, and consumed by both adapters", () => {
+  const messagesSource = fs.readFileSync(
+    path.join(REPO, "extension/shared/messages.js"),
+    "utf8"
+  );
+  const map = companion.SAVE_ICON_PATHS;
+  assert.ok(map, "SAVE_ICON_PATHS is exported through KronikaCompanion");
+  assert.ok(Object.isFrozen(map));
+  assert.deepEqual(Object.keys(map).sort(), ["busy", "done", "failed", "idle"]);
+  assert.equal(map.idle, "M12 4.5v10m0 0l-4-4m4 4l4-4M5 19.5h14");
+  assert.equal(map.busy, "M12 4.5a7.5 7.5 0 1 1-5.3 2.2");
+  assert.equal(map.done, "M5.5 12.5l4.2 4.2L18.5 8");
+  assert.equal(map.failed, "M12 7v6m0 3.5v.5");
+  assert.match(messagesSource, /root\.KronikaCompanion = api/);
+  assert.match(messagesSource, /const SAVE_ICON_PATHS = Object\.freeze/);
+  assert.match(messagesSource, /\n    SAVE_ICON_PATHS,/);
+
+  assert.match(youtubeAdapterSource, /companion\.SAVE_ICON_PATHS/);
+  assert.match(adapterSource, /companion\.SAVE_ICON_PATHS/);
+  assert.doesNotMatch(youtubeAdapterSource, /const ICONS\s*=/);
+  const xSaveIconSource =
+    extractNamedFunction(adapterSource, "saveIconSvg") +
+    extractNamedFunction(adapterSource, "saveIconPath");
+  Object.keys(map).forEach((state) => {
+    assert.equal(xSaveIconSource.includes(map[state]), false, state);
+    assert.equal(youtubeAdapterSource.includes(map[state]), false, state);
+  });
+  // No adapter keeps the former divergent glyph sets.
+  assert.equal(youtubeAdapterSource.includes("M12 5.25a6.75"), false);
+  assert.equal(adapterSource.includes("M12 5.25a6.75"), false);
+  assert.equal(adapterSource.includes("M6.5 12.25l3.6 3.5"), false);
+  assert.equal(xSaveIconSource.includes("M12 6.5v11M6.5 12h11"), false);
+});
+
+test("YouTube Save control anchors bottom-right with a leftward label", () => {
+  const css = youtubeStyleCss();
+  const hostRule = css.match(/\[data-kronika-youtube\] \{([^}]*)\}/);
+  assert.ok(hostRule, "host rule");
+  assert.match(hostRule[1], /position:\s*absolute/);
+  assert.match(hostRule[1], /right:\s*12px/);
+  assert.match(hostRule[1], /bottom:\s*76px/);
+  assert.doesNotMatch(hostRule[1], /(^|\n)\s*top:/);
+  assert.doesNotMatch(hostRule[1], /(^|\n)\s*left:/);
+  assert.match(hostRule[1], /flex-direction:\s*row-reverse/);
+  assert.match(hostRule[1], /max-width:\s*calc\(100% - 24px\)/);
+  assert.match(hostRule[1], /opacity:\s*0/);
+  assert.doesNotMatch(css, /top:\s*14px/);
+  assert.doesNotMatch(css, /left:\s*14px/);
+
+  const buttonRule = css.match(/\[data-kronika-youtube\] button \{([^}]*)\}/);
+  assert.ok(buttonRule, "button rule");
+  assert.match(buttonRule[1], /width:\s*28px/);
+  assert.match(buttonRule[1], /height:\s*28px/);
+  assert.match(buttonRule[1], /border:\s*2px solid #00ff41/);
+  assert.match(buttonRule[1], /border-radius:\s*999px/);
+  assert.match(buttonRule[1], /background:\s*rgba\(0, 0, 0, 0\.72\)/);
+
+  const svgRule = css.match(/\[data-kronika-youtube\] svg \{([^}]*)\}/);
+  assert.ok(svgRule, "svg rule");
+  assert.match(svgRule[1], /width:\s*18px/);
+  assert.match(svgRule[1], /height:\s*18px/);
+
+  // Hidden until hover, non-autohide playback, focus, or a settled status.
+  assert.ok(css.includes(".html5-video-player:hover [data-kronika-youtube],"));
+  assert.ok(css.includes(".html5-video-player:not(.ytp-autohide) [data-kronika-youtube],"));
+  assert.ok(css.includes("[data-kronika-youtube][data-state='busy'],"));
+  assert.ok(css.includes("[data-kronika-youtube][data-state='done'],"));
+  assert.ok(css.includes("[data-kronika-youtube][data-state='failed'],"));
+  assert.ok(css.includes("[data-kronika-youtube]:focus-within {"));
+  assert.ok(
+    css.includes(".html5-video-player.ytp-autohide:not(:hover) [data-kronika-youtube][data-state='done'] {")
+  );
+  assert.ok(css.includes("[data-kronika-youtube] button:focus-visible {"));
+  assert.ok(css.includes("[data-kronika-youtube] button:hover,"));
+
+  // One control per player and YouTube SPA navigation stay intact.
+  assert.match(youtubeAdapterSource, /current\.player === player/);
+  assert.match(youtubeAdapterSource, /yt-navigate-finish/);
+  assert.match(youtubeAdapterSource, /scheduleSync/);
+  assert.match(youtubeAdapterSource, /const label = document\.createElement\("span"\)/);
+  assert.match(youtubeAdapterSource, /button\.appendChild\(svgIcon\(entry\.state\)\)/);
+});
+
+test("manifest version is 0.2.1 without wider permissions or matches", () => {
+  assert.equal(manifest.version, "0.2.1");
+  assert.deepEqual([...manifest.permissions].sort(), ["alarms", "sidePanel", "storage"]);
+  assert.deepEqual(manifest.optional_permissions, ["downloads"]);
+  assert.deepEqual(manifest.optional_host_permissions, ["https://*.ts.net/*"]);
+  assert.equal("host_permissions" in manifest, false);
+  assert.equal((manifest.permissions || []).includes("tabs"), false);
+  assert.equal((manifest.permissions || []).includes("cookies"), false);
+  assert.equal((manifest.permissions || []).includes("scripting"), false);
+  const youtubeScripts = manifest.content_scripts.filter((script) =>
+    (script.js || []).includes("content/youtube_adapter.js")
+  );
+  assert.equal(youtubeScripts.length, 1);
+  assert.deepEqual(youtubeScripts[0].matches, [
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+  ]);
+  assert.deepEqual(youtubeScripts[0].js, [
+    "shared/messages.js",
+    "content/youtube_adapter.js",
+  ]);
+  assert.deepEqual([...manifest.content_scripts[0].matches].sort(), [
+    "https://twitter.com/*",
+    "https://x.com/*",
   ]);
 });
 
@@ -366,7 +480,7 @@ test("in-feed Save is a per-media hover overlay, not an action-row control", () 
   assert.doesNotMatch(adapterSource, /void savePost\(button, accepted\)/);
   assert.doesNotMatch(adapterSource, /M8 8l8 8/);
   assert.doesNotMatch(adapterSource, /M16 8l-8 8/);
-  assert.match(adapterSource, /kind === "failed"[\s\S]{0,160}M12 6\.5v11M6\.5 12h11/);
+  assert.match(adapterSource, /companion\.SAVE_ICON_PATHS/);
   assert.match(adapterSource, /reduceXSaveOutcome/);
   assert.doesNotMatch(
     extractNamedFunction(adapterSource, "pollClaim"),
@@ -1352,15 +1466,20 @@ test("missing composer file input skips that composer without page-wide stale", 
   assert.equal(save.getAttribute("disabled"), null);
 });
 
-test("failed Save overlay keeps the plus glyph", () => {
+test("failed Save overlay uses the shared YouTube glyph set", () => {
   const dom = createMiniDom();
   const hooks = loadAdapterHooks(dom);
   const failed = hooks.saveIconSvg("failed");
   const idle = hooks.saveIconSvg("idle");
+  const busy = hooks.saveIconSvg("busy");
+  const done = hooks.saveIconSvg("done");
   const paths = pathDataFrom(failed);
-  assert.ok(paths.includes("M12 6.5v11M6.5 12h11"));
+  assert.deepEqual(paths, [companion.SAVE_ICON_PATHS.failed]);
   assert.equal(paths.some((d) => d.includes("M8 8l8 8") || d.includes("M16 8l-8 8")), false);
-  assert.ok(pathDataFrom(idle).includes("M12 6.5v11M6.5 12h11"));
+  assert.deepEqual(pathDataFrom(idle), [companion.SAVE_ICON_PATHS.idle]);
+  assert.deepEqual(pathDataFrom(busy), [companion.SAVE_ICON_PATHS.busy]);
+  assert.deepEqual(pathDataFrom(done), [companion.SAVE_ICON_PATHS.done]);
+  assert.notEqual(companion.SAVE_ICON_PATHS.failed, companion.SAVE_ICON_PATHS.idle);
 });
 
 test("toolbar action opens the side-panel shell instead of a picker popup", () => {
@@ -1654,6 +1773,24 @@ function extractNamedFunction(source, name) {
     }
   }
   return source.slice(start, end);
+}
+
+// The YouTube adapter builds its stylesheet as a joined string array that
+// interpolates its two accent constants; evaluate that exact array so the test
+// reads the same CSS the player receives.
+function youtubeStyleCss() {
+  const start = youtubeAdapterSource.indexOf("const STYLE = [");
+  assert.ok(start >= 0, "STYLE array");
+  const literalStart = youtubeAdapterSource.indexOf("[", start);
+  const literalEnd = youtubeAdapterSource.indexOf('].join("\\n");', literalStart);
+  assert.ok(literalEnd > literalStart, "STYLE array end");
+  const literal = youtubeAdapterSource.slice(literalStart, literalEnd + 1);
+  const code =
+    'const HOST_ATTR = "data-kronika-youtube";' +
+    ' const ACCENT = "#00ff41";' +
+    ' const DANGER = "#ff4d4d";' +
+    " (" + literal + ').join("\\n");';
+  return vm.runInNewContext(code, {}, { filename: "youtube_style.js" });
 }
 
 function fakeAttachPort() {
@@ -2188,7 +2325,7 @@ test("failed Save never paints the completed Saved to brand copy and mirrors eve
   assert.equal(second.getAttribute("data-kronika-save-kind"), "failed");
   assert.equal(first.getAttribute("aria-label").includes(`Saved to ${BRAND}`), false);
   const failedIcon = hooks.saveIconSvg("failed");
-  assert.ok(pathDataFrom(failedIcon).includes("M12 6.5v11M6.5 12h11"));
+  assert.deepEqual(pathDataFrom(failedIcon), [companion.SAVE_ICON_PATHS.failed]);
   assert.equal(
     pathDataFrom(failedIcon).some((d) => d.includes("M6.5 12.25l3.6 3.5")),
     false

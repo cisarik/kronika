@@ -1,9 +1,13 @@
 (function () {
   // Adds one "Save to Kronika" button to the YouTube player. The button sits
-  // in the top-left corner of the player, away from the bottom control bar
-  // and the top-right info cards, and follows the player's own auto-hide.
+  // in the bottom-right corner of the player, matching the X companion control,
+  // lifted above the native control bar, and follows the player's own auto-hide.
   const companion = globalThis.KronikaCompanion;
-  if (!companion || typeof companion.acceptYouTubeVideoUrl !== "function") {
+  if (
+    !companion ||
+    typeof companion.acceptYouTubeVideoUrl !== "function" ||
+    !companion.SAVE_ICON_PATHS
+  ) {
     return;
   }
 
@@ -17,16 +21,18 @@
   const STYLE = [
     "[" + HOST_ATTR + "] {",
     "  position: absolute;",
-    "  top: 14px;",
-    "  left: 14px;",
+    "  right: 12px;",
+    "  bottom: 76px;",
     "  z-index: 70;",
     "  display: inline-flex;",
+    "  flex-direction: row-reverse;",
     "  align-items: center;",
     "  gap: 8px;",
+    "  max-width: calc(100% - 24px);",
     "  pointer-events: none;",
     "  font: 600 13px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;",
     "  opacity: 0;",
-    "  transform: translateY(-4px);",
+    "  transform: translateY(4px);",
     "  transition: opacity 160ms ease, transform 160ms ease;",
     "}",
     ".html5-video-player:hover [" + HOST_ATTR + "],",
@@ -46,25 +52,31 @@
     "  display: inline-flex;",
     "  align-items: center;",
     "  justify-content: center;",
-    "  width: 34px;",
-    "  height: 34px;",
+    "  width: 28px;",
+    "  height: 28px;",
+    "  min-width: 28px;",
+    "  min-height: 28px;",
     "  margin: 0;",
     "  padding: 0;",
-    "  border: 2px solid rgba(0, 255, 65, 0.75);",
+    "  border: 2px solid " + ACCENT + ";",
     "  border-radius: 999px;",
-    "  background: rgba(6, 12, 8, 0.72);",
+    "  background: rgba(0, 0, 0, 0.72);",
     "  color: " + ACCENT + ";",
     "  cursor: pointer;",
-    "  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.55);",
-    "  backdrop-filter: blur(6px);",
-    "  transition: background 150ms ease, color 150ms ease, transform 150ms ease;",
+    "  box-sizing: border-box;",
+    "  line-height: 0;",
+    "  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);",
+    "  transition: background 150ms ease, color 150ms ease;",
     "}",
     "[" + HOST_ATTR + "] button:hover,",
     "[" + HOST_ATTR + "] button:focus-visible {",
-    "  background: " + ACCENT + ";",
-    "  color: #04130a;",
+    "  background: " + ACCENT + " !important;",
+    "  color: #04130a !important;",
     "  outline: none;",
-    "  transform: scale(1.06);",
+    "}",
+    "[" + HOST_ATTR + "] button:focus-visible {",
+    "  outline: 2px solid " + ACCENT + ";",
+    "  outline-offset: 2px;",
     "}",
     "[" + HOST_ATTR + "][data-state='failed'] button {",
     "  border-color: " + DANGER + ";",
@@ -96,13 +108,6 @@
     "}",
   ].join("\n");
 
-  const ICONS = {
-    idle: "M12 4.5v10m0 0l-4-4m4 4l4-4M5 19.5h14",
-    busy: "M12 4.5a7.5 7.5 0 1 1-5.3 2.2",
-    done: "M5.5 12.5l4.2 4.2L18.5 8",
-    failed: "M12 7v6m0 3.5v.5",
-  };
-
   const stateByVideo = new Map();
   let stale = false;
   let current = null;
@@ -113,7 +118,8 @@
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("aria-hidden", "true");
     const path = document.createElementNS(ns, "path");
-    path.setAttribute("d", ICONS[kind] || ICONS.idle);
+    const paths = companion.SAVE_ICON_PATHS;
+    path.setAttribute("d", paths[kind] || paths.idle);
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", "currentColor");
     path.setAttribute("stroke-width", "2.2");
